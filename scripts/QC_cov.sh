@@ -10,6 +10,8 @@
 #SBATCH --qos=amd-shared
 
 module load bedtools/2.28.0
+module load python/3.7.7
+module load numpy/1.18.1-python-3.7.7
 
 for i in Processing/*.dedup.bam;do
 j=$(basename "$i" .dedup.bam)
