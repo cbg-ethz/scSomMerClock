@@ -16,16 +16,13 @@ module load numpy/1.18.1-python-3.7.7
 WES_REF=/home/uvi/be/nbo/data/data/resources/Agilent_SureSelect_Clinical_Research_Exome/S06588914_Covered.modified.bed
 SEQ="WES"
 
-if [[ ${SEQ} == "WGA" ]]
-then
-    for i in Processing/*.dedup.bam;do
-        j=$(basename "$i" .dedup.bam)
+
+for i in Processing/*.dedup.bam;do
+    j=$(basename "$i" .dedup.bam)
+    if [[ ${SEQ} == "WGA" ]]
+    then
         bedtools genomcov -ibam $i | grep "^genome" > Processing/$j.genome.bed
-    done
-else
-    for i in Processing/*.dedup.bam;do
-        j=$(basename "$i" .dedup.bam)
-        bedtools intersect -a $i -b ${WES_REF} > Processing/$j.intersect.bam
-        bedtools genomcov -ibam Processing/$j.intersect.bam | grep "^genome" > Processing/$j.genome.bed
-    done
-fi
+    else
+        bedtools coverage -a ${WES_REF} -b $i -hist > Processing/$j.genome.bed
+    fi
+done
