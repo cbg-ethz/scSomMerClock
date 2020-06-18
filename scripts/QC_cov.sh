@@ -13,7 +13,8 @@ module load bedtools/2.28.0
 module load python/3.7.7
 module load numpy/1.18.1-python-3.7.7
 
-WES_REF=/home/uvi/be/nbo/data/data/resources/Agilent_SureSelect_Clinical_Research_Exome/S06588914_Covered.modified.bed
+BASE_DIR=/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock
+WES_REF=$BASE_DIR/data/resources/Agilent_SureSelect_Clinical_Research_Exome/S06588914_Covered.modified.bed
 SEQ="WES"
 
 
@@ -23,6 +24,6 @@ for i in Processing/*.dedup.bam;do
     then
         bedtools genomcov -ibam $i | grep "^genome" > Processing/$j.genome.bed
     else
-        bedtools coverage -a ${WES_REF} -b $i -hist > Processing/$j.genome.bed
+        bedtools coverage -a ${WES_REF} -b $i -hist -sorted | grep "^all" > Processing/$j.genome.bed
     fi
 done
