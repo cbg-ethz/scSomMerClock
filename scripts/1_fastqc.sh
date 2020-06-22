@@ -1,13 +1,4 @@
 #!/bin/sh
-#SBATCH -N 1
-#SBATCH -n 1
-#SBATCH --mail-user linkmonica@gmail.com
-#SBATCH --mail-type FAIL
-#SBATCH --cpus-per-task 2
-#SBATCH -t 10:00:00
-#SBATCH --mem 10G
-#SBATCH -p amd-shared
-#SBATCH --qos=amd-shared
 
 module purge
 module load gcccore/6.4.0 cutadapt/1.18-python-3.7.0

@@ -1,12 +1,4 @@
 #!/bin/sh
-#SBATCH -N 1
-#SBATCH -n 1
-#SBATCH --mail-user linkmonica@gmail.com
-#SBATCH --mail-type FAIL
-#SBATCH --cpus-per-task 2
-#SBATCH -t 10:00:00
-#SBATCH --mem 40G
-#SBATCH -p cola-corta
 
 module purge
 module load picard/2.18.14
