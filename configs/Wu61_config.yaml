@@ -1,12 +1,10 @@
 static_data:
   data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/Wu61
-  resources_path: /mnt/netapp1/posadalab/phylocancer/RESOURCES/
+  resources_path: /mnt/netapp1/posadalab/phylocancer/RESOURCES
+  cellnames: cellnames.txt
   WGA_ref: hs37d5.fa
-  SEQ: WES
-
-
-cutadapt:
   WGA_library: AMPLI-1
+  SEQ: WES
 
 
 WES:
