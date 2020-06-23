@@ -1,0 +1,46 @@
+__default__:
+  mail-user: nico.borgsmueller@bsse.ethz.ch
+  mail-type: FAIL
+
+
+Adapter_cutting:
+  cpus-per-task: 10
+  time: 24:00:00
+  mem: 20G
+  
+
+Allignment:
+  cpus-per-task: 10
+  time: 24:00:00
+  mem: 20G
+
+
+Remove_duplicates:
+  cpus-per-task: 2
+  time: 10:00:00
+  mem: 40G
+  partition: cola-corta
+
+
+Base_recal:
+  cpus-per-task: 2
+  time:	48:00:00
+  mem: 40G
+
+Indel_reallignment:
+  cpus-per-task: 2
+  time: 100:00:00
+  mem: 50G
+
+
+QC_alligned:
+  cpus-per-task: 1
+  time:	04:00:00
+  mem: 40G
+
+
+SCCaller:
+  cpus-per-task: 2
+  time: 60:00:00
+  mem: 50G
+
