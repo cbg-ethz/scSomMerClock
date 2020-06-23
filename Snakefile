@@ -37,8 +37,8 @@ rule all:
 
 rule adapter_cutting:
     input:
-        os.path.join('Raw_Data', '{sample}.sample_1.fastq.gz'),
-        os.path.join('Raw_Data', '{sample}.sample_2.fastq.gz')
+        os.path.join('Raw_Data', '{sample}_1.fastq.gz'),
+        os.path.join('Raw_Data', '{sample}_2.fastq.gz')
     output:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
         os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
