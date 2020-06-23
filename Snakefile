@@ -107,7 +107,7 @@ rule indel_reallignment:
             config['base_recal']['indel_db2'])
     shell:
         'scripts/5_indel_realign.sh {input} -c {wildcards.chr} '
-        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indel2}'
+        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule SCCaller:
