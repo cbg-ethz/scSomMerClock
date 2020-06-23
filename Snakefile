@@ -61,13 +61,11 @@ rule allignment:
 rule remove_duplicates:
     input:
         expand(os.path.join('Processing', '{sample}.sorted.bam'),
-            sample=lambda wcs: REF_GENOMES[wcs.cell])
+            sample=lambda wildcards: cell_map[wildcards.cell])
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
-    params:
-        corr_samples = lambda wcs: ' '.join(cell_map[wcs.cell])
     shell:
-        'scripts/3_md_merge_rename.sh {wildcards.sample} {cell}'
+        'scripts/3_md_merge_rename.sh {input} {cell}'
 
 
 rule base_recal:
