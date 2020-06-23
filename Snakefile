@@ -88,7 +88,7 @@ rule base_recal:
             config['base_recal']['indel_db1'])
     shell:
         'scripts/4_base_recal.sh {wildcards.cell} {params.ref_genome} '
-        '{params.dbsnp} {params.indel1}'
+        '{params.dbsnp} {params.indels1}'
 
 
 rule indel_reallignment:
