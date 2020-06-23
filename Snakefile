@@ -4,10 +4,8 @@ import sys
 import os
 
 DATA_DIR = config['static_data']['data_path']
-name = os.path.basename(DATA_DIR)
 
 cell_map = {}
-sample_list = []
 with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
     lines = f.read().strip().split('\n')
     for line in lines:
@@ -19,21 +17,25 @@ with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
                 'Pipeline only implemented for 1 or 2 samples per cell')
         else:
             cell_map[row[-1]] = row[:-1]
-            sample_list.extend(row[:-1])
                     
 
 rule all:
     input:
         expand(
-            os.path.join('Processing', '{cell_real}.real.{chr}.sccallerlab.vcf'),
-            cell_real=cell_map.keys(), 
+            os.path.join('Processing', '{cell}.real.{chr}.sccallerlab.vcf'),
+            cell=cell_map.keys(), 
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y']
-        )
+        ),
+        'QC_sequencing.tsv'
 
 
 rule adapter_cutting:
+    input:
+        os.path.join('Raw_Data', '{sample}.sample_1.fastq.gz'),
+        os.path.join('Raw_Data', '{sample}.sample_2.fastq.gz')
     output:
-        os.path.join('slurm_files', '{sample}_CutadaptWGA.txt')
+        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
+        os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     params:
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -59,15 +61,13 @@ rule allignment:
 rule remove_duplicates:
     input:
         expand(os.path.join('Processing', '{sample}.sorted.bam'),
-            sample=cell_map['{cell}'])
+            sample=lambda wcs: REF_GENOMES[wcs.cell])
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
     params:
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        corr_samples = ' '.join(cell_map['{cell}'])
+        corr_samples = lambda wcs: ' '.join(cell_map[wcs.cell])
     shell:
-        'scripts/3_md_merge_rename.sh {params.corr_samples} {cell}'
+        'scripts/3_md_merge_rename.sh {wildcards.sample} {cell}'
 
 
 rule base_recal:
@@ -77,7 +77,7 @@ rule base_recal:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref']),
+            config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['dbsnp']),
         indels1 = os.path.join(config['static_data']['resources_path'],
@@ -92,11 +92,11 @@ rule indel_reallignment:
         expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        os.path.join('Processing', '{cell_real}.real.{chr}.bam')
+        os.path.join('Processing', '{cell}.real.{chr}.bam')
     params:
-        name = os.path.basedir(config['static_data']['base_path']), 
+        name = os.path.basename(DATA_DIR), 
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref']),
+            config['static_data']['WGA_ref']),
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1']),
         indels2 = os.path.join(config['static_data']['resources_path'],
@@ -105,24 +105,46 @@ rule indel_reallignment:
         'scripts/5_indel_realign.sh {input} -c {chr} -r {params.ref_genome} '
         '-i1 {params.indels1} -i2 {params.indel2}'
 
-# rule QC_alligned:
-#     input:
-#     output:
-#     shell:
-
 
 rule SCCaller:
     input:
-        os.path.join('Processing', '{cell_real}.real.{chr}.bam')
+        os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
-        os.path.join('Processing', '{cell_real}.real.{chr}.sccallerlab.vcf')
+        os.path.join('Processing', '{cell}.real.{chr}.sccallerlab.vcf')
     params:
         bulk = os.path.join(config['static_data']['bulk_name']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref']),
+            config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['dbsnp']),
         sccaller = config['SCCaller']['exe']
     shell:
-        'scripts/6_sccallerlab.sh {cell_real} {chr} {params.bulk} '
+        'scripts/6_sccallerlab.sh {cell} {chr} {params.bulk} '
         '{params.ref_genome} {params.dbsnp} {params.sccaller}'
+
+# ------------------------------------------------------------------------------
+# ------------------------------ SEQUENCING QC ---------------------------------
+# ------------------------------------------------------------------------------
+
+rule create_bed:
+    input:
+        os.path.join('Processing', '{cell}.dedup.bam')
+    output:
+        os.path.join('Processing', '{cell}.genome.bed')
+    params:
+        seq = config['static_data']['SEQ'],
+        target = config.get('WES', {}).get('target_path', '')
+    shell:
+        'scripts/QC_cov.sh {input} {output} {params.seq} {params.target}'
+
+
+rule QC_sequencing:
+    input:
+        expand(os.path.join('Processing', '{cell}.genome.bed'),
+            cell=cell_map.keys())
+    output:
+        'QC_sequencing.tsv'
+    shell:
+        'module load python/3.7.7 numpy/1.18.1-python-3.7.7 '
+        'matplotlib/3.1.3-python-3.7.7 pandas/1.0.1-python-3.7.7 && '
+        'python3 scripts/QC_cov.sh {input} -o "./"'

@@ -7,27 +7,26 @@ module load picard/2.18.14
 
 ##$1: Sample name
 ##$2: Reference genome file
-out=$1
+sample=$1
 REF=$2
 
-ID=${out}
-SM=$(echo ${out} | cut -d "_" -f1)
+ID=${sample}
+SM=$(echo ${sample} | cut -d "_" -f1)
 PL=$(echo "ILLUMINA")
 LB=$(echo "KAPA")
-PU=`zcat Raw_Data/${out}_1.fastq.gz | head -1 | sed 's/[:].*//' | sed 's/@//' | sed 's/ /_/g'`
-echo "SAMPLE: "${out}" ID: "${ID}" SM: "${SM}
+PU=`zcat Raw_Data/${sample}_1.fastq.gz | head -1 | sed 's/[:].*//' | sed 's/@//' \
+    | sed 's/ /_/g'`
+echo "SAMPLE: "${sample}" ID: "${ID}" SM: "${SM}
 RG="@RG\\tID:${ID}\\tSM:${SM}\\tPL:${PL}\\tLB:${LB}\\tPU:${PU}"
 echo ${RG}
 
-bwa mem -t 10 \
-    -R ${RG} \
-    $REF \
-    Processing/${out}.trimmed_1.fastq.gz Processing/${out}.trimmed_2.fastq.gz \
-    > Processing/${out}.sam
+bwa mem -t 10 -R ${RG} ${REF} \
+    Processing/${sample}.trimmed_1.fastq.gz Processing/${sample}.trimmed_2.fastq.gz \
+    > Processing/${sample}.sam
 
 java -Xmx18g -jar $EBROOTPICARD/picard.jar SortSam \
-        I=Processing/${out}.sam \
-        TMP_DIR=Processing/ \
-        O=Processing/${out}.sorted.bam \
-        CREATE_INDEX=true \
-        SORT_ORDER=coordinate
+    I=Processing/${sample}.sam \
+    TMP_DIR=Processing/ \
+    O=Processing/${sample}.sorted.bam \
+    CREATE_INDEX=true \
+    SORT_ORDER=coordinate
