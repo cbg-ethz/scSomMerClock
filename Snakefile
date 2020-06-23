@@ -19,6 +19,11 @@ with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
             cell_map[row[-1]] = row[:-1]
                     
 
+def get_corr_samples(wildcards):
+    return [os.path.join('Processing', f'{i}.sorted.bam') \
+        for i in cell_map[wildcards.cell]]
+
+
 rule all:
     input:
         expand(
@@ -60,8 +65,7 @@ rule allignment:
 
 rule remove_duplicates:
     input:
-        expand(os.path.join('Processing', '{sample}.sorted.bam'),
-            sample=lambda wildcards: cell_map[wildcards.cell])
+        get_corr_samples
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
     shell:
