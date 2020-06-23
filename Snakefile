@@ -4,6 +4,7 @@ import sys
 import os
 
 DATA_DIR = config['static_data']['data_path']
+workdir: DATA_DIR
 
 cell_map = {}
 with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
