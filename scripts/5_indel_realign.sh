@@ -16,6 +16,12 @@ while [ "$1" != "" ]; do
         -i2 | --indels2 )   shift
                             INDEL2=$1
                             ;;
+        -n | --name)		shift
+							name=$1
+							;;
+		-c | --chr)			shift
+							chromosome=$1
+							;;
         *)                  sample_bams+="$1 " 
     esac
     shift
@@ -25,19 +31,20 @@ echo $sample_bams
 sample_bams=$(ls Processing/*.recal.bam)
 bams_in=$(echo $sample_bams | sed 's/ / -I /g')
 
+
 echo $sample_bams | sed 's/ /\n/g' | sed 's/.recal.bam//g' \
-| awk -v chr=$SLURM_ARRAY_TASK_ID '{print $0".recal.bam\t"$0".real."chr".bam"}' \
-| sed 's/Processing\///' > $1.$SLURM_ARRAY_TASK_ID.map
+| awk -v chr=$chromosome '{print $0".recal.bam\t"$0".real."chr".bam"}' \
+| sed 's/Processing\///' > $name.$chromosome.map
 
 
 java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     -I $bams_in \
-    -o $1.$SLURM_ARRAY_TASK_ID.intervals \
+    -o $1.$chromosome.intervals \
     -R $REF \
     -known $INDELS \
     -known $INDELS2 \
-    -L $SLURM_ARRAY_TASK_ID
+    -L $chromosome
 
 java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T IndelRealigner \
@@ -45,7 +52,7 @@ java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar 
     -known $INDELS2 \
     -I $bams_in \
     -R $REF \
-    -targetIntervals $1.$SLURM_ARRAY_TASK_ID.intervals \
-    -L $SLURM_ARRAY_TASK_ID \
-    --nWayOut $1.$SLURM_ARRAY_TASK_ID.map \
+    -targetIntervals $name.$chromosome.intervals \
+    -L $chromosome \
+    --nWayOut $name.$chromosome.map \
     --maxReadsForRealignment 1000000

@@ -3,11 +3,12 @@
 import sys
 import os
 
-BASE_DIR = config['static_data']['data_path']
+DATA_DIR = config['static_data']['data_path']
+name = os.path.basename(DATA_DIR)
 
 cell_map = {}
 sample_list = []
-with open(config['static_data']['cellnames'], 'r') as f:
+with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
     lines = f.read().strip().split('\n')
     for line in lines:
         row = line.split('\t')
@@ -26,7 +27,7 @@ rule all:
         expand(
             os.path.join('Processing', '{cell_real}.real.{chr}.sccallerlab.vcf'),
             cell_real=cell_map.keys(), 
-            chr=[i for i in range(1,23,1)] + ['X', 'Y']
+            chr=[i for i in range(1, 23, 1)] + ['X', 'Y']
         )
 
 
@@ -44,8 +45,8 @@ rule adapter_cutting:
 
 rule allignment:
     input:
-        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
-        os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
+        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'), # trimmed2_1
+        os.path.join('Processing', '{sample}.trimmed_2.fastq.gz') # trimmed2_2 Only exists for MALBAC
     output:
         os.path.join('Processing', '{sample}.sorted.bam')
     params:
@@ -63,7 +64,7 @@ rule remove_duplicates:
         os.path.join('Processing', '{cell}.dedup.bam')
     params:
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref'])
+            config['static_data']['WGA_ref']),
         corr_samples = ' '.join(cell_map['{cell}'])
     shell:
         'scripts/3_md_merge_rename.sh {params.corr_samples} {cell}'
@@ -76,14 +77,15 @@ rule base_recal:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref'])
+            config['base_recal']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['dbsnp'])
+            config['base_recal']['dbsnp']),
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1'])
     shell:
         'scripts/4_base_recal.sh {cell} {params.ref_genome} {params.dbsnp} '
         '{params.indel1}'
+
 
 rule indel_reallignment:
     input:
@@ -92,14 +94,15 @@ rule indel_reallignment:
     output:
         os.path.join('Processing', '{cell_real}.real.{chr}.bam')
     params:
+        name = os.path.basedir(config['static_data']['base_path']), 
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref'])
+            config['base_recal']['WGA_ref']),
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1']),
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        'scripts/5_indel_realign.sh {input} -r {params.ref_genome} '
+        'scripts/5_indel_realign.sh {input} -c {chr} -r {params.ref_genome} '
         '-i1 {params.indels1} -i2 {params.indel2}'
 
 # rule QC_alligned:
@@ -116,9 +119,9 @@ rule SCCaller:
     params:
         bulk = os.path.join(config['static_data']['bulk_name']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['WGA_ref'])
+            config['base_recal']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['dbsnp'])
+            config['base_recal']['dbsnp']),
         sccaller = config['SCCaller']['exe']
     shell:
         'scripts/6_sccallerlab.sh {cell_real} {chr} {params.bulk} '
