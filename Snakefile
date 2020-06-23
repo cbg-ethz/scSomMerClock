@@ -48,7 +48,8 @@ rule adapter_cutting:
         WGA_lig = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_library'])
     shell:
-        'scripts/1_fastqc.sh {sample} {params.ref_genome} {params.WGA_lig}'
+        'scripts/1_fastqc.sh {wildcards.sample} {params.ref_genome} '
+        '{params.WGA_lig}'
     
 
 rule allignment:
@@ -61,7 +62,7 @@ rule allignment:
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref'])
     shell:
-        'scripts/2_bwa.sh {sample} {params.ref_genome}'
+        'scripts/2_bwa.sh {wildcards.sample} {params.ref_genome}'
 
 
 rule remove_duplicates:
@@ -70,7 +71,7 @@ rule remove_duplicates:
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
     shell:
-        'scripts/3_md_merge_rename.sh {input} {cell}'
+        'scripts/3_md_merge_rename.sh {input} {wildcards.cell}'
 
 
 rule base_recal:
@@ -86,8 +87,8 @@ rule base_recal:
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1'])
     shell:
-        'scripts/4_base_recal.sh {cell} {params.ref_genome} {params.dbsnp} '
-        '{params.indel1}'
+        'scripts/4_base_recal.sh {wildcards.cell} {params.ref_genome} '
+        '{params.dbsnp} {params.indel1}'
 
 
 rule indel_reallignment:
@@ -105,8 +106,8 @@ rule indel_reallignment:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        'scripts/5_indel_realign.sh {input} -c {chr} -r {params.ref_genome} '
-        '-i1 {params.indels1} -i2 {params.indel2}'
+        'scripts/5_indel_realign.sh {input} -c {wildcards.chr} '
+        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indel2}'
 
 
 rule SCCaller:
@@ -122,7 +123,7 @@ rule SCCaller:
             config['base_recal']['dbsnp']),
         sccaller = config['SCCaller']['exe']
     shell:
-        'scripts/6_sccallerlab.sh {cell} {chr} {params.bulk} '
+        'scripts/6_sccallerlab.sh {wildcards.cell} {wildcards.chr} {params.bulk} '
         '{params.ref_genome} {params.dbsnp} {params.sccaller}'
 
 # ------------------------------------------------------------------------------
