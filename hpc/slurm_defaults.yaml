@@ -3,31 +3,31 @@ __default__:
   mail-type: FAIL
 
 
-Adapter_cutting:
-  cpus-per-task: 10
-  time: 24:00:00
-  mem: 20G
-  
-
-Allignment:
+adapter_cutting:
   cpus-per-task: 10
   time: 24:00:00
   mem: 20G
 
 
-Remove_duplicates:
+allignment:
+  cpus-per-task: 10
+  time: 24:00:00
+  mem: 20G
+
+
+remove_duplicates:
   cpus-per-task: 2
   time: 10:00:00
   mem: 40G
   partition: cola-corta
 
 
-Base_recal:
+base_recal:
   cpus-per-task: 2
-  time:	48:00:00
+  time: 48:00:00
   mem: 40G
 
-Indel_reallignment:
+indel_reallignment:
   cpus-per-task: 2
   time: 100:00:00
   mem: 50G
@@ -43,4 +43,3 @@ SCCaller:
   cpus-per-task: 2
   time: 60:00:00
   mem: 50G
-
