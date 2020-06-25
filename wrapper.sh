@@ -4,7 +4,7 @@
 # module load snakemake/5.4.5-python-3.6.8
 
 
-SNAKE_CMD="snakemake --keep-going --cores=1 "
+SNAKE_CMD="snakemake --keep-going --restart-times=0"
 while [ "$1" != "" ]; do
     case $1 in
         -c | --config ) shift        

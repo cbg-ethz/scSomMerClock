@@ -4,6 +4,8 @@ __default__:
 
 
 adapter_cutting:
+  partition: amd-shared
+  qos: amd-shared
   cpus-per-task: 10
   time: 24:00:00
   mem: 20G
