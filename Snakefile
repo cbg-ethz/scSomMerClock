@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 
+BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = config['static_data']['data_path']
 workdir: DATA_DIR
 
@@ -43,12 +43,13 @@ rule adapter_cutting:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
         os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     params:
+        base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         WGA_lig = os.path.join(config['static_data']['WGA_library'])
     shell:
-        'scripts/1_fastqc.sh {wildcards.sample} {params.ref_genome} '
-        '{params.WGA_lig}'
+        '{params.base_dir}/scripts/1_fastqc.sh {wildcards.sample} '
+        '{params.ref_genome} {params.WGA_lig}'
     
 
 rule allignment:
@@ -58,10 +59,12 @@ rule allignment:
     output:
         os.path.join('Processing', '{sample}.sorted.bam')
     params:
+        base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref'])
     shell:
-        'scripts/2_bwa.sh {wildcards.sample} {params.ref_genome}'
+        '{params.base_dir}/scripts/2_bwa.sh {wildcards.sample} '
+        '{params.ref_genome}'
 
 
 rule remove_duplicates:
@@ -69,8 +72,10 @@ rule remove_duplicates:
         get_corr_samples
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
+    params:
+        base_dir = BASE_DIR
     shell:
-        'scripts/3_md_merge_rename.sh {input} {wildcards.cell}'
+        '{params.base_dir}/scripts/3_md_merge_rename.sh {input} {wildcards.cell}'
 
 
 rule base_recal:
@@ -79,6 +84,7 @@ rule base_recal:
     output:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
+        base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
@@ -86,8 +92,8 @@ rule base_recal:
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1'])
     shell:
-        'scripts/4_base_recal.sh {wildcards.cell} {params.ref_genome} '
-        '{params.dbsnp} {params.indels1}'
+        '{params.base_dir}/scripts/4_base_recal.sh {wildcards.cell} '
+        '{params.ref_genome} {params.dbsnp} {params.indels1}'
 
 
 rule indel_reallignment:
@@ -97,6 +103,7 @@ rule indel_reallignment:
     output:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     params:
+        base_dir = BASE_DIR,
         name = os.path.basename(DATA_DIR), 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -105,8 +112,8 @@ rule indel_reallignment:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        'scripts/5_indel_realign.sh {input} -c {wildcards.chr} '
-        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
+        '{params.base_dir}/scripts/5_indel_realign.sh {input} -c {wildcards.chr}'
+        ' -r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule SCCaller:
@@ -115,6 +122,7 @@ rule SCCaller:
     output:
         os.path.join('Processing', '{cell}.real.{chr}.sccallerlab.vcf')
     params:
+        base_dir = BASE_DIR,
         bulk = os.path.join(config['static_data']['bulk_name']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -122,8 +130,9 @@ rule SCCaller:
             config['base_recal']['dbsnp']),
         sccaller = config['SCCaller']['exe']
     shell:
-        'scripts/6_sccallerlab.sh {wildcards.cell} {wildcards.chr} {params.bulk} '
-        '{params.ref_genome} {params.dbsnp} {params.sccaller}'
+        '{params.base_dir}/scripts/6_sccallerlab.sh {wildcards.cell} '
+        '{wildcards.chr} {params.bulk} {params.ref_genome} {params.dbsnp} '
+        '{params.sccaller}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
@@ -135,10 +144,12 @@ rule create_bed:
     output:
         os.path.join('Processing', '{cell}.genome.bed')
     params:
+        base_dir = BASE_DIR,
         seq = config['static_data']['SEQ'],
         target = config.get('WES', {}).get('target_path', '')
     shell:
-        'scripts/QC_cov.sh {input} {output} {params.seq} {params.target}'
+        '{params.base_dir}/scripts/QC_cov.sh {input} {output} {params.seq} '
+        '{params.target}'
 
 
 rule QC_sequencing:
@@ -147,7 +158,9 @@ rule QC_sequencing:
             cell=cell_map.keys())
     output:
         'QC_sequencing.tsv'
+    params:
+        base_dir = BASE_DIR,
     shell:
         'module load python/3.7.7 numpy/1.18.1-python-3.7.7 '
         'matplotlib/3.1.3-python-3.7.7 pandas/1.0.1-python-3.7.7 && '
-        'python3 scripts/QC_cov.sh {input} -o "./"'
+        'python3 {params.base_dir}/scripts/QC_cov.sh {input} -o "./"'
