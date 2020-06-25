@@ -3,7 +3,8 @@
 import os
 import sys
 
-BASE_DIR = workflow.snakefile
+
+BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
 workdir: DATA_DIR
 
