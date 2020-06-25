@@ -43,10 +43,10 @@ def calc_gini(x):
 
 def main(args):
     sample_names = [os.path.basename(i).split('.')[0] for i in args.input]
-    cols = ['Avg. Depth', 'Cov. Depth', 'Avg. Breadth',
-        '5x Cov. Breadth', '10x Cov. Breadth', '20x Cov. Breadth',
-        'Gini Coefficient']
-    df_sum = pd.DataFrame(index=sample_names + ['average', 'stdev'], columns=cols)
+    cols = ['Total Depth', 'Cov. Depth', 'Total Breadth', '5x Total Breadth',
+        '5x Cov. Breadth', '10x Total Breadth', '10x Cov. Breadth',
+        '20x Total Breadth', '20x Cov. Breadth', 'Gini Coefficient']
+    df_sum = pd.DataFrame(index=sample_names + ['mean', 'stdev'], columns=cols)
     df_sum.index.name = 'Sample'
 
     fig1, ax1 = plt.subplots(figsize=[6,6])
@@ -55,7 +55,6 @@ def main(args):
     for i, sample_file in enumerate(args.input):
         sample_name = sample_names[i]
 
-        data = np.genfromtxt(sample_file, delimiter='\t')
         # 0: genome/chromosom, 1: coverage depth, 2: # bases with covg 1,
         # 3: size of total genome/chromosome, 4: fraction of bases with covg 1
         df = pd.read_csv(sample_file, delimiter='\t', header=None)
@@ -68,23 +67,17 @@ def main(args):
 
         # normalized over covered basepairs
         x = np.cumsum((df.iloc[1:,4] / cov_total).values)
+        x = np.insert(x, 0, 0) 
         # normalized over full genome/exome
         # x = np.cumsum(df[4].values)
-        x = np.insert(x, 0, 0) 
-
+        
         bp_total = df[6].sum()
         y = np.cumsum(df[6].values) / bp_total
-        y = np.insert(y, 0, 0)
-        import pdb; pdb.set_trace()
 
         cov_breadth = []
         for cov_x in [5, 10, 20]:
-            cov_breadth.append(
-                np.where(data[:, 1] >= cov_x, data[:,4], 0).sum() / cov_total
-            )
-            # import pdb; pdb.set_trace()
-            test = np.average(data[cov_x:, 1], weights=data[cov_x:,2])
-            # print(cov_x, test)
+            breadth = df.iloc[cov_x:, 4].sum()
+            cov_breadth.extend([breadth, breadth / cov_total])
 
         df_sum.iloc[i] = [avg_depth, cov_depth, cov_total] + cov_breadth \
             + [calc_gini(x)]
@@ -93,66 +86,47 @@ def main(args):
         # Scatter plot of Lorenz curve
         ax1.plot(x, y, color=sample_col, label=sample_name)
         # Read depth distribution
-        ax2.plot(data[1:, 1], (1 - x)[:-1], color=sample_col, label=sample_name)
-        # Summary with: sample name, Avg depth, 1/5/10/20x breadth, gini coeff
+        ax2.plot(df.iloc[1:, 1].values, (1 - x)[:-1], color=sample_col,
+            label=sample_name)
         
-    import pdb; pdb.set_trace()
+    df_sum.loc['mean'] = df_sum.mean()
+    df_sum.loc['stdev'] = df_sum.std()
 
     if args.output != '':
         out_dir = args.output
     else:
         out_dir = os.path.dirname(sample_file)
-    out_name = sample_name.split('_')[0]
 
-    plot_lorenz(fig1, ax1, out_dir, out_name)
-    plot_read_depth_dist(fig2, ax2, out_dir, out_name)
-    stdout_summary(summary, out_dir, out_name)
+    plot_lorenz(fig1, ax1, out_dir)
+    plot_read_depth_dist(fig2, ax2, out_dir, x_max=(x < 0.99).sum())
     plt.close()
 
-def stdout_summary(summary, out_dir, out_name, sep='\t'):
-    out_file = os.path.join(out_dir, f'{out_name}_QC_sequencing.tsv')
-    with open(out_file, 'w') as f:
-        f.write(sep.join(['Sample', 'Avg. Depth', 'Cov. Depth',
-            'Avg. Breadth', '5x Cov. Breadth', '10x Cov. Breadth',
-            '20x Cov. Breadth', 'Gini Coefficient']) + '\n'
-        )
-        for line in summary:
-            f.write(sep.join(['{:.8}'.format(i) for i in line]) + '\n')
+    df_sum.to_csv(os.path.join(out_dir, 'QC_sequencing.tsv'), sep='\t')
 
 
-def plot_lorenz(fig, ax, out_dir, out_name):
+def plot_lorenz(fig, ax, out_dir):
     ax.plot([0, 1], [0, 1], '--', color='k', label='Perfect Uniformity')
-    ax.set_xlabel('Cumulative Fraction of Genome')
-    ax.set_ylabel('Cumulative Fraction of BP Coverage')
+    ax.set_xlabel('Cumulative Fraction of Covered Basepairs')
+    ax.set_ylabel('Cumulative Fraction of Total Reads')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
-    ax.set_title(out_name)
     ax.legend()
     ax.grid(True)
-    
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.9)
 
-    out_file = f'{out_name}.lorenz.pdf'
-    out_full = os.path.join(out_dir, out_file)
-    fig.savefig(out_full, dpi=300)
+    fig.savefig(os.path.join(out_dir, 'Lorenz.pdf'), dpi=300)
     
 
-
-def plot_read_depth_dist(fig, ax, out_dir, out_name):
+def plot_read_depth_dist(fig, ax, out_dir, x_max=None):
     ax.set_xlabel('Coverage Depth')
     ax.set_ylabel('Fraction of Coverage $\geq$ depth')
-    ax.set_xlim([0, 100])
+    ax.set_xlim([0, x_max])
     ax.set_ylim([0, 1])
-    # ax.set_xscale('log')
-    ax.set_title(out_name)
     ax.legend()
     ax.grid(True)
-    
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.9)
 
-    out_file = f'{out_name}.readDepthDist.pdf'
-    out_full = os.path.join(out_dir, out_file)
-    fig.savefig(out_full, dpi=300)
+    fig.savefig(os.path.join(out_dir, 'ReadDepthDist.pdf'), dpi=300)
 
 
 if __name__ == '__main__':

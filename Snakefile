@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = workflow.snakefile
 DATA_DIR = config['static_data']['data_path']
 workdir: DATA_DIR
 
+
 cell_map = {}
-with open(os.path.join(DATA_DIR, config['static_data']['cellnames']), 'r') as f:
+with open(config['static_data']['cellnames'], 'r') as f:
     lines = f.read().strip().split('\n')
     for line in lines:
         row = line.split('\t')
         if len(row) == 1:
-            raise IOError('cellnames file contains only 1 columns')
+            raise IOError('cellnames file contains only 1 columns.')
         elif len(row) > 3:
             raise NotImplementedError(
-                'Pipeline only implemented for 1 or 2 samples per cell')
+                'Only implemented for 1 or 2 samples per cell.')
         else:
             cell_map[row[-1]] = row[:-1]
                     
@@ -54,8 +56,8 @@ rule adapter_cutting:
 
 rule allignment:
     input:
-        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'), # trimmed2_1
-        os.path.join('Processing', '{sample}.trimmed_2.fastq.gz') # trimmed2_2 Only exists for MALBAC
+        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
+        os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     output:
         os.path.join('Processing', '{sample}.sorted.bam')
     params:
