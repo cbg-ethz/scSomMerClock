@@ -7,7 +7,7 @@ Adapter_cutting:
   cpus-per-task: 10
   time: 24:00:00
   mem: 20G
-  
+
 
 Allignment:
   cpus-per-task: 10
@@ -24,7 +24,7 @@ Remove_duplicates:
 
 Base_recal:
   cpus-per-task: 2
-  time:	48:00:00
+  time: 48:00:00
   mem: 40G
 
 Indel_reallignment:
@@ -43,4 +43,3 @@ SCCaller:
   cpus-per-task: 2
   time: 60:00:00
   mem: 50G
-

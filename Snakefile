@@ -45,8 +45,7 @@ rule adapter_cutting:
     params:
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
-        WGA_lig = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_library'])
+        WGA_lig = os.path.join(config['static_data']['WGA_library'])
     shell:
         'scripts/1_fastqc.sh {wildcards.sample} {params.ref_genome} '
         '{params.WGA_lig}'
