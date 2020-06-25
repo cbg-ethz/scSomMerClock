@@ -10,6 +10,7 @@ sample=$1
 REF=$2
 WGA_LIBRARY=$3
 
+mkdir -p slurm_files
 cutadapt \
 	--minimum-length 70 \
     -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
