@@ -46,10 +46,10 @@ rule adapter_cutting:
         base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
-        WGA_lig = os.path.join(config['static_data']['WGA_library'])
+        WGA_lib = config['static_data']['WGA_library']
     shell:
         '{params.base_dir}/scripts/1_fastqc.sh {wildcards.sample} '
-        '{params.ref_genome} {params.WGA_lig}'
+        '{params.ref_genome} {params.WGA_lib}'
     
 
 rule allignment:
@@ -61,10 +61,11 @@ rule allignment:
     params:
         base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref'])
+            config['static_data']['WGA_ref']),
+        WGA_lib = config['static_data']['WGA_library']
     shell:
         '{params.base_dir}/scripts/2_bwa.sh {wildcards.sample} '
-        '{params.ref_genome}'
+        '{params.ref_genome} {params.WGA_lib}'
 
 
 rule remove_duplicates:
