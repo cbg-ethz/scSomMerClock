@@ -22,7 +22,7 @@ Allignment:
 Remove_duplicates:
   cpus-per-task: 2
   time: 10:00:00
-  mem: 40G
+  mem: 50G
   partition: cola-corta
 
 
