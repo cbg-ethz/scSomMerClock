@@ -2,7 +2,6 @@ __default__:
   partition: shared
   qos: shared
   cpus-per-task: 2
-  time: 04:00:00
   mem: 20G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
@@ -12,29 +11,29 @@ adapter_cutting:
   partition: amd-shared
   qos: amd-shared
   cpus-per-task: 10
-  time: 24:00:00
+  time: '24:00:00'
 
 
 allignment:
   cpus-per-task: 10
-  time: 24:00:00
+  time: '24:00:00'
 
 
 remove_duplicates:
-  time: 10:00:00
+  time: '10:00:00'
   mem: 50G
   partition: cola-corta
 
 
 base_recal:
-  time: 48:00:00
+  time: '48:00:00'
   mem: 40G
 
 indel_reallignment:
-  time: 100:00:00
+  time: '100:00:00'
   mem: 50G
 
 
 SCCaller:
-  time: 60:00:00
+  time: '60:00:00'
   mem: 50G
