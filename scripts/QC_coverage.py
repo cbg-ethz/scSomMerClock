@@ -97,17 +97,21 @@ def main(args):
     else:
         out_dir = os.path.dirname(sample_file)
 
-    plot_lorenz(fig1, ax1, out_dir)
+    if > 3e9:
+        seq = 'Exome'
+    else
+        seq = 'Genome'
+    plot_lorenz(fig1, ax1, out_dir, x_label=seq)
     plot_read_depth_dist(fig2, ax2, out_dir, x_max=(x < 0.99).sum())
     plt.close()
 
     df_sum.to_csv(os.path.join(out_dir, 'QC_sequencing.tsv'), sep='\t')
 
 
-def plot_lorenz(fig, ax, out_dir):
+def plot_lorenz(fig, ax, out_dir, x_label='Genome'):
     ax.plot([0, 1], [0, 1], '--', color='k', label='Perfect Uniformity')
-    ax.set_xlabel('Cumulative Fraction of Covered Basepairs')
-    ax.set_ylabel('Cumulative Fraction of Total Reads')
+    ax.set_xlabel(f'Cumulative Fraction of Covered {x_label}')
+    ax.set_ylabel('Cumulative Fraction of Total Basepairs')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.legend()
