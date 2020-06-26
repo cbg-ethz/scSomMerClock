@@ -22,7 +22,7 @@ allignment:
 
 remove_duplicates:
   time: 10:00:00
-  mem: 40G
+  mem: 50G
   partition: cola-corta
 
 
