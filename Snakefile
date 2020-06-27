@@ -150,7 +150,8 @@ rule create_bed:
     params:
         base_dir = BASE_DIR,
         seq = config['static_data']['SEQ'],
-        target = config.get('WES', {}).get('target_path', '')
+        target = os.path.join(config['static_data']['resources_path'],
+            config.get('WES', {}).get('target_path', '')
     shell:
         '{params.base_dir}/scripts/QC_cov.sh {input} {output} {params.seq} '
         '{params.target}'

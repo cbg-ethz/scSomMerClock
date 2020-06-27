@@ -1,6 +1,5 @@
 __default__:
   partition: shared
-  qos: shared
   cpus-per-task: 2
   mem: 20G
   mail-user: nico.borgsmueller@bsse.ethz.ch
@@ -15,25 +14,38 @@ adapter_cutting:
 
 
 allignment:
+  qos: shared
   cpus-per-task: 10
   time: '24:00:00'
 
 
 remove_duplicates:
+  qos: shared
   time: '10:00:00'
   mem: 50G
-  partition: cola-corta
 
 
 base_recal:
+  qos: shared
   time: '48:00:00'
   mem: 40G
 
+
 indel_reallignment:
+  qos: shared
   time: '100:00:00'
   mem: 50G
 
 
 SCCaller:
+  qos: shared
   time: '60:00:00'
   mem: 50G
+
+
+create_bed:
+  qos: shared
+
+
+QC_sequencing:
+  qos: shared
