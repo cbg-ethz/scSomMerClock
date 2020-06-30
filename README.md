@@ -16,8 +16,14 @@ ScDNAseq data processing pipeline for molecular clock analysis
 - snakemake >5.4.5
 
 
-## How to run 
+## How to run
+Load snakemake (e.g. via module or conda):
+```bash
+module load snakemake
+# conda activate <SNAKEMAKE_ENV>
+```
+
 Run on a hpc cluster from the base directory:
 ```bash
-bash ./wrapper.sh -c configs/<DATASET> --profile hpc/slurm
+bash ./wrapper.sh -c configs/<DATASET> --profile hpc/<slurm|lsf>
 ```
