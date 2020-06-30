@@ -16,6 +16,26 @@ ScDNAseq data processing pipeline for molecular clock analysis
 - snakemake >5.4.5
 
 
+## Folder Structure
+Data directory:
+```bash
+<DATA_DIR>
+ \_ <CELLNAMES>.txt
+ \_ 
+ \_ ...
+```
+Resources directory:
+```bash
+<RESOURCES_DIR>
+ \_ <REF>.fa
+ \_ <REF>.dict
+ \_ <DBSNP>.vcf
+ \_ <INDEL1>.vcf
+ \_ <INDEL2>.vcf
+ \_ <EXON_TARGET>.bed
+ \_ ...
+```
+
 ## How to run
 Load snakemake (e.g. via module or conda):
 ```bash
