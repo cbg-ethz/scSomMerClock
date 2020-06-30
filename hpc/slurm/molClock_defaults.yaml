@@ -41,8 +41,8 @@ base_recal2:
 
 
 indel_reallignment:
-  time: '100:00:00'
-  mem: 50G
+  time: '12:00:00'
+  mem: 40G
 
 
 SCCaller:

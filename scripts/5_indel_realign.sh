@@ -5,14 +5,14 @@ module load gatk/3.7-0-gcfedb67
 
 sample_bams=""
 while [ "$1" != "" ]; do
-	key=$1
-    case key in
-        -n | --name)		shift
-							name=$1
-							;;
-		-c | --chr)			shift
-							chromosome=$1
-							;;
+    key=$1
+    case ${key} in
+        -n | --name)        shift
+                            name=$1
+                            ;;
+        -c | --chr)         shift
+                            chromosome=$1
+                            ;;
         -r | --ref )        shift
                             REF=$1
                             ;;
@@ -26,7 +26,6 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-echo ${sample_bams}
 
 bams_in=$(echo ${sample_bams} | sed 's/ / -I /g')
 
