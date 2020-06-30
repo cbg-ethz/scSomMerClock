@@ -1,7 +1,8 @@
 __default__:
   partition: shared
-  cpus-per-task: 2
-  mem: 20G
+  qos: shared
+  cpus-per-task: 1
+  mem: 4G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
 
@@ -20,32 +21,24 @@ allignment:
 
 
 remove_duplicates:
-  qos: shared
-  time: '10:00:00'
-  mem: 50G
-
-
-base_recal:
-  qos: shared
-  time: '48:00:00'
+  partition: amd-shared
+  qos: amd-shared
+  time: '4:00:00'
   mem: 40G
 
 
+base_recal:
+  partition: amd-shared
+  qos: amd-shared
+  time: '4:00:00'
+
+
 indel_reallignment:
-  qos: shared
   time: '100:00:00'
   mem: 50G
 
 
 SCCaller:
-  qos: shared
   time: '60:00:00'
   mem: 50G
 
-
-create_bed:
-  qos: shared
-
-
-QC_sequencing:
-  qos: shared

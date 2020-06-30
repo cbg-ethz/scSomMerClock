@@ -1,5 +1,6 @@
 #!/bin/sh
 
+module purge
 module load bedtools/2.28.0
 
 cell=$1

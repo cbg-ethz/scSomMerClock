@@ -97,7 +97,7 @@ def main(args):
     else:
         out_dir = os.path.dirname(sample_file)
 
-    if > 3e9:
+    if df.iloc[0, 3] > 3e9:
         seq = 'Exome'
     else
         seq = 'Genome'
