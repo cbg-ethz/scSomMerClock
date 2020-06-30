@@ -17,10 +17,10 @@ while [ "$1" != "" ]; do
                             REF=$1
                             ;;
         -i1 | --indels1 )   shift
-                            INDELS=$1
+                            INDELS1=$1
                             ;;
         -i2 | --indels2 )   shift
-                            INDEL2=$1
+                            INDELS2=$1
                             ;;
         *)                  sample_bams+="$1 " 
     esac
@@ -35,18 +35,18 @@ echo ${sample_bams} | sed 's/ /\n/g' | sed 's/.recal.bam//g' \
 | sed 's/Processing\///' > ${name}.${chromosome}.map
 
 
-java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     -I ${bams_in} \
     -o ${name}.${chromosome}.intervals \
     -R ${REF} \
-    -known ${INDELS} \
+    -known ${INDELS1} \
     -known ${INDELS2} \
     -L ${chromosome}
 
-java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T IndelRealigner \
-    -known ${INDELS} \
+    -known ${INDELS1} \
     -known ${INDELS2} \
     -I ${bams_in} \
     -R ${REF} \
