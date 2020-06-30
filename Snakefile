@@ -82,11 +82,11 @@ rule remove_duplicates:
         '{params.base_dir}/scripts/3_md_merge_rename.sh {input} {wildcards.cell}'
 
 
-rule base_recal:
+rule base_recal1:
     input:
         os.path.join('Processing', '{cell}.dedup.bam')
     output:
-        os.path.join('Processing', '{cell}.recal.bam')
+        os.path.join('Processing', '{cell}.recal.table')
     params:
         base_dir = BASE_DIR,
         ref_genome = os.path.join(config['static_data']['resources_path'],
@@ -96,8 +96,21 @@ rule base_recal:
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1'])
     shell:
-        '{params.base_dir}/scripts/4_base_recal.sh {wildcards.cell} '
+        '{params.base_dir}/scripts/4.1_base_recal.sh {wildcards.cell} '
         '{params.ref_genome} {params.dbsnp} {params.indels1}'
+
+rule base_recal2:
+    input:
+        os.path.join('Processing', '{cell}.recal.table')
+    output:
+        os.path.join('Processing', '{cell}.recal.bam')
+    params:
+        base_dir = BASE_DIR,
+        ref_genome = os.path.join(config['static_data']['resources_path'],
+            config['static_data']['WGA_ref'])
+    shell:
+        '{params.base_dir}/scripts/4.2_base_recal.sh {wildcards.cell} '
+        '{params.ref_genome}'
 
 
 rule indel_reallignment:
@@ -169,4 +182,4 @@ rule QC_sequencing:
     shell:
         'module load python/3.7.7 numpy/1.18.1-python-3.7.7 '
         'matplotlib/3.1.3-python-3.7.7 pandas/1.0.1-python-3.7.7 && '
-        'python3 {params.base_dir}/scripts/QC_cov.sh {input} -o "./"'
+        'python3 {params.base_dir}/scripts/QC_coverage.py {input} -o "./"'

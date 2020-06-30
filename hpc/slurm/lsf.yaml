@@ -21,8 +21,8 @@ remove_duplicates:
 
 
 base_recal:
-  h_rt: '48:00'
-  h_vmem: '40960'
+  h_rt: '8:00'
+  h_vmem: '8192'
 
 
 indel_reallignment:
