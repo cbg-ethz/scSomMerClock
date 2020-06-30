@@ -26,10 +26,18 @@ remove_duplicates:
   mem: 40G
 
 
-base_recal:
+base_recal1:
   partition: amd-shared
   qos: amd-shared
   time: '4:00:00'
+  mem: 40G
+
+
+base_recal2:
+  partition: amd-shared
+  qos: amd-shared
+  time: '4:00:00'
+  mem: 40G
 
 
 indel_reallignment:
