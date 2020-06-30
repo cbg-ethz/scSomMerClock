@@ -10,7 +10,7 @@ module load gatk/4.0.10.0
 cellname=$1
 REF=$2
 DBSNP=$3
-INDELS=§4
+INDELS=$4
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
     -I Processing/${cellname}.dedup.bam \
