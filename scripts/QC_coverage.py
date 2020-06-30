@@ -99,7 +99,7 @@ def main(args):
 
     if df.iloc[0, 3] > 3e9:
         seq = 'Exome'
-    else
+    else:
         seq = 'Genome'
     plot_lorenz(fig1, ax1, out_dir, x_label=seq)
     plot_read_depth_dist(fig2, ax2, out_dir, x_max=(x < 0.99).sum())
