@@ -41,6 +41,8 @@ base_recal2:
 
 
 indel_reallignment:
+  partition: amd-shared
+  qos: amd-shared
   time: '12:00:00'
   mem: 40G
 
