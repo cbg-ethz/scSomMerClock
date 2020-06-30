@@ -30,11 +30,16 @@ Resources directory:
  \_ <REF>.fa
  \_ <REF>.dict
  \_ <DBSNP>.vcf
+ \_ <DBSNP>.vcf.idx
  \_ <INDEL1>.vcf
+ \_ <INDEL1>.vcf.idx
  \_ <INDEL2>.vcf
+ \_ <INDEL2>.vcf.idx
  \_ <EXON_TARGET>.bed
  \_ ...
 ```
+
+> **Note**: To create .idx files, use: `gatk IndexFeatureFile -F <FILE>.vcf`
 
 ## How to run
 Load snakemake (e.g. via module or conda):
