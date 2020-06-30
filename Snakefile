@@ -116,8 +116,9 @@ rule indel_reallignment:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5_indel_realign.sh {input} -c {wildcards.chr}'
-        ' -r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
+        '{params.base_dir}/scripts/5_indel_realign.sh {input} -n {params.name} '
+        '-c {wildcards.chr} -r {params.ref_genome} -i1 {params.indels1} '
+        '-i2 {params.indels2}'
 
 
 rule SCCaller:

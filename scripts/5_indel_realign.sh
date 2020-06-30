@@ -7,6 +7,12 @@ sample_bams=""
 while [ "$1" != "" ]; do
 	key=$1
     case key in
+        -n | --name)		shift
+							name=$1
+							;;
+		-c | --chr)			shift
+							chromosome=$1
+							;;
         -r | --ref )        shift
                             REF=$1
                             ;;
@@ -16,12 +22,6 @@ while [ "$1" != "" ]; do
         -i2 | --indels2 )   shift
                             INDEL2=$1
                             ;;
-        -n | --name)		shift
-							name=$1
-							;;
-		-c | --chr)			shift
-							chromosome=$1
-							;;
         *)                  sample_bams+="$1 " 
     esac
     shift
