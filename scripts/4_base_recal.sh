@@ -13,14 +13,14 @@ DBSNP=$3
 INDELS=§4
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
-    -I Processing/$cellname.dedup.bam \
-    -O Processing/$cellname.recal.table \
-    -R $REF \
-    --known-sites $DBSNP \
-    --known-sites $INDELS
+    -I Processing/${cellname}.dedup.bam \
+    -O Processing/${cellname}.recal.table \
+    -R ${REF} \
+    --known-sites ${DBSNP} \
+    --known-sites ${INDELS}
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" ApplyBQSR \
-    -R $REF \
-    -I Processing/$cellname.dedup.bam \
-    --bqsr Processing/$cellname.recal.table \
-    -O Processing/$cellname.recal.bam
+    -R ${REF} \
+    -I Processing/${cellname}.dedup.bam \
+    --bqsr Processing/${cellname}.recal.table \
+    -O Processing/${cellname}.recal.bam

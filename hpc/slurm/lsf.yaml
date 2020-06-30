@@ -1,0 +1,35 @@
+__default__:
+  h_vmem: '4096'
+  h_rt: '4:00'
+  threads: '1'
+  queue: ''
+    
+
+adapter_cutting:
+  threads: '10'
+  h_rt: '24:00'
+
+
+allignment:
+  threads: '10'
+  h_rt: '48:00'
+
+
+remove_duplicates:
+  h_rt: '10:00'
+  h_vmem: '51200'
+
+
+base_recal:
+  h_rt: '48:00'
+  h_vmem: '40960'
+
+
+indel_reallignment:
+  h_rt: '100:00'
+  h_vmem: '51200'
+
+
+SCCaller:
+  h_rt: '60:00'
+  h_vmem: '51200'

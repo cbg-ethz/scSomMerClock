@@ -219,7 +219,7 @@ class Submitter:
 
 
 if __name__ == "__main__":
-    workdir = Path().resolve()
+    workdir = str(Path(__file__).parent.absolute())
     config_file = workdir / "lsf.yaml"
     if config_file.exists():
         with config_file.open() as stream:
