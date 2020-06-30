@@ -5,15 +5,14 @@ module load gatk/3.7-0-gcfedb67
 
 sample_bams=""
 while [ "$1" != "" ]; do
-	key=$1
-        echo "${key}"
+    key=$1
     case ${key} in
-        -n | --name)		shift
-							name=$1
-							;;
-		-c | --chr)			shift
-							chromosome=$1
-							;;
+        -n | --name)        shift
+                            name=$1
+                            ;;
+        -c | --chr)         shift
+                            chromosome=$1
+                            ;;
         -r | --ref )        shift
                             REF=$1
                             ;;
@@ -27,8 +26,6 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-echo "Sample bams: ${sample_bams}"
-echo "Name: ${name}"
 
 bams_in=$(echo ${sample_bams} | sed 's/ / -I /g')
 
@@ -37,7 +34,6 @@ echo ${sample_bams} | sed 's/ /\n/g' | sed 's/.recal.bam//g' \
 | awk -v chr=${chromosome} '{print $0".recal.bam\t"$0".real."chr".bam"}' \
 | sed 's/Processing\///' > ${name}.${chromosome}.map
 
-exit
 
 java -Djava.io.tmpdir=Processing/ -Xmx25G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
