@@ -39,7 +39,7 @@ Resources directory:
  \_ ...
 ```
 
-> **Note**: To create .idx files, use: `gatk IndexFeatureFile -F <FILE>.vcf`
+> **Note**: To create .idx files, use: ``gatk IndexFeatureFile -F <FILE>.vcf``
 
 ## How to run
 Load snakemake (e.g. via module or conda):
