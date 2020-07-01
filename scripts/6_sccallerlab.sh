@@ -1,7 +1,6 @@
 #!/bin/sh
 
 module purge
-module load gcc/6.4.0
 module load samtools
 module load python/2.7.15
 module load pysam
