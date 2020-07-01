@@ -6,7 +6,7 @@ import sys
 
 BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
-NAME = os.path.basename(DATA_DIR), 
+NAME = os.path.basename(DATA_DIR)
 workdir: DATA_DIR
 
 
