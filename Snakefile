@@ -152,7 +152,7 @@ rule indel_reallignment1:
 
 rule indel_reallignment2:
     input:
-        bams = expand(os.path.join('Processing', '{cells}.recal.bam'),
+        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys()),
         intervals = os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals'),
         map_file = os.path.join('Reallignment', f'{NAME}.real.{{chr}}.map')
