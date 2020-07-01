@@ -21,14 +21,14 @@ DBSNP=$5
 SCcaller=$6
 
 python $SCcaller \
-    --bam Processing/$cellnames.real.$chr.bam \
-    --fasta $REF \
-    --output Processing/$cellnames.real.$chr.sccallerlab.vcf \
+    --bam Processing/${cellnames}.real.${chr}.bam \
+    --fasta ${REF} \
+    --output Processing/${cellnames}.real.${chr}.sccallerlab.vcf \
     --snp_type dbsnp \
-    --snp_in $DBSNP \
+    --snp_in ${DBSNP} \
     --cpu_num 2 \
     --engine samtools \
-    --bulk Processing/$bulk_normal.real.$chr.bam \
+    --bulk Processing/${bulk_normal}.real.${chr}.bam \
     --min_depth 1 \
     --minvar 0 \
     --mapq 30 \
