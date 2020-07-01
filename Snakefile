@@ -3,11 +3,13 @@
 import os
 import sys
 
-
 BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
 NAME = os.path.basename(DATA_DIR)
 workdir: DATA_DIR
+
+if not os.path.exists('logs'):
+    os.mkdir('logs')
 
 
 cell_map = {}

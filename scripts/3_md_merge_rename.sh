@@ -17,8 +17,6 @@ else
     sample_bams="${f1} ${f2}"
 fi
 bams_in=$(echo ${sample_bams} | sed 's/ / I=/g')
-echo ${bams_in}
-echo ${cellnames}
 
 java -Xmx35g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
     I=${bams_in} \

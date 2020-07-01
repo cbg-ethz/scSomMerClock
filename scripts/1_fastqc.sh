@@ -10,7 +10,7 @@ sample=$1
 REF=$2
 WGA_LIBRARY=$3
 
-mkdir -p slurm_files
+mkdir -p Adapter_Cutting
 cutadapt \
 	--minimum-length 70 \
     -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
@@ -18,7 +18,7 @@ cutadapt \
     -o Processing/${sample}.trimmed_1.fastq.gz \
     -p Processing/${sample}.trimmed_2.fastq.gz \
     Raw_Data/${sample}_1.fastq.gz Raw_Data/${sample}_2.fastq.gz \
-    > ./slurm_files/${sample}_Cutadapt.txt
+    > ./Adapter_Cutting/${sample}_Cutadapt.txt
 
 
 if [[ ${WGA_LIBRARY} == "AMPLI-1" ]]
@@ -53,4 +53,4 @@ cutadapt \
     -o Processing/${sample}.trimmed2_1.fastq.gz \
     -p Processing/${sample}.trimmed2_2.fastq.gz \
     Processing/${sample}.trimmed_1.fastq.gz Processing/${sample}.trimmed_2.fastq.gz \
-    > ./slurm_files/${sample}_CutadaptWGA.txt
+    > ./Adapter_Cutting/${sample}_CutadaptWGA.txt

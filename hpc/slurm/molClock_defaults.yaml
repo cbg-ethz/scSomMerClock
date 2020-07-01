@@ -6,6 +6,7 @@ __default__:
   mem: 4G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
+  output: './logs/slurm-%j.out'
 
 
 adapter_cutting:
@@ -60,6 +61,8 @@ indel_reallignment2:
 
 
 SCCaller:
+  partition: amd-shared
+  qos: amd-shared
   cpus-per-task: 2
   time: '60:00:00'
   mem: 50G
