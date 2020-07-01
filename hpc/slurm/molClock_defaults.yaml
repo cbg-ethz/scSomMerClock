@@ -2,6 +2,7 @@ __default__:
   partition: shared
   qos: shared
   cpus-per-task: 1
+  time: '02:00:00'
   mem: 4G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
@@ -22,28 +23,39 @@ allignment:
 remove_duplicates:
   partition: amd-shared
   qos: amd-shared
-  time: '4:00:00'
+  time: '04:00:00'
   mem: 40G
 
 
 base_recal1:
   partition: amd-shared
   qos: amd-shared
-  time: '4:00:00'
+  time: '04:00:00'
   mem: 40G
 
 
 base_recal2:
   partition: amd-shared
   qos: amd-shared
-  time: '4:00:00'
+  time: '04:00:00'
   mem: 40G
 
 
-indel_reallignment:
+indel_reallignment0:
+  time: '01:00:00'
+
+
+indel_reallignment1:
   partition: amd-shared
   qos: amd-shared
-  time: '12:00:00'
+  time: '04:00:00'
+  mem: 20G
+
+
+indel_reallignment2:
+  partition: amd-shared
+  qos: amd-shared
+  time: '06:00:00'
   mem: 40G
 
 

@@ -6,6 +6,7 @@ import sys
 
 BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
+NAME = os.path.basename(DATA_DIR), 
 workdir: DATA_DIR
 
 
@@ -99,6 +100,7 @@ rule base_recal1:
         '{params.base_dir}/scripts/4.1_base_recal.sh {wildcards.cell} '
         '{params.ref_genome} {params.dbsnp} {params.indels1}'
 
+
 rule base_recal2:
     input:
         os.path.join('Processing', '{cell}.recal.table')
@@ -113,15 +115,29 @@ rule base_recal2:
         '{params.ref_genome}'
 
 
-rule indel_reallignment:
+rule indel_reallignment0:
     input:
-        expand(os.path.join('Processing', '{cell}.recal.bam'),
+        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        os.path.join('Processing', '{cell}.real.{chr}.bam')
+        map_file = os.path.join('Reallignment', f'{NAME}.{{chr}}.map')
+    run:
+        with open(output.map_file, 'w') as f:
+            for bam_full in input.bams:
+                bam = os.path.basename(bam_full)
+                cell_id = bam.split('.')[0]
+                f.write(f'{bam}\tProcessing/{cell_id}.real.{{chr}}.bam\n')
+
+
+rule indel_reallignment1:
+    input:
+        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
+            cell=cell_map.keys())
+    output:
+        os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals')
     params:
         base_dir = BASE_DIR,
-        name = os.path.basename(DATA_DIR), 
+        name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         indels1 = os.path.join(config['static_data']['resources_path'],
@@ -129,9 +145,33 @@ rule indel_reallignment:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5_indel_realign.sh {input} -n {params.name} '
-        '-c {wildcards.chr} -r {params.ref_genome} -i1 {params.indels1} '
-        '-i2 {params.indels2}'
+        '{params.base_dir}/scripts/5.1_indel_realign.sh {input.bams} '
+        '-n {params.name} -c {wildcards.chr} -r {params.ref_genome} '
+        '-i1 {params.indels1} -i2 {params.indels2}'
+
+
+rule indel_reallignment2:
+    input:
+        bams = expand(os.path.join('Processing', '{cells}.recal.bam'),
+            cell=cell_map.keys()),
+        intervals = os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals'),
+        map_file = os.path.join('Reallignment', f'{NAME}.real.{{chr}}.map')
+    output:
+        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
+            cell=cell_map.keys())
+    params:
+        base_dir = BASE_DIR,
+        name = NAME, 
+        ref_genome = os.path.join(config['static_data']['resources_path'],
+            config['static_data']['WGA_ref']),
+        indels1 = os.path.join(config['static_data']['resources_path'],
+            config['base_recal']['indel_db1']),
+        indels2 = os.path.join(config['static_data']['resources_path'],
+            config['base_recal']['indel_db2'])
+    shell:
+        '{params.base_dir}/scripts/5.2_indel_realign.sh {input.bams} '
+        '-n {params.name} -c {wildcards.chr} -r {params.ref_genome} '
+        '-i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule SCCaller:

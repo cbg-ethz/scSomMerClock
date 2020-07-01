@@ -29,28 +29,11 @@ done
 
 bams_in=$(echo ${sample_bams} | sed 's/ / -I /g')
 
-
-echo ${sample_bams} | sed 's/ /\n/g' | sed 's/.recal.bam//g' \
-| awk -v chr=${chromosome} '{print $0".recal.bam\t"$0".real."chr".bam"}' \
-| sed 's/Processing\///' > ${name}.${chromosome}.map
-
-
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     -I ${bams_in} \
-    -o ${name}.${chromosome}.intervals \
+    -o Reallignment/${name}.${chromosome}.intervals \
     -R ${REF} \
     -known ${INDELS1} \
     -known ${INDELS2} \
     -L ${chromosome}
-
-java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
-    -T IndelRealigner \
-    -known ${INDELS1} \
-    -known ${INDELS2} \
-    -I ${bams_in} \
-    -R ${REF} \
-    -targetIntervals ${name}.${chromosome}.intervals \
-    -L ${chromosome} \
-    --nWayOut ${name}.${chromosome}.map \
-    --maxReadsForRealignment 1000000
