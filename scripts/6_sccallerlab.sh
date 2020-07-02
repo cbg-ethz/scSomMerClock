@@ -1,10 +1,10 @@
 #!/bin/sh
 
 module purge
+module load gcc/6.4.0
 module load samtools
-module load python/2.7.15
 module load pysam
-module load numpy/1.15.2-python-2.7.15
+module load numpy/1.16.6-python-2.7.17
 
 ##$1: Cell name
 ##$2: Chromosome
@@ -22,7 +22,7 @@ SCcaller=$6
 python $SCcaller \
     --bam Processing/${cellnames}.real.${chr}.bam \
     --fasta ${REF} \
-    --output Processing/${cellnames}.real.${chr}.sccallerlab.vcf \
+    --output Calls/${cellnames}.real.${chr}.sccallerlab.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
     --cpu_num 2 \

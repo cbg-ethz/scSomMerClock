@@ -1,7 +1,7 @@
 #!/bin/sh
 
 module purge
-module load gcccore/6.4.0 cutadapt/1.18-python-3.7.0
+module load cutadapt/1.18-python-3.7.0
 
 ##$1: Sample name
 ##$2: Reference genome file

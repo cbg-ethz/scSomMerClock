@@ -1,9 +1,7 @@
 #!/bin/sh
 
 module purge
-module load gcccore/6.4.0 cutadapt/1.18-python-3.7.0
-module load gcc/6.4.0 bwa/0.7.17
-module load picard/2.18.14
+module load gcc/6.4.0 bwa/0.7.17 picard/2.18.14
 
 ##$1: Sample name
 ##$2: Reference genome file
@@ -11,15 +9,12 @@ sample=$1
 REF=$2
 WGA_LIBRARY=$3
 
-ID=${sample}
 SM=$(echo ${sample} | cut -d "_" -f1)
 PL=$(echo "ILLUMINA")
 LB=$(echo "KAPA")
 PU=`zcat Raw_Data/${sample}_1.fastq.gz | head -1 | sed 's/[:].*//' | sed 's/@//' \
     | sed 's/ /_/g'`
-echo "SAMPLE: "${sample}" ID: "${ID}" SM: "${SM}
-RG="@RG\\tID:${ID}\\tSM:${SM}\\tPL:${PL}\\tLB:${LB}\\tPU:${PU}"
-echo ${RG}
+RG="@RG\\tID:${sample}\\tSM:${SM}\\tPL:${PL}\\tLB:${LB}\\tPU:${PU}"
 
 if [[ ${WGA_LIBRARY} == "AMPLI-1" ]] || [[ ${WGA_LIBRARY} == "MALBAC" ]] || [[ ${WGA_LIBRARY} == "PICOPLEX" ]]
 then    

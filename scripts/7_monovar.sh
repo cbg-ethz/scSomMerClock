@@ -10,11 +10,9 @@
 #SBATCH --qos=shared
 
 
-module load gcc/6.4.0
-module load monovar/140316-python-2.7.15
-module load scipy/1.1.0-python-2.7.15
+module load gcc/6.4.0 monovar/140316-python-2.7.15 scipy/1.1.0-python-2.7.15
 
-REF=/mnt/netapp2/posadalab2/monicav/reference/hs37d5.fa
+REF=$2
 
 ### use sbatch Monovar.sh filenames(bamspath.txt) Samplename
 

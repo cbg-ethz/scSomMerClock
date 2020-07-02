@@ -34,7 +34,7 @@ def get_corr_samples(wildcards):
 rule all:
     input:
         expand(
-            os.path.join('Processing', '{cell}.real.{chr}.sccallerlab.vcf'),
+            os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf'),
             cell=cell_map.keys(), 
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y']
         ),
@@ -157,7 +157,7 @@ rule indel_reallignment2:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys()),
         intervals = os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals'),
-        map_file = os.path.join('Reallignment', f'{NAME}.real.{{chr}}.map')
+        map_file = os.path.join('Reallignment', f'{NAME}.{{chr}}.map')
     output:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys())
@@ -180,7 +180,7 @@ rule SCCaller:
     input:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
-        os.path.join('Processing', '{cell}.real.{chr}.sccallerlab.vcf')
+        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf')
     params:
         base_dir = BASE_DIR,
         bulk = os.path.join(config['static_data']['bulk_name']),
