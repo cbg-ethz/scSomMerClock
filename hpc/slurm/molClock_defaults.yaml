@@ -16,7 +16,12 @@ adapter_cutting:
   time: '24:00:00'
 
 
-allignment:
+allignment1:
+  cpus-per-task: 10
+  time: '48:00:00'
+
+
+allignment2:
   cpus-per-task: 10
   time: '48:00:00'
 
@@ -60,9 +65,14 @@ indel_reallignment2:
   mem: 40G
 
 
-SCCaller:
+SCcaller:
   partition: amd-shared
   qos: amd-shared
   cpus-per-task: 2
   time: '06:00:00'
   mem: 40G
+
+monovar:
+  cpus-per-task: 3
+  time: 06:00:00
+  mem: 10G

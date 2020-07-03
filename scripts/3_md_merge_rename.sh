@@ -1,13 +1,14 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load picard/2.18.14
+module load $1
 
-##$1: Sorted bam files of Sample [1 or 2]
-##$2: Corresponding cell name
-f1=$1
-f2=$2
-cellnames=$3
+##$2: Sorted bam files of Sample [1 or 2]
+##$3: Corresponding cell name
+f1=$2
+f2=$3
+cellnames=$4
 
 if [ "${cellnames}" == "" ]
 then

@@ -1,16 +1,17 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load gatk/4.0.10.0
+module load $1
 
-##$1: Cell name
-##$2: Reference genome file
-##$3: DBSNP file
-##$4: INDEL db file
-cellname=$1
-REF=$2
-DBSNP=$3
-INDELS=$4
+##$2: Cell name
+##$3: Reference genome file
+##$4: DBSNP file
+##$5: INDEL db file
+cellname=$2
+REF=$3
+DBSNP=$4
+INDELS=$5
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
     -I Processing/${cellname}.dedup.bam \

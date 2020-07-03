@@ -1,7 +1,9 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load gatk/3.7-0-gcfedb67
+module load $1
+shift
 
 sample_bams=""
 while [ "$1" != "" ]; do

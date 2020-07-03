@@ -1,14 +1,15 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load cutadapt/1.18-python-3.7.0
+module load $1
 
-##$1: Sample name
-##$2: Reference genome file
-##$3: String identifyping the WGA protocol
-sample=$1
-REF=$2
-WGA_LIBRARY=$3
+##$2: Sample name
+##$3: Reference genome file
+##$4: String identifyping the WGA protocol
+sample=$2
+REF=$3
+WGA_LIBRARY=$4
 
 mkdir -p Adapter_Cutting
 cutadapt \

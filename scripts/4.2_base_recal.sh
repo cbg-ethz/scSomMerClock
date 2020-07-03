@@ -1,12 +1,13 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load gatk/4.0.10.0
+module load $1
 
-##$1: Cell name
-##$2: Reference genome file
-cellname=$1
-REF=$2
+##$2: Cell name
+##$3: Reference genome file
+cellname=$2
+REF=$3
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" ApplyBQSR \
     -R ${REF} \

@@ -2,6 +2,7 @@
 
 import os
 import sys
+from itertools import product
 
 BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
@@ -10,6 +11,8 @@ workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
+
+
 
 
 cell_map = {}
@@ -31,14 +34,22 @@ def get_corr_samples(wildcards):
         for i in cell_map[wildcards.cell]]
 
 
+def get_final_vcfs(wildcards):
+    chrom = [i for i in range(1, 23, 1)] + ['X', 'Y']
+    final_files = ['QC_sequencing.tsv']
+    if config.get('SCcaller', {}).get('run', False):
+        sccaller = [os.path.join('Calls', f'{i[0]}.real.{i[1]}.sccallerlab.vcf') \
+            for i in product(cell_map, chrom) ]
+        final_files.extend(sccaller)
+    if config.get('monovar', {}).get('run', False):
+        monovar = [os.path.join('Calls', f'{NAME}.real.{i}.monovar.vcf') \
+            for i in chrom]
+        final_files.extend(monovar)
+    return final_files
+
 rule all:
     input:
-        expand(
-            os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf'),
-            cell=cell_map.keys(), 
-            chr=[i for i in range(1, 23, 1)] + ['X', 'Y']
-        ),
-        'QC_sequencing.tsv'
+        get_final_vcfs
 
 
 rule adapter_cutting:
@@ -50,28 +61,43 @@ rule adapter_cutting:
         os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('cutadapt', 'cutadapt'),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         WGA_lib = config['static_data']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/1_fastqc.sh {wildcards.sample} '
-        '{params.ref_genome} {params.WGA_lib}'
+        '{params.base_dir}/scripts/1_fastqc.sh {params.modules} '
+        '{wildcards.sample} {params.ref_genome} {params.WGA_lib}'
     
 
-rule allignment:
+rule allignment1:
     input:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'),
         os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     output:
-        os.path.join('Processing', '{sample}.sorted.bam')
+        os.path.join('Processing', '{sample}.sam')
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('bwa', 'bwa'),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         WGA_lib = config['static_data']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/2_bwa.sh {wildcards.sample} '
-        '{params.ref_genome} {params.WGA_lib}'
+        '{params.base_dir}/scripts/2.1_bwa.sh {params.modules} '
+        '{wildcards.sample} {params.ref_genome} {params.WGA_lib}'
+
+
+rule allignment2:
+    input:
+        os.path.join('Processing', '{sample}.sam')
+    output:
+        os.path.join('Processing', '{sample}.sorted.bam')
+    params:
+        base_dir = BASE_DIR,
+        modules = config['modules'].get('picard', 'picard')
+    shell:
+        '{params.base_dir}/scripts/2.2_bwa.sh {params.modules} '
+        '{wildcards.sample}'
 
 
 rule remove_duplicates:
@@ -80,9 +106,11 @@ rule remove_duplicates:
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
     params:
-        base_dir = BASE_DIR
+        base_dir = BASE_DIR,
+        modules = config['modules'].get('picard', 'picard')
     shell:
-        '{params.base_dir}/scripts/3_md_merge_rename.sh {input} {wildcards.cell}'
+        '{params.base_dir}/scripts/3_md_merge_rename.sh {params.modules} '
+        '{input} {wildcards.cell}'
 
 
 rule base_recal1:
@@ -92,6 +120,7 @@ rule base_recal1:
         os.path.join('Processing', '{cell}.recal.table')
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('gatk', 'gatk'), 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
@@ -99,8 +128,8 @@ rule base_recal1:
         indels1 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db1'])
     shell:
-        '{params.base_dir}/scripts/4.1_base_recal.sh {wildcards.cell} '
-        '{params.ref_genome} {params.dbsnp} {params.indels1}'
+        '{params.base_dir}/scripts/4.1_base_recal.sh {params.modules} '
+        '{wildcards.cell} {params.ref_genome} {params.dbsnp} {params.indels1}'
 
 
 rule base_recal2:
@@ -110,11 +139,12 @@ rule base_recal2:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('gatk', 'gatk'),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref'])
     shell:
-        '{params.base_dir}/scripts/4.2_base_recal.sh {wildcards.cell} '
-        '{params.ref_genome}'
+        '{params.base_dir}/scripts/4.2_base_recal.sh {params.modules} '
+        '{wildcards.cell} {params.ref_genome}'
 
 
 rule indel_reallignment0:
@@ -139,6 +169,7 @@ rule indel_reallignment1:
         os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals')
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('gatk', 'gatk'),
         name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -147,9 +178,9 @@ rule indel_reallignment1:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5.1_indel_realign.sh {input.bams} '
-        '-n {params.name} -c {wildcards.chr} -r {params.ref_genome} '
-        '-i1 {params.indels1} -i2 {params.indels2}'
+        '{params.base_dir}/scripts/5.1_indel_realign.sh {params.modules} '
+        '{input.bams} -n {params.name} -c {wildcards.chr} '
+        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule indel_reallignment2:
@@ -163,6 +194,7 @@ rule indel_reallignment2:
             cell=cell_map.keys())
     params:
         base_dir = BASE_DIR,
+        modules = config['modules'].get('gatk', 'gatk'),
         name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -171,32 +203,64 @@ rule indel_reallignment2:
         indels2 = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5.2_indel_realign.sh {input.bams} '
-        '-n {params.name} -c {wildcards.chr} -r {params.ref_genome} '
-        '-i1 {params.indels1} -i2 {params.indels2}'
+        '{params.base_dir}/scripts/5.2_indel_realign.sh {params.modules} '
+        '{input.bams} -n {params.name} -c {wildcards.chr} '
+        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
 
-rule SCCaller:
+rule SCcaller:
     input:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
         os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf')
     params:
         base_dir = BASE_DIR,
-        bulk = os.path.join(config['static_data']['bulk_name']),
+        modules = config['modules'].get('SCcaller', 'SCcaller'),
+        bulk = os.path.join(config['static_data']['bulk_sample']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
             config['base_recal']['dbsnp']),
-        sccaller = config['SCCaller']['exe']
+        sccaller = config['SCcaller']['exe']
     shell:
-        '{params.base_dir}/scripts/6_sccallerlab.sh {wildcards.cell} '
-        '{wildcards.chr} {params.bulk} {params.ref_genome} {params.dbsnp} '
-        '{params.sccaller}'
+        '{params.base_dir}/scripts/6_sccallerlab.sh {params.modules} '
+        '{wildcards.cell} {wildcards.chr} {params.bulk} {params.ref_genome} '
+        '{params.dbsnp} {params.sccaller}'
+
+
+rule monovar0:
+    input:
+        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
+            cell=[i for i in cell_map \
+                if i not in config['static_data'].get(exclude_samples, [])])
+    output:
+        os.path.join('Processing', '{chr}.bamspath.txt')
+    run:
+        with open(output[0], 'w') as f:
+            for bam_file in input:
+                f.write(f'{bam_file}\t')
+        
+
+rule monovar:
+    input:
+        os.path.join('Processing', '{chr}.bamspath.txt')
+    output:
+        os.path.join('Calls', f'{NAME}.real.{{chr}}.monovar.vcf')
+    params:
+        base_dir = BASE_DIR,
+        modules = config['modules'].get('monovar', 'monovar'),
+        name = NAME,
+        ref_genome = os.path.join(config['static_data']['resources_path'],
+            config['static_data']['WGA_ref']),
+    shell:
+        '{params.base_dir}/scripts/7_monovar.sh {params.modules} '
+        '{wildcards.cell} {wildcards.chr} {params.ref_genome}'
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
 # ------------------------------------------------------------------------------
+
 
 rule create_bed:
     input:

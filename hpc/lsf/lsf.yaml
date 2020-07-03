@@ -1,0 +1,58 @@
+__default__:
+  h_vmem: '4096'
+  h_rt: '4:00'
+  threads: '1'
+  queue: ''
+    
+
+adapter_cutting:
+  threads: '10'
+  h_rt: '24:00'
+
+
+allignment1:
+  threads: '10'
+  h_rt: '48:00'
+
+
+allignment2:
+  threads: '10'
+  h_rt: '48:00'
+
+
+remove_duplicates:
+  h_rt: '10:00'
+  h_vmem: '51200'
+
+
+base_recal1:
+  h_rt: '4:00'
+  h_vmem: '51200'
+
+base_recal2:
+  h_rt: '4:00'
+  h_vmem: '51200'
+
+
+indel_reallignment0:
+  h_rt: '1:00'
+
+
+indel_reallignment1:
+  h_rt: '04:00'
+  h_vmem: '20480'
+
+indel_reallignment2:
+  h_rt: '08:00'
+  h_vmem: '40960'
+
+
+SCcaller:
+  h_rt: '24:00'
+  h_vmem: '40960'
+
+
+monovar:
+  threads: '3'
+  time: 06:00
+  mem: '20480'

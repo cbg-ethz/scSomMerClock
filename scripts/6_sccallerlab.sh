@@ -1,23 +1,21 @@
 #!/bin/sh
 
+##$1: Module names
 module purge
-module load gcc/6.4.0
-module load samtools
-module load pysam
-module load numpy/1.16.6-python-2.7.17
+module load $1
 
-##$1: Cell name
-##$2: Chromosome
-##$3: Bulk normal "cell" name
-##$4: Reference genome file
-##$5: DBSNP file
-##$6: SCCaller exe
-cellnames=$1
-chr=$2
-bulk_normal=$3
-REF=$4
-DBSNP=$5
-SCcaller=$6
+##$2: Cell name
+##$3: Chromosome
+##$4: Bulk normal "cell" name
+##$5: Reference genome file
+##$6: DBSNP file
+##$7: SCCaller exe
+cellnames=$2
+chr=$3
+bulk_normal=$4
+REF=$5
+DBSNP=$6
+SCcaller=$7
 
 python $SCcaller \
     --bam Processing/${cellnames}.real.${chr}.bam \
