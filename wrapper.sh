@@ -1,9 +1,5 @@
 #!/bin/sh
 
-# module purge
-# module load snakemake/5.4.5-python-3.6.8
-
-
 SNAKE_CMD="snakemake --keep-going --restart-times=0"
 while [ "$1" != "" ]; do
     case $1 in
@@ -19,4 +15,5 @@ done
 echo ''
 echo 'Running Snakemake:'
 echo "${SNAKE_CMD}"
-${SNAKE_CMD}
+module purge
+module load snakemake && ${SNAKE_CMD}
