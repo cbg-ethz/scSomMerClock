@@ -1,15 +1,30 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Sample name
-##$3: Reference genome file
-##$4: WGA Library string 
-sample=$2
-REF=$3
-WGA_LIBRARY=$4
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -s | --sample )     shift
+                            sample=$1
+                            ;;
+        -r | --ref )        shift
+                            REF=$1
+                            ;;
+        -l | --lib )        shift
+                            WGA_LIBRARY=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
+
 
 SM=$(echo ${sample} | cut -d "_" -f1)
 PL=$(echo "ILLUMINA")

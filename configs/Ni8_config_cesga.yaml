@@ -24,12 +24,9 @@ monovar:
   run: True
 
 modules:
-  cutadapt: cutadapt/1.18-python-3.7.0
-  bwa: gcc/6.4.0 bwa/0.7.17
-  picard: picard/2.18.14
-  gatk: gatk/4.0.10.0
-  samtools: samtools
-  pysam: pysam  
-  numpy: numpy/1.16.6-python-2.7.17
-  SCcaller: samtools pysam numpy/1.16.6-python-2.7.17
-  monovar: gcc/6.4.0 samtools monovar/140316-python-2.7.15 scipy/1.1.0-python-2.7.15
+  cutadapt: [cutadapt/1.18-python-3.7.0]
+  bwa: [gcc/6.4.0, bwa/0.7.17]
+  picard: [picard/2.18.14]
+  gatk: [gatk/4.0.10.0]
+  SCcaller: [samtools, pysam, numpy/1.16.6-python-2.7.17]
+  monovar: [gcc/6.4.0, samtools, monovar/140316-python-2.7.15, scipy/1.1.0-python-2.7.15]

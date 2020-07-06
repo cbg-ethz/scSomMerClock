@@ -1,13 +1,25 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Cell name
-##$3: Reference genome file
-cellname=$2
-REF=$3
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -r | --ref )        shift
+                            REF=$1
+                            ;;
+        -s | --sample )     shift
+                            cellname=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" ApplyBQSR \
     -R ${REF} \

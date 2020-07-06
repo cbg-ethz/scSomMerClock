@@ -1,26 +1,46 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Cell name
-##$3: Chromosome
-##$4: Bulk normal "cell" name
-##$5: Reference genome file
-##$6: DBSNP file
-##$7: SCCaller exe
-cellnames=$2
-chr=$3
-bulk_normal=$4
-REF=$5
-DBSNP=$6
-SCcaller=$7
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -c | --chr)         shift
+                            chr=$1
+                            ;;
+        -r | --ref )        shift
+                            REF=$1
+                            ;;
+        -s | --sample )     shift
+                            cellname=$1
+                            ;;
+        -e | --exe )        shift
+                            SCcaller=$1
+                            ;;
+        -b | --bulk )       shift
+                            bulk_normal=$1
+                            ;;
+        -d | --dbsnp )      shift
+                            DBSNP=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
+[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$SCcaller" ]] && { echo "Error: SCcaller exe not set"; exit 1; }
+[[ -z "$bulk_normal" ]] && { echo "Error: Bulk normal not set"; exit 1; }
+[[ -z "$DBSNP" ]] && { echo "Error: DBSNP file not set"; exit 1; }
 
 python $SCcaller \
-    --bam Processing/${cellnames}.real.${chr}.bam \
+    --bam Processing/${cellname}.real.${chr}.bam \
     --fasta ${REF} \
-    --output Calls/${cellnames}.real.${chr}.sccallerlab.vcf \
+    --output Calls/${cellname}.real.${chr}.sccallerlab.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
     --cpu_num 2 \

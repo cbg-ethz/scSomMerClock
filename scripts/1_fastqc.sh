@@ -1,15 +1,30 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Sample name
-##$3: Reference genome file
-##$4: String identifyping the WGA protocol
-sample=$2
-REF=$3
-WGA_LIBRARY=$4
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -s | --sample )     shift
+                            sample=$1
+                            ;;
+        -r | --ref )        shift
+                            REF=$1
+                            ;;
+        -l | --lib )        shift
+                            WGA_LIBRARY=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
+
 
 mkdir -p Adapter_Cutting
 cutadapt \
@@ -19,7 +34,7 @@ cutadapt \
     -o Processing/${sample}.trimmed_1.fastq.gz \
     -p Processing/${sample}.trimmed_2.fastq.gz \
     Raw_Data/${sample}_1.fastq.gz Raw_Data/${sample}_2.fastq.gz \
-    > ./Adapter_Cutting/${sample}_Cutadapt.txt
+    > Adapter_Cutting/${sample}_Cutadapt.txt
 
 
 if [[ ${WGA_LIBRARY} == "AMPLI-1" ]]
@@ -54,4 +69,4 @@ cutadapt \
     -o Processing/${sample}.trimmed2_1.fastq.gz \
     -p Processing/${sample}.trimmed2_2.fastq.gz \
     Processing/${sample}.trimmed_1.fastq.gz Processing/${sample}.trimmed_2.fastq.gz \
-    > ./Adapter_Cutting/${sample}_CutadaptWGA.txt
+    > Adapter_Cutting/${sample}_CutadaptWGA.txt

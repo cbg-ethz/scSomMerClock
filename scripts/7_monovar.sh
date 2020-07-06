@@ -1,13 +1,25 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Chromosome
-##$3: Reference genome file
-chr=$2
-REF=$3
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -c | --chr)         shift
+                            chr=$1
+                            ;;
+        -r | --ref )        shift
+                            REF=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 
 samtools mpileup \
     -r ${chr} \

@@ -1,19 +1,19 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
-shift
 
 sample_bams=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
         -n | --name)        shift
                             name=$1
                             ;;
         -c | --chr)         shift
-                            chromosome=$1
+                            chr=$1
                             ;;
         -r | --ref )        shift
                             REF=$1
@@ -29,6 +29,12 @@ while [ "$1" != "" ]; do
     shift
 done
 
+[[ -z "$name" ]] && { echo "Error: Dataset name not set"; exit 1; }
+[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$INDELS1" ]] && { echo "Error: First Indel file not set"; exit 1; }
+[[ -z "$INDELS2" ]] && { echo "Error: Second Indel file not set"; exit 1; }
+
 bams_in=$(echo ${sample_bams} | sed 's/ / -I /g')
 
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
@@ -37,7 +43,7 @@ java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar 
     -known ${INDELS2} \
     -I ${bams_in} \
     -R ${REF} \
-    -targetIntervals Reallignment/${name}.${chromosome}.intervals \
-    -L ${chromosome} \
-    --nWayOut Reallignment/${name}.${chromosome}.map \
+    -targetIntervals Reallignment/${name}.${chr}.intervals \
+    -L ${chr} \
+    --nWayOut Reallignment/${name}.${chr}.map \
     --maxReadsForRealignment 1000000

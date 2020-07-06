@@ -1,11 +1,21 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
 
-##$2: Sample name
-sample=$2
+while [ "$1" != "" ]; do
+    key=$1
+    case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
+        -s | --sample )     shift
+                            sample=$1
+                            ;;
+    esac
+    shift
+done
+
+[[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
 
 java -Xmx18g -jar $EBROOTPICARD/picard.jar SortSam \
     I=Processing/${sample}.sam \

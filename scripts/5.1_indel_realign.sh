@@ -1,19 +1,19 @@
 #!/bin/sh
 
-##$1: Module names
 module purge
-module load $1
-shift
 
-sample_bams=""
+bams_in=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
+        -m | --module)      shift
+                            module load $1
+                            ;;
         -n | --name)        shift
                             name=$1
                             ;;
         -c | --chr)         shift
-                            chromosome=$1
+                            chr=$1
                             ;;
         -r | --ref )        shift
                             REF=$1
@@ -24,18 +24,23 @@ while [ "$1" != "" ]; do
         -i2 | --indels2 )   shift
                             INDELS2=$1
                             ;;
-        *)                  sample_bams+="$1 " 
+        *)                  bams_in+="I=$1 "
+                            ;;
     esac
     shift
 done
 
-bams_in=$(echo ${sample_bams} | sed 's/ / -I /g')
+[[ -z "$name" ]] && { echo "Error: Dataset name not set"; exit 1; }
+[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
+[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$INDELS1" ]] && { echo "Error: First Indel file not set"; exit 1; }
+[[ -z "$INDELS2" ]] && { echo "Error: Second Indel file not set"; exit 1; }
 
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
-    -I ${bams_in} \
-    -o Reallignment/${name}.${chromosome}.intervals \
+    ${bams_in} \
+    -o Reallignment/${name}.${chr}.intervals \
     -R ${REF} \
     -known ${INDELS1} \
     -known ${INDELS2} \
-    -L ${chromosome}
+    -L ${chr}
