@@ -265,7 +265,7 @@ rule monovar:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
-        os.path.join('Calls', f'{NAME}.real.{{chr}}.monovar.vcf')
+        os.path.join('Calls', '{chr}.monovar.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
