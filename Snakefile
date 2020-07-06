@@ -13,8 +13,6 @@ if not os.path.exists('logs'):
     os.mkdir('logs')
 
 
-
-
 cell_map = {}
 with open(config['static_data']['cellnames'], 'r') as f:
     lines = f.read().strip().split('\n')
@@ -27,7 +25,15 @@ with open(config['static_data']['cellnames'], 'r') as f:
                 'Only implemented for 1 or 2 samples per cell.')
         else:
             cell_map[row[-1]] = row[:-1]
-                    
+
+cells_exclude = []
+if config['static_data'].get('exclude_samples', False):
+    cells_ex = config['static_data']['exclude_samples']
+    if istype(cells_ex, str):
+        cells_exclude.append(cells_ex)
+    elif istype(cells_ex, list):
+        cells_exclude.extend(cells_ex)
+
 
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
@@ -231,8 +237,7 @@ rule SCcaller:
 rule monovar0:
     input:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
-            cell=[i for i in cell_map \
-                if i not in config['static_data'].get('exclude_samples', [])])
+            cell=[i for i in cell_map.keys() if i not in cells_exclude])
     output:
         os.path.join('Processing', '{chr}.bamspath.txt')
     run:
