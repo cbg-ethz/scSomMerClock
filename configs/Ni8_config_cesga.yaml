@@ -32,4 +32,4 @@ modules:
   pysam: pysam  
   numpy: numpy/1.16.6-python-2.7.17
   SCcaller: samtools pysam numpy/1.16.6-python-2.7.17
-  monovar: gcc/6.4.0 monovar/140316-python-2.7.15 scipy/1.1.0-python-2.7.15
+  monovar: gcc/6.4.0 samtools monovar/140316-python-2.7.15 scipy/1.1.0-python-2.7.15
