@@ -259,7 +259,7 @@ rule monovar:
             config['static_data']['WGA_ref']),
     shell:
         '{params.base_dir}/scripts/7_monovar.sh {params.modules} '
-        '{wildcards.cell} {wildcards.chr} {params.ref_genome}'
+        '{wildcards.chr} {params.ref_genome}'
 
 
 # ------------------------------------------------------------------------------

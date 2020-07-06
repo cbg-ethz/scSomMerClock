@@ -4,14 +4,10 @@
 module purge
 module load $1
 
-##$2: Dataset name
-##$3: Chromosome
-##$4: Reference genome file
-name=$2
-chr=$3
-REF=$4
-
-
+##$2: Chromosome
+##$3: Reference genome file
+chr=$2
+REF=$3
 
 samtools mpileup \
     -r ${chr} \
@@ -28,4 +24,4 @@ monovar.py \
     -c 1 \
     -f ${REF} \
     -b Processing/${chr}.bamspath.txt \
-    -o Calls/${name}.${chr}.monovar.vcf
+    -o Calls/${chr}.monovar.vcf
