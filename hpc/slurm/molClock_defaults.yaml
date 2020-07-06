@@ -6,7 +6,7 @@ __default__:
   mem: 4G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
-  output: '"./logs/slurm-%j.out"'
+  output: logs/slurm-%j.out
 
 
 adapter_cutting:
