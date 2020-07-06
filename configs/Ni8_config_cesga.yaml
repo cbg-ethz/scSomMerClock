@@ -3,8 +3,8 @@ static_data:
   resources_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/RESOURCES
   cellnames: acc-cell.txt
   WGA_ref: hs37d5.fa
-  bulk_sample: P01D01E
-  exclude_samples: 
+  bulk_normal: P01D01E
+  exclude_samples: P01M01E, P01P01E
   WGA_library: MALBAC
   SEQ: WES
 

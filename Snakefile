@@ -26,13 +26,19 @@ with open(config['static_data']['cellnames'], 'r') as f:
         else:
             cell_map[row[-1]] = row[:-1]
 
-cells_exclude = []
+# Get samples to exclude for Monovar SNV calling
+if config['static_data'].get('bulk_normal', False):
+    cells_exclude = [config['static_data']['bulk_normal']]
+else:
+    cells_exclude = []
+
 if config['static_data'].get('exclude_samples', False):
     cells_ex = config['static_data']['exclude_samples']
     if istype(cells_ex, str):
         cells_exclude.append(cells_ex)
     elif istype(cells_ex, list):
         cells_exclude.extend(cells_ex)
+
 
 
 def get_corr_samples(wildcards):
@@ -222,7 +228,7 @@ rule SCcaller:
     params:
         base_dir = BASE_DIR,
         modules = config['modules'].get('SCcaller', 'SCcaller'),
-        bulk = os.path.join(config['static_data']['bulk_sample']),
+        bulk = os.path.join(config['static_data']['bulk_normal']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         dbsnp = os.path.join(config['static_data']['resources_path'],
