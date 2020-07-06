@@ -40,7 +40,6 @@ if config['static_data'].get('exclude_samples', False):
         cells_exclude.extend(cells_ex)
 
 
-
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
         for i in cell_map[wildcards.cell]]

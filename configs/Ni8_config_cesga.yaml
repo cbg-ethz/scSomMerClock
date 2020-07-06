@@ -4,7 +4,7 @@ static_data:
   cellnames: acc-cell.txt
   WGA_ref: hs37d5.fa
   bulk_normal: P01D01E
-  exclude_samples: P01M01E, P01P01E
+  exclude_samples: [P01M01E, P01P01E]
   WGA_library: MALBAC
   SEQ: WES
 
