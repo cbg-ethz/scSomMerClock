@@ -6,7 +6,6 @@ from itertools import product
 
 BASE_DIR = workflow.basedir
 DATA_DIR = config['static_data']['data_path']
-NAME = os.path.basename(DATA_DIR)
 workdir: DATA_DIR
 
 if not os.path.exists('logs'):
@@ -53,8 +52,7 @@ def get_final_vcfs(wildcards):
             for i in product(cell_map, chrom) ]
         final_files.extend(sccaller)
     if config.get('monovar', {}).get('run', False):
-        monovar = [os.path.join('Calls', f'{NAME}.real.{i}.monovar.vcf') \
-            for i in chrom]
+        monovar = [os.path.join('Calls', f'{i}.monovar.vcf') for i in chrom]
         final_files.extend(monovar)
     return final_files
 
@@ -170,7 +168,7 @@ rule indel_reallignment0:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        map_file = os.path.join('Reallignment', f'{NAME}.{{chr}}.map')
+        map_file = os.path.join('Reallignment', '{chr}.map')
     run:
         with open(output.map_file, 'w') as f:
             for bam_full in input.bams:
@@ -184,12 +182,11 @@ rule indel_reallignment1:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals')
+        os.path.join('Reallignment', '{chr}.intervals')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         indels1 = os.path.join(config['static_data']['resources_path'],
@@ -198,16 +195,16 @@ rule indel_reallignment1:
             config['base_recal']['indel_db2'])
     shell:
         '{params.base_dir}/scripts/5.1_indel_realign.sh {input.bams} '
-        '{params.modules} -n {params.name} -c {wildcards.chr} '
-        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
+        '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
+        '-i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule indel_reallignment2:
     input:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys()),
-        intervals = os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals'),
-        map_file = os.path.join('Reallignment', f'{NAME}.{{chr}}.map')
+        intervals = os.path.join('Reallignment', '{chr}.intervals'),
+        map_file = os.path.join('Reallignment', '{chr}.map')
     output:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys())
@@ -215,7 +212,6 @@ rule indel_reallignment2:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
         indels1 = os.path.join(config['static_data']['resources_path'],
@@ -224,8 +220,8 @@ rule indel_reallignment2:
             config['base_recal']['indel_db2'])
     shell:
         '{params.base_dir}/scripts/5.2_indel_realign.sh {input.bams} '
-        '{params.modules} -n {params.name} -c {wildcards.chr} '
-        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
+        '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
+        '-i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule SCcaller:
@@ -270,7 +266,6 @@ rule monovar:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar'])]),
-        name = NAME,
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
     shell:

@@ -9,9 +9,6 @@ while [ "$1" != "" ]; do
         -m | --module)      shift
                             module load $1
                             ;;
-        -n | --name)        shift
-                            name=$1
-                            ;;
         -c | --chr)         shift
                             chr=$1
                             ;;
@@ -30,7 +27,6 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$name" ]] && { echo "Error: Dataset name not set"; exit 1; }
 [[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 [[ -z "$INDELS1" ]] && { echo "Error: First Indel file not set"; exit 1; }
@@ -39,7 +35,7 @@ done
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     ${bams_in} \
-    -o Reallignment/${name}.${chr}.intervals \
+    -o Reallignment/${chr}.intervals \
     -R ${REF} \
     -known ${INDELS1} \
     -known ${INDELS2} \
