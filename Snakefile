@@ -72,7 +72,7 @@ rule adapter_cutting:
         os.path.join('Processing', '{sample}.trimmed_2.fastq.gz')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('cutadapt', ['cutadapt'])]),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -90,7 +90,7 @@ rule allignment1:
         os.path.join('Processing', '{sample}.sam')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bwa', ['bwa'])]),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -107,7 +107,7 @@ rule allignment2:
         os.path.join('Processing', '{sample}.sorted.bam')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('picard', ['picard'])])
     shell:
         '{params.base_dir}/scripts/2.2_bwa.sh {params.modules} '
@@ -121,7 +121,7 @@ rule remove_duplicates:
         os.path.join('Processing', '{cell}.dedup.bam')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('picard', ['picard'])])
     shell:
         '{params.base_dir}/scripts/3_md_merge_rename.sh {input} '
@@ -135,7 +135,7 @@ rule base_recal1:
         os.path.join('Processing', '{cell}.recal.table')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref']),
@@ -156,7 +156,7 @@ rule base_recal2:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
         ref_genome = os.path.join(config['static_data']['resources_path'],
             config['static_data']['WGA_ref'])
@@ -187,7 +187,7 @@ rule indel_reallignment1:
         os.path.join('Reallignment', f'{NAME}.{{chr}}.intervals')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
         name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
@@ -213,7 +213,7 @@ rule indel_reallignment2:
             cell=cell_map.keys())
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
         name = NAME, 
         ref_genome = os.path.join(config['static_data']['resources_path'],
@@ -235,7 +235,7 @@ rule SCcaller:
         os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
         bulk = os.path.join(config['static_data']['bulk_normal']),
         ref_genome = os.path.join(config['static_data']['resources_path'],
@@ -268,7 +268,7 @@ rule monovar:
         os.path.join('Calls', f'{NAME}.real.{{chr}}.monovar.vcf')
     params:
         base_dir = BASE_DIR,
-        modules = '-m ' + ' '.join([f'-m {i}' for i in \
+        modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar'])]),
         name = NAME,
         ref_genome = os.path.join(config['static_data']['resources_path'],
