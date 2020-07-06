@@ -232,7 +232,7 @@ rule monovar0:
     input:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=[i for i in cell_map \
-                if i not in config['static_data'].get(exclude_samples, [])])
+                if i not in config['static_data'].get('exclude_samples', [])])
     output:
         os.path.join('Processing', '{chr}.bamspath.txt')
     run:
