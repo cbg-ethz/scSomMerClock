@@ -34,9 +34,9 @@ else:
 
 if config['static_data'].get('exclude_samples', False):
     cells_ex = config['static_data']['exclude_samples']
-    if istype(cells_ex, str):
+    if isinstance(cells_ex, str):
         cells_exclude.append(cells_ex)
-    elif istype(cells_ex, list):
+    elif isinstance(cells_ex, list):
         cells_exclude.extend(cells_ex)
 
 
