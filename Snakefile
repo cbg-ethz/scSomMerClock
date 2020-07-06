@@ -248,7 +248,7 @@ rule monovar0:
     run:
         with open(output[0], 'w') as f:
             for bam_file in input:
-                f.write(f'{bam_file}\t')
+                f.write(f'{bam_file}\n')
         
 
 rule monovar:
