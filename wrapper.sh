@@ -21,6 +21,7 @@ LOGFILE="logs/snakelog.${JOBID}.out"
 
 # Run workflow
 echo ""
+echo ""
 echo "=========================================="
 echo "Running Snakemake:"
 echo "${SNAKE_CMD}"
