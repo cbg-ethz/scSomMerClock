@@ -90,10 +90,12 @@ rule allignment1:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bwa', ['bwa'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
         '{params.base_dir}/scripts/2.1_bwa.sh {params.modules} '
-        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib}'
+        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib} '
+        '{params.pair_end}'
 
 
 rule allignment2:
