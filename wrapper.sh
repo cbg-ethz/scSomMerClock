@@ -11,9 +11,18 @@ while [ "$1" != "" ]; do
     shift
 done
 
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+    JOB_ID = ${SLURM_JOB_ID}
+else
+    JOBID=$(date +%Y-%m-%d.%H-%M)  
+fi
+LOGFILE="snakelog.${JOBID}.out"
 # Run workflow
 echo ''
 echo 'Running Snakemake:'
 echo "${SNAKE_CMD}"
+echo "Logging output to: ${LOGFILE}"
+
 module purge
-module load snakemake && ${SNAKE_CMD}
+module load snakemake && ${SNAKE_CMD} &> ${LOGFILE}
