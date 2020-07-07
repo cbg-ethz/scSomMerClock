@@ -66,7 +66,7 @@ rule adapter_cutting:
     input:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
-        os.path.join('Processing', '{sample}.trimmed2_1.fastq.gz')
+        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -82,7 +82,7 @@ rule adapter_cutting:
 
 rule allignment1:
     input:
-        os.path.join('Processing', '{sample}.trimmed2_1.fastq.gz')
+        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     output:
         os.path.join('Processing', '{sample}.sam')
     params:

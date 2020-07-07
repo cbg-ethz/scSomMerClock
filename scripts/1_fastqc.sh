@@ -90,12 +90,6 @@ then
         fi
 else 
         echo "CutAdapt not needed for ${WGA_LIBRARY}?"
-        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-        ln -s ${DIR}/Processing/${sample}.trimmed_1.fastq.gz ${DIR}/Processing/${sample}.trimmed2_1.fastq.gz
-        if [ "${pair_end}" = true ]
-        then
-            ln -s ${DIR}/Processing/${sample}.trimmed_2.fastq.gz ${DIR}/Processing/${sample}.trimmed2_2.fastq.gz
-        fi
         exit
 fi
 
