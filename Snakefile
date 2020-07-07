@@ -304,7 +304,7 @@ rule create_bed:
             config['specific'].get('WES_target_path', '-1'))
     shell:
         '{params.base_dir}/scripts/QC_cov.sh {params.modules} '
-        '-i {input} -o {output} --seq {params.seq} -t {params.target}'
+        '-i {input} -o {output} --seq {params.seq} -e {params.target}'
 
 
 rule QC_sequencing:

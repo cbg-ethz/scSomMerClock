@@ -25,7 +25,7 @@ while [ "$1" != "" ]; do
         -b | --bulk )     shift
                             bams_in+="-I $1 " 
                             ;;
-        -n | --normal )      shift
+        -n | --normal )     shift
                             normal_in="-normal $1 "
                             ;;
     esac

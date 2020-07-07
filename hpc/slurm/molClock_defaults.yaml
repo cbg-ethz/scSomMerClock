@@ -37,7 +37,7 @@ base_recal1:
   partition: amd-shared
   qos: amd-shared
   time: 360
-  mem: 40G
+  mem: 50G
 
 
 base_recal2:
