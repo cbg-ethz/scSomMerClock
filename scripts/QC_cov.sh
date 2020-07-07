@@ -26,7 +26,7 @@ done
 
 [[ -z "$in_file" ]] && { echo "Error: Input .bam file not set"; exit 1; }
 [[ -z "$out_file" ]] && { echo "Error: Output .bed not set"; exit 1; }
-[[ -z "$seq" ]] && { echo "Error: Sequencing platform not set"; exit 1; }
+[[ -z "$SEQ" ]] && { echo "Error: Sequencing platform not set"; exit 1; }
 [[ -z "$WES_REF" ]] && { echo "Error: Exome target file not set"; exit 1; }
 
 if [[ ${SEQ} == "WGA" ]]
