@@ -36,6 +36,7 @@ if [ "${pair_end}" = true ]
 then
     cutadapt \
     	--minimum-length 70 \
+        --cores=0 \
         -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
         -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT \
         -o Processing/${sample}.trimmed_1.fastq.gz \
@@ -45,6 +46,7 @@ then
 else
     cutadapt \
         --minimum-length 70 \
+        --cores=0 \
         -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
         -o Processing/${sample}.trimmed_1.fastq.gz \
         Raw_Data/${sample}_1.fastq.gz \
@@ -100,6 +102,7 @@ if [ "${pair_end}" = true ]
 then
     cutadapt \
     	--minimum-length 70 \
+        --cores=0 \
         ${adapters_to_remove} \
         -o Processing/${sample}.trimmed2_1.fastq.gz \
         -p Processing/${sample}.trimmed2_2.fastq.gz \
@@ -108,6 +111,7 @@ then
 else
     cutadapt \
         --minimum-length 70 \
+        --cores=0 \
         ${adapters_to_remove} \
         -o Processing/${sample}.trimmed2_1.fastq.gz \
         Processing/${sample}.trimmed_1.fastq.gz \

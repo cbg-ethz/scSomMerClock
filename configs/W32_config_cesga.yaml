@@ -23,7 +23,7 @@ monovar:
   run: True
 
 modules:
-  cutadapt: [cutadapt/1.18-python-3.7.0]
+  cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
   bwa: [gcc/6.4.0, bwa/0.7.17]
   picard: [picard/2.18.14]
   gatk: [gatk/4.0.10.0]
