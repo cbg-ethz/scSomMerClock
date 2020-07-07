@@ -6,14 +6,14 @@ static:
   indel_db2: 1000G_phase1.indels.b37.vcf
 
 specific:
-  data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/Ni8
+  data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/W32
   cellnames: acc-cell.txt
-  pair_end: True
-  bulk_normal: P01D01E
-  bulk_samples: [P01M01E, P01P01E]
-  WGA_library: MALBAC
+  pair_end: False
+  bulk_normal: TNBC_Pop_Normal
+  bulk_samples: [TNBC_Pop_Normal, TNBC_Pop_Tumor]
+  WGA_library: MDA
   SEQ: WES
-  WES_target_path: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
+  WES_target_path: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed
   
 SCcaller:
   run: True

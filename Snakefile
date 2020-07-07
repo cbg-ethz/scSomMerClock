@@ -66,21 +66,23 @@ rule adapter_cutting:
     input:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
-        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
+        os.path.join('Processing', '{sample}.trimmed2_1.fastq.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('cutadapt', ['cutadapt'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
         '{params.base_dir}/scripts/1_fastqc.sh {params.modules} '
-        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib}'
-    
+        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib} '
+        '{params.pair_end}'
+
 
 rule allignment1:
     input:
-        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
+        os.path.join('Processing', '{sample}.trimmed2_1.fastq.gz')
     output:
         os.path.join('Processing', '{sample}.sam')
     params:
