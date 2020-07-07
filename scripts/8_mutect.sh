@@ -22,12 +22,11 @@ while [ "$1" != "" ]; do
         -p | --pon )        shift
                             PON=$1
                             ;;
-        -n | --normal )     shift
+        -b | --bulk )     shift
                             bams_in+="-I $1 " 
-                            normal_in="-normal $1 "
                             ;;
-        -t | --tumor )      shift
-                            bams_in+="-I $1 " 
+        -n | --normal )      shift
+                            normal_in="-normal $1 "
                             ;;
     esac
     shift

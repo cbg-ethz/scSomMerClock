@@ -7,7 +7,7 @@ from itertools import product
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-workdir: DATA_DIR
+# workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -39,7 +39,7 @@ if config['specific'].get('bulk_samples', False):
     elif isinstance(bulk, list):
         bulk_samples.union(bulk)
 
-
+import pdb; pdb.set_trace()
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
         for i in cell_map[wildcards.cell]]
@@ -278,13 +278,12 @@ rule mutect:
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
-        tumor = ' '.join( [f'-t {i}' for i in \
-            bulk_samples.difference([config['specific']['bulk_normal']])] ),
-        normal = f'-n {config["specific"]["bulk_normal"]}'
+        bulk = ' '.join([f'-b {i}' for i in bulk_samples]),
+        normal = f'-n {cell_map[config["specific"]["bulk_normal"]]}'
     shell:
         '{params.base_dir}/scripts/8_mutect.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
-        '-p {params.pon} {params.tumor} {params.normal}'
+        '-p {params.pon} {params.bulk} {params.normal}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
