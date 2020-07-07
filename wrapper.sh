@@ -24,5 +24,5 @@ echo 'Running Snakemake:'
 echo "${SNAKE_CMD}"
 echo "Logging output to: ${LOGFILE}"
 
-module purge
-module load snakemake && ${SNAKE_CMD} &> ${LOGFILE}
+module purge > /dev/null
+module load snakemake > /dev/null && ${SNAKE_CMD} &> ${LOGFILE}
