@@ -19,10 +19,12 @@ else
 fi
 LOGFILE="logs/snakelog.${JOBID}.out"
 # Run workflow
-echo ''
-echo 'Running Snakemake:'
+echo "print =========================================="
+echo "Running Snakemake:"
 echo "${SNAKE_CMD}"
+echo ""
 echo "Logging output to: ${LOGFILE}"
+echo "print =========================================="
 
 module --quiet purge
 module --quiet load snakemake && ${SNAKE_CMD} &> ${LOGFILE}
