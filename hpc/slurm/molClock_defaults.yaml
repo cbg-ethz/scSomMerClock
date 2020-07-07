@@ -20,12 +20,12 @@ adapter_cutting:
 allignment1:
   cpus-per-task: 10
   time: '48:00:00'
-
+  mem: 40G
 
 allignment2:
   cpus-per-task: 10
   time: '48:00:00'
-
+  mem:40G
 
 remove_duplicates:
   partition: amd-shared
