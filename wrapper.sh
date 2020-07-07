@@ -17,7 +17,7 @@ then
 else
     JOBID=$(date +%Y-%m-%d.%H-%M)  
 fi
-LOGFILE="snakelog.${JOBID}.out"
+LOGFILE="logs/snakelog.${JOBID}.out"
 # Run workflow
 echo ''
 echo 'Running Snakemake:'
