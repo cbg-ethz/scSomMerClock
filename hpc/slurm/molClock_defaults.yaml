@@ -31,7 +31,7 @@ remove_duplicates:
   partition: amd-shared
   qos: amd-shared
   time: '04:00:00'
-  mem: 40G
+  mem: 45G
 
 
 base_recal1:
