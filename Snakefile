@@ -279,7 +279,7 @@ rule mutect:
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
         bulk = ' '.join([f'-b {i}' for i in bulk_samples]),
-        normal = f'-n {cell_map[config["specific"]["bulk_normal"]]}'
+        normal = f'-n {cell_map[config["specific"]["bulk_normal"]][0]}'
     shell:
         '{params.base_dir}/scripts/8_mutect.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
