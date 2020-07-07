@@ -15,7 +15,7 @@ if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
 then
     JOB_ID = ${SLURM_JOB_ID}
 else
-    JOBID=$(date +%Y-%m-%d.%H-%M)  
+    JOBID=$(date +%Y-%m-%d.%H-%M-%S)  
 fi
 LOGFILE="logs/snakelog.${JOBID}.out"
 # Run workflow
