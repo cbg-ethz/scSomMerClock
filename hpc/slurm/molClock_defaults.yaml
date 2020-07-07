@@ -76,3 +76,8 @@ monovar:
   cpus-per-task: 3
   time: 600
   mem: 10G
+
+
+mutect:
+  time: 1440
+  mem: 40G

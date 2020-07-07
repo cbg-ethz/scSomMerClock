@@ -28,16 +28,16 @@ with open(config['specific']['cellnames'], 'r') as f:
 
 # Get samples to exclude for Monovar SNV calling
 if config['specific'].get('bulk_normal', False):
-    cells_exclude = [config['specific']['bulk_normal']]
+    bulk_samples = set([config['specific']['bulk_normal']])
 else:
-    cells_exclude = []
+    bulk_samples = set([])
 
 if config['specific'].get('bulk_samples', False):
-    cells_ex = config['specific']['bulk_samples']
-    if isinstance(cells_ex, str):
-        cells_exclude.append(cells_ex)
-    elif isinstance(cells_ex, list):
-        cells_exclude.extend(cells_ex)
+    bulk = config['specific']['bulk_samples']
+    if isinstance(bulk, str) :
+        bulk_samples.add(bulk)
+    elif isinstance(bulk, list):
+        bulk_samples.union(bulk)
 
 
 def get_corr_samples(wildcards):
@@ -55,7 +55,11 @@ def get_final_vcfs(wildcards):
     if config.get('monovar', {}).get('run', False):
         monovar = [os.path.join('Calls', f'{i}.monovar.vcf') for i in chrom]
         final_files.extend(monovar)
+    if bulk_samples:
+        mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
+        final_files.extend(mutect)
     return final_files
+
 
 rule all:
     input:
@@ -223,7 +227,7 @@ rule SCcaller:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
-        bulk = os.path.join(config['specific']['bulk_normal']),
+        bulk = config['specific']['bulk_normal'],
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         sccaller = config['SCcaller']['exe']
@@ -236,7 +240,7 @@ rule SCcaller:
 rule monovar0:
     input:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
-            cell=[i for i in cell_map.keys() if i not in cells_exclude])
+            cell=[i for i in cell_map.keys() if i not in bulk_samples])
     output:
         os.path.join('Processing', '{chr}.bamspath.txt')
     run:
@@ -254,11 +258,33 @@ rule monovar:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+
     shell:
         '{params.base_dir}/scripts/7_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome}'
 
+
+rule mutect:
+    input: 
+        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'), 
+            cell=bulk_samples)
+    output:
+        os.path.join('Calls', '{chr}.mutect.vcf')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('gatk', ['gatk'])]),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        germ_res = os.path.join(RES_PATH, config['static']['germline']),
+        pon = os.path.join(RES_PATH, config['specific']['PON']),
+        tumor = ' '.join( [f'-t {i}' for i in \
+            bulk_samples.difference([config['specific']['bulk_normal']])] ),
+        normal = f'-n {config["specific"]["bulk_normal"]}'
+    shell:
+        '{params.base_dir}/scripts/8_mutect.sh {params.modules} '
+        '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
+        '-p {params.pon} {params.tumor} {params.normal}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
