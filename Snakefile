@@ -10,7 +10,7 @@ RES_PATH = config['static']['resources_path']
 workdir: DATA_DIR
 
 if not os.path.exists('logs'):
-    os.mkdir('logs', 0770)
+    os.mkdir('logs')
 
 
 cell_map = {}
