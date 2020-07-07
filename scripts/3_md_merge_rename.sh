@@ -20,7 +20,7 @@ done
 
 [[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
 
-java -Xmx35g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
+java -Xmx32g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
     ${bams_in} \
     TMP_DIR=Processing/ \
     O=Processing/${cellname}.dedup.bam \

@@ -1,6 +1,6 @@
 __default__:
-  partition: shared
-  qos: shared
+  partition: amd-shared
+  qos: amd-shared
   cpus-per-task: 1
   time: '02:00:00'
   mem: 4G
@@ -18,12 +18,11 @@ adapter_cutting:
 
 
 allignment1:
-  cpus-per-task: 10
+  cpus-per-task: 8
   time: '48:00:00'
   mem: 40G
 
 allignment2:
-  cpus-per-task: 10
   time: '48:00:00'
   mem: 40G
 
