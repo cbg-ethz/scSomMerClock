@@ -18,13 +18,16 @@ else
     JOBID=$(date +%Y-%m-%d.%H-%M-%S)  
 fi
 LOGFILE="logs/snakelog.${JOBID}.out"
+
 # Run workflow
-echo "print =========================================="
+echo ""
+echo "=========================================="
 echo "Running Snakemake:"
 echo "${SNAKE_CMD}"
 echo ""
 echo "Logging output to: ${LOGFILE}"
-echo "print =========================================="
+echo "=========================================="
+echo ""
 
 module --quiet purge
 module --quiet load snakemake && ${SNAKE_CMD} &> ${LOGFILE}
