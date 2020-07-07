@@ -38,10 +38,6 @@ done
 [[ -z "$GERM_RES" ]] && { echo "Error: Germline resources not set"; exit 1; }
 [[ -z "$PON" ]] && { echo "Error: Panel-Of-Normals not set"; exit 1; }
 
-tumors_in=$(awk -v chr=$SLURM_ARRAY_TASK_ID '{print "-I "Processing"/"$0".real."chr".bam"}' bulk-tumor-name.txt | tr '\n' ' ')
-bulk_in=$(awk -v chr=$SLURM_ARRAY_TASK_ID '{print "-I "Processing"/"$0".real."chr".bam"}' bulk-normal-name.txt | tr '\n' ' ')
-bulk_name=$(cat bulk-normal-name.txt)
-
 gatk Mutect2 \
     -R ${REF} \
     ${bams_in} \
