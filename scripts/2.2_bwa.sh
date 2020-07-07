@@ -17,7 +17,7 @@ done
 
 [[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
 
-java -Xmx18g -jar $EBROOTPICARD/picard.jar SortSam \
+java -Xmx32g -jar $EBROOTPICARD/picard.jar SortSam \
     I=Processing/${sample}.sam \
     TMP_DIR=Processing/ \
     O=Processing/${sample}.sorted.bam \
