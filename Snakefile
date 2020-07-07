@@ -7,7 +7,7 @@ from itertools import product
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-# workdir: DATA_DIR
+workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -39,7 +39,7 @@ if config['specific'].get('bulk_samples', False):
     elif isinstance(bulk, list):
         bulk_samples.union(bulk)
 
-import pdb; pdb.set_trace()
+
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
         for i in cell_map[wildcards.cell]]
