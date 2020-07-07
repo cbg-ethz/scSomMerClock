@@ -5,7 +5,8 @@ import sys
 from itertools import product
 
 BASE_DIR = workflow.basedir
-DATA_DIR = config['static_data']['data_path']
+DATA_DIR = config['specific']['data_path']
+RES_PATH = config['static']['resources_path']
 workdir: DATA_DIR
 
 if not os.path.exists('logs'):
@@ -13,7 +14,7 @@ if not os.path.exists('logs'):
 
 
 cell_map = {}
-with open(config['static_data']['cellnames'], 'r') as f:
+with open(config['specific']['cellnames'], 'r') as f:
     lines = f.read().strip().split('\n')
     for line in lines:
         row = line.split('\t')
@@ -26,13 +27,13 @@ with open(config['static_data']['cellnames'], 'r') as f:
             cell_map[row[-1]] = row[:-1]
 
 # Get samples to exclude for Monovar SNV calling
-if config['static_data'].get('bulk_normal', False):
-    cells_exclude = [config['static_data']['bulk_normal']]
+if config['specific'].get('bulk_normal', False):
+    cells_exclude = [config['specific']['bulk_normal']]
 else:
     cells_exclude = []
 
-if config['static_data'].get('exclude_samples', False):
-    cells_ex = config['static_data']['exclude_samples']
+if config['specific'].get('bulk_samples', False):
+    cells_ex = config['specific']['bulk_samples']
     if isinstance(cells_ex, str):
         cells_exclude.append(cells_ex)
     elif isinstance(cells_ex, list):
@@ -72,9 +73,8 @@ rule adapter_cutting:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('cutadapt', ['cutadapt'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        WGA_lib = config['static_data']['WGA_library']
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        WGA_lib = config['specific']['WGA_library']
     shell:
         '{params.base_dir}/scripts/1_fastqc.sh {params.modules} '
         '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib}'
@@ -90,9 +90,8 @@ rule allignment1:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bwa', ['bwa'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        WGA_lib = config['static_data']['WGA_library']
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        WGA_lib = config['specific']['WGA_library']
     shell:
         '{params.base_dir}/scripts/2.1_bwa.sh {params.modules} '
         '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib}'
@@ -135,12 +134,9 @@ rule base_recal1:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        dbsnp = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['dbsnp']),
-        indels1 = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['indel_db1'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
+        indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
     shell:
         '{params.base_dir}/scripts/4.1_base_recal.sh {params.modules} '
         '-s {wildcards.cell} -r {params.ref_genome} -d {params.dbsnp} '
@@ -156,8 +152,7 @@ rule base_recal2:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
     shell:
         '{params.base_dir}/scripts/4.2_base_recal.sh {params.modules} '
         '-s {wildcards.cell} -r {params.ref_genome}'
@@ -187,12 +182,9 @@ rule indel_reallignment1:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        indels1 = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['indel_db1']),
-        indels2 = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['indel_db2'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
+        indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
         '{params.base_dir}/scripts/5.1_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
@@ -212,12 +204,9 @@ rule indel_reallignment2:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk', ['gatk'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        indels1 = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['indel_db1']),
-        indels2 = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['indel_db2'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
+        indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
         '{params.base_dir}/scripts/5.2_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
@@ -233,11 +222,9 @@ rule SCcaller:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
-        bulk = os.path.join(config['static_data']['bulk_normal']),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
-        dbsnp = os.path.join(config['static_data']['resources_path'],
-            config['base_recal']['dbsnp']),
+        bulk = os.path.join(config['specific']['bulk_normal']),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         sccaller = config['SCcaller']['exe']
     shell:
         '{params.base_dir}/scripts/6_sccallerlab.sh {params.modules} '
@@ -266,8 +253,7 @@ rule monovar:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar'])]),
-        ref_genome = os.path.join(config['static_data']['resources_path'],
-            config['static_data']['WGA_ref']),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
     shell:
         '{params.base_dir}/scripts/7_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome}'
@@ -285,12 +271,14 @@ rule create_bed:
         os.path.join('Processing', '{cell}.genome.bed')
     params:
         base_dir = BASE_DIR,
-        seq = config['static_data']['SEQ'],
-        target = os.path.join(config['static_data']['resources_path'],
-            config.get('WES', {}).get('target_path', ''))
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bedtools', ['bedtools'])]),
+        seq = config['specific']['SEQ'],
+        target = os.path.join(RES_PATH, 
+            config['specific'].get('WES_target_path', '-1'))
     shell:
-        '{params.base_dir}/scripts/QC_cov.sh {input} {output} {params.seq} '
-        '{params.target}'
+        '{params.base_dir}/scripts/QC_cov.sh {params.modules} '
+        '-i {input} -o {output} --seq {params.seq} -t {params.target}'
 
 
 rule QC_sequencing:
@@ -301,7 +289,8 @@ rule QC_sequencing:
         'QC_sequencing.tsv'
     params:
         base_dir = BASE_DIR,
+        modules = ' '.join( \
+                config['modules'].get('QC_seq', ['pandas', 'matplotlib']))
     shell:
-        'module load python/3.7.7 numpy/1.18.1-python-3.7.7 '
-        'matplotlib/3.1.3-python-3.7.7 pandas/1.0.1-python-3.7.7 && '
-        'python3 {params.base_dir}/scripts/QC_coverage.py {input} -o "./"'
+        'module load {params.modules} && '
+        'python {params.base_dir}/scripts/QC_coverage.py {input} -o "./"'
