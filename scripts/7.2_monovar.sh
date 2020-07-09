@@ -9,9 +9,6 @@ while [ "$1" != "" ]; do
         -m | --module)      shift
                             module load $1
                             ;;
-        -i | --chr)         shift
-                            chr=$1
-                            ;;
         -o | --out)         shift
                             out_file=$1
                             ;;
@@ -25,7 +22,7 @@ done
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index
-sort -V sample_bams | while read -r f
+sort -V ${sample_bams} | while read -r f
 do
     bcftools query -l ${f} | awk -F "[.]" '{print $0"\t"$1}' \
         | bcftools reheader -s - ${f} \
