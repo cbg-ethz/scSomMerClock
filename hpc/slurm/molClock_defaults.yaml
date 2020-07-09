@@ -19,11 +19,11 @@ adapter_cutting:
 
 allignment1:
   cpus-per-task: 8
-  time: 2880
+  time: 1440
   mem: 40G
 
 allignment2:
-  time: 2880
+  time: 1440
   mem: 40G
 
 remove_duplicates:
