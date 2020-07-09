@@ -22,11 +22,12 @@ done
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index
-sort -V ${sample_bams} | while read -r f
+for f in ${sample_bams}
 do
     bcftools query -l ${f} | awk -F "[.]" '{print $0"\t"$1}' \
         | bcftools reheader -s - ${f} \
         && bcftools index -t ${f}
 done
 
-bcftools concat -o ${out_file} -O v --threads ${cores} ${sample_bams}
+sorted_bams=$(echo "${sample_bams}" | sort -V)
+bcftools concat -o ${out_file} -O v --threads ${cores} ${sorted_bams}
