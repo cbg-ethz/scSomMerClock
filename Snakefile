@@ -53,7 +53,7 @@ def get_final_vcfs(wildcards):
             for i in product(cell_map, chrom) ]
         final_files.extend(sccaller)
     if config.get('monovar', {}).get('run', False):
-        monovar = [os.path.join('Calls', f'{i}.monovar.vcf') for i in chrom]
+        monovar = os.path.join('Calls', 'all.monovar.vcf')
         final_files.extend(monovar)
     if bulk_samples:
         mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
@@ -128,6 +128,18 @@ rule remove_duplicates:
     shell:
         '{params.base_dir}/scripts/3_md_merge_rename.sh {input} '
         '{params.modules} -s {wildcards.cell}'
+
+
+rule sanity_check_bam:
+    input: expand(os.path.join('Processing', '{cell}.dedup.bam'),
+            cell=cell_map.keys())
+    output: 'bad_bams.fofn'
+    params:
+        samtools = config['modules'].get('samtools', ['samtools'])
+    shell:  
+        'module load {params.samtools};'
+        'samtools quickcheck -v {input} > {output[0]};'
+        'xargs rm < bad_bams.fofn'
 
 
 rule base_recal1:
@@ -249,11 +261,11 @@ rule monovar0:
                 f.write(f'{bam_file}\n')
         
 
-rule monovar:
+rule monovar1:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
-        os.path.join('Calls', '{chr}.monovar.vcf')
+        os.path.join('Calls', '{chr}.monovar.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -261,8 +273,23 @@ rule monovar:
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
 
     shell:
-        '{params.base_dir}/scripts/7_monovar.sh {params.modules} '
+        '{params.base_dir}/scripts/7-1_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome}'
+
+
+rule monovar2:
+    input:
+        expand(os.path.join('Calls', '{chr}.monovar.vcf.gz'),
+            chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
+    output:
+        os.path.join('Calls', 'all.monovar.vcf')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bcftools', ['bcftools'])]),
+    shell:
+        '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
+        ' -o {output[0]}'
 
 
 rule mutect:

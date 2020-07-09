@@ -13,7 +13,7 @@ done
 
 if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
 then
-    JOB_ID = ${SLURM_JOB_ID}
+    JOBID=${SLURM_JOB_ID}
 else
     JOBID=$(date +%Y-%m-%d.%H-%M-%S)  
 fi

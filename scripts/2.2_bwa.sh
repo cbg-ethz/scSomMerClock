@@ -23,3 +23,9 @@ java -Xmx32g -jar $EBROOTPICARD/picard.jar SortSam \
     O=Processing/${sample}.sorted.bam \
     CREATE_INDEX=true \
     SORT_ORDER=coordinate
+
+java -Xmx32g -jar $EBROOTPICARD/picard.jar ValidateSamFile \
+    I=Processing/${sample}.sorted.bam \
+    IGNORE_WARNINGS=true \
+    MODE=VERBOSE \
+    O=sanity_check_alignment.txt
