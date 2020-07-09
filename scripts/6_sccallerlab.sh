@@ -37,13 +37,15 @@ done
 [[ -z "$bulk_normal" ]] && { echo "Error: Bulk normal not set"; exit 1; }
 [[ -z "$DBSNP" ]] && { echo "Error: DBSNP file not set"; exit 1; }
 
+cores=$(nproc)
+
 python $SCcaller \
     --bam Processing/${cellname}.real.${chr}.bam \
     --fasta ${REF} \
     --output Calls/${cellname}.real.${chr}.sccallerlab.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
-    --cpu_num 2 \
+    --cpu_num ${cores} \
     --engine samtools \
     --bulk Processing/${bulk_normal}.real.${chr}.bam \
     --min_depth 1 \

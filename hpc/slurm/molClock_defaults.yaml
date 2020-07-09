@@ -3,7 +3,7 @@ __default__:
   qos: amd-shared
   cpus-per-task: 1
   time: 240
-  mem: 4G
+  mem: 8G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
   output: logs/slurm-%j.out
@@ -72,7 +72,8 @@ SCcaller:
   time: 600
   mem: 40G
 
-monovar:
+
+monovar1:
   cpus-per-task: 3
   time: 600
   mem: 10G

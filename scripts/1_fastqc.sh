@@ -29,9 +29,6 @@ done
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 [[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
 
-
-mkdir -p Adapter_Cutting
-
 if [ "${pair_end}" = true ]
 then
     cutadapt \
@@ -41,16 +38,14 @@ then
         -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT \
         -o Processing/${sample}.trimmed_1.fastq.gz \
         -p Processing/${sample}.trimmed_2.fastq.gz \
-        Raw_Data/${sample}_1.fastq.gz Raw_Data/${sample}_2.fastq.gz \
-        > Adapter_Cutting/${sample}_Cutadapt.txt
+        Raw_Data/${sample}_1.fastq.gz Raw_Data/${sample}_2.fastq.gz
 else
     cutadapt \
         --minimum-length 70 \
         --cores=0 \
         -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
         -o Processing/${sample}.trimmed_1.fastq.gz \
-        Raw_Data/${sample}_1.fastq.gz \
-        > Adapter_Cutting/${sample}_Cutadapt.txt
+        Raw_Data/${sample}_1.fastq.gz
 fi
 
 
@@ -90,8 +85,9 @@ then
         fi
 else 
         echo "CutAdapt not needed for ${WGA_LIBRARY}?"
-        exit
+        exit 
 fi
+
 
 if [ "${pair_end}" = true ]
 then
@@ -101,14 +97,13 @@ then
         ${adapters_to_remove} \
         -o Processing/${sample}.trimmed2_1.fastq.gz \
         -p Processing/${sample}.trimmed2_2.fastq.gz \
-        Processing/${sample}.trimmed_1.fastq.gz Processing/${sample}.trimmed_2.fastq.gz \
-        > Adapter_Cutting/${sample}_CutadaptWGA.txt
+        Processing/${sample}.trimmed_1.fastq.gz \
+        Processing/${sample}.trimmed_2.fastq.gz
 else
     cutadapt \
         --minimum-length 70 \
         --cores=0 \
         ${adapters_to_remove} \
         -o Processing/${sample}.trimmed2_1.fastq.gz \
-        Processing/${sample}.trimmed_1.fastq.gz \
-        > Adapter_Cutting/${sample}_CutadaptWGA.txt
+        Processing/${sample}.trimmed_1.fastq.gz
 fi

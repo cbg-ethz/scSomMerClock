@@ -29,34 +29,35 @@ done
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 [[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
 
-
 SM=$(echo ${sample} | cut -d "_" -f1)
-PL=$(echo "ILLUMINA")
-LB=$(echo "KAPA")
+PL="ILLUMINA"
+LB="KAPA"
 PU=`zcat Raw_Data/${sample}_1.fastq.gz | head -1 | sed 's/[:].*//' | sed 's/@//' \
     | sed 's/ /_/g'`
 RG="@RG\\tID:${sample}\\tSM:${SM}\\tPL:${PL}\\tLB:${LB}\\tPU:${PU}"
+
+cores=$(nproc)
 
 if [[ ${WGA_LIBRARY} == "AMPLI-1" ]] || [[ ${WGA_LIBRARY} == "MALBAC" ]] || [[ ${WGA_LIBRARY} == "PICOPLEX" ]]
 then    
     if [ "${pair_end}" = true ]
     then
-        bwa mem -t 8 -R ${RG} ${REF} \
+        bwa mem -t ${cores} -R ${RG} ${REF} \
             Processing/${sample}.trimmed2_1.fastq.gz Processing/${sample}.trimmed2_2.fastq.gz \
             > Processing/${sample}.sam
     else
-        bwa mem -t 8 -R ${RG} $REF Processing/${sample}.trimmed2_1.fastq.gz \
+        bwa mem -t ${cores} -R ${RG} $REF Processing/${sample}.trimmed2_1.fastq.gz \
             > Processing/${sample}.sam
 
     fi
 else
     if [ "${pair_end}" = true ]
     then
-        bwa mem -t 8 -R ${RG} ${REF} \
+        bwa mem -t ${cores} -R ${RG} ${REF} \
             Processing/${sample}.trimmed_1.fastq.gz Processing/${sample}.trimmed_2.fastq.gz \
             > Processing/${sample}.sam
     else
-        bwa mem -t 8 -R ${RG} ${REF} Processing/${sample}.trimmed_1.fastq.gz \
+        bwa mem -t ${cores} -R ${RG} ${REF} Processing/${sample}.trimmed_1.fastq.gz \
             > Processing/${sample}.sam
     fi
 fi

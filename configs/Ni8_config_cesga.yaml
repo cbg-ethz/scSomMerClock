@@ -33,3 +33,4 @@ modules:
   SCcaller: [samtools, pysam, numpy/1.16.6-python-2.7.17]
   monovar: [gcc/6.4.0, samtools, monovar/140316-python-2.7.15, scipy/1.1.0-python-2.7.15]
   QC_seq: [pandas/1.0.1-python-3.7.7, matplotlib/3.1.3-python-3.7.7]
+  bcftools: [bcftools]
