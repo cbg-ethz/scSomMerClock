@@ -20,6 +20,9 @@ while [ "$1" != "" ]; do
         -e | --exome )      shift
                             WES_REF=$1
                             ;;
+        -g | --genome )     shift
+                            genome=$1
+                            ;;                    
     esac
     shift
 done
@@ -27,12 +30,13 @@ done
 [[ -z "$in_file" ]] && { echo "Error: Input .bam file not set"; exit 1; }
 [[ -z "$out_file" ]] && { echo "Error: Output .bed not set"; exit 1; }
 [[ -z "$SEQ" ]] && { echo "Error: Sequencing platform not set"; exit 1; }
-[[ -z "$WES_REF" ]] && { echo "Error: Exome target file not set"; exit 1; }
+[[ -z "$WES_REF" && ${SEQ} == "WES" ]] && { echo "Error: Exome target file not set"; exit 1; }
+[[ -z "$genome" && ${SEQ} == "WES" ]] && { echo "Error: Exome target file not set"; exit 1; }
 
 if [[ ${SEQ} == "WGA" ]]
 then
     bedtools genomcov -ibam ${in_file} | grep "^genome" > ${out_file}
 else
-    bedtools coverage -a ${WES_REF} -b ${in_file} -hist -sorted \
+    bedtools coverage -a ${WES_REF} -b ${in_file} -g ${genome} -hist -sorted \
         | grep "^all" > ${out_file}
 fi

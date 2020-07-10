@@ -1,0 +1,17 @@
+# Quick check if bam file is corrupted
+samtools quickcheck -v Processing/h6.dedup.bam && echo 'all ok' || echo 'corrupted'
+
+# Check chromosome names of BAM file
+samtools idxstats <FILE>.bam
+
+# Check if BAM file is sorted
+samtools stats <FILE>.bam | grep "is sorted:"
+
+# Index BAM file
+samtools index <FILE>.bam
+
+# Print chromosome order of bed file
+cut -f1 <FILE>.bed | uniq
+
+# Sort bed file in "right" order (1,2...10,11... instead of 1,10,11...2,20...)
+sort -V -k1,1 -k2,2 <FILE>.bed > <FILE>.bed.sorted

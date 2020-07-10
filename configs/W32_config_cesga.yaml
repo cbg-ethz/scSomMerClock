@@ -14,7 +14,8 @@ specific:
   bulk_samples: [TNBC_Pop_Normal, TNBC_Pop_Tumor]
   WGA_library: MDA
   SEQ: WES
-  WES_target_path: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed
+  WES_target: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed
+  WES_target_genome: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed.genome
   PON: PON.SureSelectV5.vcf.gz
 
 SCcaller:

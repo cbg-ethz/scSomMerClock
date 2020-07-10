@@ -53,7 +53,7 @@ def get_final_vcfs(wildcards):
             for i in product(cell_map, chrom) ]
         final_files.extend(sccaller)
     if config.get('monovar', {}).get('run', False):
-        monovar = os.path.join('Calls', 'all.monovar.vcf')
+        monovar = os.path.join('Calls', 'all.monovar.vcf.gz')
         final_files.append(monovar)
     if bulk_samples:
         mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
@@ -284,7 +284,7 @@ rule monovar2:
         expand(os.path.join('Calls', '{chr}.monovar.vcf.gz'),
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
     output:
-        os.path.join('Calls', 'all.monovar.vcf')
+        os.path.join('Calls', 'all.monovar.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -330,7 +330,9 @@ rule create_bed:
             config['modules'].get('bedtools', ['bedtools'])]),
         seq = config['specific']['SEQ'],
         target = os.path.join(RES_PATH, 
-            config['specific'].get('WES_target_path', '-1'))
+            config['specific'].get('WES_target', '-1'))
+        genome = os.path.join(RES_PATH, 
+            config['specific'].get('WES_target_genome', '-1'))
     shell:
         '{params.base_dir}/scripts/QC_cov.sh {params.modules} '
         '-i {input} -o {output} --seq {params.seq} -e {params.target}'
