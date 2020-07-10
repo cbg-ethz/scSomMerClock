@@ -22,11 +22,11 @@ done
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index
-for f in ${sample_bams}
+for sample in ${sample_bams}
 do
-    bcftools query -l ${f} | awk -F "[.]" '{print $0"\t"$1}' \
-        | bcftools reheader -s - ${f} \
-        && bcftools index -t ${f}
+    bcftools query -l ${sample} | awk -F "[.]" '{print $0"\t"$1}' \
+        | bcftools reheader -s - -o ${sample} ${sample} \
+        && bcftools index -t ${sample}
 done
 
 sorted_bams=$(echo "${sample_bams}" | sort -V)

@@ -54,7 +54,7 @@ def get_final_vcfs(wildcards):
         final_files.extend(sccaller)
     if config.get('monovar', {}).get('run', False):
         monovar = os.path.join('Calls', 'all.monovar.vcf')
-        final_files.extend(monovar)
+        final_files.append(monovar)
     if bulk_samples:
         mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
         final_files.extend(mutect)
@@ -131,9 +131,11 @@ rule remove_duplicates:
 
 
 rule sanity_check_bam:
-    input: expand(os.path.join('Processing', '{cell}.dedup.bam'),
+    input:
+        expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys())
-    output: 'bad_bams.fofn'
+    output:
+        'bad_bams.fofn'
     params:
         samtools = config['modules'].get('samtools', ['samtools'])
     shell:  
