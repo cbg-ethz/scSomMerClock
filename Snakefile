@@ -323,14 +323,14 @@ rule create_bed:
     input:
         os.path.join('Processing', '{cell}.dedup.bam')
     output:
-        os.path.join('Processing', '{cell}.genome.bed')
+        os.path.join('Processing', '{cell}.genome.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bedtools', ['bedtools'])]),
         seq = config['specific']['SEQ'],
         target = os.path.join(RES_PATH, 
-            config['specific'].get('WES_target', '-1'))
+            config['specific'].get('WES_target', '-1')),
         genome = os.path.join(RES_PATH, 
             config['specific'].get('WES_target_genome', '-1'))
     shell:
@@ -341,7 +341,7 @@ rule create_bed:
 
 rule QC_sequencing:
     input:
-        expand(os.path.join('Processing', '{cell}.genome.bed'),
+        expand(os.path.join('Processing', '{cell}.genome.tsv'),
             cell=cell_map.keys())
     output:
         'QC_sequencing.tsv'
