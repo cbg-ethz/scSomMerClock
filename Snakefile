@@ -342,7 +342,7 @@ rule create_bed:
 rule QC_sequencing:
     input:
         expand(os.path.join('Processing', '{cell}.genome.tsv'),
-            cell=set(cell_map.keys()).differene(bulk_samples))
+            cell=set(cell_map.keys()).difference(bulk_samples))
     output:
         'QC_sequencing.tsv'
     params:
