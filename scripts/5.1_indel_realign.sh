@@ -21,7 +21,7 @@ while [ "$1" != "" ]; do
         -i2 | --indels2 )   shift
                             INDELS2=$1
                             ;;
-        *)                  bams_in+="I=$1 "
+        *)                  bams_in+="-I $1 "
                             ;;
     esac
     shift
