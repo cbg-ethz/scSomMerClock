@@ -14,7 +14,8 @@ specific:
   bulk_samples: [P01M01E, P01P01E]
   WGA_library: MALBAC
   SEQ: WES
-  WES_target_path: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
+  WES_target: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
+  WES_target_genome: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed.genome
   PON: PON.SureSelectV5.vcf.gz
 
 SCcaller:
