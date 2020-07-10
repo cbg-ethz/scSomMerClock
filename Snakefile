@@ -152,7 +152,7 @@ rule base_recal1:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk', ['gatk'])]),
+            config['modules'].get('gatk4', ['gatk/4'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
@@ -170,7 +170,7 @@ rule base_recal2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk', ['gatk'])]),
+            config['modules'].get('gatk4', ['gatk/4'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
     shell:
         '{params.base_dir}/scripts/4.2_base_recal.sh {params.modules} '
@@ -200,7 +200,7 @@ rule indel_reallignment1:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk', ['gatk'])]),
+            config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
@@ -222,7 +222,7 @@ rule indel_reallignment2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk', ['gatk'])]),
+            config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
@@ -303,7 +303,7 @@ rule mutect:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk', ['gatk'])]),
+            config['modules'].get('gatk4', ['gatk/4'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
@@ -342,7 +342,7 @@ rule create_bed:
 rule QC_sequencing:
     input:
         expand(os.path.join('Processing', '{cell}.genome.tsv'),
-            cell=cell_map.keys())
+            cell=set(cell_map.keys()).differene(bulk_samples))
     output:
         'QC_sequencing.tsv'
     params:
