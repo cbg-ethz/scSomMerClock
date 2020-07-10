@@ -335,7 +335,8 @@ rule create_bed:
             config['specific'].get('WES_target_genome', '-1'))
     shell:
         '{params.base_dir}/scripts/QC_cov.sh {params.modules} '
-        '-i {input} -o {output} --seq {params.seq} -e {params.target}'
+        '-i {input} -o {output} --seq {params.seq} -e {params.target} '
+        '-g {params.genome}'
 
 
 rule QC_sequencing:
