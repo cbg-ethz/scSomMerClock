@@ -188,7 +188,8 @@ rule indel_reallignment0:
             for bam_full in input.bams:
                 bam = os.path.basename(bam_full)
                 cell_id = bam.split('.')[0]
-                f.write(f'{bam}\tProcessing/{cell_id}.real.{{chr}}.bam\n')
+                chrom = wildcards.chr
+                f.write(f'{bam}\tProcessing/{cell_id}.real.{chrom}.bam\n')
 
 
 rule indel_reallignment1:
