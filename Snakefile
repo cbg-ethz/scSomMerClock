@@ -268,7 +268,7 @@ rule monovar1:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
-        os.path.join('Calls', '{chr}.monovar.vcf.gz')
+        os.path.join('Calls', '{chr}.monovar.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -282,7 +282,7 @@ rule monovar1:
 
 rule monovar2:
     input:
-        expand(os.path.join('Calls', '{chr}.monovar.vcf.gz'),
+        expand(os.path.join('Calls', '{chr}.monovar.vcf'),
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
     output:
         os.path.join('Calls', 'all.monovar.vcf.gz')
