@@ -276,7 +276,7 @@ rule monovar1:
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
 
     shell:
-        '{params.base_dir}/scripts/7-1_monovar.sh {params.modules} '
+        '{params.base_dir}/scripts/7.1_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome}'
 
 
