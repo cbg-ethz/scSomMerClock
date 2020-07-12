@@ -35,6 +35,8 @@ done
 [[ -z "$GERM_RES" ]] && { echo "Error: Germline resources not set"; exit 1; }
 [[ -z "$PON" ]] && { echo "Error: Panel-Of-Normals not set"; exit 1; }
 
+cores=$(nproc)
+
 gatk Mutect2 \
     -R ${REF} \
     ${bams_in} \
@@ -43,4 +45,5 @@ gatk Mutect2 \
     --germline-resource ${GERM_RES} \
     --panel-of-normals ${PON} \
     -O Calls/${chr}.mutect.vcf \
-    --f1r2-tar-gz Calls/${chr}.f1r2.mutect.tar.gz
+    --f1r2-tar-gz Calls/${chr}.f1r2.mutect.tar.gz \
+    --native-pair-hmm-threads ${cores}

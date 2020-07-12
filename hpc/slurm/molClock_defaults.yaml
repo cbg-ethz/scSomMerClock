@@ -80,5 +80,6 @@ monovar1:
 
 
 mutect:
+  cpus-per-task: 4
   time: 1440
   mem: 40G

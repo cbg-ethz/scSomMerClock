@@ -24,11 +24,11 @@ cores=$(nproc)
 # Rename header column (only sample, not chromosome), zip and index
 for sample in ${sample_bams}
 do
-    bcftools query -l ${f} | awk -F "[.]" '{print $0"\t"$1 > "vcf_header.tmp"}' \
-        && bcftools reheader -s vcf_header.tmp --threads ${cores} -o ${f} ${f} \
+    bcftools query -l ${f} | awk -F "[.]" '{print $0"\t"$1 > "vcf_header.monovar.tmp"}' \
+        && bcftools reheader -s vcf_header.monovar.tmp --threads ${cores} -o ${f} ${f} \
         && bcftools index -t ${f}
 done
-rm vcf_header.tmp
+rm vcf_header.monovar.tmp
 
 sorted_bams=$(echo "${sample_bams}" | sort -V)
 bcftools concat -o ${out_file} -O z --threads ${cores} ${sorted_bams}
