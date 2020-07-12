@@ -304,16 +304,15 @@ rule mutect:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk4', ['gatk/4'])]),
+            config['modules'].get('gatk41', ['gatk/4.1'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
-        bulk = ' '.join([f'-b {i}' for i in bulk_samples]),
         normal = f'-n {cell_map[config["specific"]["bulk_normal"]][0]}'
     shell:
-        '{params.base_dir}/scripts/8_mutect.sh {params.modules} '
+        '{params.base_dir}/scripts/8_mutect.sh {input} {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
-        '-p {params.pon} {params.bulk} {params.normal}'
+        '-p {params.pon} {params.normal}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------

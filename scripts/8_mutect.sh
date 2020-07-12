@@ -22,12 +22,10 @@ while [ "$1" != "" ]; do
         -p | --pon )        shift
                             PON=$1
                             ;;
-        -b | --bulk )     shift
-                            bams_in+="-I $1 " 
-                            ;;
         -n | --normal )     shift
                             normal_in="-normal $1 "
                             ;;
+         *)                 bams_in+="-I $1 "
     esac
     shift
 done
