@@ -268,11 +268,11 @@ rule monovar1:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
-        os.path.join('Calls', '{chr}.monovar.vcf')
+        os.path.join('Calls', '{chr}.monovar.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('monovar', ['monovar'])]),
+            config['modules'].get('monovar', ['monovar', 'samtools'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
 
     shell:
@@ -282,14 +282,14 @@ rule monovar1:
 
 rule monovar2:
     input:
-        expand(os.path.join('Calls', '{chr}.monovar.vcf'),
+        expand(os.path.join('Calls', '{chr}.monovar.vcf.gz'),
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
     output:
         os.path.join('Calls', 'all.monovar.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools', 'samtools'])]),
+            config['modules'].get('bcftools', ['bcftools'])]),
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
         ' -o {output[0]}'
