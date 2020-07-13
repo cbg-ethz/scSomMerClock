@@ -41,6 +41,7 @@ gatk Mutect2 \
     -R ${REF} \
     ${bams_in} \
     ${normal_in} \
+    -L ${chr} \
     --genotype-pon-sites true \
     --germline-resource ${GERM_RES} \
     --panel-of-normals ${PON} \

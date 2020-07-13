@@ -17,12 +17,12 @@ adapter_cutting:
   mem: 16G
 
 
-allignment1:
+alignment1:
   cpus-per-task: 8
   time: 1440
   mem: 40G
 
-allignment2:
+alignment2:
   time: 1440
   mem: 40G
 
@@ -47,18 +47,18 @@ base_recal2:
   mem: 40G
 
 
-indel_reallignment0:
+indel_realignment0:
   time: 30
 
 
-indel_reallignment1:
+indel_realignment1:
   partition: amd-shared
   qos: amd-shared
   time: 30
   mem: 20G
 
 
-indel_reallignment2:
+indel_realignment2:
   partition: amd-shared
   qos: amd-shared
   time: 600

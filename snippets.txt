@@ -1,6 +1,9 @@
 # Quick check if bam file is corrupted
 samtools quickcheck -v Processing/h6.dedup.bam && echo 'all ok' || echo 'corrupted'
 
+# Deep check if bam file is corrupted
+java -Xmx32g -jar $EBROOTPICARD/picard.jar ValidateSamFile I=<FILE>.bam
+
 # Check chromosome names of BAM file
 samtools idxstats <FILE>.bam
 

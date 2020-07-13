@@ -10,12 +10,12 @@ adapter_cutting:
   h_rt: '24:00'
 
 
-allignment1:
+alignment1:
   threads: '10'
   h_rt: '48:00'
 
 
-allignment2:
+alignment2:
   threads: '10'
   h_rt: '48:00'
 
@@ -34,15 +34,15 @@ base_recal2:
   h_vmem: '51200'
 
 
-indel_reallignment0:
+indel_realignment0:
   h_rt: '1:00'
 
 
-indel_reallignment1:
+indel_realignment1:
   h_rt: '04:00'
   h_vmem: '20480'
 
-indel_reallignment2:
+indel_realignment2:
   h_rt: '08:00'
   h_vmem: '40960'
 

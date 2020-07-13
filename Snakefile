@@ -84,7 +84,7 @@ rule adapter_cutting:
         '{params.pair_end}'
 
 
-rule allignment1:
+rule alignment1:
     input:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     output:
@@ -102,7 +102,7 @@ rule allignment1:
         '{params.pair_end}'
 
 
-rule allignment2:
+rule alignment2:
     input:
         os.path.join('Processing', '{sample}.sam')
     output:
@@ -177,12 +177,12 @@ rule base_recal2:
         '-s {wildcards.cell} -r {params.ref_genome}'
 
 
-rule indel_reallignment0:
+rule indel_realignment0:
     input:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        map_file = os.path.join('Reallignment', '{chr}.map')
+        map_file = os.path.join('Realignment', '{chr}.map')
     run:
         with open(output.map_file, 'w') as f:
             for bam_full in input.bams:
@@ -192,12 +192,12 @@ rule indel_reallignment0:
                 f.write(f'{bam}\tProcessing/{cell_id}.real.{chrom}.bam\n')
 
 
-rule indel_reallignment1:
+rule indel_realignment1:
     input:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys())
     output:
-        os.path.join('Reallignment', '{chr}.intervals')
+        os.path.join('Realignment', '{chr}.intervals')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -211,12 +211,12 @@ rule indel_reallignment1:
         '-i1 {params.indels1} -i2 {params.indels2}'
 
 
-rule indel_reallignment2:
+rule indel_realignment2:
     input:
         bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=cell_map.keys()),
-        intervals = os.path.join('Reallignment', '{chr}.intervals'),
-        map_file = os.path.join('Reallignment', '{chr}.map')
+        intervals = os.path.join('Realignment', '{chr}.intervals'),
+        map_file = os.path.join('Realignment', '{chr}.map')
     output:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys())
@@ -289,7 +289,7 @@ rule monovar2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
+            config['modules'].get('bcftools', ['bcftools', 'samtools'])]),
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
         ' -o {output[0]}'
@@ -304,7 +304,7 @@ rule mutect:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk41', ['gatk/4.1', 'samtools'])]),
+            config['modules'].get('gatk41', ['gatk/4.1'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
