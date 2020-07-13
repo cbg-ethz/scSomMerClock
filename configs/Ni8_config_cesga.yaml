@@ -29,7 +29,7 @@ modules:
   cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
   bwa: [gcc/6.4.0, bwa/0.7.17]
   picard: [picard/2.18.14]
-  gatk41: [gatk/4.1.1.0]
+  gatk41: [gatk/4.1.1.0, samtools]
   gatk4: [gatk/4.0.10.0]
   gatk3: [gatk/3.7-0-gcfedb67]
   bedtools: [bedtools/2.28.0]
