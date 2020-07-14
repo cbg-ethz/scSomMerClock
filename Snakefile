@@ -39,6 +39,9 @@ if config['specific'].get('bulk_samples', False):
     elif isinstance(bulk, list):
         bulk_samples.union(bulk)
 
+ss_samples = set(cell_map.keys()).difference(bulk_samples)
+
+
 
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
@@ -49,8 +52,9 @@ def get_final_vcfs(wildcards):
     chrom = [i for i in range(1, 23, 1)] + ['X', 'Y']
     final_files = ['QC_sequencing.tsv']
     if config.get('SCcaller', {}).get('run', False):
-        sccaller = [os.path.join('Calls', f'{i[0]}.real.{i[1]}.sccallerlab.vcf') \
-            for i in product(cell_map, chrom) ]
+        '{cell}.sccaller.vcf.gz'
+        sccaller = [os.path.join('Calls', f'{i}.sccaller.vcf.gz') \
+            for i in ss_samples]
         final_files.extend(sccaller)
     if config.get('monovar', {}).get('run', False):
         monovar = os.path.join('Calls', 'all.monovar.vcf.gz')
@@ -254,7 +258,8 @@ rule SCcaller1:
 
 rule SCcaller2:
     input:
-        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf.gz')
+        expand(os.path.join('Calls', '{{cell}}.real.{chr}.sccallerlab.vcf.gz'),
+            chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
     output:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')
     params:
@@ -270,7 +275,7 @@ rule SCcaller2:
 rule monovar0:
     input:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
-            cell=[i for i in cell_map.keys() if i not in bulk_samples])
+            cell=ss_samples)
     output:
         os.path.join('Processing', '{chr}.bamspath.txt')
     run:
@@ -356,8 +361,7 @@ rule create_bed:
 
 rule QC_sequencing:
     input:
-        expand(os.path.join('Processing', '{cell}.genome.tsv'),
-            cell=set(cell_map.keys()).difference(bulk_samples))
+        expand(os.path.join('Processing', '{cell}.genome.tsv'), cell=ss_samples)
     output:
         'QC_sequencing.tsv'
     params:
