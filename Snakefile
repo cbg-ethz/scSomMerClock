@@ -241,7 +241,7 @@ rule SCcaller1:
     input:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
-        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf.gz')
+        os.path.join('Calls', '{cell}.real.{chr}.sccaller.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -258,18 +258,31 @@ rule SCcaller1:
 
 rule SCcaller2:
     input:
-        expand(os.path.join('Calls', '{{cell}}.real.{chr}.sccallerlab.vcf.gz'),
+        expand(os.path.join('Calls', '{{cell}}.real.{chr}.sccaller.vcf.gz'),
             chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
     output:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
+            config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/6.2_sccallerlab.sh  {input} {params.modules} '
+        '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
         '-o {output[0]}'
 
+
+rule SCcaller3:
+    input:
+        expand(os.path.join('Calls', '{cell}.sccaller.vcf.gz'), cell=ss_samples)
+    output:
+        os.path.join('Calls', 'all.sccaller.vcf.gz')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bcftools', ['bcftools'])])
+    shell:
+        '{params.base_dir}/scripts/6.3_sccallerlab.sh {input} {params.modules} '
+        '-o {output[0]}'
 
 
 rule monovar0:

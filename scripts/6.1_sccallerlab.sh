@@ -42,7 +42,7 @@ cores=$(nproc)
 python $SCcaller \
     --bam Processing/${cellname}.real.${chr}.bam \
     --fasta ${REF} \
-    --output Calls/${cellname}.real.${chr}.sccallerlab.vcf \
+    --output Calls/${cellname}.real.${chr}.sccaller.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
     --cpu_num ${cores} \
@@ -53,6 +53,6 @@ python $SCcaller \
     --mapq 30 \
     --bias 0.6 \
     --lamb 2000 \
-&& rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log \
-&& bgzip --stdout --index Calls/${cellname}.real.${chr}.sccallerlab.vcf \
-    > Calls/${cellname}.real.${chr}.sccallerlab.vcf.gz
+&& bgzip --stdout --index Calls/${cellname}.real.${chr}.sccaller.vcf \
+    > Calls/${cellname}.real.${chr}.sccaller.vcf.gz \
+&& rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log

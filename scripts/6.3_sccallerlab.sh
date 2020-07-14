@@ -20,14 +20,9 @@ done
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
 cores=$(nproc)
-sorted_bams=$(echo "${sample_bams}" | sort -V --field-separator=. --key=3,3) # | sed 's/$/.gz/'
-bcftools concat \
-    -output ${out_file} \
-    -output-type z \
+bcftools merge \
+    --output ${out_file} \
+    --output-type z \
+    --merge both \
     --threads ${cores} \
-    ${sorted_bams} \
-&& bcftools index \
-    --force \
-    --threads ${cores} \
-    ${out_file}
-
+    ${sorted_bams}

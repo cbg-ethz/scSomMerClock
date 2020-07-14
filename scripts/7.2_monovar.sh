@@ -25,7 +25,7 @@ cores=$(nproc)
 for sample in ${sample_bams}
 do
     bcftools query -l ${sample} \
-        | awk -F "[.]" '{print $0"\t"$1 > "vcf_header.monovar.tmp"}' \
+        | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}' \
     && bcftools reheader -s vcf_header.monovar.tmp --threads ${cores} -o ${sample} ${sample}
 done
 rm vcf_header.monovar.tmp
