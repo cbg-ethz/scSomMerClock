@@ -47,7 +47,7 @@ indel_realignment2:
   h_vmem: '40960'
 
 
-SCcaller:
+SCcaller1:
   h_rt: '24:00'
   h_vmem: '40960'
 

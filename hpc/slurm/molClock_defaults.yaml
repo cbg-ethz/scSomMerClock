@@ -65,7 +65,7 @@ indel_realignment2:
   mem: 40G
 
 
-SCcaller:
+SCcaller1:
   partition: amd-shared
   qos: amd-shared
   cpus-per-task: 2

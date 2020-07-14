@@ -233,23 +233,38 @@ rule indel_realignment2:
         '-i1 {params.indels1} -i2 {params.indels2}'
 
 
-rule SCcaller:
+rule SCcaller1:
     input:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
-        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf')
+        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
+            config['modules'].get('SCcaller', ['pysam', 'numpy', 'htslib'])]),
         bulk = config['specific']['bulk_normal'],
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         sccaller = config['SCcaller']['exe']
     shell:
-        '{params.base_dir}/scripts/6_sccallerlab.sh {params.modules} '
+        '{params.base_dir}/scripts/6.1_sccallerlab.sh {params.modules} '
         '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
         '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller}'
+
+
+rule SCcaller2:
+    input:
+        os.path.join('Calls', '{cell}.real.{chr}.sccallerlab.vcf.gz')
+    output:
+        os.path.join('Calls', '{cell}.sccaller.vcf.gz')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bcftools', ['bcftools'])]),
+    shell:
+        '{params.base_dir}/scripts/6.2_sccallerlab.sh  {input} {params.modules} '
+        '-o {output[0]}'
+
 
 
 rule monovar0:
@@ -272,7 +287,7 @@ rule monovar1:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('monovar', ['monovar', 'samtools'])]),
+            config['modules'].get('monovar', ['monovar', 'samtools', 'htslib'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
 
     shell:
