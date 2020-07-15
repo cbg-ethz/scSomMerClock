@@ -38,5 +38,4 @@ samtools mpileup \
     -c 1 \
     -f ${REF} \
     -b Processing/${chr}.bamspath.txt \
-    -o Calls/${chr}.monovar.vcf \
-&& bgzip --stdout --index Calls/${chr}.monovar.vcf > Calls/${chr}.monovar.vcf.gz
+    -o Calls/${chr}.monovar.vcf
