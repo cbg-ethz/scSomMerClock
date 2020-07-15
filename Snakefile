@@ -12,6 +12,8 @@ workdir: DATA_DIR
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
+
 
 cell_map = {}
 with open(config['specific']['cellnames'], 'r') as f:
@@ -49,15 +51,13 @@ def get_corr_samples(wildcards):
 
 
 def get_final_vcfs(wildcards):
-    chrom = [i for i in range(1, 23, 1)] + ['X', 'Y']
     final_files = ['QC_sequencing.tsv']
     if config.get('SCcaller', {}).get('run', False):
         final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
     if config.get('monovar', {}).get('run', False):
         final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
     if bulk_samples:
-        mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
-        final_files.extend(mutect)
+        final_files.append(os.path.join('Calls', 'all.mutect.vcf.gz'))
     return final_files
 
 
@@ -255,7 +255,7 @@ rule SCcaller1:
 rule SCcaller2:
     input:
         expand(os.path.join('Calls', '{{cell}}.real.{chr}.sccaller.vcf.gz'),
-            chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
+            chr=CHROM)
     output:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')
     params:
@@ -312,19 +312,19 @@ rule monovar1:
 rule monovar2:
     input:
         expand(os.path.join('Calls', '{chr}.monovar.vcf'),
-            chr=[i for i in range(1, 23, 1)] + ['X', 'Y'])
+            chr=CHROM)
     output:
         os.path.join('Calls', 'all.monovar.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
+            config['modules'].get('bcftools', ['bcftools'])])
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
-        ' -o {output[0]}'
+        '-o {output[0]}'
 
 
-rule mutect:
+rule mutect1:
     input: 
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'), 
             cell=bulk_samples)
@@ -339,9 +339,23 @@ rule mutect:
         pon = os.path.join(RES_PATH, config['specific']['PON']),
         normal = f'-n {cell_map[config["specific"]["bulk_normal"]][0]}'
     shell:
-        '{params.base_dir}/scripts/8_mutect.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/8.1_mutect.sh {input} {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
         '-p {params.pon} {params.normal}'
+
+
+rule mutect2:
+    input: 
+        expand(os.path.join('Calls', '{chr}.mutect.vcf'), chrom=CHROM)
+    output:
+        os.path.join('Calls', 'all.mutect.vcf.gz')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bcftools', ['bcftools'])])
+    shell:
+        '{params.base_dir}/scripts/8.2_mutect.sh {input} {params.modules} '
+        '-o {output[0]}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
