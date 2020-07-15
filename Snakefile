@@ -346,7 +346,7 @@ rule mutect1:
 
 rule mutect2:
     input: 
-        expand(os.path.join('Calls', '{chr}.mutect.vcf'), chrom=CHROM)
+        expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
     output:
         os.path.join('Calls', 'all.mutect.vcf.gz')
     params:
