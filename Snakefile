@@ -39,7 +39,7 @@ if config['specific'].get('bulk_samples', False):
     if isinstance(bulk, str) :
         bulk_samples.add(bulk)
     elif isinstance(bulk, list):
-         bulk_samples = bulk_samples.union(bulk)
+        bulk_samples = bulk_samples.union(bulk)
 
 ss_samples = set(cell_map.keys()).difference(bulk_samples)
 
