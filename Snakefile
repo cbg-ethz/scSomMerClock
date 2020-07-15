@@ -52,13 +52,9 @@ def get_final_vcfs(wildcards):
     chrom = [i for i in range(1, 23, 1)] + ['X', 'Y']
     final_files = ['QC_sequencing.tsv']
     if config.get('SCcaller', {}).get('run', False):
-        '{cell}.sccaller.vcf.gz'
-        sccaller = [os.path.join('Calls', f'{i}.sccaller.vcf.gz') \
-            for i in ss_samples]
-        final_files.extend(sccaller)
+        final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
     if config.get('monovar', {}).get('run', False):
-        monovar = os.path.join('Calls', 'all.monovar.vcf.gz')
-        final_files.append(monovar)
+        final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
     if bulk_samples:
         mutect = [os.path.join('Calls', f'{i}.mutect.vcf') for i in chrom]
         final_files.extend(mutect)
