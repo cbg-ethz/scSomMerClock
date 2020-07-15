@@ -237,11 +237,11 @@ rule SCcaller1:
     input:
         os.path.join('Processing', '{cell}.real.{chr}.bam')
     output:
-        os.path.join('Calls', '{cell}.real.{chr}.sccaller.vcf.gz')
+        os.path.join('Calls', '{cell}.{chr}.sccaller.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('SCcaller', ['pysam', 'numpy', 'htslib'])]),
+            config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
         bulk = config['specific']['bulk_normal'],
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
@@ -254,7 +254,7 @@ rule SCcaller1:
 
 rule SCcaller2:
     input:
-        expand(os.path.join('Calls', '{{cell}}.real.{chr}.sccaller.vcf.gz'),
+        expand(os.path.join('Calls', '{{cell}}.{chr}.sccaller.vcf'),
             chr=CHROM)
     output:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')

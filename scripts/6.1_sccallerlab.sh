@@ -53,6 +53,4 @@ python $SCcaller \
     --mapq 30 \
     --bias 0.6 \
     --lamb 2000 \
-&& bgzip --stdout --index Calls/${cellname}.real.${chr}.sccaller.vcf \
-    > Calls/${cellname}.real.${chr}.sccaller.vcf.gz \
 && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log

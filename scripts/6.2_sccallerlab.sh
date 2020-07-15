@@ -19,6 +19,9 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
+# && bgzip --stdout --index Calls/${cellname}.real.${chr}.sccaller.vcf \
+    # > Calls/${cellname}.real.${chr}.sccaller.vcf.gz \
+
 cores=$(nproc)
 sorted_bams=$(echo "${sample_bams}" | sort -V --field-separator=. --key=3,3) # | sed 's/$/.gz/'
 bcftools concat \
