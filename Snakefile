@@ -338,6 +338,7 @@ rule mutect1:
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
         normal = f'-n {cell_map[config["specific"]["bulk_normal"]][0]}'
+            if config['specific'].get('bulk_normal', False) else ''
     shell:
         '{params.base_dir}/scripts/8.1_mutect.sh {input} {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
