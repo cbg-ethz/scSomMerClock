@@ -30,7 +30,7 @@ do
     && bcftools reheader \
         -s vcf_header.sccaller.tmp \
         --threads ${cores} \
-        -o ${sample} \
+        --output ${sample} \
         ${sample}
 done
 rm vcf_header.sccaller.tmp
