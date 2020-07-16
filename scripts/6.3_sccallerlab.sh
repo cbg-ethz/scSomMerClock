@@ -25,4 +25,4 @@ bcftools merge \
     --output-type z \
     --merge both \
     --threads ${cores} \
-    ${sorted_bams}
+    ${sample_bams}
