@@ -19,6 +19,14 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
+for sample in ${sample_bams}
+do
+    bcftools query -l ${sample} \
+        | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
+    && bcftools reheader -s vcf_header.sccaller.tmp --threads ${cores} -o ${sample} ${sample}
+done
+rm vcf_header.sccaller.tmp
+
 cores=$(nproc)
 bcftools merge \
     --output ${out_file} \
