@@ -24,9 +24,16 @@ cores=$(nproc)
 # Rename header column (only sample, not chromosome), zip and index
 for sample in ${sample_bams}
 do
+    chr=$(echo $sample | cut -d '/' -f 2 | cut -d '.' -f 1)
     bcftools query -l ${sample} \
+        | sed 's/\.monovar$//g' \
         | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}' \
-    && bcftools reheader -s vcf_header.monovar.tmp --threads ${cores} -o ${sample} ${sample}
+    && bcftools reheader \
+        -s vcf_header.monovar.tmp \
+        --threads ${cores} \
+        -o ${sample} \
+        ${sample}
+    && grep '^#\<contig' ${sample} || sed -i '/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>' ${sample}
 done
 rm vcf_header.monovar.tmp
 
