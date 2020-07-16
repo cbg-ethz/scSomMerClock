@@ -19,15 +19,19 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
+cores=$(nproc)
+
 for sample in ${sample_bams}
 do
     bcftools view \
         --output-file ${sample}.gz \
         --output-type z \
-        ${sample}
+        ${sample} \
+    && bcftools index \
+        --force \
+        --threads ${cores} \
+        ${sample}.gz
 done
-
-cores=$(nproc)
 
 sorted_bams=$(echo "${sample_bams}" \
     | tr ' ' '\n' \
