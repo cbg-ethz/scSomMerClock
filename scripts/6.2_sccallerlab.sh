@@ -23,7 +23,8 @@ done
     # > Calls/${cellname}.real.${chr}.sccaller.vcf.gz \
 
 cores=$(nproc)
-sorted_bams=$(echo "${sample_bams}" | sort -V --field-separator=. --key=3,3) # | sed 's/$/.gz/'
+
+sorted_bams=$(echo "${sample_bams}" | sort -V --field-separator=. --key=3 | tr '\n' ' ') # | sed 's/$/.gz/'
 bcftools concat \
     -output ${out_file} \
     -output-type z \

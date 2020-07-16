@@ -42,7 +42,7 @@ cores=$(nproc)
 python $SCcaller \
     --bam Processing/${cellname}.real.${chr}.bam \
     --fasta ${REF} \
-    --output Calls/${cellname}.real.${chr}.sccaller.vcf \
+    --output Calls/${cellname}.${chr}.sccaller.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
     --cpu_num ${cores} \
