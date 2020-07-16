@@ -19,15 +19,22 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
+cores=$(nproc)
+
+# Rename header column (only sample, not chromosome), zip and index
 for sample in ${sample_bams}
 do
     bcftools query -l ${sample} \
+        | sed 's/\.sccaller$//g' \
         | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
-    && bcftools reheader -s vcf_header.sccaller.tmp --threads ${cores} -o ${sample} ${sample}
+    && bcftools reheader \
+        -s vcf_header.sccaller.tmp \
+        --threads ${cores} \
+        -o ${sample} \
+        ${sample}
 done
 rm vcf_header.sccaller.tmp
 
-cores=$(nproc)
 bcftools merge \
     --output ${out_file} \
     --output-type z \
