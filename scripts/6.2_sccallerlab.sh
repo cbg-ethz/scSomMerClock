@@ -30,9 +30,10 @@ done
 cores=$(nproc)
 
 sorted_bams=$(echo "${sample_bams}" \
+    | tr ' ' '\n' \
     | sort -V --field-separator=. --key=3 \
+    | sed 's/$/.gz/' \
     | tr '\n' ' ' \
-    | sed 's/$/.gz/' 
 )
 echo $sorted_bams
 bcftools concat \
