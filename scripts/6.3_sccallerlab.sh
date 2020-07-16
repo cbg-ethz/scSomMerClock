@@ -21,23 +21,19 @@ done
 
 cores=$(nproc)
 
-# Rename header column (only sample, not chromosome), zip and index
-for sample in ${sample_bams}
-do
-    bcftools query -l ${sample} \
-        | sed 's/\.sccaller$//g' \
-        | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
-    && bcftools reheader \
-        -s vcf_header.sccaller.tmp \
-        --threads ${cores} \
-        --output ${sample} \
-        ${sample}
-done
-rm vcf_header.sccaller.tmp
-
 bcftools merge \
-    --output ${out_file} \
+    --output ${out_file}.tmp \
     --output-type z \
     --merge both \
     --threads ${cores} \
     ${sample_bams}
+
+bcftools query -l ${out_file}.tmp \
+    | sed 's/\.sccaller$//g' \
+    | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
+&& bcftools reheader \
+    --samples vcf_header.sccaller.tmp \
+    --threads ${cores} \
+    --output ${out_file} \
+    ${out_file}.tmp \
+&& rm vcf_header.sccaller.tmp ${out_file}.tmp

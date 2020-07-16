@@ -26,9 +26,17 @@ for sample in ${sample_bams}
 do
     bcftools query -l ${sample} \
         | awk -F "[.]" '{print $0"\t"$1".mutect" > "vcf_header.mutect.tmp"}' \
-    && bcftools reheader -s vcf_header.monovar.tmp --threads ${cores} -o ${sample} ${sample}
+    && bcftools reheader \
+        --samples vcf_header.monovar.tmp \
+        --threads ${cores} \
+        --output ${sample} \
+        ${sample}
 done
 rm vcf_header.monovar.tmp
 
 sorted_bams=$(echo "${sample_bams}" | sort -V) # | sed 's/$/.gz/'
-bcftools concat -o ${out_file} -O z --threads ${cores} ${sorted_bams}
+bcftools concat \
+    --output ${out_file} \
+    --output-type z \
+    --threads ${cores} \
+    ${sorted_bams}
