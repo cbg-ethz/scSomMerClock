@@ -32,7 +32,7 @@ do
         -s vcf_header.monovar.tmp \
         --threads ${cores} \
         -o ${sample} \
-        ${sample}
+        ${sample} \
     && grep '^#\<contig' ${sample} || sed -i '/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>' ${sample}
 done
 rm vcf_header.monovar.tmp
