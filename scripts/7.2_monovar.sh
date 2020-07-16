@@ -33,9 +33,10 @@ do
         --threads ${cores} \
         -o ${sample} \
         ${sample} \
-    && grep '^#\<contig' ${sample} || sed -i '/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>' ${sample}
+    && grep '^#\<contig' ${sample} || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}
 done
 rm vcf_header.monovar.tmp
 
 sorted_bams=$(echo "${sample_bams}" | sort -V) # | sed 's/$/.gz/'
+echo $sorted_bams
 bcftools concat -o ${out_file} -O z --threads ${cores} ${sorted_bams}
