@@ -24,7 +24,8 @@ do
     bcftools view \
         --regions 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,21,X,Y \
         --output-file ${out_file}.gz \
-        --output-type z
+        --output-type z \
+        ${sample}
 done
 
 cores=$(nproc)
@@ -32,7 +33,7 @@ cores=$(nproc)
 sorted_bams=$(echo "${sample_bams}" \
     | tr ' ' '\n' \
     | sort -V --field-separator=. --key=3 \
-    | sed 's/$/.gz/' \
+    | sed 's/vcf$/vcf\.gz/' \
     | tr '\n' ' ' \
 )
 echo $sorted_bams
