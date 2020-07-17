@@ -37,8 +37,12 @@ bcftools query -l ${out_file}.tmp \
 && bcftools reheader \
     --samples vcf_header.mutect.tmp \
     --threads ${cores} \
-    --output ${out_file} \
     ${out_file}.tmp \
+| bcftools annotate \
+    --remove FORMAT/AD \
+    --output-type z \
+    --output ${out_file} \
+    - \
 && bcftools index \
     --force \
     --threads ${cores} \
