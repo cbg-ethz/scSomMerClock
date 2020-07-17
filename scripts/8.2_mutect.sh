@@ -21,22 +21,26 @@ done
 
 cores=$(nproc)
 
-# Rename header column (only sample, not chromosome), zip and index
-for sample in ${sample_bams}
-do
-    bcftools query -l ${sample} \
-        | awk -F "[.]" '{print $0"\t"$1".mutect" > "vcf_header.mutect.tmp"}' \
-    && bcftools reheader \
-        --samples vcf_header.monovar.tmp \
-        --threads ${cores} \
-        --output ${sample} \
-        ${sample}
-done
-rm vcf_header.monovar.tmp
-
-sorted_bams=$(echo "${sample_bams}" | sort -V) # | sed 's/$/.gz/'
+sorted_bams=$(echo "${sample_bams}"  | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
+echo $sorted_bams
 bcftools concat \
-    --output ${out_file} \
+    --output ${out_file}.tmp \
     --output-type z \
     --threads ${cores} \
+    --no-version \
     ${sorted_bams}
+
+# Rename header column (only sample, not chromosome), zip and index
+bcftools query -l ${out_file}.tmp \
+    | sed 's/\.mutect$//g' \
+    | awk -F "[.]" '{print $0"\t"$1".mutect" > "vcf_header.mutect.tmp"}' \
+&& bcftools reheader \
+    --samples vcf_header.mutect.tmp \
+    --threads ${cores} \
+    --output ${out_file} \
+    ${out_file}.tmp \
+&& bcftools index \
+    --force \
+    --threads ${cores} \
+    ${out_file} \
+&& rm vcf_header.mutect.tmp

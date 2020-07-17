@@ -38,7 +38,6 @@ done
 rm vcf_header.monovar.tmp
 
 sorted_bams=$(echo ${sample_bams} | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
-echo $sorted_bams
 bcftools concat \
     --output ${out_file} \
     --output-type z \
