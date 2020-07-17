@@ -31,9 +31,11 @@ do
     && bcftools reheader \
         -s vcf_header.monovar.tmp \
         --threads ${cores} \
-        --output ${sample} \
+        --output ${sample}.tmp \
         ${sample} \
-    && grep '^#\<contig' ${sample} || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}
+    && mv ${sample}.tmp ${sample} \
+    && grep '^#\<contig' ${sample} \
+        || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}
 done
 rm vcf_header.monovar.tmp
 
@@ -42,4 +44,8 @@ bcftools concat \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
-    ${sorted_bams}
+    ${sorted_bams} \
+&& bcftools index \
+    --force \
+    --threads ${cores} \
+    ${out_file}

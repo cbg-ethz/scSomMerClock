@@ -51,7 +51,7 @@ def get_corr_samples(wildcards):
 
 
 def get_final_vcfs(wildcards):
-    final_files = ['QC_sequencing.tsv']
+    final_files = []
     if config.get('SCcaller', {}).get('run', False):
         final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
     if config.get('monovar', {}).get('run', False):
@@ -63,7 +63,8 @@ def get_final_vcfs(wildcards):
 
 rule all:
     input:
-        get_final_vcfs
+        os.path.join('Calls', 'all.vcf.gz'),
+        'QC_sequencing.tsv'
 
 
 rule adapter_cutting:
@@ -362,6 +363,21 @@ rule mutect2:
     shell:
         '{params.base_dir}/scripts/8.2_mutect.sh {input} {params.modules} '
         '-o {output[0]}'
+
+
+rule merge_calls:
+    input:
+        get_final_vcfs
+    output:
+        os.path.join('Calls', 'all.vcf.gz')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('bcftools', ['bcftools'])])
+    shell:
+        '{params.base_dir}/scripts/9_merge_vcfs.sh {input} {params.modules} '
+        '-o {output[0]}'
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
