@@ -65,35 +65,36 @@ def parse_args():
         help='Minimum read depth at loci. Default = 5.'
     )
     parser.add_argument(
-        '-gq', '--genotype_quality', type=int, default=,
-        help='Minimum read depth at loci. Default = 5.'
+        '-gq', '--genotype_quality', type=int, default=20,
+        help='Minimum read depth at loci. Default = 40.'
     )
 
     args = parser.parse_args()
     return args
 
 
-ALG_MAP = {'monovar': 1, 'sccaller': 2, 'mutect': 3}
+ALG_MAP = {'monovar': 1, 'sccaller': 2, 'mutect': 3, 'monovarmutect': 4,
+    'monovarsccaller': 5, 'sccallermonovar': 6}
 
 
 def main(args):
     vcf_reader = vcf.Reader(filename=args.input)
 
-    samples = {'monovar': [], 'sccaller': [], 'mutect': []}
-    for sample in vcf_reader.samples:
-        name, caller = sample.split('.')
-        samples[caller].append(sample)
+    # samples = {'monovar': [], 'sccaller': [], 'mutect': []}
+    # for sample in vcf_reader.samples:
+    #     name, caller = sample.split('.')
+    #     samples[caller].append(sample)
 
     data = []
     # Iterate over rows
     for record in vcf_reader:
         # Skip rows with quality below a threshold
         if record.QUAL >= args.quality:
-            rec_data = [record.var_type, 0, 0, 0]
+            rec_data = [record.CHROM, record.POS, record.var_type, 0, 0, 0, 0, 0]
             # Iterate over columns (i.e. samples)
             for sample in record.samples:
                 # Skip samples where record is not called
-                if sample.called:
+                if sample.called and sample.data.GQ > args.genotype_quality:
                     # Skip samples with read depth below threshold
                     try: 
                         depth = sample.data.DP 
@@ -105,9 +106,10 @@ def main(args):
                     rec_data[alg] += 1
 
             data.append(rec_data)
-            import pdb; pdb.set_trace()
+            if rec_data[1] > 1 or rec_data[2] > 1 or rec_data[3] > 1:
+                import pdb; pdb.set_trace()
 
-    cols = ['type', 'monovar', 'sccaller', 'mutect']
+    cols = ['CHROM', 'POS', 'type', 'monovar', 'sccaller', 'mutect']
     summary = pd.DataFrame(columns=cols)
 
 
