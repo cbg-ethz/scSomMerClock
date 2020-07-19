@@ -37,7 +37,7 @@ java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar 
     -known ${INDELS2} \
     ${bams_in} \
     -R ${REF} \
-    -targetIntervals Reallignment/${chr}.intervals \
+    -targetIntervals Realignment/${chr}.intervals \
     -L ${chr} \
-    --nWayOut Reallignment/${chr}.map \
+    --nWayOut Realignment/${chr}.map \
     --maxReadsForRealignment 1000000

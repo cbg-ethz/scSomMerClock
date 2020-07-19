@@ -35,7 +35,7 @@ done
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     ${bams_in} \
-    -o Reallignment/${chr}.intervals \
+    -o Realignment/${chr}.intervals \
     -R ${REF} \
     -known ${INDELS1} \
     -known ${INDELS2} \
