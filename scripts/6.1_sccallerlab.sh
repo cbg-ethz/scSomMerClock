@@ -52,5 +52,5 @@ python $SCcaller \
     --minvar 0 \
     --mapq 30 \
     --bias 0.6 \
-    --lamb 2000 \
-&& rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log
+    --lamb 2000 
+# && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log
