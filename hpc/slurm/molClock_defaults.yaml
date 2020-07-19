@@ -19,17 +19,17 @@ adapter_cutting:
 
 alignment1:
   cpus-per-task: 8
-  time: 1440
+  time: 720
   mem: 40G
 
 alignment2:
-  time: 1440
+  time: 720
   mem: 40G
 
 remove_duplicates:
   partition: amd-shared
   qos: amd-shared
-  time: 480
+  time: 360
   mem: 40G
 
 
@@ -37,7 +37,7 @@ base_recal1:
   partition: amd-shared
   qos: amd-shared
   time: 360
-  mem: 50G
+  mem: 40G
 
 
 base_recal2:
@@ -81,5 +81,5 @@ monovar1:
 
 mutect1:
   cpus-per-task: 4
-  time: 720
-  mem: 40G
+  time: 179
+  mem: 30G
