@@ -73,41 +73,71 @@ def parse_args():
     return args
 
 
-ALG_MAP = {'monovar': 1, 'sccaller': 2, 'mutect': 3, 'monovarmutect': 4,
-    'monovarsccaller': 5, 'sccallermonovar': 6}
-
-
 def main(args):
     vcf_reader = vcf.Reader(filename=args.input)
 
-    # samples = {'monovar': [], 'sccaller': [], 'mutect': []}
-    # for sample in vcf_reader.samples:
-    #     name, caller = sample.split('.')
-    #     samples[caller].append(sample)
+    samples = {'sc': set([])}
+    for sample in vcf_reader.samples:
+        sample_detail = sample.split('.')
+        sample_name = '.'.join(sample_detail[:-1])
+        caller = sample_detail[-1]
+        if caller != 'mutect':
+            samples['sc'].add(sample_name)
+
+    alg_map = {'monovar': 0, 'sccaller': 1, args.bulk_normal: 2}
+    for bt in args.bulk_normal:
+        alg_map[bt] = len(alg_map)
+
+    
+    sc_map = {j: i for i, j in enumerate(sorted(samples['sc']))}
+    sc_size = len(sc_map)
 
     data = []
     # Iterate over rows
     for record in vcf_reader:
+        if record.QUAL == None: import pdb; pdb.set_trace()
         # Skip rows with quality below a threshold
         if record.QUAL >= args.quality:
-            rec_data = [record.CHROM, record.POS, record.var_type, 0, 0, 0, 0, 0]
+            rec_data = [record.CHROM, record.POS, record.var_type]
+            calls = np.zeros((sc_size, 4))
             # Iterate over columns (i.e. samples)
             for sample in record.samples:
                 # Skip samples where record is not called
-                if sample.called and sample.data.GQ > args.genotype_quality:
+                QG = sample.data.GQ
+                if QG == None and sample.called: import pdb; pdb.set_trace()
+
+                if sample.called and QG > args.genotype_quality:
                     # Skip samples with read depth below threshold
                     try: 
-                        depth = sample.data.DP 
+                        depth = sample.data.DP
+                        if depth == None:
+                            raise AttributeError
                     except AttributeError:
                         depth = sum(sample.data.AD)
                     if depth < args.read_depth:
-                        continue
-                    alg = ALG_MAP[sample.sample.split('.')[-1]]
-                    rec_data[alg] += 1
+                            continue
 
-            data.append(rec_data)
-            if rec_data[1] > 1 or rec_data[2] > 1 or rec_data[3] > 1:
+                    sample_detail = sample.sample.split('.')
+                    sample_id = sc_map['.'.join(sample_detail[:-1])]
+                    alg = sample_detail[-1]
+                    if alg != 'mutect':
+                        calls[sample_id, alg_map[alg]] = 1
+                    else:
+                        import pdb; pdb.set_trace()
+                        calls[sample_id, alg_map[sample_id]] = 1
+
+            per_sample = np.sum(calls, axis=1)
+            # Nothing called (why reported?)
+            if per_sample.max() == 0:
+                continue
+            # Algorithm only called in 1 
+            elif per_sample.max() == 1:
+                call_data = calls.sum(axis=0)
+            else:
                 import pdb; pdb.set_trace()
+
+            rec_data.extend(call_data)
+            data.append(rec_data)
 
     cols = ['CHROM', 'POS', 'type', 'monovar', 'sccaller', 'mutect']
     summary = pd.DataFrame(columns=cols)
