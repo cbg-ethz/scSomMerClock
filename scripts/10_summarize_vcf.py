@@ -183,6 +183,11 @@ def main(args):
     df.to_csv(os.path.join(args.output, f'filtered_summary.{file_name}.tsv'),
         sep='\t')
 
+    if germline:
+        germ_file = os.path.join(args.output, f'germline_muts.{file_name}.tsv')
+        with open(germ_file, 'w') as f:
+            f.write('\n'.join(germline))
+
 
 if __name__ == '__main__':
     args = parse_args()
