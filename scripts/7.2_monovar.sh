@@ -3,19 +3,28 @@
 module purge
 
 sample_bams=""
+filter_str_in="'"
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
-        -o | --out)         shift
-                            out_file=$1
-                            ;;
-        *)                  sample_bams+="$1 " 
+        -m | --module)          shift
+                                module load $1
+                                ;;
+        -fq | --filter_qual)    shift
+                                filter_str_in+="QUAL>$1 &&"
+                                ;;
+        -fd | --filter_depth)   shift
+                                filter_str_in+="FORMAT/DP>$1 &&"
+                                ;;
+        -o | --out)             shift
+                                out_file=$1
+                                ;;
+        *)                      sample_bams+="$1 " 
     esac
     shift
 done
+
+filter_str="${filter_str_in%???}' "
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
@@ -31,8 +40,13 @@ do
     && bcftools reheader \
         -s vcf_header.monovar.tmp \
         --threads ${cores} \
-        --output ${sample}.tmp \
         ${sample} \
+    | bcftools filter \
+        --include ${filter_str} \
+        --output ${sample}.tmp \
+        --regions ${chr} \
+        --threads ${cores} \
+        - \
     && mv ${sample}.tmp ${sample} \
     && grep '^#\<contig' ${sample} \
         || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}

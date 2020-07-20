@@ -50,6 +50,21 @@ def get_corr_samples(wildcards):
         for i in cell_map[wildcards.cell]]
 
 
+def get_filter_str(wildcards, output):
+    depth = config.get('filter_cutoffs', {}).get('min_depth', 1)
+    qual = config.get('filter_cutoffs', {}).get('min_qual', 1)
+    alg = output[0].split('.')[1]
+
+    f_str = ''
+    if alg == 'monovar':
+        f_str += f'-fq {qual}'
+        f_str += f'-fd {depth}'
+    elif alg == 'sccaller':
+        f_str += f'-fq {qual}'
+        f_str += f'-fd {depth}'
+    return f_str
+
+
 def get_final_vcfs(wildcards):
     final_files = []
     if config.get('SCcaller', {}).get('run', False):
@@ -324,10 +339,11 @@ rule monovar2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
+            config['modules'].get('bcftools', ['bcftools'])]),
+        filter_str = get_filter_str
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '{params.filter_str} -o {output[0]}'
 
 
 rule mutect1:
@@ -335,7 +351,7 @@ rule mutect1:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'), 
             cell=bulk_samples)
     output:
-        os.path.join('Calls', '{chr}.mutect.vcf')
+        os.path.join('Calls', '{chr}.filtered.mutect.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -353,7 +369,7 @@ rule mutect1:
 
 rule mutect2:
     input: 
-        expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
+        expand(os.path.join('Calls', '{chr}.filtered.mutect.vcf'), chr=CHROM)
     output:
         os.path.join('Calls', 'all.mutect.vcf.gz')
     params:

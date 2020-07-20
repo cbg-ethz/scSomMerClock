@@ -25,6 +25,11 @@ SCcaller:
 monovar:
   run: True
 
+filter_cutoffs:
+  min_depth: 5
+  min_qual: 30
+
+
 modules:
   cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
   bwa: [gcc/6.4.0, bwa/0.7.17]

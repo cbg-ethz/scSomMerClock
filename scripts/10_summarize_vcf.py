@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import vcf
 
-## SCcaller FOORMAT
+##                     < FOORMAT
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
 ##FORMAT=<ID=BI,Number=1,Type=Float,Description="Amplification Bias">
@@ -53,7 +53,7 @@ def parse_args():
         help='Column name of bulk normal. Default = None.'
     )
     parser.add_argument(
-        '-bt', '--bulk_tumor', nargs='+', type=str, default='',
+        '-bt', '--bulk_tumor', nargs='+', type=str,
         help='Column name of bulk tumor. Default = None.'
     )
     parser.add_argument(
@@ -65,8 +65,8 @@ def parse_args():
         help='Minimum read depth at loci. Default = 5.'
     )
     parser.add_argument(
-        '-gq', '--genotype_quality', type=int, default=20,
-        help='Minimum read depth at loci. Default = 40.'
+        '-gq', '--genotype_quality', type=int, default=0,
+        help='Minimum genotype quality. Default = 0.'
     )
 
     args = parser.parse_args()
@@ -74,73 +74,114 @@ def parse_args():
 
 
 def main(args):
+    file_name = os.path.basename(args.input)
     vcf_reader = vcf.Reader(filename=args.input)
 
-    samples = {'sc': set([])}
+    samples = set([])
     for sample in vcf_reader.samples:
         sample_detail = sample.split('.')
         sample_name = '.'.join(sample_detail[:-1])
         caller = sample_detail[-1]
         if caller != 'mutect':
-            samples['sc'].add(sample_name)
+            samples.add(sample_name)
+    # Ni8 specific
+    samples.discard('P01M01E')
+    samples.discard('P01P01E')
 
-    alg_map = {'monovar': 0, 'sccaller': 1, args.bulk_normal: 2}
-    for bt in args.bulk_normal:
-        alg_map[bt] = len(alg_map)
-
-    
-    sc_map = {j: i for i, j in enumerate(sorted(samples['sc']))}
+    sc_map = {j: i for i, j in enumerate(sorted(samples))}
+    for bt in args.bulk_tumor:
+        sc_map[bt] = len(sc_map)
     sc_size = len(sc_map)
 
+    alg_map = {'monovar': 0, 'sccaller': 1}
+    res_map = {'[1 0 0]': 0, '[0 1 0]': 1, '[0 0 1]': 2, '[1 1 0]': 3, 
+        '[1 0 1]': 4, '[0 1 1]': 5, '[1 1 1]': 6}
+
+    germline = []
     data = []
+    indels = 0
     # Iterate over rows
-    for record in vcf_reader:
-        if record.QUAL == None: import pdb; pdb.set_trace()
-        # Skip rows with quality below a threshold
-        if record.QUAL >= args.quality:
-            rec_data = [record.CHROM, record.POS, record.var_type]
-            calls = np.zeros((sc_size, 4))
-            # Iterate over columns (i.e. samples)
-            for sample in record.samples:
-                # Skip samples where record is not called
-                QG = sample.data.GQ
-                if QG == None and sample.called: import pdb; pdb.set_trace()
+    for i, record in enumerate(vcf_reader):
+        # Skip indels (only keep snp)
+        if record.var_type == 'indel':
+            indels += 1
+            continue
 
-                if sample.called and QG > args.genotype_quality:
-                    # Skip samples with read depth below threshold
-                    try: 
-                        depth = sample.data.DP
-                        if depth == None:
-                            raise AttributeError
-                    except AttributeError:
-                        depth = sum(sample.data.AD)
-                    if depth < args.read_depth:
-                            continue
-
-                    sample_detail = sample.sample.split('.')
-                    sample_id = sc_map['.'.join(sample_detail[:-1])]
-                    alg = sample_detail[-1]
-                    if alg != 'mutect':
-                        calls[sample_id, alg_map[alg]] = 1
-                    else:
-                        import pdb; pdb.set_trace()
-                        calls[sample_id, alg_map[sample_id]] = 1
-
-            per_sample = np.sum(calls, axis=1)
-            # Nothing called (why reported?)
-            if per_sample.max() == 0:
+        # Only called in SC with low quality
+        try:
+            if record.QUAL < args.quality and record.FILTER == None:
                 continue
-            # Algorithm only called in 1 
-            elif per_sample.max() == 1:
-                call_data = calls.sum(axis=0)
+        except TypeError:
+            # Only called by Mutect2 but didnt pass filtering
+            if 'PASS' not in record.FILTER:
+                continue
+
+        # if qual_record >= args.quality:
+        # 0: monovar, 1: sccaller, 2: bulk_tumor
+        calls = np.zeros((sc_size, 3), dtype=int)
+        # Iterate over columns (i.e. samples)
+        for sample in [i for i in record.samples if i.called]:
+            # WT genotype (called by SCcaller)
+            #   0 = 0/0, 1 = 0/1, 2 = 1/1
+            if sample.gt_type == 0:
+                continue
+
+            sample_detail = sample.sample.split('.')
+            sample_name = '.'.join(sample_detail[:-1])
+            alg = sample_detail[-1]
+
+            # Ni8 specific
+            if sample_name in ['P01M01E', 'P01P01E']:
+                continue
+
+            # Skip low quality calls
+            if alg == 'mutect':
+                if 'PASS' not in record.FILTER:
+                    continue
             else:
-                import pdb; pdb.set_trace()
+                if sample.data.GQ < args.genotype_quality:
+                    continue
+                # Skip samples with read depth below threshold
+                if sum(sample.data.AD) < args.read_depth:
+                    continue
 
-            rec_data.extend(call_data)
-            data.append(rec_data)
+            # Bulk SNV
+            if alg == 'mutect':
+                # Called in Normal (germline)
+                if sample_name == args.bulk_normal:
+                    germline.append(f'{record.CHROM}:{record.POS}')
+                # Called in tumor
+                else:
+                    calls[sample_id, 2] = 1
+            # SC SNV
+            else:
+                sample_id = sc_map[sample_name]
+                calls[sample_id, alg_map[alg]] = 1
 
-    cols = ['CHROM', 'POS', 'type', 'monovar', 'sccaller', 'mutect']
-    summary = pd.DataFrame(columns=cols)
+        per_sample = np.sum(calls, axis=1)
+        # WT called (by SCCaller)
+        if per_sample.max() == 0:
+            continue
+        # All SNVs only called by 1 algorithm
+        elif per_sample.max() == 1:
+            call_data = np.append(calls.sum(axis=0), np.zeros(4, dtype=int))
+        else:
+            call_data = np.zeros(7, dtype=int)
+            for sample_calls in calls:
+                if sample_calls.sum() != 0:
+                    call_data[res_map[np.array2string(sample_calls)]] += 1
+        
+        rec_data = np.append([record.CHROM, record.POS], call_data)
+        data.append(rec_data)
+
+    cols = ['CHROM', 'POS', \
+        'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
+        'sccaller_bulk', 'monovar_sccaller_bulk']
+    df = pd.DataFrame(data, columns=cols)
+    df.set_index(['CHROM', 'POS'], inplace=True)
+    df = df.astype(int)
+    df.to_csv(os.path.join(args.output, f'filtered_summary.{file_name}.tsv'),
+        sep='\t')
 
 
 if __name__ == '__main__':

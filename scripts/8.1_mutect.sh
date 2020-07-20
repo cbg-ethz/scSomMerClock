@@ -38,13 +38,32 @@ done
 cores=$(nproc)
 
 gatk Mutect2 \
-    -R ${REF} \
+    --reference ${REF} \
     ${bams_in} \
     ${normal_in} \
-    -L ${chr} \
+    --intervals ${chr} \
     --genotype-pon-sites true \
     --germline-resource ${GERM_RES} \
     --panel-of-normals ${PON} \
-    -O Calls/${chr}.mutect.vcf \
+    --output Calls/${chr}.unfiltered.mutect.vcf \
     --f1r2-tar-gz Calls/${chr}.f1r2.mutect.tar.gz \
     --native-pair-hmm-threads ${cores}
+    
+gatk LearnReadOrientationModel \
+    --input Calls/${chr}.f1r2.mutect.tar.gz \
+    --output Calls/${chr}.rom.mutect.tar.gz \
+&& gatk GetPileupSummaries \
+    --input Calls/${chr}.rom.mutect.tar.gz  \
+    --variant Calls/${chr}.unfiltered.mutect.vcf \
+    --intervals ${chr} \
+    --output Calls/${chr}.getpileupsummaries.table \
+&& gatk CalculateContamination \
+    --input Calls/${chr}.getpileupsummaries.table \
+    --matched-normal normal-pileups.table \
+    --output Calls/${chr}.calculatecontamination.table \
+&& gatk FilterMutectCalls \
+    --variant Calls/${chr}.unfiltered.mutect.vcf \
+    --contamination-table Calls/${chr}.calculatecontamination.table \
+    --ob-priors Calls/${chr}.rom.mutect.tar.gz \
+    --output Calls/${chr}.filtered.mutect.vcf \
+    --reference ${REF}
