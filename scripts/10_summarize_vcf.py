@@ -149,7 +149,7 @@ def main(args):
             if alg == 'mutect':
                 # Called in Normal (germline)
                 if sample_name == args.bulk_normal:
-                    germline.append(f'{record.CHROM}:{record.POS}')
+                    germline.append('{}:{}'.format(record.CHROM, record.POS))
                 # Called in tumor
                 else:
                     calls[sample_id, 2] = 1
@@ -180,12 +180,15 @@ def main(args):
     df = pd.DataFrame(data, columns=cols)
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
-    df.to_csv(os.path.join(args.output, f'filtered_summary.{file_name}.tsv'),
-        sep='\t')
+
+    out_summary = os.path.join(args.output,
+        'filtered_summary.{}.tsv'.format(file_name))
+    df.to_csv(out_summary, sep='\t')
 
     if germline:
-        germ_file = os.path.join(args.output, f'germline_muts.{file_name}.tsv')
-        with open(germ_file, 'w') as f:
+        out_germ = os.path.join(args.output, 
+            'germline_muts.{}.tsv'.format(file_name))
+        with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
 
