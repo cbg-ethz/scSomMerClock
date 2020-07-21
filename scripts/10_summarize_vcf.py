@@ -107,16 +107,15 @@ def main(args):
             indels += 1
             continue
 
-        # Only called in SC with low quality
+        # Only called in SC (and not in bulk) but with low quality
         try:
             if record.QUAL < args.quality and record.FILTER == None:
                 continue
         except TypeError:
-            # Only called by Mutect2 but didnt pass filtering
-            if 'PASS' not in record.FILTER:
+            # Only called in bulk contains filter
+            if record.FILTER:
                 continue
 
-        # if qual_record >= args.quality:
         # 0: monovar, 1: sccaller, 2: bulk_tumor
         calls = np.zeros((sc_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
@@ -136,7 +135,7 @@ def main(args):
 
             # Skip low quality calls
             if alg == 'mutect':
-                if 'PASS' not in record.FILTER:
+                if record.FILTER:
                     continue
             else:
                 if sample.data.GQ < args.genotype_quality:
