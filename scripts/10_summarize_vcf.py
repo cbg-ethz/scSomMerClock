@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import vcf
 
-##                     < FOORMAT
+## SCcaller FORMAT
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
 ##FORMAT=<ID=BI,Number=1,Type=Float,Description="Amplification Bias">
