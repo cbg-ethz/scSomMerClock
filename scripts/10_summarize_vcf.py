@@ -334,7 +334,11 @@ def main(args):
     if not args.output:
         args.output = os.path.dirname(args.input)
 
-    df = get_summary_df(args)
+    # df = get_summary_df(args)
+    df = pd.read_csv(
+        '../filtered_20x_summary.all.vcf.gz.tsv',
+        sep='\t', index_col=[0, 1], dtype={0: str}
+    )
     summary = get_summary_statistics(df)
     plot_venn(summary, args)
 

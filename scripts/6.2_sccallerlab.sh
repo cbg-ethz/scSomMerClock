@@ -23,7 +23,7 @@ cores=$(nproc)
 
 for sample in ${sample_bams}
 do
-    bcftools view \
+    bcftools sort \
         --output-file ${sample}.gz \
         --output-type z \
         ${sample} \
