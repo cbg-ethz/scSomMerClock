@@ -73,7 +73,7 @@ def parse_args():
     return args
 
 
-def main(args):
+def get_summary_df(args):
     file_name = os.path.basename(args.input)
     vcf_reader = vcf.Reader(filename=args.input)
 
@@ -180,15 +180,163 @@ def main(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(args.output,
-        'filtered_summary.{}.tsv'.format(file_name))
+    out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
+        .format(args.read_depth, args.quality, file_name))
     df.to_csv(out_summary, sep='\t')
 
     if germline:
-        out_germ = os.path.join(args.output, 
-            'germline_muts.{}.tsv'.format(file_name))
+        out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
+            .format(args.read_depth, args.quality, file_name))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
+
+    print('\n(Removed {} indels)\n'.format(indels))
+
+    return df
+
+
+def get_summary_statistics(df):
+    # Add sum _column
+    df['sum'] = df.sum(axis=1)
+
+    # Get singleton called either by monovar or SCcaller
+    singletons_single = df[
+        ((df['sum'] == 1) & (df[['monovar', 'sccaller']].sum(axis=1) == 1)) \
+            | ((df['sum'] == 2) & (df[['monovar', 'sccaller']].sum(axis=1) == 2))
+    ]
+    df.drop(singletons_single.index, inplace=True)
+
+    # Get singleton called by monovar and SCcaller
+    singletons_both = df[(df['sum'] == 1) & (df['monovar_sccaller'] == 1)]
+    df.drop(singletons_both.index, inplace=True)
+
+    # Get singelton bulk
+    b = df[df['bulk'] == df['sum']]
+    df.drop(b.index, inplace=True)
+
+    # Get SNPs called only by monovar in min 2 samples
+    m = df[(df['monovar'] >= 2) & (df['sccaller'] < 2) \
+        & (df['monovar_sccaller'] < 2)]
+    df.drop(m.index, inplace=True)
+
+    # Get SNPs called only by SCcaller in min 2 samples
+    s = df[(df['sccaller'] >= 2) & (df['monovar'] < 2) \
+        & (df['monovar_sccaller'] < 2)]
+    df.drop(s.index, inplace=True)
+
+    # Get SNPs called by monovar and in bulk, but not by sccaller
+    m_b = df[(df['monovar_bulk'] != 0) & (df['sccaller'] < 2) \
+        & (df['monovar_sccaller'] < 2) & (df['sccaller_bulk'] == 0) \
+        & (df['monovar_sccaller_bulk'] == 0)]
+    df.drop(m_b.index, inplace=True)
+
+    # Get SNPs called by sccaller and in bulk, but not by monovar
+    s_b = df[(df['sccaller_bulk'] != 0) & (df['monovar'] < 2) \
+        & (df['monovar_sccaller'] < 2) & (df['monovar_bulk'] == 0) \
+        & (df['monovar_sccaller_bulk'] == 0)]
+    df.drop(s_b.index, inplace=True)
+
+    # Get SNPs called by monovar and SCcaller in min 2 samples, but not in bulk 
+    m_s = df[(df['monovar_sccaller'] >= 2) & (df['monovar_sccaller_bulk'] == 0) ]
+    df.drop(m_s.index, inplace=True)
+    
+    # Get SNPs called by both algorithms in SC and in bulk
+    m_s_b = df[df['monovar_sccaller_bulk'] != 0]
+    df.drop(m_s_b.index, inplace=True)
+
+    # Get SNPs called by SC algorithms in 2 samples only
+    s_shady = df[(df['sccaller'] == 1) & (df['monovar_sccaller'] == 1)\
+        & (df['sum'] == 2)]
+    df.drop(s_shady.index, inplace=True)
+
+    m_shady = df[(df['monovar'] == 1) & (df['monovar_sccaller'] == 1)\
+        & (df['sum'] == 2)]
+    df.drop(m_shady.index, inplace=True)
+
+    m_s_shady = df[(df['monovar'] == 1) & (df['sccaller'] == 1) \
+        & (df['monovar_sccaller'] == 1)]
+    df.drop(m_s_shady.index, inplace=True)
+
+    if not df.empty:
+        print('Unknown how to handle:\n{}'.format(df))
+
+    data = [
+        ('Monovar', m.shape[0] + m_shady.shape[0]),
+        ('SCcaller', s.shape[0] + s_shady.shape[0]),
+        ('Monovar & SCcaller', m_s.shape[0] + m_s_shady.shape[0]),
+        ('Bulk', b.shape[0]),
+        ('Monovar & Bulk', m_b.shape[0]),
+        ('SCcaller & Bulk', s_b.shape[0]),
+        ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
+    ]
+
+    print('\n\nSUMMARY:\n')
+    for alg, calls in data:
+        print('{}\t-\t{}'.format(calls, alg))
+
+    return data
+
+
+def plot_venn(data, out_dir):
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib_venn import venn3, venn3_circles
+    except ImportError:
+        return
+
+    # Hack to ensure min circle size
+    # ------------------------------
+    counts = np.array([i[1] for i in data])
+    counts_norm = np.clip(counts / counts.sum(), 0.025, 1).round(2)
+    counts_norm = counts_norm + np.arange(0.0001, 0.00071, 0.0001)
+
+    no_formatter = {}
+    for i, j in enumerate(counts_norm):
+        no_formatter[j] = str(data[i][1])
+        if data[i][0] in ['Monovar', 'SCcaller', 'Monovar & SCcaller']:
+            no_formatter[j] += r' ($\geq$2 samples)'
+
+    def formatter(x):
+        return no_formatter[x]
+    # ------------------------------
+
+    fig = plt.figure(figsize=(10, 10))
+    v = venn3(
+        subsets=(counts_norm),
+        set_labels=('Monovar', 'SCcaller', 'Bulk'),
+        set_colors=('r', 'g', 'b'),
+        alpha = 0.5,
+        normalize_to=counts_norm.sum(),
+        subset_label_formatter=formatter
+    )
+    c = venn3_circles(
+        subsets = (counts_norm),
+        normalize_to=counts_norm.sum()
+    )
+
+    for text in v.set_labels:
+        text.set_fontsize(14)
+    for text in v.subset_labels:
+        text.set_fontsize(16)
+        
+    try:
+        fig.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9)
+    except AttributeError:
+        pass
+
+    out_file = os.path.join(args.output, 'SNP_counts_DP{}_QUAL{}.{}.pdf' \
+        .format(args.read_depth, args.quality, os.path.basename(args.input)))
+    fig.savefig(out_file, dpi=300)
+    plt.close()
+
+
+def main(args):
+    if not args.output:
+        args.output = os.path.dirname(args.input)
+
+    df = get_summary_df(args)
+    summary = get_summary_statistics(df)
+    plot_venn(summary, args)
 
 
 if __name__ == '__main__':
