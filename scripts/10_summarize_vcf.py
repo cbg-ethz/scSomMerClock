@@ -138,6 +138,9 @@ def get_summary_df(args):
                 if record.FILTER:
                     continue
             else:
+                if alg == 'sccaller' and sample.data != 'True':
+                    continue
+
                 if sample.data.GQ < args.genotype_quality:
                     continue
                 # Skip samples with read depth below threshold
@@ -334,7 +337,7 @@ def main(args):
     if not args.output:
         args.output = os.path.dirname(args.input)
 
-    # df = get_summary_df(args)
+    df = get_summary_df(args)
     df = pd.read_csv(
         '../filtered_20x_summary.all.vcf.gz.tsv',
         sep='\t', index_col=[0, 1], dtype={0: str}
