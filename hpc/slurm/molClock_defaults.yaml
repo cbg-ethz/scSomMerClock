@@ -54,14 +54,14 @@ indel_realignment0:
 indel_realignment1:
   partition: amd-shared
   qos: amd-shared
-  time: 30
+  time: 120
   mem: 20G
 
 
 indel_realignment2:
   partition: amd-shared
   qos: amd-shared
-  time: 600
+  time: 1439
   mem: 40G
 
 
@@ -75,7 +75,7 @@ SCcaller1:
 
 monovar1:
   cpus-per-task: 3
-  time: 600
+  time: 1439
   mem: 10G
 
 
