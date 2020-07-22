@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python3
 
 import argparse
 import os
@@ -138,6 +138,9 @@ def get_summary_df(args):
                 if record.FILTER:
                     continue
             else:
+                if alg == 'sccaller' and sample.data != 'True':
+                    continue
+
                 if sample.data.GQ < args.genotype_quality:
                     continue
                 # Skip samples with read depth below threshold
