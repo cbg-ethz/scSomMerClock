@@ -46,7 +46,7 @@ do
     && bcftools index \
         --force \
         --threads ${cores} \
-        ${sample}.gz
+        ${sample}.gz \
     && grep '^#\<contig' ${sample}.gz \
         || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}.gz
 done
