@@ -59,7 +59,7 @@ sorted_bams=$(echo ${sample_bams} \
     | tr '\n' ' '
 )
 
-bcftools merge \
+bcftools concat \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
