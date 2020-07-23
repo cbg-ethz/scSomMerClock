@@ -34,7 +34,7 @@ do
         ${sample} \
     | bcftools view \
         --output-file ${sample}.gz \
-        --output-type z
+        --output-type z \
         - \
     && grep '^#\<contig' ${sample}.gz \
         || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}.gz
