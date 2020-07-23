@@ -26,6 +26,7 @@ for sample in ${sample_bams}
 do
     chr=$(echo $sample | cut -d '/' -f 2 | cut -d '.' -f 1)
     bcftools query -l ${sample} \
+        | sort -V \
         | sed 's/\.monovar$//g' \
         | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}' \
     && bcftools reheader \

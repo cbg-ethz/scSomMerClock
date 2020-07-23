@@ -38,6 +38,7 @@ bcftools merge \
     ${sample_bams}
 
 bcftools query -l ${out_file}.tmp \
+    | sort -V \
     | sed 's/\.sccaller$//g' \
     | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
 && bcftools reheader \
