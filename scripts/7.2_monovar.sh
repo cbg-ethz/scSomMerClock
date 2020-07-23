@@ -38,23 +38,28 @@ do
         | sed 's/\.monovar$//g' \
         | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}' \
     && bcftools reheader \
-        -s vcf_header.monovar.tmp \
+        --samples vcf_header.monovar.tmp \
         --threads ${cores} \
         ${sample} \
     | bcftools filter \
         --include ${filter_str} \
-        --output ${sample}.tmp \
+        --output ${sample}.gz \
         --output-type z \
         --regions ${chr} \
         --threads ${cores} \
         - \
-    && mv ${sample}.tmp ${sample} \
-    && grep '^#\<contig' ${sample} \
-        || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}
+    && grep '^#\<contig' ${sample}.gz \
+        || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}.gz
 done
 rm vcf_header.monovar.tmp
 
-sorted_bams=$(echo ${sample_bams} | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
+sorted_bams=$(echo ${sample_bams} \
+    | tr ' ' '\n' \
+    | sort -V \
+    | sed 's/$/.gz/' \
+    | tr '\n' ' '
+)
+
 bcftools concat \
     --output ${out_file} \
     --output-type z \
