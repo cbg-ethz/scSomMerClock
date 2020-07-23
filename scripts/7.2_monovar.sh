@@ -25,18 +25,28 @@ cores=$(nproc)
 for sample in ${sample_bams}
 do
     chr=$(echo $sample | cut -d '/' -f 2 | cut -d '.' -f 1)
-    bcftools query -l ${sample} \
+    sample_order=$(bcftools query -l ${sample} \
         | sort -V \
         | sed 's/\.monovar$//g' \
-        | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}' \
-    && bcftools reheader \
+        | tr '\n' ','
+    )
+    echo ${sample_order%?} \
+        | tr ',' '\n' \
+        | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}'
+    
+    bcftools view \
+        --samples ${sample_order%?} \
+        --output-type z \
+        ${sample} \
+    | bcftools reheader \
         --samples vcf_header.monovar.tmp \
         --threads ${cores} \
-        ${sample} \
-    | bcftools view \
-        --output-file ${sample}.gz \
-        --output-type z \
+        --output ${sample}.gz \
         - \
+    && bcftools index \
+        --force \
+        --threads ${cores} \
+        ${sample}.gz
     && grep '^#\<contig' ${sample}.gz \
         || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}.gz
 done
@@ -49,7 +59,7 @@ sorted_bams=$(echo ${sample_bams} \
     | tr '\n' ' '
 )
 
-bcftools concat \
+bcftools merge \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
