@@ -11,10 +11,10 @@ while [ "$1" != "" ]; do
                                 module load $1
                                 ;;
         -fq | --filter_qual)    shift
-                                filter_str_in+="QUAL>$1 &&"
+                                filter_str_in+="QUAL<$1 &&"
                                 ;;
         -fd | --filter_depth)   shift
-                                filter_str_in+="FORMAT/AD[:0-1]>=$1 &&"
+                                filter_str_in+="FORMAT/AD[:0-1]<$1 &&"
                                 ;;
         -o | --out)             shift
                                 out_file=$1
@@ -43,13 +43,13 @@ bcftools query -l ${out_file}.tmp \
 && bcftools reheader \
     --samples vcf_header.sccaller.tmp \
     --threads ${cores} \
-    --output ${out_file} \
     ${out_file}.tmp \
 | bcftools filter \
-        --include ${filter_str} \
-        --output ${out_file} \
-        --threads ${cores} \
-        - \
+    --exclude ${filter_str} \
+    --output ${out_file} \
+    --output-type z \
+    --threads ${cores} \
+    - \
 && bcftools index \
     --force \
     --threads ${cores} \

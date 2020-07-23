@@ -44,6 +44,7 @@ do
     | bcftools filter \
         --include ${filter_str} \
         --output ${sample}.tmp \
+        --output-type z \
         --regions ${chr} \
         --threads ${cores} \
         - \

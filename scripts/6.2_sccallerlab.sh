@@ -23,10 +23,14 @@ cores=$(nproc)
 
 for sample in ${sample_bams}
 do
-    bcftools sort \
+    bcftools filter \
+        --include 'FORMAT/SO=="True"' \
+        --threads ${cores} \
+        ${sample} \
+    | bcftools sort  \
         --output-file ${sample}.gz \
         --output-type z \
-        ${sample} \
+        - \
     && bcftools index \
         --force \
         --threads ${cores} \
