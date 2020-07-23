@@ -33,7 +33,7 @@ do
         --threads ${cores} \
         ${sample} \
     | bcftools view \
-        --output ${sample}.gz \
+        --output-file ${sample}.gz \
         --output-type z
         - \
     && grep '^#\<contig' ${sample}.gz \
