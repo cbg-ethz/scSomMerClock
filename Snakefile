@@ -398,7 +398,7 @@ rule QC_calling:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
-        '-q {params.filter.qual} -r {params.filter_depth}'
+        '-q {params.filter_qual} -r {params.filter_depth}'
 
 
 # ------------------------------------------------------------------------------
