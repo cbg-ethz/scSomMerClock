@@ -390,8 +390,8 @@ rule QC_calling:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('QC_calling', ['pyvcf', 'pandas', 'matplotlib'])]),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
-        bulk_tumor = [cell_map[i] for i in \
-            config['specific'].get('bulk_samples', [])],
+        bulk_tumor = ' '.join([cell_map[i] for i in \
+            config['specific'].get('bulk_samples', [])]),
         filter_depth = config['filters'].get('depth', 10),
         filter_qual =  config['filters'].get('geno_qual', 30)
     shell:
