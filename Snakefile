@@ -388,7 +388,7 @@ rule QC_calling:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('QC_calling', ['pyvcf', 'pandas', 'matplotlib'])])
+            config['modules'].get('QC_calling', ['pyvcf', 'pandas', 'matplotlib'])]),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = [cell_map[i] for i in \
             config['specific'].get('bulk_tumor', [])],
