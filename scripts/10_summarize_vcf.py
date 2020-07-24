@@ -53,7 +53,7 @@ def parse_args():
         help='Column name of bulk normal. Default = None.'
     )
     parser.add_argument(
-        '-bt', '--bulk_tumor', nargs='+', type=str,
+        '-bt', '--bulk_tumor', nargs='*', type=str,
         help='Column name of bulk tumor. Default = None.'
     )
     parser.add_argument(
