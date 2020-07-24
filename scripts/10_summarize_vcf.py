@@ -126,8 +126,12 @@ def get_summary_df(args):
                 continue
 
             sample_detail = sample.sample.split('.')
-            sample_name = '.'.join(sample_detail[:-1])
-            alg = sample_detail[-1]
+            if len(sample_detail) == 1:
+                sample_name = sample_detail
+                alg = 'mutect'
+            else:
+                sample_name = '.'.join(sample_detail[:-1])
+                alg = sample_detail[-1]
 
             # Ni8 specific
             if sample_name in ['P01M01E', 'P01P01E']:
@@ -175,6 +179,8 @@ def get_summary_df(args):
         
         rec_data = np.append([record.CHROM, record.POS], call_data)
         data.append(rec_data)
+
+
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
