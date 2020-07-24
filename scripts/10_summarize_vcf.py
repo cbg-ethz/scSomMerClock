@@ -101,6 +101,7 @@ def get_summary_df(args):
     data = []
     indels = 0
     # Iterate over rows
+    print('Iterating calls from: {}'.format(args.input))
     for i, record in enumerate(vcf_reader):
         # Skip indels (only keep snp)
         if record.var_type == 'indel':
@@ -191,11 +192,13 @@ def get_summary_df(args):
 
     out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
         .format(args.read_depth, args.quality, file_name))
+    print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
     if germline:
         out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
             .format(args.read_depth, args.quality, file_name))
+        print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
@@ -279,8 +282,10 @@ def get_summary_statistics(df):
         ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
     ]
 
+    out_QC = os.path.join(args.output, 'QC_calling.tsv')
+    print('Writing call-Venn-data to: {}'.format(out_QC))
     print('\n\nSUMMARY:\n')
-    with open(os.path.join(args.output, 'QC_calling.tsv'), 'w') as f:
+    with open(out_QC, 'w') as f:
         for alg, calls in data:
             f.write('{}\t{}\n'.format(calls, alg))
             print('{}\t-\t{}'.format(calls, alg))
@@ -337,6 +342,7 @@ def plot_venn(data, out_dir):
 
     out_file = os.path.join(args.output, 'SNP_counts_DP{}_QUAL{}.{}.pdf' \
         .format(args.read_depth, args.quality, os.path.basename(args.input)))
+    print('Saving call-Venn-plots to: {}'.format(out_file))
     fig.savefig(out_file, dpi=300)
     plt.close()
 
