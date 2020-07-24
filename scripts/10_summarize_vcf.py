@@ -74,8 +74,10 @@ def parse_args():
 
 
 def get_summary_df(args):
+    print('Loading data - Start')
     file_name = os.path.basename(args.input)
     vcf_reader = vcf.Reader(filename=args.input)
+    print('Loading data - End\n')
 
     samples = set([])
     for sample in vcf_reader.samples:
@@ -101,7 +103,7 @@ def get_summary_df(args):
     data = []
     indels = 0
     # Iterate over rows
-    print('Iterating calls from: {}'.format(args.input))
+    print('Iterating calls - Start')
     for i, record in enumerate(vcf_reader):
         # Skip indels (only keep snp)
         if record.var_type == 'indel':
@@ -180,7 +182,7 @@ def get_summary_df(args):
         
         rec_data = np.append([record.CHROM, record.POS], call_data)
         data.append(rec_data)
-
+    print('Iterating calls - End\n')
 
 
     cols = ['CHROM', 'POS', \
