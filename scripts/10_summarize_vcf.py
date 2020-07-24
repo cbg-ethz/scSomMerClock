@@ -138,7 +138,7 @@ def get_summary_df(args):
                 if record.FILTER:
                     continue
             else:
-                if alg == 'sccaller' and sample.data != 'True':
+                if alg == 'sccaller' and sample.data.SO != 'True':
                     continue
 
                 if sample.data.GQ < args.genotype_quality:
