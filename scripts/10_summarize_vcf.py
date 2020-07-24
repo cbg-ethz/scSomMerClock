@@ -1,4 +1,4 @@
-##!/usr/bin/env python3
+#!/usr/bin/env python3
 
 import argparse
 import os
@@ -274,8 +274,10 @@ def get_summary_statistics(df):
     ]
 
     print('\n\nSUMMARY:\n')
-    for alg, calls in data:
-        print('{}\t-\t{}'.format(calls, alg))
+    with open(os.path.join(args.output, 'QC_calling.tsv'), 'w') as f:
+        for alg, calls in data:
+            f.write('{}\t{}\n'.format(calls, alg))
+            print('{}\t-\t{}'.format(calls, alg))
 
     return data
 

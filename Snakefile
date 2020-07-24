@@ -64,7 +64,8 @@ def get_final_vcfs(wildcards):
 rule all:
     input:
         os.path.join('Calls', 'all.vcf.gz'),
-        'QC_sequencing.tsv'
+        'QC_sequencing.tsv',
+        'QC_calling.tsv'
 
 
 rule adapter_cutting:
@@ -377,6 +378,27 @@ rule merge_calls:
     shell:
         '{params.base_dir}/scripts/9_merge_vcfs.sh {input} {params.modules} '
         '-o {output[0]}'
+
+
+rule QC_calling:
+    input:
+        os.path.join('Calls', 'all.vcf.gz')
+    output:
+        'QC_calling.tsv'
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('QC_calling', ['pyvcf', 'pandas', 'matplotlib'])])
+        bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
+        bulk_tumor = [cell_map[i] for i in \
+            config['specific'].get('bulk_tumor', [])],
+        filter_depth = config['filters'].get('depth', 10),
+        filter_qual =  config['filters'].get('geno_qual', 30)
+    shell:
+        'module load {params.modules} && '
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} '
+        '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
+        '-q {params.filter.qual} -r {params.filter_depth}'
 
 
 # ------------------------------------------------------------------------------
