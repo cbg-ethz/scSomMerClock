@@ -105,6 +105,9 @@ def get_summary_df(args):
     # Iterate over rows
     print('Iterating calls - Start')
     for i, record in enumerate(vcf_reader):
+        if i % 1000000 == 0:
+            print('Iterated SNPs:\t{}'.format(i))
+
         # Skip indels (only keep snp)
         if record.var_type == 'indel':
             indels += 1
@@ -209,7 +212,7 @@ def get_summary_df(args):
     return df
 
 
-def get_summary_statistics(df):
+def get_summary_statistics(df, args):
     # Add sum _column
     df['sum'] = df.sum(axis=1)
 
@@ -284,7 +287,9 @@ def get_summary_statistics(df):
         ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
     ]
 
-    out_QC = os.path.join(args.output, 'QC_calling.tsv')
+    out_QC = out_summary = os.path.join(args.output,
+        'Call_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
+
     print('Writing call-Venn-data to: {}'.format(out_QC))
     print('\n\nSUMMARY:\n')
     with open(out_QC, 'w') as f:
@@ -352,9 +357,11 @@ def plot_venn(data, out_dir):
 def main(args):
     if not args.output:
         args.output = os.path.dirname(args.input)
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
 
     df = get_summary_df(args)
-    summary = get_summary_statistics(df)
+    summary = get_summary_statistics(df, args)
     plot_venn(summary, args)
 
 

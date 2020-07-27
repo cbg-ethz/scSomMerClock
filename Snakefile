@@ -65,7 +65,11 @@ rule all:
     input:
         os.path.join('Calls', 'all.vcf.gz'),
         'QC_sequencing.tsv',
-        'QC_calling.tsv'
+        expand(os.path.join('QC',
+                'Call_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv'),
+            filter_DP=config.get('filters', {}).get('depth', [10]),
+            filter_QUAL=config.get('filters', {}).get('geno_qual', [30])
+        )
 
 
 rule adapter_cutting:
@@ -384,7 +388,7 @@ rule QC_calling:
     input:
         os.path.join('Calls', 'all.vcf.gz')
     output:
-        'QC_calling.tsv'
+        os.path.join('QC', 'QC_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -396,9 +400,9 @@ rule QC_calling:
         filter_qual =  config['filters'].get('geno_qual', 30)
     shell:
         'module load {params.modules} && '
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} '
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input}  -o QC '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
-        '-q {params.filter_qual} -r {params.filter_depth}'
+        '-q {wildcards.filter_QUAL} -r {wildcards.filter_DP}'
 
 
 # ------------------------------------------------------------------------------
