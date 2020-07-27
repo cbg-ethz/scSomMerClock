@@ -29,7 +29,7 @@ with open(config['specific']['cellnames'], 'r') as f:
             cell_map[row[-1]] = row[:-1]
 
 # Get samples to exclude for Monovar SNV calling
-bulk_samples = {'normal': None, 'bulk': set([]), 'all': set([])}
+bulk_samples = {'normal': None, 'tumor': set([]), 'all': set([])}
 if config['specific'].get('bulk_normal', False):
     bulk_samples['normal'] = config['specific']['bulk_normal']
     bulk_samples['all'].add(config['specific']['bulk_normal'])
@@ -37,10 +37,10 @@ if config['specific'].get('bulk_normal', False):
 if config['specific'].get('bulk_samples', False):
     bulk = config['specific']['bulk_samples']
     if isinstance(bulk, str) :
-        bulk_samples['bulk'].add(bulk)
+        bulk_samples['tumor'].add(bulk)
         bulk_samples['all'].add(bulk)
     elif isinstance(bulk, list):
-        bulk_samples['bulk'].union(bulk)
+        bulk_samples['tumor'].union(bulk)
         bulk_samples['all'].union(bulk)
 
 ss_samples = set(cell_map.keys()).difference(bulk_samples['all'])
