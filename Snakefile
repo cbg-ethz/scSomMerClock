@@ -363,8 +363,8 @@ rule mutect2:
     input: 
         tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=bulk_samples['tumor']),
-        normal = expand(os.path.join('Processing', '{cell}.recal.bam'),
-            cell=bulk_samples['normal']),
+        normal = os.path.join('Processing', 
+            '{}.recal.bam'.format(bulk_samples['normal'])),
         rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
     output:
         expand(os.path.join('Calls', '{cell}.contamination.table'), 
