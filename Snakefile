@@ -29,19 +29,21 @@ with open(config['specific']['cellnames'], 'r') as f:
             cell_map[row[-1]] = row[:-1]
 
 # Get samples to exclude for Monovar SNV calling
+bulk_samples = {'normal': None, 'bulk': set([]), 'all': set([])}
 if config['specific'].get('bulk_normal', False):
-    bulk_samples = set([config['specific']['bulk_normal']])
-else:
-    bulk_samples = set([])
+    bulk_samples['normal'] = config['specific']['bulk_normal']
+    bulk_samples['all'].add(config['specific']['bulk_normal'])
 
 if config['specific'].get('bulk_samples', False):
     bulk = config['specific']['bulk_samples']
     if isinstance(bulk, str) :
-        bulk_samples.add(bulk)
+        bulk_samples['bulk'].add(bulk)
+        bulk_samples['all'].add(bulk)
     elif isinstance(bulk, list):
-        bulk_samples = bulk_samples.union(bulk)
+        bulk_samples['bulk'].union(bulk)
+        bulk_samples['all'].union(bulk)
 
-ss_samples = set(cell_map.keys()).difference(bulk_samples)
+ss_samples = set(cell_map.keys()).difference(bulk_samples['all'])
 
 
 
@@ -56,7 +58,7 @@ def get_final_vcfs(wildcards):
         final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
     if config.get('monovar', {}).get('run', False):
         final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
-    if bulk_samples:
+    if bulk_samples['all']:
         final_files.append(os.path.join('Calls', 'all.mutect.vcf.gz'))
     return final_files
 
@@ -253,7 +255,7 @@ rule SCcaller1:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
-        bulk = config['specific']['bulk_normal'],
+        bulk = config['specific'].get('bulk_normal', ''),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         sccaller = config['SCcaller']['exe']
@@ -338,9 +340,10 @@ rule monovar2:
 rule mutect1:
     input: 
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'), 
-            cell=bulk_samples)
+            cell=bulk_samples['all'])
     output:
-        os.path.join('Calls', '{chr}.filtered.mutect.vcf')
+        os.path.join('Calls', '{chr}.mutect.vcf'),
+        os.path.join('Calls', 'read-orientation-model.tar.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -358,16 +361,55 @@ rule mutect1:
 
 rule mutect2:
     input: 
-        expand(os.path.join('Calls', '{chr}.filtered.mutect.vcf'), chr=CHROM)
+        tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
+            cell=bulk_samples['tumor']),
+        normal = expand(os.path.join('Processing', '{cell}.recal.bam'),
+            cell=bulk_samples['normal']),
+        rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
+    output:
+        expand(os.path.join('Calls', '{cell}.contamination.table'), 
+            cell=bulk_samples['tumor'])
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('gatk41', ['gatk/4.1'])]),
+        gnomAD = config['static']['gnomAD']
+    shell:
+        '{params.base_dir}/scripts/8.2_mutect.sh {input.tumor} {params.modules} '
+        ' -n {input.normal} -gAD {params.gnomAD}'
+
+
+rule mutect3:
+    input: 
+        expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
     output:
         os.path.join('Calls', 'all.mutect.vcf.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
+            config['modules'].get('bcftools', ['bcftools'])]),
+        gnomAD = config['static']['gnomAD']
     shell:
-        '{params.base_dir}/scripts/8.2_mutect.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/8.3_mutect.sh {input} {params.modules} '
         '-o {output[0]}'
+
+
+rule mutect4:
+    input: 
+        vcf = os.path.join('Calls', 'all.mutect.vcf.gz'),
+        cont_tables = expand(os.path.join('Calls', '{cell}.contamination.table'), 
+            cell=bulk_samples['tumor']),
+        rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
+    output:
+        os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('gatk41', ['gatk/4.1'])]),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+    shell:
+        '{params.base_dir}/scripts/8.4_mutect.sh {input.cont_tables} '
+        '{params.modules} -i {input.vcf} -rom {input.rom} -o {output[0]}'
 
 
 rule merge_calls:
@@ -395,7 +437,7 @@ rule QC_calling:
             config['modules'].get('QC_calling', ['pyvcf', 'pandas', 'matplotlib'])]),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
-            config['specific'].get('bulk_samples', [])]),
+            bulk_samples['tumor']]),
         filter_depth = config['filters'].get('depth', 10),
         filter_qual =  config['filters'].get('geno_qual', 30)
     shell:
