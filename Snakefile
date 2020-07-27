@@ -59,7 +59,7 @@ def get_final_vcfs(wildcards):
     if config.get('monovar', {}).get('run', False):
         final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
     if bulk_samples['all']:
-        final_files.append(os.path.join('Calls', 'all.mutect.vcf.gz'))
+        final_files.append(os.path.join('Calls', 'all.mutect.filtered.vcf.gz'))
     return final_files
 
 
