@@ -343,7 +343,6 @@ rule mutect1:
             cell=bulk_samples['all'])
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
-        os.path.join('Calls', 'read-orientation-model.tar.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -368,7 +367,8 @@ rule mutect2:
         rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
     output:
         expand(os.path.join('Calls', '{cell}.contamination.table'), 
-            cell=bulk_samples['tumor'])
+            cell=bulk_samples['tumor']),
+        os.path.join('Calls', 'read-orientation-model.tar.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \

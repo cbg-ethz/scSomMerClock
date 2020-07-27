@@ -47,11 +47,7 @@ gatk Mutect2 \
     --panel-of-normals ${PON} \
     --output Calls/${chr}.mutect.vcf \
     --f1r2-tar-gz Calls/${chr}.f1r2.mutect.tar.gz \
-    --native-pair-hmm-threads ${cores} \
-&& gatk FilterMutectCalls \
-    --variant Calls/${chr}.mutect.vcf \
-    --output Calls/${chr}.filtered.mutect.vcf \
-    --reference ${REF}
+    --native-pair-hmm-threads ${cores}
 
 
 # gatk LearnReadOrientationModel $all_f1r2_input -O Processing/read-orientation-model.tar.gz
