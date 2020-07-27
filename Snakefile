@@ -388,7 +388,7 @@ rule QC_calling:
     input:
         os.path.join('Calls', 'all.vcf.gz')
     output:
-        os.path.join('QC', 'QC_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv')
+        os.path.join('QC', 'Call_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
