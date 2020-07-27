@@ -343,6 +343,7 @@ rule mutect1:
             cell=bulk_samples['all'])
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
+        os.path.join('Calls', '{chr}.f1r2.tar.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -363,7 +364,8 @@ rule mutect2:
         tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=bulk_samples['tumor']),
         normal = os.path.join('Processing', 
-            '{}.recal.bam'.format(bulk_samples['normal']))
+            '{}.recal.bam'.format(bulk_samples['normal'])),
+        f1r2 = expand(os.path.join('Calls', '{chr}.f1r2.tar.gz'), chr=CHROM)
     output:
         expand(os.path.join('Calls', '{cell}.contamination.table'), 
             cell=bulk_samples['tumor']),
