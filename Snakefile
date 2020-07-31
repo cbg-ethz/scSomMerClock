@@ -274,10 +274,12 @@ rule SCcaller2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
+            config['modules'].get('bcftools', ['bcftools'])]),
+        min_depth = config['filters'].get('depth', 10),
+        min_qual =  config['filters'].get('geno_qual', 30)
     shell:
         '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '-o {output[0]} -md {params.min_depth} -mq {params.min_qual}'
 
 
 rule SCcaller3:
@@ -332,9 +334,11 @@ rule monovar2:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])]),
+        min_depth = config['filters'].get('depth', 10),
+        min_qual =  config['filters'].get('geno_qual', 30)
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '-o {output[0]} -md {params.min_depth} -mq {params.min_qual}'
 
 
 rule mutect1:

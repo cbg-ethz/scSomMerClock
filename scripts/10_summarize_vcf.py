@@ -74,10 +74,7 @@ def parse_args():
 
 
 def get_summary_df(args):
-    print('Loading data - Start')
-    file_name = os.path.basename(args.input)
     vcf_reader = vcf.Reader(filename=args.input)
-    print('Loading data - End\n')
 
     samples = set([])
     for sample in vcf_reader.samples:
@@ -196,13 +193,13 @@ def get_summary_df(args):
     df = df.astype(int)
 
     out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
-        .format(args.read_depth, args.quality, file_name))
+        .format(args.read_depth, args.quality, os.path.basename(args.input)))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
     if germline:
         out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
-            .format(args.read_depth, args.quality, file_name))
+            .format(args.read_depth, args.quality, os.path.basename(args.input)))
         print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
@@ -354,6 +351,16 @@ def plot_venn(data, out_dir):
     plt.close()
 
 
+def load_data(in_file):
+    data = []
+    with open(in_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            no, alg = line.strip().split('\t')
+            data.append((alg, int(no)))
+    return data
+
+
 def main(args):
     if not args.output:
         args.output = os.path.dirname(args.input)
@@ -362,6 +369,8 @@ def main(args):
 
     df = get_summary_df(args)
     summary = get_summary_statistics(df, args)
+
+    # summary = load_data(args.input)
     plot_venn(summary, args)
 
 

@@ -3,6 +3,8 @@
 module purge
 
 sample_bams=""
+min_depth=10
+min_qual=30
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -12,6 +14,12 @@ while [ "$1" != "" ]; do
         -o | --out)             shift
                                 out_file=$1
                                 ;;
+        -md | --min-depth)      shift
+                                out_file=$1
+                                ;;
+        -mq | --min-qual)       shift
+                                out_file=$1
+                                ;;
         *)                      sample_bams+="$1 " 
     esac
     shift
@@ -19,6 +27,7 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
+filter_str="'QUAL >= ${min_qual} & N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0'"
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index
@@ -36,8 +45,13 @@ do
     
     bcftools view \
         --samples ${sample_order%?} \
-        --output-type z \
+        --output-type u \
         ${sample} \
+    | bcftools filter \
+        --include "${filter_str}" \
+        --output-type z \
+        --threads ${cores} \
+        - \
     | bcftools reheader \
         --samples vcf_header.monovar.tmp \
         --threads ${cores} \
