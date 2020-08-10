@@ -39,7 +39,6 @@ cores=$(nproc)
 
 gatk Mutect2 \
     --reference ${REF} \
-    --native-pair-hmm-threads ${cores} \
     ${bams_in} \
     ${normal_in} \
     --intervals ${chr} \
