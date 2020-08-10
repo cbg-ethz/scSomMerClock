@@ -348,7 +348,7 @@ rule mutect1:
             cell=bulk_samples['all'])
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
-        os.path.join('Calls', '{chr}.f1r2.tar.gz')
+        os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -393,8 +393,7 @@ rule mutect3:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
-        gnomAD = config['static']['gnomAD']
+            config['modules'].get('bcftools', ['bcftools'])])
     shell:
         '{params.base_dir}/scripts/8.3_mutect.sh {input} {params.modules} '
         '-o {output[0]}'
