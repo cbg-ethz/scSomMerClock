@@ -12,9 +12,6 @@ while [ "$1" != "" ]; do
         -s | --sample )     shift
                             sample=$1
                             ;;
-        -r | --ref )        shift
-                            REF=$1
-                            ;;
         -l | --lib )        shift
                             WGA_LIBRARY=$1
                             ;;
@@ -26,7 +23,6 @@ while [ "$1" != "" ]; do
 done
 
 [[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 [[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
 
 if [ "${pair_end}" = true ]

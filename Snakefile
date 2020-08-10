@@ -83,13 +83,11 @@ rule adapter_cutting:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('cutadapt', ['cutadapt'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
         '{params.base_dir}/scripts/1_fastqc.sh {params.modules} '
-        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib} '
-        '{params.pair_end}'
+        '-s {wildcards.sample} -l {params.WGA_lib} {params.pair_end}'
 
 
 rule alignment1:
@@ -370,7 +368,8 @@ rule mutect2:
             cell=bulk_samples['tumor']),
         normal = os.path.join('Processing', 
             '{}.recal.bam'.format(bulk_samples['normal'])),
-        f1r2 = expand(os.path.join('Calls', '{chr}.f1r2.tar.gz'), chr=CHROM)
+        f1r2 = expand(os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz'),
+            chr=CHROM)
     output:
         expand(os.path.join('Calls', '{cell}.contamination.table'), 
             cell=bulk_samples['tumor']),

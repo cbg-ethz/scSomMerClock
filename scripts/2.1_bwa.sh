@@ -48,7 +48,6 @@ then
     else
         bwa mem -t ${cores} -R ${RG} $REF Processing/${sample}.trimmed2_1.fastq.gz \
             > Processing/${sample}.sam
-
     fi
 else
     if [ "${pair_end}" = true ]
