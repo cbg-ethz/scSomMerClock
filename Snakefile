@@ -40,8 +40,8 @@ if config['specific'].get('bulk_samples', False):
         bulk_samples['tumor'].add(bulk)
         bulk_samples['all'].add(bulk)
     elif isinstance(bulk, list):
-        bulk_samples = bulk_samples['tumor'].union(bulk)
-        bulk_samples = bulk_samples['all'].union(bulk)
+        bulk_samples['tumor'] = bulk_samples['tumor'].union(bulk)
+        bulk_samples['all'] = bulk_samples['all'].union(bulk)
 
 ss_samples = set(cell_map.keys()).difference(bulk_samples['all'])
 

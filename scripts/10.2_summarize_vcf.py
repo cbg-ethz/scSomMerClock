@@ -65,8 +65,8 @@ def parse_args():
         help='Minimum quality threshold. Default = 30.'
     )
     parser.add_argument(
-        '-r', '--read_depth', type=int, default=5,
-        help='Minimum read depth at loci. Default = 5.'
+        '-r', '--read_depth', type=int, default=10,
+        help='Minimum read depth at loci. Default = 10.'
     )
     parser.add_argument(
         '-gq', '--genotype_quality', type=int, default=0,
@@ -130,7 +130,6 @@ def get_summary_df(args):
             f.write('\n'.join(germline))
 
     print('\n(Removed {} indels)\n'.format(indels))
-    import pdb; pdb.set_trace()
 
 
 def iterate_chrom(chr_data, sc_map, sample_size, chrom):
@@ -231,7 +230,6 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
 
 def get_summary_statistics(df, args):
     # Add sum _column
-    df_single = pd.DataFrame(columns=['monovar', 'sccaller', 'both'])
     df['sum'] = df.sum(axis=1)
 
     # Get singleton called either by monovar or SCcaller
@@ -241,11 +239,16 @@ def get_summary_statistics(df, args):
     ]
     df.drop(singletons_single.index, inplace=True)
 
-    import pdb; pdb.set_trace()
+    # Get overview of records called by SCCaller and Monovar but not in bulk
+    sc_callers = df[(df['bulk'] == 0) & (df['sccaller_bulk'] == 0) & \
+        (df['monovar_bulk'] == 0) & (df['monovar_sccaller_bulk'] == 0) \
+        (df['monovar_sccaller'] != 0)]
+    sc_callers['sc_unique'] = test[['monovar', 'sccaller', 'monovar_sccaller']] \
+        .apply(lambda x: ' '.join(str(i) for i in x ), axis=1)
+
     # Get singleton called by monovar and SCcaller
     singletons_both = df[(df['sum'] == 1) & (df['monovar_sccaller'] == 1)]
     df.drop(singletons_both.index, inplace=True)
-
 
     # Get singelton bulk
     b = df[df['bulk'] == df['sum']]
@@ -309,6 +312,17 @@ def get_summary_statistics(df, args):
 
     out_QC = out_summary = os.path.join(args.output,
         'Call_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
+
+    sc_unique = pd.DataFrame()
+    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
+        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
+        sc_unique.append(
+            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
+            ignore_index=True
+        )
+    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
+    import pdb; pdb.set_trace()
+
 
     print('Writing call-Venn-data to: {}'.format(out_QC))
     print('\n\nSUMMARY:\n')
@@ -390,8 +404,9 @@ def main(args):
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    df = get_summary_df(args)
-    # df = load_data(args.input)
+    # df = get_summary_df(args)
+    df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
+    import pdb; pdb.set_trace()
 
     summary = get_summary_statistics(df, args)
     # summary = load_data(args.input)
