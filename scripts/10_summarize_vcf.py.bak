@@ -4,7 +4,7 @@ import argparse
 import os
 import numpy as np
 import pandas as pd
-from pysam import VariantFile
+import vcf
 
 ## SCcaller FORMAT
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
@@ -33,10 +33,6 @@ from pysam import VariantFile
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
 ##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phasing set (typically the position of the first variant in the set)">
 ##FORMAT=<ID=SB,Number=4,Type=Integer,Description="Per-sample component statistics which comprise the Fisher's Exact Test to detect strand bias.">
-CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
-ALG_MAP = {'monovar': 0, 'sccaller': 1}
-RES_MAP = {'[1 0 0]': 0, '[0 1 0]': 1, '[0 0 1]': 2, '[1 1 0]': 3, '[1 0 1]': 4,
-    '[0 1 1]': 5, '[1 1 1]': 6}
 
 
 def parse_args():
@@ -65,8 +61,8 @@ def parse_args():
         help='Minimum quality threshold. Default = 30.'
     )
     parser.add_argument(
-        '-r', '--read_depth', type=int, default=10,
-        help='Minimum read depth at loci. Default = 10.'
+        '-r', '--read_depth', type=int, default=5,
+        help='Minimum read depth at loci. Default = 5.'
     )
     parser.add_argument(
         '-gq', '--genotype_quality', type=int, default=0,
@@ -78,10 +74,10 @@ def parse_args():
 
 
 def get_summary_df(args):
-    vcf_in = VariantFile(args.input)
+    vcf_reader = vcf.Reader(filename=args.input)
 
     samples = set([])
-    for sample in vcf_in.header.samples:
+    for sample in vcf_reader.samples:
         sample_detail = sample.split('.')
         sample_name = '.'.join(sample_detail[:-1])
         caller = sample_detail[-1]
@@ -94,119 +90,82 @@ def get_summary_df(args):
     sc_map = {j: i for i, j in enumerate(sorted(samples))}
     for bt in args.bulk_tumor:
         sc_map[bt] = len(sc_map)
+    sc_size = len(sc_map)
 
-    sample_no = len(sc_map)
+    alg_map = {'monovar': 0, 'sccaller': 1}
+    res_map = {'[1 0 0]': 0, '[0 1 0]': 1, '[0 0 1]': 2, '[1 1 0]': 3, 
+        '[1 0 1]': 4, '[0 1 1]': 5, '[1 1 1]': 6}
 
     germline = []
     data = []
     indels = 0
     # Iterate over rows
     print('Iterating calls - Start')
-    for chrom in CHROM:
-        chr_data = vcf_in.fetch(chrom)
-        chr_data = iterate_chrom(chr_data, sc_map, sample_no, chrom)
-
-        data.extend(chr_data[0])
-        germline.extend(chr_data[1])
-        indels += chr_data[2]
-
-    cols = ['CHROM', 'POS', \
-        'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
-        'sccaller_bulk', 'monovar_sccaller_bulk']
-    df = pd.DataFrame(data, columns=cols)
-    df.set_index(['CHROM', 'POS'], inplace=True)
-    df = df.astype(int)
-
-    out_summary = os.path.join(args.output, 'new.filtered_DP{}_QUAL{}_summary.{}.tsv' \
-        .format(args.read_depth, args.quality, os.path.basename(args.input)))
-    print('Writing call summary to: {}'.format(out_summary))
-    df.to_csv(out_summary, sep='\t')
-
-    if germline:
-        out_germ = os.path.join(args.output, 'new.germline_muts_DP{}_QUAL{}.{}.tsv' \
-            .format(args.read_depth, args.quality, os.path.basename(args.input)))
-        print('Writing germline calls to: {}'.format(out_germ))
-        with open(out_germ, 'w') as f:
-            f.write('\n'.join(germline))
-
-    print('\n(Removed {} indels)\n'.format(indels))
-
-
-def iterate_chrom(chr_data, sc_map, sample_size, chrom):
-    data = []
-    germline = []
-    indels = 0
-
-    for i, rec in enumerate(chr_data):
+    for i, record in enumerate(vcf_reader):
         if i % 1000000 == 0:
-            print('Iterated records on Chr {}:\t{}'.format(chrom, i))
+            print('Iterated SNPs:\t{}'.format(i))
 
         # Skip indels (only keep snp)
-        # Also skip rows where both is called: indel and SNP
-        for i in rec.alleles:
-            if len(i) > 1:
-                indels += 1
-                continue
-
-        # Filter low quality
-        try:
-            if rec.qual < args.quality:
-                continue
-        # Only called in Bulk
-        except TypeError:
-            pass
-
-        # Filtered in bulk & multplie genotypes called by SCcaller
-        try:
-            rec.filter['PASS']
-        except KeyError:
+        if record.var_type == 'indel':
+            indels += 1
             continue
 
-        # 0: monovar, 1: sccaller, 2: bulk_tumor
-        calls = np.zeros((sample_size, 3), dtype=int)
-        # Iterate over columns (i.e. samples)
-        for sample_id, sample in rec.samples.items():
-            # Skip all genotypes except: 0/1 | 1/1
-            if not sample['GT'][1]:
+        # Only called in SC (and not in bulk) but with low quality
+        try:
+            if record.QUAL < args.quality and record.FILTER == None:
+                continue
+        except TypeError:
+            # Only called in bulk contains filter
+            if record.FILTER:
                 continue
 
-            sample_detail = sample_id.split('.')
-            sample_name = '.'.join(sample_detail[:-1])
-            alg = sample_detail[-1]
+        # 0: monovar, 1: sccaller, 2: bulk_tumor
+        calls = np.zeros((sc_size, 3), dtype=int)
+        # Iterate over columns (i.e. samples)
+        for sample in [i for i in record.samples if i.called]:
+            # WT genotype (called by SCcaller)
+            #   0 = 0/0, 1 = 0/1, 2 = 1/1
+            if sample.gt_type == 0:
+                continue
+
+            sample_detail = sample.sample.split('.')
+            if len(sample_detail) == 1:
+                sample_name = sample_detail
+                alg = 'mutect'
+            else:
+                sample_name = '.'.join(sample_detail[:-1])
+                alg = sample_detail[-1]
 
             # Ni8 specific
             if sample_name in ['P01M01E', 'P01P01E']:
                 continue
 
-            # Skip low quality calls in Bulk
+            # Skip low quality calls
             if alg == 'mutect':
-                try:
-                    rec.filter['PASS']
-                except KeyError:
-                    import pdb; pdb.set_trace()
+                if record.FILTER:
                     continue
             else:
-                if alg == 'sccaller' and sample['SO'] != 'True':
+                if alg == 'sccaller' and sample.data.SO != 'True':
                     continue
 
-                if sample['GQ'] < args.genotype_quality:
+                if sample.data.GQ < args.genotype_quality:
                     continue
                 # Skip samples with read depth below threshold
-                if sum(sample['AD']) < args.read_depth:
+                if sum(sample.data.AD) < args.read_depth:
                     continue
 
-            sample_id = sc_map[sample_name]
             # Bulk SNV
             if alg == 'mutect':
                 # Called in Normal (germline)
                 if sample_name == args.bulk_normal:
-                    germline.append('{}:{}'.format(rec.chrom, rec.pos))
+                    germline.append('{}:{}'.format(record.CHROM, record.POS))
                 # Called in tumor
                 else:
                     calls[sample_id, 2] = 1
             # SC SNV
             else:
-                calls[sample_id, ALG_MAP[alg]] = 1
+                sample_id = sc_map[sample_name]
+                calls[sample_id, alg_map[alg]] = 1
 
         per_sample = np.sum(calls, axis=1)
         # WT called (by SCCaller)
@@ -219,17 +178,39 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             call_data = np.zeros(7, dtype=int)
             for sample_calls in calls:
                 if sample_calls.sum() != 0:
-                    call_data[RES_MAP[np.array2string(sample_calls)]] += 1
+                    call_data[res_map[np.array2string(sample_calls)]] += 1
         
-        rec_data = np.append([rec.chrom, rec.pos], call_data)
+        rec_data = np.append([record.CHROM, record.POS], call_data)
         data.append(rec_data)
+    print('Iterating calls - End\n')
 
-    print('Iterating calls on Chr {} - End\n'.format(chrom))
-    return (data, germline, indels)
+    cols = ['CHROM', 'POS', \
+        'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
+        'sccaller_bulk', 'monovar_sccaller_bulk']
+    df = pd.DataFrame(data, columns=cols)
+    df.set_index(['CHROM', 'POS'], inplace=True)
+    df = df.astype(int)
+
+    out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
+        .format(args.read_depth, args.quality, os.path.basename(args.input)))
+    print('Writing call summary to: {}'.format(out_summary))
+    df.to_csv(out_summary, sep='\t')
+
+    if germline:
+        out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
+            .format(args.read_depth, args.quality, os.path.basename(args.input)))
+        print('Writing germline calls to: {}'.format(out_germ))
+        with open(out_germ, 'w') as f:
+            f.write('\n'.join(germline))
+
+    print('\n(Removed {} indels)\n'.format(indels))
+
+    return df
 
 
 def get_summary_statistics(df, args):
     # Add sum _column
+    df_single = pd.DataFrame(columns=['monovar', 'sccaller', 'both'])
     df['sum'] = df.sum(axis=1)
 
     # Get singleton called either by monovar or SCcaller
@@ -239,16 +220,17 @@ def get_summary_statistics(df, args):
     ]
     df.drop(singletons_single.index, inplace=True)
 
-    # Get overview of records called by SCCaller and Monovar but not in bulk
-    sc_callers = df[(df['bulk'] == 0) & (df['sccaller_bulk'] == 0) & \
+    import pdb; pdb.set_trace()
+    test = df[(df['bulk'] == 0) & (df['sccaller_bulk'] == 0) & \
         (df['monovar_bulk'] == 0) & (df['monovar_sccaller_bulk'] == 0) \
         (df['monovar_sccaller'] != 0)]
-    sc_callers['sc_unique'] = test[['monovar', 'sccaller', 'monovar_sccaller']] \
+    test['sc_unique'] = test[['monovar', 'sccaller', 'monovar_sccaller']] \
         .apply(lambda x: ' '.join(str(i) for i in x ), axis=1)
 
     # Get singleton called by monovar and SCcaller
     singletons_both = df[(df['sum'] == 1) & (df['monovar_sccaller'] == 1)]
     df.drop(singletons_both.index, inplace=True)
+
 
     # Get singelton bulk
     b = df[df['bulk'] == df['sum']]
@@ -314,7 +296,7 @@ def get_summary_statistics(df, args):
         'Call_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
 
     sc_unique = pd.DataFrame()
-    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
+    for i, j in test['sc_unique'].value_counts().iteritems():
         al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
         sc_unique.append(
             pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
@@ -322,7 +304,6 @@ def get_summary_statistics(df, args):
         )
     sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
     import pdb; pdb.set_trace()
-
 
     print('Writing call-Venn-data to: {}'.format(out_QC))
     print('\n\nSUMMARY:\n')
@@ -404,9 +385,8 @@ def main(args):
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    # df = get_summary_df(args)
-    df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
-    import pdb; pdb.set_trace()
+    df = get_summary_df(args)
+    # df = load_data(args.input)
 
     summary = get_summary_statistics(df, args)
     # summary = load_data(args.input)

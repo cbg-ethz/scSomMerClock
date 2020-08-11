@@ -11,8 +11,8 @@ specific:
   data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/W32
   cellnames: acc-cell.txt
   pair_end: False
-  bulk_normal: TNBC_Pop_Normal
-  bulk_samples: [TNBC_Pop_Normal, TNBC_Pop_Tumor]
+  bulk_normal: TNBC_Pop_Normal #SRR1163508
+  bulk_samples: [TNBC_Pop_Tumor] # SRR1298936
   WGA_library: MDA
   SEQ: WES
   WES_target: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed

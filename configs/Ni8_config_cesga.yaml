@@ -11,8 +11,8 @@ specific:
   data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/Ni8
   cellnames: acc-cell.txt
   pair_end: True
-  bulk_normal: P01D01E
-  bulk_samples: [P01M01E, P01P01E]
+  bulk_normal: P01D01E # SRR975206 
+  bulk_samples: [P01M01E, P01P01E] # SRR975210 SRR975212
   WGA_library: MALBAC
   SEQ: WES
   WES_target: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
