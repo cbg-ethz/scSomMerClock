@@ -61,8 +61,8 @@ def parse_args():
         help='Column name of bulk tumor. Default = None.'
     )
     parser.add_argument(
-        '-q', '--quality', type=int, default=30,
-        help='Minimum quality threshold. Default = 30.'
+        '-q', '--quality', type=int, default=20,
+        help='Minimum quality threshold. Default = 20.'
     )
     parser.add_argument(
         '-r', '--read_depth', type=int, default=10,
