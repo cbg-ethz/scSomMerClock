@@ -25,7 +25,7 @@ done
 all_f1r2_input=`for chromosome in {1..22}; do
         printf -- "-I Calls/${chromosome}.f1r2.tar.gz "; done`
 gatk LearnReadOrientationModel \
-    --input ${all_f1r2_input} \
+    ${all_f1r2_input} \
     --output Calls/read-orientation-model.tar.gz
 
 ## Normal bulk sample
