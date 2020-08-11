@@ -378,7 +378,7 @@ rule mutect2:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk41', ['gatk/4.1'])]),
-        gnomAD = config['static']['gnomAD']
+        gnomAD = os.path.join(RES_PATH, config['static']['gnomAD'])
     shell:
         '{params.base_dir}/scripts/8.2_mutect.sh {input.tumor} {params.modules} '
         ' -n {input.normal} -gAD {params.gnomAD}'
