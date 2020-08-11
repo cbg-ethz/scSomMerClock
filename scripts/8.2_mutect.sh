@@ -23,7 +23,7 @@ done
 [[ -z "$gnomAD" ]] && { echo "Error: genome Aggregation Database not set"; exit 1; }
 
 all_f1r2_input=`for chromosome in {1..22}; do
-        printf -- "-I Calls/${chromosome}.f1r2.tar.gz "; done`
+        printf -- "-I Calls/${chromosome}.f1r2.mutect.tar.gz "; done`
 gatk LearnReadOrientationModel \
     ${all_f1r2_input} \
     --output Calls/read-orientation-model.tar.gz
