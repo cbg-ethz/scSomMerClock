@@ -42,7 +42,7 @@ if [ "$mutect_calls" != "" ]; then
     && bcftools index \
         --force \
         --threads ${cores} \
-        ${mutect_calls}.tmp 
+        ${mutect_calls}.tmp \
     && rm vcf_header.mutect.tmp
 fi
 
