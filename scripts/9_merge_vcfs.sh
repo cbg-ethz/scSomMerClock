@@ -13,9 +13,11 @@ while [ "$1" != "" ]; do
         -o | --out)         shift
                             out_file=$1
                             ;;
-        *)                  sample_bams+="$1.tmp "
-                            if [[ $1 == *"mutect"* ]]; then
+        *)                  if [[ $1 == *"mutect"* ]]; then
                                 mutect_calls=$1
+                                sample_bams+="$1.tmp "
+                            else
+                                sample_bams+="$1 "
                             fi
     esac
     shift
