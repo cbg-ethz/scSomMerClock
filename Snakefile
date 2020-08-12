@@ -364,7 +364,7 @@ rule mutect1:
 
 
 rule mutect2:
-    input: 
+    input:
         tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
             cell=bulk_samples['tumor']),
         normal = os.path.join('Processing', 

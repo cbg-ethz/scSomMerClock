@@ -167,7 +167,7 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         calls = np.zeros((sample_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
         for sample_id, sample in rec.samples.items():
-            # Skip all genotypes except: 0/1 | 1/1
+            # Skip all genotypes except: 0/1 | 1/1 | 0/2
             if not sample['GT'][1]:
                 continue
 

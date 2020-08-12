@@ -31,14 +31,15 @@ bcftools concat \
     ${sorted_bams}
 
 # Rename header column and index
-bcftools query -l ${out_file}.tmp \
-    | sed 's/\.mutect$//g' \
-    | awk -F "[.]" '{print $0"\t"$1".mutect" > "vcf_header.mutect.tmp"}' \
-&& bcftools reheader \
-    --samples vcf_header.mutect.tmp \
-    --threads ${cores} \
-    ${out_file}.tmp \
-| bcftools annotate \
+# bcftools query -l ${out_file}.tmp \
+#     | sed 's/\.mutect$//g' \
+#     | awk -F "[.]" '{print $0"\t"$1".mutect" > "vcf_header.mutect.tmp"}' \
+# && bcftools reheader \
+#     --samples vcf_header.mutect.tmp \
+#     --threads ${cores} \
+#     ${out_file}.tmp \
+# |
+bcftools annotate \
     --remove FORMAT/AD \
     --output-type z \
     --output ${out_file} \
@@ -46,5 +47,12 @@ bcftools query -l ${out_file}.tmp \
 && bcftools index \
     --force \
     --threads ${cores} \
-    ${out_file} \
-&& rm vcf_header.mutect.tmp ${out_file}.tmp
+    ${out_file} 
+# && rm vcf_header.mutect.tmp ${out_file}.tmp
+
+
+
+# java -cp $EBROOTGATK/GenomeAnalysisTK.jar org.broadinstitute.gatk.tools.CatVariants \
+#     -V $vcfs_in \
+#     -R $REF \
+#     -out Processing/$1.original.vcf 
