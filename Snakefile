@@ -257,11 +257,14 @@ rule SCcaller1:
         bulk = config['specific'].get('bulk_normal', ''),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
+        min_qual =  config['filters'].get('geno_qual', 20),
+        min_depth = config['filters'].get('depth', 10),
         sccaller = config['SCcaller']['exe']
     shell:
         '{params.base_dir}/scripts/6.1_sccallerlab.sh {params.modules} '
         '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
-        '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller}'
+        '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller} '
+        '--mapq {params.min_qual}'
 
 
 rule SCcaller2:
@@ -273,12 +276,10 @@ rule SCcaller2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
-        min_depth = config['filters'].get('depth', 10),
-        min_qual =  config['filters'].get('geno_qual', 30)
+            config['modules'].get('bcftools', ['bcftools'])])
     shell:
         '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]} -md {params.min_depth} -mq {params.min_qual}'
+        '-o {output[0]}'
 
 
 rule SCcaller3:

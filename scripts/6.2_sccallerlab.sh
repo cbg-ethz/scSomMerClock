@@ -3,8 +3,6 @@
 module purge
 
 sample_bams=""
-min_depth=10
-min_qual=30
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -14,12 +12,6 @@ while [ "$1" != "" ]; do
         -o | --out)         shift
                             out_file=$1
                             ;;
-        -md | --min-depth)  shift
-                            min_depth=$1
-                            ;;
-        -mq | --min-qual)   shift
-                            min_qual=$1
-                            ;;
         *)                  sample_bams+="$1 " 
     esac
     shift
@@ -27,19 +19,14 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
-filter_str='FORMAT/SO=="True"'" & QUAL >= ${min_qual} & FORMAT/AD[0:0] + FORMAT/AD[0:1] >= ${min_depth}"
 cores=$(nproc)
 
 for sample in ${sample_bams}
 do
-    bcftools filter \
-        --include "${filter_str}" \
-        --threads ${cores} \
-        ${sample} \
-    | bcftools sort  \
+    bcftools sort  \
         --output-file ${sample}.gz \
         --output-type z \
-        - \
+        ${sample} \
     && bcftools index \
         --force \
         --threads ${cores} \

@@ -2,6 +2,8 @@
 
 module purge
 
+minQual=20
+minDepth=10
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -26,6 +28,12 @@ while [ "$1" != "" ]; do
         -d | --dbsnp )      shift
                             DBSNP=$1
                             ;;
+        --mq | --minQual )  shift
+                            minQual=$1
+                            ;;
+        -md | --minDepth )  shift
+                            minDepth=$1
+                            ;;
     esac
     shift
 done
@@ -48,9 +56,7 @@ python $SCcaller \
     --cpu_num ${cores} \
     --engine samtools \
     --bulk Processing/${bulk_normal}.real.${chr}.bam \
-    --min_depth 1 \
-    --minvar 0 \
-    --mapq 30 \
-    --bias 0.6 \
-    --lamb 2000 
+    --min_depth ${minDepth} \
+    --minvar 1 \
+    --mapq ${minQual} \
 # && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log
