@@ -24,11 +24,15 @@ cores=$(nproc)
 sorted_bams=$(echo "${sample_bams}"  | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
 echo $sorted_bams
 bcftools concat \
-    --output ${out_file}.tmp \
+    --output ${out_file} \
     --output-type z \
     --threads ${cores} \
     --no-version \
-    ${sorted_bams}
+    ${sorted_bams} \
+&& bcftools index \
+    --force \
+    --threads ${cores} \
+    ${out_file} 
 
 # Rename header column and index
 # bcftools query -l ${out_file}.tmp \
@@ -39,15 +43,15 @@ bcftools concat \
 #     --threads ${cores} \
 #     ${out_file}.tmp \
 # |
-bcftools annotate \
-    --remove FORMAT/AD \
-    --output-type z \
-    --output ${out_file} \
-    ${out_file}.tmp \
-&& bcftools index \
-    --force \
-    --threads ${cores} \
-    ${out_file} 
+# bcftools annotate \
+#     --remove FORMAT/AD \
+#     --output-type z \
+#     --output ${out_file} \
+#     ${out_file}.tmp \
+# && bcftools index \
+#     --force \
+#     --threads ${cores} \
+#     ${out_file} 
 # && rm vcf_header.mutect.tmp ${out_file}.tmp
 
 
