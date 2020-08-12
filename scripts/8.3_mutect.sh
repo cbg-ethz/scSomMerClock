@@ -43,7 +43,7 @@ bcftools annotate \
     --remove FORMAT/AD \
     --output-type z \
     --output ${out_file} \
-    - \
+    ${out_file}.tmp \
 && bcftools index \
     --force \
     --threads ${cores} \
