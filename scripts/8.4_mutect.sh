@@ -46,4 +46,4 @@ gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" MergeMutectStats \
         --stats Calls/mutect.merged.stats \
         --ob-priors $rom \
         --create-output-variant-index \
-        --output all.mutect.filtered.vcf
+        --output Calls/all.mutect.filtered.vcf
