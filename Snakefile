@@ -413,7 +413,8 @@ rule mutect4:
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
         '{params.base_dir}/scripts/8.4_mutect.sh {input.cont_tables} '
-        '{params.modules} -i {input.vcf} -rom {input.rom} -o {output[0]}'
+        '{params.modules} -i {input.vcf} -rom {input.rom} -r {params.ref_genome}'
+        ' -o {output[0]}'
 
 
 rule merge_calls:
