@@ -23,8 +23,7 @@ else
 fi
 
 
-if [ "${LOGGING}" = true ]
-then
+if [ "${LOGGING}" = true ]; then
     LOGFILE="logs/snakelog.${JOBID}.out"
 else
     LOGFILE="/dev/null"
