@@ -42,6 +42,7 @@ do
     echo ${sample_order%?} \
         | tr ',' '\n' \
         | awk -F "[.]" '{print $0"\t"$1".monovar" > "vcf_header.monovar.tmp"}'
+    grep '^##\<contig' ${sample} || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}
     
     bcftools view \
         --samples ${sample_order%?} \
@@ -60,9 +61,7 @@ do
     && bcftools index \
         --force \
         --threads ${cores} \
-        ${sample}.gz \
-    && grep '^#\<contig' ${sample}.gz \
-        || sed -i "/^#CHROM.*/i ##contig=<ID=$chr,eta=-1>" ${sample}.gz
+        ${sample}.gz
 done
 rm vcf_header.monovar.tmp
 
