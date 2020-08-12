@@ -22,7 +22,8 @@ else
     JOBID=$(date +%Y-%m-%d.%H-%M-%S)  
 fi
 
-if [ "$LOGGING" = true]
+
+if [ "${LOGGING}" = true ]
 then
     LOGFILE="logs/snakelog.${JOBID}.out"
 else
