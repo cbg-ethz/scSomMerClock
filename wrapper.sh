@@ -1,11 +1,15 @@
 #!/bin/sh
 
 SNAKE_CMD="snakemake --keep-going --restart-times=0 --rerun-incomplete"
+LOGGING=true
 while [ "$1" != "" ]; do
     case $1 in
         -c | --config ) shift        
                         SNAKE_CMD+=" --configfile ${1}"
-                        ;;                      
+                        ;;         
+        --unlock )      SNAKE_CMD+=" ${1}"
+                        LOGGING=false
+                        ;;                       
         *)              SNAKE_CMD+=" ${1}"
     esac
     shift
@@ -17,7 +21,13 @@ then
 else
     JOBID=$(date +%Y-%m-%d.%H-%M-%S)  
 fi
-LOGFILE="logs/snakelog.${JOBID}.out"
+
+if [ $LOGGING ]
+then
+    LOGFILE="logs/snakelog.${JOBID}.out"
+else
+    LOGFILE="/dev/null"
+fi
 
 # Run workflow
 echo ""
