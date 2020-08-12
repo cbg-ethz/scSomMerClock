@@ -428,7 +428,7 @@ def main(args):
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    # df = get_summary_df(args)
+    df = get_summary_df(args)
     # df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
     # df.astype(int, copy=False)
 
