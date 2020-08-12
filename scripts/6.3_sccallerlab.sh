@@ -39,5 +39,5 @@ bcftools query -l ${out_file}.tmp \
 && bcftools index \
     --force \
     --threads ${cores} \
-    ${out_file} 
+    ${out_file} \
 && rm vcf_header.sccaller.tmp ${out_file}.tmp
