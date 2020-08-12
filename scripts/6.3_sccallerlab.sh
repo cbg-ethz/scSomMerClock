@@ -24,6 +24,8 @@ bcftools merge \
     --output ${out_file}.tmp \
     --output-type z \
     --merge both \
+    --apply-filters .,PASS \
+    --info-rules NS:sum \
     --threads ${cores} \
     ${sample_bams}
 
