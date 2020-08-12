@@ -38,7 +38,7 @@ gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" GetPileupSummaries \
 
 ## Tumor bulk samples
 for tumor in $tumor_in; do
-    sample=$(echo $test | rev | cut -d'/' -f1 | rev | cut -d'.' -f1)
+    sample=$(echo $tumor | rev | cut -d'/' -f1 | rev | cut -d'.' -f1)
     gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" GetPileupSummaries \
         --input ${tumor}  \
         --variant ${gnomAD} \
