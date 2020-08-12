@@ -15,10 +15,10 @@ while [ "$1" != "" ]; do
                                 out_file=$1
                                 ;;
         -md | --min-depth)      shift
-                                out_file=$1
+                                min_depth=$1
                                 ;;
         -mq | --min-qual)       shift
-                                out_file=$1
+                                min_qual=$1
                                 ;;
         *)                      sample_bams+="$1 " 
     esac
