@@ -10,13 +10,13 @@ static:
 specific:
   data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/Wang_redo/W55
   cellnames: acc-cell.txt
-  pair_end: True
+  pair_end: False
   bulk_normal: BCN # SRR1153401
   bulk_samples: [BCT] # [SRR1153400]
-  WGA_library: 
+  WGA_library: MDA
   SEQ: WES
-  WES_target: 
-  WES_target_genome: 
+  WES_target: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed
+  WES_target_genome: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed.genome
   PON: PON.SureSelectV5.vcf.gz
 
 SCcaller:
@@ -28,7 +28,7 @@ monovar:
 
 filters:
   depth: 10
-  geno_qual: 30
+  geno_qual: 20
 
 modules:
   cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
