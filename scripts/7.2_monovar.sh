@@ -27,7 +27,7 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
-filter_str="'QUAL >= ${min_qual} & N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0'"
+filter_str="QUAL>=${min_qual} & N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0"
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index

@@ -70,7 +70,7 @@ rule all:
         expand(os.path.join('QC',
                 'Call_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv'),
             filter_DP=config.get('filters', {}).get('depth', [10]),
-            filter_QUAL=config.get('filters', {}).get('geno_qual', [30])
+            filter_QUAL=config.get('filters', {}).get('geno_qual', [20])
         )
 
 
@@ -443,9 +443,7 @@ rule QC_calling:
             config['modules'].get('QC_calling', ['pysam', 'pandas'])]),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
-            bulk_samples['tumor']]),
-        filter_depth = config['filters'].get('depth', 10),
-        filter_qual =  config['filters'].get('geno_qual', 30)
+            bulk_samples['tumor']])
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input}  -o QC '
