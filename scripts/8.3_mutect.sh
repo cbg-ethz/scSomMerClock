@@ -22,7 +22,7 @@ done
 cores=$(nproc)
 
 sorted_bams=$(echo "${sample_bams}"  | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
-echo $sorted_bams
+
 bcftools concat \
     --output ${out_file} \
     --output-type z \
@@ -30,6 +30,7 @@ bcftools concat \
     --no-version \
     ${sorted_bams} \
 && bcftools index \
+    --tbi \
     --force \
     --threads ${cores} \
-    ${out_file} 
+    ${out_file}

@@ -87,9 +87,6 @@ def get_summary_df(args):
         caller = sample_detail[-1]
         if caller != 'mutect':
             samples.add(sample_name)
-    # Ni8 specific
-    samples.discard('P01M01E')
-    samples.discard('P01P01E')
 
     sc_map = {j: i for i, j in enumerate(sorted(samples))}
     for bt in args.bulk_tumor:
@@ -204,7 +201,7 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             # Bulk SNV
             if alg == 'mutect':
                 # Called in Normal (germline)
-                if sample_name == args.bulk_normal:
+                if sample_name not in sc_map:
                     germline.append('{}:{}'.format(rec.chrom, rec.pos))
                 # Called in tumor
                 else:
@@ -287,7 +284,7 @@ def get_summary_statistics(df, args):
 
     # Get SNPs called by monovar and SCcaller in min 2 samples, but not in bulk 
     m_s = df[
-        ((df['monovar_sccaller'] >= 2) \
+        ((df['monovar_sccaller'] >= 1) \
             | ((df['monovar_sccaller'] == 1) \
                 & ((df['sccaller'] > 0) | (df['monovar'] > 0)))) \
         & (df['monovar_sccaller_bulk'] == 0) & (df['bulk'] == 0) \
