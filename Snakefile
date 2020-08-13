@@ -63,15 +63,30 @@ def get_final_vcfs(wildcards):
     return final_files
 
 
+def get_all_files(wildcards):
+    files = [os.path.join('Calls', 'all.vcf.gz')]
+    
+    if config['static'].get('QC_seq', False):
+        files.append(os.path.join('QC', 'QC_sequencing.tsv'))
+
+    depth = config.get('filters', {}).get('depth', [10])
+    if isinstance(depth, int):
+        depth = [depth]
+    qual = config.get('filters', {}).get('QUAL', [20])
+    if isinstance(qual, int):
+        qual = [qual]
+
+    for dp in depth:
+        for qu in qual:
+            files.append(os.path.join('QC', f'Call_summary_DP{dp}_QUAL{qu}.tsv'))
+
+    return files
+
+
 rule all:
     input:
-        os.path.join('Calls', 'all.vcf.gz'),
-        'QC_sequencing.tsv',
-        expand(os.path.join('QC',
-                'Call_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv'),
-            filter_DP=config.get('filters', {}).get('depth', [10]),
-            filter_QUAL=config.get('filters', {}).get('geno_qual', [20])
-        )
+        get_all_files
+        
 
 
 rule adapter_cutting:
