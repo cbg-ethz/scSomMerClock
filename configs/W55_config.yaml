@@ -6,7 +6,7 @@ static:
   indel_db2: 1000G_phase1.indels.b37.vcf
   germline: af-only-gnomad.raw.sites.b37.vcf.gz
   gnomAD: small_exac_common_3_b37.vcf.gz
-  QC_seq: True
+  QC_seq: False
 
 specific:
   data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/Wang_redo/W55
