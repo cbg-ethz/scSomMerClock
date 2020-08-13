@@ -41,11 +41,16 @@ sorted_bams=$(echo "${sample_bams}" \
 )
 
 bcftools concat \
-    --output ${out_file} \
-    --output-type z \
+    --output-type u \
     --threads ${cores} \
     --no-version \
     ${sorted_bams} \
+| bcftools filter \
+    --exclude "TYPE!='snp' | FORMAT/SO[0]='NA'" \
+    --output ${out_file} \
+    --output-type z \
+    --threads ${cores} \
+    - \
 && bcftools index \
     --force \
     --threads ${cores} \
