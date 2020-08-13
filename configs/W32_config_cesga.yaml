@@ -27,8 +27,8 @@ monovar:
   run: True
 
 filters:
-  depth: [5, 10, 20, 30, 40]
-  geno_qual: [30]
+  depth: [10]
+  geno_qual: [20]
 
 modules:
   cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
