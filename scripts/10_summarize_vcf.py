@@ -6,37 +6,11 @@ import numpy as np
 import pandas as pd
 from pysam import VariantFile
 
-## SCcaller FORMAT
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
-##FORMAT=<ID=BI,Number=1,Type=Float,Description="Amplification Bias">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-##FORMAT=<ID=FPL,Number=4,Type=Integer,Description="sequencing noise, amplification artifact, heterozygous SNV and homozygous SNV respectively">
-##FORMAT=<ID=SO,Number=1,Type=String,Description="Whether it is a somatic mutation.">
 
-## Monovar FORMAT
-##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
-
-## Mutect2 FORMAT
-##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele fractions of alternate alleles in the tumor">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
-##FORMAT=<ID=F1R2,Number=R,Type=Integer,Description="Count of reads in F1R2 pair orientation supporting each allele">
-##FORMAT=<ID=F2R1,Number=R,Type=Integer,Description="Count of reads in F2R1 pair orientation supporting each allele">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=PGT,Number=1,Type=String,Description="Physical phasing haplotype information, describing how the alternate alleles are phased in relation to one another">
-##FORMAT=<ID=PID,Number=1,Type=String,Description="Physical phasing ID information, where each unique ID within a given sample (but not across samples) connects records within a phasing group">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
-##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phasing set (typically the position of the first variant in the set)">
-##FORMAT=<ID=SB,Number=4,Type=Integer,Description="Per-sample component statistics which comprise the Fisher's Exact Test to detect strand bias.">
 CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
-ALG_MAP = {'monovar': 0, 'sccaller': 1}
+ALG_MAP = {'monovar': 0, 'sccaller': 1, 'mutect': 2}
 RES_MAP = {'[1 0 0]': 0, '[0 1 0]': 1, '[0 0 1]': 2, '[1 1 0]': 3, '[1 0 1]': 4,
-    '[0 1 1]': 5, '[1 1 1]': 6}
+    '[0 1 1]': 5, '[1 1 1]': 6, '[0 0 0]': False}
 
 
 def parse_args():
@@ -68,10 +42,6 @@ def parse_args():
         '-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.'
     )
-    parser.add_argument(
-        '-gq', '--genotype_quality', type=int, default=0,
-        help='Minimum genotype quality. Default = 0.'
-    )
 
     args = parser.parse_args()
     return args
@@ -96,16 +66,17 @@ def get_summary_df(args):
 
     germline = []
     data = []
-    indels = 0
     # Iterate over rows
     print('Iterating calls - Start')
     for chrom in CHROM:
         chr_data = vcf_in.fetch(chrom)
+        # chr_data = vcf_in.fetch("1", 2075818, 2075820)
         chr_data = iterate_chrom(chr_data, sc_map, sample_no, chrom)
 
         data.extend(chr_data[0])
         germline.extend(chr_data[1])
-        indels += chr_data[2]
+
+        break
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
@@ -113,6 +84,8 @@ def get_summary_df(args):
     df = pd.DataFrame(data, columns=cols)
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
+
+    import pdb; pdb.set_trace()
 
     out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
         .format(args.read_depth, args.quality, os.path.basename(args.input)))
@@ -126,27 +99,22 @@ def get_summary_df(args):
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
-    print('\n(Removed {} indels)\n'.format(indels))
     return df
 
 
 def iterate_chrom(chr_data, sc_map, sample_size, chrom):
     data = []
     germline = []
-    indels = 0
 
     for i, rec in enumerate(chr_data):
         if i % 100000 == 0:
             print('Iterated records on Chr {}:\t{}'.format(chrom, i))
 
-        # Skip indels (only keep snp)
-        # Also skip rows where both is called: indel and SNP
-        for i in rec.alleles:
-            if len(i) > 1:
-                indels += 1
-                continue
+        # Filtered in bulk & multplie genotypes called by SCcaller
+        if not 'PASS' in rec.filter:
+            continue
 
-        # Filter low quality
+        # Filter low quality in all samples
         try:
             if rec.qual < args.quality:
                 continue
@@ -154,16 +122,10 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         except TypeError:
             pass
 
-        # Filtered in bulk & multplie genotypes called by SCcaller
-        try:
-            rec.filter['PASS']
-        except KeyError:
-            continue
-
         # 0: monovar, 1: sccaller, 2: bulk_tumor
         calls = np.zeros((sample_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
-        for sample_id, sample in rec.samples.items():
+        for sample_id, sample in rec.samples.iteritems():
             # Skip all genotypes except: 0/1 | 1/1 | 0/2
             if not sample['GT'][1]:
                 continue
@@ -180,54 +142,41 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             if sample_name in ['P01M01E', 'P01P01E']:
                 continue
 
-            # Skip low quality calls in Bulk
-            if alg == 'mutect':
-                try:
-                    rec.filter['PASS']
-                except KeyError:
-                    import pdb; pdb.set_trace()
+            if alg != 'mutect':
+                if alg == 'sccaller':
+                    # Skip indels and "False" calls (only called by sccaller)
+                    if sample['SO'] != 'True':
+                        continue
+                    if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
+                        continue
+                # Skip low genotype quality calls
+                if sample['GQ'] < args.quality:
                     continue
-            else:
-                if alg == 'sccaller' and sample['SO'] != 'True':
-                    continue
-
-                if sample['GQ'] < args.genotype_quality:
-                    continue
-                # Skip samples with read depth below threshold
-                if sum(sample['AD']) < args.read_depth:
-                    continue
-
-            sample_id = sc_map[sample_name]
-            # Bulk SNV
-            if alg == 'mutect':
-                # Called in Normal (germline)
-                if sample_name not in sc_map:
-                    germline.append('{}:{}'.format(rec.chrom, rec.pos))
-                # Called in tumor
-                else:
-                    calls[sample_id, 2] = 1
-            # SC SNV
+            # Skip samples with read depth below threshold
+            if sum(sample['AD']) < args.read_depth:
+                continue
+                
+            try:
+                sample_id = sc_map[sample_name]
+            # Sample name not in mapping dict: bulk normal
+            except KeyError:
+                germline.append('{}:{}'.format(rec.chrom, rec.pos))
             else:
                 calls[sample_id, ALG_MAP[alg]] = 1
 
-        per_sample = np.sum(calls, axis=1)
-        # WT called (by SCCaller)
-        if per_sample.max() == 0:
+        # only WT called
+        if calls.max() == 0:
             continue
-        # All SNVs only called by 1 algorithm
-        elif per_sample.max() == 1:
-            call_data = np.append(calls.sum(axis=0), np.zeros(4, dtype=int))
-        else:
-            call_data = np.zeros(7, dtype=int)
-            for sample_calls in calls:
-                if sample_calls.sum() != 0:
-                    call_data[RES_MAP[np.array2string(sample_calls)]] += 1
-        
+
+        call_data = np.zeros(7, dtype=int)
+        for sample_calls in calls:
+            call_data[RES_MAP[np.array2string(sample_calls)]] += 1
+
         rec_data = np.append([rec.chrom, rec.pos], call_data)
         data.append(rec_data)
 
     print('Iterating calls on Chr {} - End\n'.format(chrom))
-    return (data, germline, indels)
+    return (data, germline)
 
 
 def get_summary_statistics(df, args):
@@ -282,11 +231,9 @@ def get_summary_statistics(df, args):
     ]
     df.drop(s_b.index, inplace=True)
 
-    # Get SNPs called by monovar and SCcaller in min 2 samples, but not in bulk 
+    # Get SNPs called by monovar and SCcaller, but not in bulk 
     m_s = df[
-        ((df['monovar_sccaller'] >= 1) \
-            | ((df['monovar_sccaller'] == 1) \
-                & ((df['sccaller'] > 0) | (df['monovar'] > 0)))) \
+        (df['monovar_sccaller'] >= 1) \
         & (df['monovar_sccaller_bulk'] == 0) & (df['bulk'] == 0) \
         & (df['sccaller_bulk'] == 0) & (df['monovar_bulk'] == 0)
     ]
