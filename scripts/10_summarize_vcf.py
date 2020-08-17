@@ -85,8 +85,6 @@ def get_summary_df(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    import pdb; pdb.set_trace()
-
     out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
         .format(args.read_depth, args.quality, os.path.basename(args.input)))
     print('Writing call summary to: {}'.format(out_summary))
@@ -142,7 +140,10 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             if sample_name in ['P01M01E', 'P01P01E']:
                 continue
 
-            if alg != 'mutect':
+            if alg == 'mutect':
+                if sample['DP'] < args.read_depth:
+                    continue
+            else:
                 if alg == 'sccaller':
                     # Skip indels and "False" calls (only called by sccaller)
                     if sample['SO'] != 'True':
@@ -152,9 +153,9 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                 # Skip low genotype quality calls
                 if sample['GQ'] < args.quality:
                     continue
-            # Skip samples with read depth below threshold
-            if sum(sample['AD']) < args.read_depth:
-                continue
+                # Skip samples with read depth below threshold
+                if sum(sample['AD']) < args.read_depth:
+                    continue
                 
             try:
                 sample_id = sc_map[sample_name]
