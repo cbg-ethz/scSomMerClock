@@ -477,7 +477,9 @@ rule QC_calling_chr:
 rule QC_calling_all:
     input:
         expand(os.path.join('QC', 
-            'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv'), chr=CHROM)
+                'Call_summary.{chr}.DP{{filter_DP}}_QUAL{{filter_QUAL}}.tsv'),
+            chr=CHROM
+        )
     output:
         os.path.join('QC', 'Call_summary.all.DP{filter_DP}_QUAL{filter_QUAL}.tsv')
     params:
