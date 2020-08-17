@@ -86,5 +86,5 @@ mutect1:
 
 
 QC_calling:
-  time: 600
+  time: 720
   mem: 16G
