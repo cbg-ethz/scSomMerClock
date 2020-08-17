@@ -411,7 +411,7 @@ def main(args):
         args.input = args.input[0]
 
         try:
-            args.chr = re.search('\.[0-9XY]+\.', test).group(0).strip('.')
+            args.chr = re.search('\.[0-9XY]+\.', args.input).group(0).strip('.')
         except AttributeError:
             args.chr = 'all'
 
