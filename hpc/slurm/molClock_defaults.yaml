@@ -85,6 +85,18 @@ mutect1:
   mem: 30G
 
 
+mutect2:
+  mem: 40G
+
+
+mutect3:
+  cpus-per-task: 2
+
+
+mutect4:
+  cpus-per-task: 2
+
+
 QC_calling:
   time: 600
   mem: 16G
