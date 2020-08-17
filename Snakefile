@@ -70,15 +70,16 @@ def get_all_files(wildcards):
         files.append(os.path.join('QC', 'QC_sequencing.tsv'))
 
     depth = config.get('filters', {}).get('depth', [10])
-    if isinstance(depth, int):
+    if not isinstance(depth, list):
         depth = [depth]
     qual = config.get('filters', {}).get('QUAL', [20])
-    if isinstance(qual, int):
+    if not isinstance(qual, list):
         qual = [qual]
 
     for dp in depth:
         for qu in qual:
             files.append(os.path.join('QC', f'Call_summary.all.DP{dp}_QUAL{qu}.tsv'))
+
 
     return files
 
@@ -447,6 +448,11 @@ rule merge_calls:
     shell:
         '{params.base_dir}/scripts/9_merge_vcfs.sh {input} {params.modules} '
         '-o {params.out_dir}'
+
+
+# ------------------------------------------------------------------------------
+# -------------------------------- CALLING QC ----------------------------------
+# ------------------------------------------------------------------------------
 
 
 rule QC_calling_chr:
