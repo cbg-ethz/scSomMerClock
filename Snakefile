@@ -78,7 +78,7 @@ def get_all_files(wildcards):
 
     for dp in depth:
         for qu in qual:
-            files.append(os.path.join('QC', f'Call_summary_DP{dp}_QUAL{qu}.tsv'))
+            files.append(os.path.join('QC', f'Call_summary.all.DP{dp}_QUAL{qu}.tsv'))
 
     return files
 
