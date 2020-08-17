@@ -201,9 +201,10 @@ def get_summary_statistics(df, args):
     df.drop(singletons.index, inplace=True)
 
     # Get overview of records called by SCCaller and Monovar but not in bulk
+    sc_col_order = ['monovar', 'sccaller', 'monovar_sccaller']
     sc_callers = df[(df['bulk'] == 0) & (df['sccaller_bulk'] == 0) & \
         (df['monovar_bulk'] == 0) & (df['monovar_sccaller_bulk'] == 0)].copy()
-    sc_callers['sc_unique'] = sc_callers[['monovar', 'sccaller', 'monovar_sccaller']] \
+    sc_callers['sc_unique'] = sc_callers[sc_col_order] \
         .apply(lambda x: ' '.join(str(i) for i in x ), axis=1)
 
     # Only called in bulk
@@ -270,23 +271,24 @@ def get_summary_statistics(df, args):
     if not df.empty:
         print('Unknown how to handle:\n{}'.format(df))
 
-    sc_unique = pd.DataFrame()
+    sc_unique = pd.DataFrame(columns=sc_col_order + ['count'])
     for i, j in sc_callers['sc_unique'].value_counts().iteritems():
-        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
         sc_unique = sc_unique.append(
-            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
+            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j),
+                index=sc_col_order + ['count']),
             ignore_index=True
         )
-    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
-    out_QC_SConly = os.path.join(args.output, 'SConly_summary.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality))
-    sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
+    if not sc_unique.empty:
+        out_QC_SConly = os.path.join(args.output, 'SConly_summary.{}.DP{}_QUAL{}.tsv' \
+            .format(args.chr, args.read_depth, args.quality))
+        sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
 
     rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
-    rel_recs.drop('sum', axis=1, inplace=True)
-    rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality))
-    rel_recs.to_csv(rel_SNPs, sep='\t')
+    if not rel_recs.empty:
+        rel_recs.drop('sum', axis=1, inplace=True)
+        rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \
+            .format(args.chr, args.read_depth, args.quality))
+        rel_recs.sort_index(ascending=False).to_csv(rel_SNPs, sep='\t')
 
     data = [
         ('Monovar', m.shape[0] + m_shady.shape[0]),
