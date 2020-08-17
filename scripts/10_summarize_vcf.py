@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import numpy as np
 import pandas as pd
 from pysam import VariantFile
@@ -19,8 +20,14 @@ def parse_args():
         description='*** Generate Lorenz curve and Gini coefficient. ***'
     )
     parser.add_argument(
-        'input', type=str,
+        'input', type=str,  nargs='*',
         help='Absolute or relative path(s) to input VCF file'
+    )
+    parser.add_argument(
+        '-t', '--task', type=str, choices=['summarize', 'merge'],
+        default='summarize', help='Scripts task, options are: 1. summarizing the '
+        'calls in a vcf file, 2. merging the previouslz generated summaries. '
+        'Default = summarize'
     )
     parser.add_argument(
         '-o', '--output', type=str, default='',
@@ -64,19 +71,20 @@ def get_summary_df(args):
 
     sample_no = len(sc_map)
 
-    germline = []
-    data = []
     # Iterate over rows
     print('Iterating calls - Start')
-    for chrom in CHROM:
-        chr_data = vcf_in.fetch(chrom)
-        # chr_data = vcf_in.fetch("1", 2075818, 2075820)
-        chr_data = iterate_chrom(chr_data, sc_map, sample_no, chrom)
+    if args.chr == 'all':
+        germline = []
+        data = []
+        for chrom in CHROM:
+            chr_data = vcf_in.fetch(chrom)
+            chr_data = iterate_chrom(chr_data, sc_map, sample_no, chrom)
 
-        data.extend(chr_data[0])
-        germline.extend(chr_data[1])
-
-        break
+            data.extend(chr_data[0])
+            germline.extend(chr_data[1])
+    else:
+        chr_data = vcf_in.fetch()
+        data, germline = iterate_chrom(chr_data, sc_map, sample_no, args.chr)
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
@@ -85,14 +93,14 @@ def get_summary_df(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
-        .format(args.read_depth, args.quality, os.path.basename(args.input)))
+    out_summary = os.path.join(args.output, 'Calls.{}.DP{}_QUAL{}.tsv' \
+        .format(args.chr, args.read_depth, args.quality))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
     if germline:
-        out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
-            .format(args.read_depth, args.quality, os.path.basename(args.input)))
+        out_germ = os.path.join(args.output, 'Germline.{}.DP{}_QUAL{}.tsv' \
+            .format(args.chr, args.read_depth, args.quality))
         print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
@@ -262,6 +270,24 @@ def get_summary_statistics(df, args):
     if not df.empty:
         print('Unknown how to handle:\n{}'.format(df))
 
+    sc_unique = pd.DataFrame()
+    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
+        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
+        sc_unique = sc_unique.append(
+            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
+            ignore_index=True
+        )
+    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
+    out_QC_SConly = os.path.join(args.output, 'SConly_summary.{}.DP{}_QUAL{}.tsv' \
+        .format(args.chr, args.read_depth, args.quality))
+    sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
+
+    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
+    rel_recs.drop('sum', axis=1, inplace=True)
+    rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \
+        .format(args.chr, args.read_depth, args.quality))
+    rel_recs.to_csv(rel_SNPs, sep='\t')
+
     data = [
         ('Monovar', m.shape[0] + m_shady.shape[0]),
         ('SCcaller', s.shape[0] + s_shady.shape[0]),
@@ -271,36 +297,22 @@ def get_summary_statistics(df, args):
         ('SCcaller & Bulk', s_b.shape[0]),
         ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
     ]
-
-    out_QC = out_summary = os.path.join(args.output,
-        'Call_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
-
-    sc_unique = pd.DataFrame()
-    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
-        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
-        sc_unique = sc_unique.append(
-            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
-            ignore_index=True
-        )
-    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
-    out_QC_SConly = os.path.join(args.output,
-        'SConly_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
-    sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
-
-    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
-    rel_recs.drop('sum', axis=1, inplace=True)
-    rel_SNPs = os.path.join(args.output,
-        'relevantSNPs_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
-    rel_recs.to_csv(rel_SNPs, sep='\t')
-
-    print('Writing call-Venn-data to: {}'.format(out_QC))
-    print('\n\nSUMMARY:\n')
-    with open(out_QC, 'w') as f:
-        for alg, calls in data:
-            f.write('{}\t{}\n'.format(calls, alg))
-            print('{}\t-\t{}'.format(calls, alg))
+    out_QC = os.path.join(args.output, 'Call_summary.{}.DP{}_QUAL{}.tsv' \
+        .format(args.chr, args.read_depth, args.quality)
+    )
+    save_summary(data, out_QC)
 
     return data
+
+
+def save_summary(data, out_file, verbose=True):
+    if verbose:
+        print('Writing call-Venn-data to: {}\n\n\nSUMMARY:'.format(out_file))
+    with open(out_file, 'w') as f:
+        for alg, calls in data:
+            f.write('{}\t{}\n'.format(calls, alg))
+            if verbose:
+                print('{}\t-\t{}'.format(calls, alg))
 
 
 def plot_venn(data, out_dir):
@@ -367,20 +379,55 @@ def load_data(in_file):
     return data
 
 
+def merge_summaries(args):
+    counts = np.zeros(7)
+    algs = ['Monovar', 'SCcaller', 'Monovar & SCcaller', 'Bulk',
+        'Monovar & Bulk', 'SCcaller & Bulk', 'Monovar & SCcaller & Bulk']
+    for in_file in args.input:
+        with open(in_file, 'r') as f:
+            lines = f.readlines()
+            for i, line in enumerate(lines):
+                counts[i] += int(line.split('\t')[0])
+    
+    data = [(algs[i], counts[i]) for i in range(7)]
+    out_QC = os.path.join(args.output, 'Call_summary.all.DP{}_QUAL{}.tsv' \
+        .format(args.read_depth, args.quality)
+    )
+    save_summary(data, out_QC)
+
+    return data
+
+
 def main(args):
     if not args.output:
-        args.output = os.path.dirname(args.input)
+        args.output = os.path.dirname(args.input[0])
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    df = get_summary_df(args)
-    # df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
-    # df.astype(int, copy=False)
+    if args.task == 'summarize':
+        if len(args.input) != 1:
+            raise IOError(
+                f'Can only summarize 1 vcf file ({len(args.input)} given)')
+        args.input = args.input[0]
 
-    summary = get_summary_statistics(df, args)
-    # summary = load_data(args.input)
+        try:
+            args.chr = re.search('\.[0-9XY]+\.', test).group(0).strip('.')
+        except AttributeError:
+            args.chr = 'all'
 
-    plot_venn(summary, args)
+        df = get_summary_df(args)
+        summary = get_summary_statistics(df, args)
+
+        if args.chr == 'all':
+            plot_venn(summary, args)
+
+        # df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
+        # df.astype(int, copy=False)
+        # summary = load_data(args.input)
+        # plot_venn(summary, args)
+    else:
+        summary = merge_summaries(args)
+        plot_venn(summary, args)
 
 
 if __name__ == '__main__':

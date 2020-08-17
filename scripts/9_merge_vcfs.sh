@@ -4,6 +4,7 @@ module purge
 
 sample_bams=""
 mutect_calls=""
+out_dir='.'
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -11,7 +12,7 @@ while [ "$1" != "" ]; do
                             module load $1
                             ;;
         -o | --out)         shift
-                            out_file=$1
+                            out_dir=$(echo $1 | sed 's/\///g')
                             ;;
         *)                  if [[ $1 == *"mutect"* ]]; then
                                 mutect_calls=$1
@@ -22,8 +23,6 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-
-[[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
 cores=$(nproc)
 
@@ -49,7 +48,7 @@ if [ "$mutect_calls" != "" ]; then
 fi
 
 bcftools merge \
-    --output ${out_file} \
+    --output ${out_dir}/all.vcf.gz \
     --output-type z \
     --merge both \
     --threads ${cores} \
@@ -57,8 +56,21 @@ bcftools merge \
 && bcftools index \
     --force \
     --threads ${cores} \
-    ${out_file}
+    ${out_dir}/all.vcf.gz
 
 if [ "$mutect_calls" != "" ]; then
     rm ${mutect_calls}.tmp 
 fi
+
+
+for reg in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 'X' 'Y'; do 
+    bcftools view \
+        --regions $reg \
+        --types snps \
+        --output ${out_dir}/all.${reg}.vcf.gz \
+        --output-type z \
+    && bcftools index \
+        --force \
+        --threads ${cores} \
+        ${out_dir}/all.${reg}.vcf.gz
+done
