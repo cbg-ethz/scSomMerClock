@@ -97,6 +97,7 @@ mutect4:
   cpus-per-task: 2
 
 
-QC_calling:
-  time: 600
+QC_calling_chr:
+  time: 359
   mem: 16G
+

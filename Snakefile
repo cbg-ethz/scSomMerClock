@@ -437,21 +437,23 @@ rule merge_calls:
     input:
         get_final_vcfs
     output:
-        os.path.join('Calls', 'all.vcf.gz')
+        all_vcf = os.path.join('Calls', 'all.vcf.gz'),
+        chr_vcf = expand(os.path.join('Calls', 'all.{chr}.vcf.gz'), chr=CHROM)
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
+            config['modules'].get('bcftools', ['bcftools'])]),
+        out_dir = 'Calls'
     shell:
         '{params.base_dir}/scripts/9_merge_vcfs.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '-o {params.out_dir}'
 
 
-rule QC_calling:
+rule QC_calling_chr:
     input:
-        os.path.join('Calls', 'all.vcf.gz')
+        os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'Call_summary_DP{filter_DP}_QUAL{filter_QUAL}.tsv')
+        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -461,9 +463,26 @@ rule QC_calling:
             bulk_samples['tumor']])
     shell:
         'module load {params.modules} && '
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input}  -o QC '
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o QC '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
         '-q {wildcards.filter_QUAL} -r {wildcards.filter_DP}'
+
+
+rule QC_calling_all:
+    input:
+        expand(os.path.join('QC', 
+            'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv'), chr=CHROM)
+    output:
+        os.path.join('QC', 'Call_summary.all.DP{filter_DP}_QUAL{filter_QUAL}.tsv')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('QC_calling', ['pandas'])])
+    shell:
+        'module load {params.modules} && '
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
+        '-o QC -q {wildcards.filter_QUAL} -r {wildcards.filter_DP}'
+
 
 
 # ------------------------------------------------------------------------------

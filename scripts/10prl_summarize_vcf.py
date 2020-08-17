@@ -2,16 +2,16 @@
 
 import argparse
 import os
-import re
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
 from pysam import VariantFile
 
 
 CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
-ALG_MAP = {'monovar': 0, 'sccaller': 1, 'mutect': 2}
+ALG_MAP = {'monovar': 0, 'sccaller': 1}
 RES_MAP = {'[1 0 0]': 0, '[0 1 0]': 1, '[0 0 1]': 2, '[1 1 0]': 3, '[1 0 1]': 4,
-    '[0 1 1]': 5, '[1 1 1]': 6, '[0 0 0]': False}
+    '[0 1 1]': 5, '[1 1 1]': 6}
 
 
 def parse_args():
@@ -20,14 +20,8 @@ def parse_args():
         description='*** Generate Lorenz curve and Gini coefficient. ***'
     )
     parser.add_argument(
-        'input', type=str,  nargs='*',
+        'input', type=str,
         help='Absolute or relative path(s) to input VCF file'
-    )
-    parser.add_argument(
-        '-t', '--task', type=str, choices=['summarize', 'merge'],
-        default='summarize', help='Scripts task, options are: 1. summarizing the '
-        'calls in a vcf file, 2. merging the previouslz generated summaries. '
-        'Default = summarize'
     )
     parser.add_argument(
         '-o', '--output', type=str, default='',
@@ -49,9 +43,22 @@ def parse_args():
         '-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.'
     )
+    parser.add_argument(
+        '-gq', '--genotype_quality', type=int, default=0,
+        help='Minimum genotype quality. Default = 0.'
+    )
+    parser.add_argument(
+        '-n', '--cores', type=int, default=1,
+        help='Number of cpus to use for parallel processing. Default = 1.'
+    )
+
 
     args = parser.parse_args()
     return args
+
+
+def submit_chr(chr_data):
+    chr_data.
 
 
 def get_summary_df(args):
@@ -71,20 +78,37 @@ def get_summary_df(args):
 
     sample_no = len(sc_map)
 
-    # Iterate over rows
-    print('Iterating calls - Start')
-    if args.chr == 'all':
-        germline = []
-        data = []
-        for chrom in CHROM:
-            chr_data = vcf_in.fetch(chrom)
-            chr_data = iterate_chrom(chr_data, sc_map, sample_no, chrom)
+    germline = []
+    data = []
 
-            data.extend(chr_data[0])
-            germline.extend(chr_data[1])
-    else:
-        chr_data = vcf_in.fetch()
-        data, germline = iterate_chrom(chr_data, sc_map, sample_no, args.chr)
+    def append_chr_res(res):
+        data.extend(res[0])
+        germline.extend(res[1])
+
+    def append_chr_err(err):
+        print(err)
+
+
+    cores = min(args.cores, mp.cpu_count())
+    pool = mp.Pool(cores)
+
+    # Iterate over rows
+    print(f'Iterating calls on {cores} cores - Start')
+    for chrom in CHROM:
+        chr_data = [i for i in vcf_in.fetch(chrom, reopen=True)]
+        # job = pool.apply_async(
+        #     iterate_chrom, (chr_data, sc_map, sample_no, chrom,),
+        #     callback=append_chr_res, error_callback=append_chr_err
+        # )
+        job = pool.apply_async(
+            test, args=(chr_data,),
+            callback=append_chr_res, error_callback=append_chr_err
+        )
+        import pdb; pdb.set_trace()
+
+
+    pool.close()
+    pool.join()
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
@@ -93,34 +117,44 @@ def get_summary_df(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(args.output, 'Calls.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality))
+    out_summary = os.path.join(args.output, 'filtered_DP{}_QUAL{}_summary.{}.tsv' \
+        .format(args.read_depth, args.quality, os.path.basename(args.input)))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
     if germline:
-        out_germ = os.path.join(args.output, 'Germline.{}.DP{}_QUAL{}.tsv' \
-            .format(args.chr, args.read_depth, args.quality))
+        out_germ = os.path.join(args.output, 'germline_muts_DP{}_QUAL{}.{}.tsv' \
+            .format(args.read_depth, args.quality, os.path.basename(args.input)))
         print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
+    print('\n(Removed {} indels)\n'.format(indels))
     return df
 
 
+def test(chr_data):
+    print("ASD")
+    print(f"\ntest: {chr_data}\n")
+    return ([1], [2], 3)
+
+
 def iterate_chrom(chr_data, sc_map, sample_size, chrom):
+    print(f"Chrom: {chrom}")
+
     data = []
     germline = []
-
     for i, rec in enumerate(chr_data):
         if i % 100000 == 0:
             print('Iterated records on Chr {}:\t{}'.format(chrom, i))
 
-        # Filtered in bulk & multplie genotypes called by SCcaller
-        if not 'PASS' in rec.filter:
-            continue
+        # Skip indels (only keep snp)
+        # Also skip rows where both is called: indel and SNP
+        for i in rec.alleles:
+            if len(i) > 1:
+                continue
 
-        # Filter low quality in all samples
+        # Filter low quality
         try:
             if rec.qual < args.quality:
                 continue
@@ -128,10 +162,16 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         except TypeError:
             pass
 
+        # Filtered in bulk & multplie genotypes called by SCcaller
+        try:
+            rec.filter['PASS']
+        except KeyError:
+            continue
+
         # 0: monovar, 1: sccaller, 2: bulk_tumor
         calls = np.zeros((sample_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
-        for sample_id, sample in rec.samples.iteritems():
+        for sample_id, sample in rec.samples.items():
             # Skip all genotypes except: 0/1 | 1/1 | 0/2
             if not sample['GT'][1]:
                 continue
@@ -148,39 +188,49 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             if sample_name in ['P01M01E', 'P01P01E']:
                 continue
 
+            # Skip low quality calls in Bulk
             if alg == 'mutect':
-                if sample['DP'] < args.read_depth:
+                try:
+                    rec.filter['PASS']
+                except KeyError:
+                    import pdb; pdb.set_trace()
                     continue
             else:
-                if alg == 'sccaller':
-                    # Skip indels and "False" calls (only called by sccaller)
-                    if sample['SO'] != 'True':
-                        continue
-                    if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
-                        continue
-                # Skip low genotype quality calls
-                if sample['GQ'] < args.quality:
+                if alg == 'sccaller' and sample['SO'] != 'True':
+                    continue
+
+                if sample['GQ'] < args.genotype_quality:
                     continue
                 # Skip samples with read depth below threshold
                 if sum(sample['AD']) < args.read_depth:
                     continue
-                
-            try:
-                sample_id = sc_map[sample_name]
-            # Sample name not in mapping dict: bulk normal
-            except KeyError:
-                germline.append('{}:{}'.format(rec.chrom, rec.pos))
+
+            sample_id = sc_map[sample_name]
+            # Bulk SNV
+            if alg == 'mutect':
+                # Called in Normal (germline)
+                if sample_name not in sc_map:
+                    germline.append('{}:{}'.format(rec.chrom, rec.pos))
+                # Called in tumor
+                else:
+                    calls[sample_id, 2] = 1
+            # SC SNV
             else:
                 calls[sample_id, ALG_MAP[alg]] = 1
 
-        # only WT called
-        if calls.max() == 0:
+        per_sample = np.sum(calls, axis=1)
+        # WT called (by SCCaller)
+        if per_sample.max() == 0:
             continue
-
-        call_data = np.zeros(7, dtype=int)
-        for sample_calls in calls:
-            call_data[RES_MAP[np.array2string(sample_calls)]] += 1
-
+        # All SNVs only called by 1 algorithm
+        elif per_sample.max() == 1:
+            call_data = np.append(calls.sum(axis=0), np.zeros(4, dtype=int))
+        else:
+            call_data = np.zeros(7, dtype=int)
+            for sample_calls in calls:
+                if sample_calls.sum() != 0:
+                    call_data[RES_MAP[np.array2string(sample_calls)]] += 1
+        
         rec_data = np.append([rec.chrom, rec.pos], call_data)
         data.append(rec_data)
 
@@ -270,24 +320,6 @@ def get_summary_statistics(df, args):
     if not df.empty:
         print('Unknown how to handle:\n{}'.format(df))
 
-    sc_unique = pd.DataFrame()
-    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
-        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
-        sc_unique = sc_unique.append(
-            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
-            ignore_index=True
-        )
-    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
-    out_QC_SConly = os.path.join(args.output, 'SConly_summary.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality))
-    sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
-
-    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
-    rel_recs.drop('sum', axis=1, inplace=True)
-    rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality))
-    rel_recs.to_csv(rel_SNPs, sep='\t')
-
     data = [
         ('Monovar', m.shape[0] + m_shady.shape[0]),
         ('SCcaller', s.shape[0] + s_shady.shape[0]),
@@ -297,22 +329,36 @@ def get_summary_statistics(df, args):
         ('SCcaller & Bulk', s_b.shape[0]),
         ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
     ]
-    out_QC = os.path.join(args.output, 'Call_summary.{}.DP{}_QUAL{}.tsv' \
-        .format(args.chr, args.read_depth, args.quality)
-    )
-    save_summary(data, out_QC)
 
-    return data
+    out_QC = out_summary = os.path.join(args.output,
+        'Call_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
 
+    sc_unique = pd.DataFrame()
+    for i, j in sc_callers['sc_unique'].value_counts().iteritems():
+        al_dist = np.append(np.fromstring(i, sep=' ', dtype=int), j)
+        sc_unique = sc_unique.append(
+            pd.Series(np.append(np.fromstring(i, sep=' ', dtype=int), j)),
+            ignore_index=True
+        )
+    sc_unique.columns=['monovar', 'sccaller', 'sccaller_monovar', 'count']
+    out_QC_SConly = os.path.join(args.output,
+        'SConly_summary_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
+    sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
 
-def save_summary(data, out_file, verbose=True):
-    if verbose:
-        print('Writing call-Venn-data to: {}\n\n\nSUMMARY:'.format(out_file))
-    with open(out_file, 'w') as f:
+    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
+    rel_recs.drop('sum', axis=1, inplace=True)
+    rel_SNPs = os.path.join(args.output,
+        'relevantSNPs_DP{}_QUAL{}.tsv'.format(args.read_depth, args.quality))
+    rel_recs.to_csv(rel_SNPs, sep='\t')
+
+    print('Writing call-Venn-data to: {}'.format(out_QC))
+    print('\n\nSUMMARY:\n')
+    with open(out_QC, 'w') as f:
         for alg, calls in data:
             f.write('{}\t{}\n'.format(calls, alg))
-            if verbose:
-                print('{}\t-\t{}'.format(calls, alg))
+            print('{}\t-\t{}'.format(calls, alg))
+
+    return data
 
 
 def plot_venn(data, out_dir):
@@ -379,55 +425,20 @@ def load_data(in_file):
     return data
 
 
-def merge_summaries(args):
-    counts = np.zeros(7)
-    algs = ['Monovar', 'SCcaller', 'Monovar & SCcaller', 'Bulk',
-        'Monovar & Bulk', 'SCcaller & Bulk', 'Monovar & SCcaller & Bulk']
-    for in_file in args.input:
-        with open(in_file, 'r') as f:
-            lines = f.readlines()
-            for i, line in enumerate(lines):
-                counts[i] += int(line.split('\t')[0])
-    
-    data = [(algs[i], counts[i]) for i in range(7)]
-    out_QC = os.path.join(args.output, 'Call_summary.all.DP{}_QUAL{}.tsv' \
-        .format(args.read_depth, args.quality)
-    )
-    save_summary(data, out_QC)
-
-    return data
-
-
 def main(args):
     if not args.output:
-        args.output = os.path.dirname(args.input[0])
+        args.output = os.path.dirname(args.input)
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    if args.task == 'summarize':
-        if len(args.input) != 1:
-            raise IOError(
-                f'Can only summarize 1 vcf file ({len(args.input)} given)')
-        args.input = args.input[0]
+    df = get_summary_df(args)
+    # df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
+    # df.astype(int, copy=False)
 
-        try:
-            args.chr = re.search('\.[0-9XY]+\.', test).group(0).strip('.')
-        except AttributeError:
-            args.chr = 'all'
+    summary = get_summary_statistics(df, args)
+    # summary = load_data(args.input)
 
-        df = get_summary_df(args)
-        summary = get_summary_statistics(df, args)
-
-        if args.chr == 'all':
-            plot_venn(summary, args)
-
-        # df = pd.read_csv(args.input, sep='\t', index_col=[0,1])
-        # df.astype(int, copy=False)
-        # summary = load_data(args.input)
-        # plot_venn(summary, args)
-    else:
-        summary = merge_summaries(args)
-        plot_venn(summary, args)
+    plot_venn(summary, args)
 
 
 if __name__ == '__main__':
