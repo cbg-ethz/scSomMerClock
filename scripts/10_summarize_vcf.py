@@ -132,6 +132,7 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         calls = np.zeros((sample_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
         for sample_id, sample in rec.samples.iteritems():
+            if rec.pos == 5283144: import pdb; pdb.set_trace() 
             # Skip all genotypes except: 0/1 | 1/1 | 0/2
             if not sample['GT'][1]:
                 continue
@@ -364,8 +365,8 @@ def plot_venn(data, out_dir):
     except AttributeError:
         pass
 
-    out_file = os.path.join(args.output, 'SNP_counts_DP{}_QUAL{}.{}.pdf' \
-        .format(args.read_depth, args.quality, os.path.basename(args.input)))
+    out_file = os.path.join(args.output, 'SNP_counts_DP{}_QUAL{}.pdf' \
+        .format(args.read_depth, args.quality))
     print('Saving call-Venn-plots to: {}'.format(out_file))
     fig.savefig(out_file, dpi=300)
     plt.close()
@@ -385,17 +386,43 @@ def merge_summaries(args):
     counts = np.zeros(7)
     algs = ['Monovar', 'SCcaller', 'Monovar & SCcaller', 'Bulk',
         'Monovar & Bulk', 'SCcaller & Bulk', 'Monovar & SCcaller & Bulk']
+
+    df_snp = pd.DataFrame([])
+    df_sc = pd.DataFrame([],
+        columns=['monovar', 'sccaller', 'monovar_sccaller', 'count'])
+    df_sc.set_index(['monovar', 'sccaller', 'monovar_sccaller'], inplace=True)
+
     for in_file in args.input:
         with open(in_file, 'r') as f:
             lines = f.readlines()
             for i, line in enumerate(lines):
                 counts[i] += int(line.split('\t')[0])
     
-    data = [(algs[i], counts[i]) for i in range(7)]
+        snp_file = in_file.replace('Call_summary', 'relevantSNPs', 1)
+        if os.path.exists(snp_file):
+            df_snp_new = pd.read_csv(snp_file, sep='\t', index_col=[0,1])
+            df_snp = df_snp.append(df_snp_new)
+
+        SConly_file = in_file.replace('Call_summary', 'SConly_summary', 1)
+        if os.path.exists(SConly_file):
+            df_sc_new = pd.read_csv(SConly_file, sep='\t', index_col=[0, 1, 2])
+            for idx, row in df_sc_new.iterrows():
+                try:
+                    df_sc.loc[idx] += row['count']
+                except KeyError:
+                    df_sc = df_sc.append(row)
+
+    data = [(algs[i], int(counts[i])) for i in range(7)]
     out_QC = os.path.join(args.output, 'Call_summary.all.DP{}_QUAL{}.tsv' \
         .format(args.read_depth, args.quality)
     )
     save_summary(data, out_QC)
+
+    out_SNP = out_QC.replace('Call_summary', 'relevantSNPs', 1)
+    df_snp.sort_index().astype(int).to_csv(out_SNP, sep='\t') 
+
+    out_SConly = out_QC.replace('Call_summary', 'SConly_summary', 1)
+    df_sc.sort_values('count', ascending=False).to_csv(out_SConly, sep='\t') 
 
     return data
 
@@ -429,6 +456,8 @@ def main(args):
         # plot_venn(summary, args)
     else:
         summary = merge_summaries(args)
+        args.depth = int(re.search('DP(\d+)_', args.input[0]).group(1))
+        args.quality = int(re.search('_QUAL(\d+)\.', args.input[0]).group(1))
         plot_venn(summary, args)
 
 

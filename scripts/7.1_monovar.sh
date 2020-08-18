@@ -25,18 +25,18 @@ done
 cores=$(nproc)
 
 samtools mpileup \
-    -r ${chr} \
+    --region ${chr} \
     -BQ0 \
-    -d10000 \
-    -f ${REF} \
-    -q 30 \
-    -b Processing/${chr}.bamspath.txt \
+    --max-depth 10000 \
+    --fasta-ref ${REF} \
+    --min-MQ 40 \
+    --bam-list Processing/${chr}.bamspath.txt \
 | monovar.py \
+    -b Processing/${chr}.bamspath.txt \
+    -f ${REF} \
+    -o Calls/${chr}.monovar.vcf \
+    -t 0.05 \
     -p 0.002 \
     -a 0.2 \
-    -t 0.05 \
     -m ${cores} \
-    -c 1 \
-    -f ${REF} \
-    -b Processing/${chr}.bamspath.txt \
-    -o Calls/${chr}.monovar.vcf
+    -c 1

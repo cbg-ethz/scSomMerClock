@@ -489,7 +489,7 @@ rule QC_calling_all:
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
-        '-o QC -q {wildcards.filter_QUAL} -r {wildcards.filter_DP}'
+        '-o QC'
 
 
 
