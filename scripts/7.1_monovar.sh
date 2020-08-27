@@ -25,7 +25,6 @@ done
 
 [[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$monovar" ]] && { echo "Error: MonoVar exe not set"; exit 1; }
 
 cores=$(nproc)
 

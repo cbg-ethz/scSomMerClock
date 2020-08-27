@@ -337,7 +337,7 @@ rule monovar1:
         monovar = config['monovar']['exe']
     shell:
         '{params.base_dir}/scripts/7.1_monovar.sh {params.modules} '
-        '-c {wildcards.chr} -r {params.ref_genome}'
+        '-c {wildcards.chr} -r {params.ref_genome} -e {params.monovar}'
 
 
 rule monovar2:
