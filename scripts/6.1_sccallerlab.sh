@@ -2,7 +2,7 @@
 
 module purge
 
-minQual=20
+minBaseQual=13
 minDepth=10
 while [ "$1" != "" ]; do
     key=$1
@@ -28,8 +28,8 @@ while [ "$1" != "" ]; do
         -d | --dbsnp )      shift
                             DBSNP=$1
                             ;;
-        --mq | --minQual )  shift
-                            minQual=$1
+        --mbq | --minBaseQual ) shift
+                            minBaseQual=$1
                             ;;
         -md | --minDepth )  shift
                             minDepth=$1
@@ -57,6 +57,6 @@ python $SCcaller \
     --engine samtools \
     --bulk Processing/${bulk_normal}.real.${chr}.bam \
     --min_depth ${minDepth} \
-    --minvar 1 \
-    --mapq ${minQual} \
+    --mapq ${minBaseQual} \
+    --minvar 2 
 # && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log

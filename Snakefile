@@ -273,7 +273,6 @@ rule SCcaller1:
         bulk = config['specific'].get('bulk_normal', ''),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
-        min_qual =  config['filters'].get('geno_qual', 20),
         min_depth = config['filters'].get('depth', 10),
         sccaller = config['SCcaller']['exe']
     shell:
@@ -292,7 +291,8 @@ rule SCcaller2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
+            config['modules'].get('bcftools', ['bcftools'])]),
+        min_qual = config['filters'].get('geno_qual', 20)
     shell:
         '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
         '-o {output[0]}'
