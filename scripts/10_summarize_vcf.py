@@ -120,14 +120,6 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         if not 'PASS' in rec.filter:
             continue
 
-        # Filter low quality in all samples
-        try:
-            if rec.qual < args.quality:
-                continue
-        # Only called in Bulk
-        except TypeError:
-            pass
-
         # 0: monovar, 1: sccaller, 2: bulk_tumor
         calls = np.zeros((sample_size, 3), dtype=int)
         # Iterate over columns (i.e. samples)
@@ -159,9 +151,12 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                         continue
                     if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
                         continue
-                # Skip low genotype quality calls
-                if sample['GQ'] < args.quality:
-                    continue
+                    # Skip low genotype quality calls
+                    if sample['GQ'] < args.quality:
+                        continue
+                else:
+                    if sorted(sample['PL'])[1] < args.quality:
+                        continue
                 # Skip samples with read depth below threshold
                 if sum(sample['AD']) < args.read_depth:
                     continue

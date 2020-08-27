@@ -43,7 +43,6 @@ sorted_bams=$(echo "${sample_bams}" \
 bcftools concat \
     --output-type u \
     --threads ${cores} \
-    --no-version \
     ${sorted_bams} \
 | bcftools filter \
     --exclude "TYPE!='snp' | FORMAT/SO[0]='NA'" \

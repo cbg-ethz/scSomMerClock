@@ -4,7 +4,6 @@ module purge
 
 sample_bams=""
 min_depth=10
-min_qual=30
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -17,9 +16,6 @@ while [ "$1" != "" ]; do
         -md | --min-depth)      shift
                                 min_depth=$1
                                 ;;
-        -mq | --min-qual)       shift
-                                min_qual=$1
-                                ;;
         *)                      sample_bams+="$1 " 
     esac
     shift
@@ -27,7 +23,7 @@ done
 
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
-filter_str="QUAL>=${min_qual} & N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0"
+filter_str="N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0"
 cores=$(nproc)
 
 # Rename header column (only sample, not chromosome), zip and index

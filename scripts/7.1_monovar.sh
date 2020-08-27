@@ -2,7 +2,8 @@
 
 module purge
 
-
+monovar=monovar.py
+minDepth=10
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -15,23 +16,28 @@ while [ "$1" != "" ]; do
         -r | --ref )        shift
                             REF=$1
                             ;;
+        -e | --exe )        shift
+                            monovar=$1
+                            ;; 
     esac
     shift
 done
 
 [[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+[[ -z "$monovar" ]] && { echo "Error: MonoVar exe not set"; exit 1; }
 
 cores=$(nproc)
 
 samtools mpileup \
     --region ${chr} \
-    -BQ0 \
+    --no-BAQ \
+    --min-BQ 13 \
     --max-depth 10000 \
     --fasta-ref ${REF} \
     --min-MQ 40 \
     --bam-list Processing/${chr}.bamspath.txt \
-| monovar.py \
+| ${monovar} \
     -b Processing/${chr}.bamspath.txt \
     -f ${REF} \
     -o Calls/${chr}.monovar.vcf \

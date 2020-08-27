@@ -334,7 +334,7 @@ rule monovar1:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar', 'samtools'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
-
+        monovar = config['monovar']['exe']
     shell:
         '{params.base_dir}/scripts/7.1_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome}'
@@ -351,10 +351,9 @@ rule monovar2:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])]),
         min_depth = config['filters'].get('depth', 10),
-        min_qual =  config['filters'].get('geno_qual', 30)
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
-        '-o {output[0]} -md {params.min_depth} -mq {params.min_qual}'
+        '-o {output[0]} -mq {params.min_qual}'
 
 
 rule mutect1:
