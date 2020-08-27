@@ -279,7 +279,7 @@ rule SCcaller1:
         '{params.base_dir}/scripts/6.1_sccallerlab.sh {params.modules} '
         '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
         '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller} '
-        '--mapq {params.min_qual}'
+        '--md {params.min_depth}'
 
 
 rule SCcaller2:
@@ -295,7 +295,7 @@ rule SCcaller2:
         min_qual = config['filters'].get('geno_qual', 20)
     shell:
         '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '-o {output[0]} --mq {params.min_qual}'
 
 
 rule SCcaller3:
