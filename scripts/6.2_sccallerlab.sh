@@ -41,7 +41,7 @@ sorted_bams=$(echo "${sample_bams}" \
     | tr ' ' '\n' \
     | sort -V --field-separator=. --key=2 \
     | sed 's/vcf$/vcf\.gz/' \
-    | tr '\n' ' ' \
+    | tr '\n' ' '
 )
 
 bcftools concat \

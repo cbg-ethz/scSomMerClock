@@ -136,10 +136,6 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                 sample_name = '.'.join(sample_detail[:-1])
                 alg = sample_detail[-1]
 
-            # Ni8 specific
-            if sample_name in ['P01M01E', 'P01P01E']:
-                continue
-
             if alg == 'mutect':
                 if sample['DP'] < args.read_depth:
                     continue
@@ -150,11 +146,9 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                         continue
                     if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
                         continue
-                # Skip low genotype quality calls
-                if sample['GQ'] < args.quality:
-                    continue
-                # Skip samples with read depth below threshold
-                if sum(sample['AD']) < args.read_depth:
+                # Skip low genotype quality calls or read depth below threshold
+                if sample['GQ'] < args.quality \
+                        or sum(sample['AD']) < args.read_depth:
                     continue
                 
             try:
@@ -177,7 +171,7 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         data.append(rec_data)
 
     print('Iterating calls on Chr {} - End\n'.format(chrom))
-    return (data, germline)
+    return data, germline
 
 
 def get_summary_statistics(df, args):
@@ -275,7 +269,7 @@ def get_summary_statistics(df, args):
             .format(args.chr, args.read_depth, args.quality))
         sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
 
-    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
+    rel_recs = pd.concat([m_s_b, m_s, m_s_shady, m_b, s_b])
     if not rel_recs.empty:
         rel_recs.drop('sum', axis=1, inplace=True)
         rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \

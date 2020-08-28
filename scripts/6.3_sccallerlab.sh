@@ -20,6 +20,7 @@ done
 
 cores=$(nproc)
 
+sample_bams_ordered=$(echo ls ${sample_bams} | sort -V | tr '\n' ' ')
 bcftools merge \
     --output ${out_file}.tmp \
     --output-type z \
@@ -27,7 +28,7 @@ bcftools merge \
     --apply-filters .,PASS \
     --info-rules NS:sum \
     --threads ${cores} \
-    ${sample_bams}
+    ${sample_bams_ordered}
 
 bcftools query -l ${out_file}.tmp \
     | sort -V \
