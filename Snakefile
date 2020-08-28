@@ -353,7 +353,7 @@ rule monovar2:
         min_depth = config['filters'].get('depth', 10),
     shell:
         '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
-        '-o {output[0]} -mq {params.min_qual}'
+        '-o {output[0]} -md {params.min_depth}'
 
 
 rule mutect1:
