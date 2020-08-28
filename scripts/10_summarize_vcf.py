@@ -151,12 +151,9 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                         continue
                     if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
                         continue
-                    # Skip low genotype quality calls
-                    if sample['GQ'] < args.quality:
-                        continue
-                else:
-                    if sorted(sample['PL'])[1] < args.quality:
-                        continue
+                # Skip low genotype quality calls
+                if sample['GQ'] < args.quality:
+                    continue
                 # Skip samples with read depth below threshold
                 if sum(sample['AD']) < args.read_depth:
                     continue

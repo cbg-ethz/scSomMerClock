@@ -44,4 +44,4 @@ samtools mpileup \
     -p 0.002 \
     -a 0.2 \
     -m ${cores} \
-    -c 1
+    -c 0
