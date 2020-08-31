@@ -48,11 +48,16 @@ if [ "$mutect_calls" != "" ]; then
 fi
 
 bcftools merge \
-    --output ${out_dir}/all.vcf.gz \
-    --output-type z \
+    --output-type u \
     --merge both \
     --threads ${cores} \
     ${sample_bams} \
+| bcftools filter \
+    --include 'N_PASS(GT!="RR") > 0' \
+    --threads ${cores} \
+    --output-type z \
+    --output ${out_dir}/all.vcf.gz \ \
+    - \
 && bcftools index \
     --force \
     --threads ${cores} \

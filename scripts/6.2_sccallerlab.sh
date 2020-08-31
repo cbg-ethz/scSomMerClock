@@ -49,7 +49,7 @@ bcftools concat \
     --threads ${cores} \
     ${sorted_bams} \
 | bcftools filter \
-    --exclude "TYPE!='snp' | FORMAT/SO[0]='NA' | QUAL<${minQual} | FILTER='multiple-genotype'" \
+    --exclude "TYPE!='snp' | FORMAT/SO!='True' | QUAL<${minQual} | FILTER='multiple-genotype'" \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
