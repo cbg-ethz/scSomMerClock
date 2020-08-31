@@ -56,7 +56,7 @@ bcftools merge \
     --include 'N_PASS(GT!="RR") > 0' \
     --threads ${cores} \
     --output-type z \
-    --output ${out_dir}/all.vcf.gz \ \
+    --output ${out_dir}/all.vcf.gz \
     - \
 && bcftools index \
     --force \
