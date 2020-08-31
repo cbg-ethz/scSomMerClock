@@ -21,6 +21,7 @@ done
 cores=$(nproc)
 
 sample_bams_ordered=$(echo ${sample_bams} | sort -V | tr '\n' ' ')
+echo ${sample_bams_ordered}
 bcftools merge \
     --output ${out_file}.tmp \
     --output-type z \

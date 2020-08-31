@@ -43,8 +43,8 @@ if config['specific'].get('bulk_samples', False):
         bulk_samples['tumor'] = bulk_samples['tumor'].union(bulk)
         bulk_samples['all'] = bulk_samples['all'].union(bulk)
 
-ss_samples = set(cell_map.keys()).difference(bulk_samples['all'])
-
+ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
+ss_samples.sort()
 
 
 def get_corr_samples(wildcards):
