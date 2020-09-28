@@ -28,9 +28,6 @@ while [ "$1" != "" ]; do
         -d | --dbsnp )      shift
                             DBSNP=$1
                             ;;
-        --mbq | --minBaseQual ) shift
-                            minBaseQual=$1
-                            ;;
         -md | --minDepth )  shift
                             minDepth=$1
                             ;;
@@ -50,13 +47,13 @@ cores=$(nproc)
 python $SCcaller \
     --bam Processing/${cellname}.real.${chr}.bam \
     --fasta ${REF} \
-    --output Calls/${cellname}.${chr}.sccaller.vcf \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
-    --cpu_num ${cores} \
-    --engine samtools \
     --bulk Processing/${bulk_normal}.real.${chr}.bam \
+    --output Calls/${cellname}.${chr}.sccaller.vcf \
+    --cpu_num ${cores} \
+    --engine pysam \
     --min_depth ${minDepth} \
-    --mapq ${minBaseQual} \
-    --minvar 2 
+    --minvar 2 \
+    --bulk_min_depth 0
 # && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log

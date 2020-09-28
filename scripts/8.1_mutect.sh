@@ -25,7 +25,7 @@ while [ "$1" != "" ]; do
         -n | --normal )     shift
                             normal_in="-normal $1 "
                             ;;
-        *)                 bams_in+="-I $1 "
+        *)                  bams_in+="-I $1 "
     esac
     shift
 done
@@ -42,65 +42,12 @@ gatk Mutect2 \
     ${bams_in} \
     ${normal_in} \
     --intervals ${chr} \
-    --genotype-pon-sites true \
-    --germline-resource ${GERM_RES} \
     --panel-of-normals ${PON} \
+    --germline-resource ${GERM_RES} \
+    --af-of-alleles-not-in-resource 0.0000025 \
+    --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter \
     --output Calls/${chr}.mutect.vcf \
+    --bam-output Calls/${chr}.mutect.bam\
     --f1r2-tar-gz Calls/${chr}.f1r2.mutect.tar.gz \
     --native-pair-hmm-threads ${cores}
-
-
-# gatk LearnReadOrientationModel $all_f1r2_input -O Processing/read-orientation-model.tar.gz
-
-
-# && gatk GetPileupSummaries \
-#     --input Calls/${chr}.rom.mutect.tar.gz  \
-#     --variant Calls/${chr}.mutect.vcf \
-#     --intervals ${chr} \
-#     --output Calls/${chr}.getpileupsummaries.table \
-# && gatk CalculateContamination \
-#     --input Calls/${chr}.getpileupsummaries.table \
-#     --matched-normal normal-pileups.table \
-#     --output Calls/${chr}.calculatecontamination.table \
-# && gatk FilterMutectCalls \
-#     --variant Calls/${chr}.mutect.vcf \
-#     --contamination-table Calls/${chr}.calculatecontamination.table \
-#     --ob-priors Calls/${chr}.rom.mutect.tar.gz \
-#     --output Calls/${chr}.filtered.mutect.vcf \
-#     --reference ${REF}
-
-# ------------------------------------------------------------------------------
-
-# module load gatk/4.1.1.0
-
-
-# chr_vcfs=$(ls Processing/Wu61.*.mutect.vcf)
-# vcfs_in=$(echo $chr_vcfs | sed 's/ / -V /g')
-
-
-# module purge
-# module load gatk/3.7-0-gcfedb67
-
-# java -cp $EBROOTGATK/GenomeAnalysisTK.jar org.broadinstitute.gatk.tools.CatVariants \
-#         -V $vcfs_in \
-#         -R $REF \
-#         -out Processing/Wu61.original.vcf 
-
-# module purge
-# module load gatk/4.1.1.0
-
-# stats_files=$(ls Processing/Wu61.*.mutect.vcf.stats)
-# stats=$(echo $stats_files | sed 's/ / -stats /g')
-
-# gatk --java-options "-Xmx28G -Djava.io.tmpdir=Processing/" MergeMutectStats \
-#         -stats $stats \
-#         -O Processing/Wu61.merged.stats
-
-# gatk --java-options "-Xmx28G -Djava.io.tmpdir=Processing/" FilterMutectCalls \
-#         -R $REF \
-#         -V Processing//Wu61.original.vcf \
-#         --contamination-table Processing/CRC0907-Cancer.contamination.table \
-#         --contamination-table Processing/CRC0907-polyps.contamination.table \
-#         -stats Processing/Wu61.merged.stats \
-#         --ob-priors Processing/read-orientation-model.tar.gz \
-#         -O Processing/Wu61.mutect2filtered.vcf
+    # --genotype-pon-sites true 
