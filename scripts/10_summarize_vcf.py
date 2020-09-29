@@ -150,14 +150,15 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
                 if sample['GQ'] < args.quality \
                         or sum(sample['AD']) < args.read_depth:
                     continue
-                
+            if rec.pos == 46032482: print(calls)
             try:
-                sample_id = sc_map[sample_name]
+                sample_map_id = sc_map[sample_name]
             # Sample name not in mapping dict: bulk normal
             except KeyError:
                 germline.append('{}:{}'.format(rec.chrom, rec.pos))
             else:
-                calls[sample_id, ALG_MAP[alg]] = 1
+
+                calls[sample_map_id, ALG_MAP[alg]] = 1
 
         # only WT called
         if calls.max() == 0:
@@ -167,6 +168,7 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
         for sample_calls in calls:
             call_data[RES_MAP[np.array2string(sample_calls)]] += 1
 
+        if rec.pos == 46032482: import pdb; pdb.set_trace()
         rec_data = np.append([rec.chrom, rec.pos], call_data)
         data.append(rec_data)
 
