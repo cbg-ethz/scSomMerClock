@@ -102,7 +102,7 @@ rule adapter_cutting:
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/1_fastqc.sh {params.modules} '
+        '{params.base_dir}/scripts/01_fastqc.sh {params.modules} '
         '-s {wildcards.sample} -l {params.WGA_lib} {params.pair_end}'
 
 
@@ -119,7 +119,7 @@ rule alignment1:
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/2.1_bwa.sh {params.modules} '
+        '{params.base_dir}/scripts/02.1_bwa.sh {params.modules} '
         '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib} '
         '{params.pair_end}'
 
@@ -134,7 +134,7 @@ rule alignment2:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('picard', ['picard'])])
     shell:
-        '{params.base_dir}/scripts/2.2_bwa.sh {params.modules} '
+        '{params.base_dir}/scripts/02.2_bwa.sh {params.modules} '
         '-s {wildcards.sample}'
 
 
@@ -148,7 +148,7 @@ rule remove_duplicates:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('picard', ['picard'])])
     shell:
-        '{params.base_dir}/scripts/3_md_merge_rename.sh {input} '
+        '{params.base_dir}/scripts/03_md_merge_rename.sh {input} '
         '{params.modules} -s {wildcards.cell}'
 
 
@@ -179,7 +179,7 @@ rule base_recal1:
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
     shell:
-        '{params.base_dir}/scripts/4.1_base_recal.sh {params.modules} '
+        '{params.base_dir}/scripts/04.1_base_recal.sh {params.modules} '
         '-s {wildcards.cell} -r {params.ref_genome} -d {params.dbsnp} '
         '-i {params.indels1}'
 
@@ -196,7 +196,7 @@ rule base_recal2:
             config['modules'].get('gatk4', ['gatk/4'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
     shell:
-        '{params.base_dir}/scripts/4.2_base_recal.sh {params.modules} '
+        '{params.base_dir}/scripts/04.2_base_recal.sh {params.modules} '
         '-s {wildcards.cell} -r {params.ref_genome}'
 
 
@@ -229,7 +229,7 @@ rule indel_realignment1:
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5.1_indel_realign.sh {input.bams} '
+        '{params.base_dir}/scripts/05.1_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
         '-i1 {params.indels1} -i2 {params.indels2}'
 
@@ -251,7 +251,7 @@ rule indel_realignment2:
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/5.2_indel_realign.sh {input.bams} '
+        '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
         '-i1 {params.indels1} -i2 {params.indels2}'
 
@@ -276,7 +276,7 @@ rule SCcaller1:
         min_depth = config['filters'].get('depth', 10),
         sccaller = config['SCcaller']['exe']
     shell:
-        '{params.base_dir}/scripts/6.1_sccallerlab.sh {params.modules} '
+        '{params.base_dir}/scripts/06.1_sccallerlab.sh {params.modules} '
         '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
         '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller} '
         '--md {params.min_depth}'
@@ -291,11 +291,10 @@ rule SCcaller2:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
-        min_qual = config['filters'].get('geno_qual', 20)
+            config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/6.2_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]} --mq {params.min_qual}'
+        '{params.base_dir}/scripts/06.2_sccallerlab.sh {input} {params.modules} '
+        '-o {output[0]}'
 
 
 rule SCcaller3:
@@ -308,7 +307,7 @@ rule SCcaller3:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/6.3_sccallerlab.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/06.3_sccallerlab.sh {input} {params.modules} '
         '-o {output[0]}'
 
 
@@ -336,7 +335,7 @@ rule monovar1:
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         monovar = config['monovar']['exe']
     shell:
-        '{params.base_dir}/scripts/7.1_monovar.sh {params.modules} '
+        '{params.base_dir}/scripts/07.1_monovar.sh {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -e {params.monovar}'
 
 
@@ -352,7 +351,7 @@ rule monovar2:
             config['modules'].get('bcftools', ['bcftools'])]),
         min_depth = config['filters'].get('depth', 10),
     shell:
-        '{params.base_dir}/scripts/7.2_monovar.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/07.2_monovar.sh {input} {params.modules} '
         '-o {output[0]} -md {params.min_depth}'
 
 
@@ -373,7 +372,7 @@ rule mutect1:
         normal = f'-n {cell_map[config["specific"]["bulk_normal"]][0]}'
             if config['specific'].get('bulk_normal', False) else ''
     shell:
-        '{params.base_dir}/scripts/8.1_mutect.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/08.1_mutect.sh {input} {params.modules} '
         '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
         '-p {params.pon} {params.normal}'
 
@@ -396,7 +395,7 @@ rule mutect2:
             config['modules'].get('gatk41', ['gatk/4.1'])]),
         gnomAD = os.path.join(RES_PATH, config['static']['gnomAD'])
     shell:
-        '{params.base_dir}/scripts/8.2_mutect.sh {input.tumor} {params.modules} '
+        '{params.base_dir}/scripts/08.2_mutect.sh {input.tumor} {params.modules} '
         ' -n {input.normal} -gAD {params.gnomAD}'
 
 
@@ -410,7 +409,7 @@ rule mutect3:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/8.3_mutect.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/08.3_mutect.sh {input} {params.modules} '
         '-o {output[0]}'
 
 
@@ -428,7 +427,7 @@ rule mutect4:
             config['modules'].get('gatk41', ['gatk/4.1'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        '{params.base_dir}/scripts/8.4_mutect.sh {input.cont_tables} '
+        '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
         '{params.modules} -i {input.vcf} -rom {input.rom} -r {params.ref_genome}'
         ' -o {output[0]}'
 
