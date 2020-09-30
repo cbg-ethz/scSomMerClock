@@ -69,7 +69,7 @@ SCcaller1:
   partition: amd-shared
   qos: amd-shared
   cpus-per-task: 4
-  time: 600
+  time: 900
   mem: 40G
 
 

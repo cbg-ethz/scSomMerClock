@@ -2,7 +2,6 @@
 
 module purge
 
-minQual=20
 sample_bams=""
 while [ "$1" != "" ]; do
     key=$1
@@ -12,9 +11,6 @@ while [ "$1" != "" ]; do
                             ;;
         -o | --out)         shift
                             out_file=$1
-                            ;;
-        --mq | --minQual ) shift
-                            minQual=$1
                             ;;
         *)                  sample_bams+="$1 " 
     esac
@@ -49,7 +45,7 @@ bcftools concat \
     --threads ${cores} \
     ${sorted_bams} \
 | bcftools filter \
-    --exclude "TYPE!='snp' | FORMAT/SO!='True' | QUAL<${minQual} | FILTER='multiple-genotype'" \
+    --exclude "TYPE!='snp' | FORMAT/SO!='True' | FILTER='multiple-genotype'" \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \

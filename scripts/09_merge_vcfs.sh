@@ -49,6 +49,7 @@ fi
 
 bcftools merge \
     --output-type u \
+    
     --merge both \
     --threads ${cores} \
     ${sample_bams} \
