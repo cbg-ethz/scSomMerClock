@@ -21,15 +21,15 @@ specific:
 
 SCcaller:
   run: True
-  exe: /mnt/netapp1/posadalab/APPS/sccaller-2.0.0/SCcaller-2.0.0/sccaller_v2.0.0_lab.py
+  exe: /home/uvi/be/nbo/SCcaller_NB/sccaller_v2.0.0_NB.py
 
 monovar:
   run: True
   exe: /home/uvi/be/nbo/MonoVar_NB/src/monovar.py
 
 filters:
-  depth: [10]
-  geno_qual: [20]
+  depth: 10
+  geno_qual: 20
 
 modules:
   cutadapt: [pigz, cutadapt/1.18-python-3.7.0]
