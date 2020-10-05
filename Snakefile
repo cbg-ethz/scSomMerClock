@@ -279,7 +279,7 @@ rule SCcaller1:
         '{params.base_dir}/scripts/06.1_sccallerlab.sh {params.modules} '
         '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
         '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller} '
-        '--md {params.min_depth}'
+        '--md {params.min_depth} --cpu_num 4'
 
 
 rule SCcaller2:
