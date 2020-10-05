@@ -139,18 +139,27 @@ def iterate_chrom(chr_data, sc_map, sample_size, chrom):
             if alg == 'mutect':
                 if sample['DP'] < args.read_depth:
                     continue
-            else:
-                if alg == 'sccaller':
-                    # Skip indels and "False" calls (only called by sccaller)
-                    if sample['SO'] != 'True':
-                        continue
-                    if rec.alleles[sample['GT'][1]].startswith(('+', '-')):
-                        continue
+            elif alg == 'sccaller':
+                # Skip indels and "False" calls (only called by sccaller)
                 # Skip low genotype quality calls or read depth below threshold
-                if sample['GQ'] < args.quality \
-                        or sum(sample['AD']) < args.read_depth:
+                if sample['SO'] != 'True' \
+                        or rec.alleles[sample['GT'][1]].startswith(('+', '-')):
                     continue
-            if rec.pos == 46032482: print(calls)
+
+                if sample['GQ'] < args.quality:
+                    if min(sample['FPL'][:2]) - max(sample['FPL'][2:]) \
+                            < args.quality:
+                        continue
+            else:
+                # skip low coverage snps
+                if sum(sample['AD']) < args.read_depth:
+                    continue
+                # skip if LL difference between WT and Hom/Het is below threshold
+                if sample['GQ'] < args.quality:
+                    PL_max = np.max([i for i in sample["PL"][1:] if i != None])
+                    if sample['PL'][0] - PL_max < args.quality:
+                        continue
+                    
             try:
                 sample_map_id = sc_map[sample_name]
             # Sample name not in mapping dict: bulk normal
