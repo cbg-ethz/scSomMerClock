@@ -2,7 +2,6 @@
 
 module purge
 
-cont_tables=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -18,7 +17,6 @@ while [ "$1" != "" ]; do
         -i | --in)          shift
                             vcf_in=$1
                             ;;
-        *)                  cont_tables+="--contamination-table $1 "
     esac
     shift
 done
