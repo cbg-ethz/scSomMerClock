@@ -444,7 +444,7 @@ rule merge_calls:
             config['modules'].get('bcftools', ['bcftools'])]),
         out_dir = 'Calls'
     shell:
-        '{params.base_dir}/scripts/9_merge_vcfs.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/09_merge_vcfs.sh {input} {params.modules} '
         '-o {params.out_dir}'
 
 
