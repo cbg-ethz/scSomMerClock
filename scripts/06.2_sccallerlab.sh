@@ -45,7 +45,7 @@ bcftools concat \
     --threads ${cores} \
     ${sorted_bams} \
 | bcftools filter \
-    --exclude "TYPE!='snp' | FORMAT/SO!='True' | FILTER='multiple-genotype'" \
+    --exclude "TYPE!='snp' | FORMAT/SO!='True' | FILTER='multiple_genotype'" \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
