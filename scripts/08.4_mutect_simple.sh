@@ -27,8 +27,14 @@ done
 
 cores=$(nproc)
 
-gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" FilterMutectCalls \
+stats=`for chromosome in {1..22}; do
+    printf -- "--stats Calls/${chromosome}.mutect.vcf.stats "; done`
+gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" MergeMutectStats \
+        $stats \
+        --output Calls/mutect.merged.stats \
+&& gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" FilterMutectCalls \
         --reference ${REF} \
         --variant ${vcf_in} \
+        --stats Calls/mutect.merged.stats \
         --create-output-variant-index \
         --output ${out_file}
