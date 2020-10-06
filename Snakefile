@@ -404,7 +404,7 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
             ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         shell:
             '{params.base_dir}/scripts/08.4_mutect_simple.sh {params.modules} '
-            '-i {input.vcf} -r {params.ref_genome} -o {output[0]}'
+            '-i {input} -r {params.ref_genome} -o {output[0]}'
 
 else:
     rule mutect3:
