@@ -378,28 +378,6 @@ rule mutect1:
 
 
 rule mutect2:
-    input:
-        tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
-            cell=bulk_samples['tumor']),
-        normal = os.path.join('Processing', 
-            '{}.recal.bam'.format(bulk_samples['normal'])),
-        f1r2 = expand(os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz'),
-            chr=CHROM)
-    output:
-        expand(os.path.join('Calls', '{cell}.contamination.table'), 
-            cell=bulk_samples['tumor']),
-        os.path.join('Calls', 'read-orientation-model.tar.gz')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk41', ['gatk/4.1'])]),
-        gnomAD = os.path.join(RES_PATH, config['static']['gnomAD'])
-    shell:
-        '{params.base_dir}/scripts/08.2_mutect.sh {input.tumor} {params.modules} '
-        ' -n {input.normal} -gAD {params.gnomAD}'
-
-
-rule mutect3:
     input: 
         expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
     output:
@@ -409,27 +387,66 @@ rule mutect3:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/08.3_mutect.sh {input} {params.modules} '
+        '{params.base_dir}/scripts/08.2_mutect.sh {input} {params.modules} '
         '-o {output[0]}'
 
 
-rule mutect4:
-    input: 
-        vcf = os.path.join('Calls', 'all.mutect.vcf.gz'),
-        cont_tables = expand(os.path.join('Calls', '{cell}.contamination.table'), 
-            cell=bulk_samples['tumor']),
-        rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
-    output:
-        os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk41', ['gatk/4.1'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
-    shell:
-        '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
-        '{params.modules} -i {input.vcf} -rom {input.rom} -r {params.ref_genome}'
-        ' -o {output[0]}'
+if config.get('mutect', {}).get('filter', '') == 'simple':
+    rule mutect4_simple:
+        input: 
+            os.path.join('Calls', 'all.mutect.vcf.gz'),
+        output:
+            os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        params:
+            base_dir = BASE_DIR,
+            modules = ' '.join([f'-m {i}' for i in \
+                config['modules'].get('gatk41', ['gatk/4.1'])]),
+            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        shell:
+            '{params.base_dir}/scripts/08.4_mutect_simple.sh {input.cont_tables} '
+            '{params.modules} -i {input.vcf} -r {params.ref_genome} '
+            '-o {output[0]}'
+
+else:
+    rule mutect3:
+        input:
+            tumor = expand(os.path.join('Processing', '{cell}.recal.bam'),
+                cell=bulk_samples['tumor']),
+            normal = os.path.join('Processing', 
+                '{}.recal.bam'.format(bulk_samples['normal'])),
+            f1r2 = expand(os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz'),
+                chr=CHROM)
+        output:
+            expand(os.path.join('Calls', '{cell}.contamination.table'), 
+                cell=bulk_samples['tumor']),
+            os.path.join('Calls', 'read-orientation-model.tar.gz')
+        params:
+            base_dir = BASE_DIR,
+            modules = ' '.join([f'-m {i}' for i in \
+                config['modules'].get('gatk41', ['gatk/4.1'])]),
+            gnomAD = os.path.join(RES_PATH, config['static']['gnomAD'])
+        shell:
+            '{params.base_dir}/scripts/08.3_mutect.sh {input.tumor} {params.modules} '
+            ' -n {input.normal} -gAD {params.gnomAD}'
+
+
+    rule mutect4:
+        input: 
+            vcf = os.path.join('Calls', 'all.mutect.vcf.gz'),
+            cont_tables = expand(os.path.join('Calls', '{cell}.contamination.table'), 
+                cell=bulk_samples['tumor']),
+            rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
+        output:
+            os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        params:
+            base_dir = BASE_DIR,
+            modules = ' '.join([f'-m {i}' for i in \
+                config['modules'].get('gatk41', ['gatk/4.1'])]),
+            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        shell:
+            '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
+            '{params.modules} -i {input.vcf} -rom {input.rom} -r {params.ref_genome}'
+            ' -o {output[0]}'
 
 
 rule merge_calls:
