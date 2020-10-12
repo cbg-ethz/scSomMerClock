@@ -256,7 +256,7 @@ def get_summary_statistics(df, args):
         & (df['monovar'] == 0)]
     df.drop(s_shady.index, inplace=True)
 
-    m_shady = df[(df['monovar_sccaller'] == 1) & (df['monovar'] > 1) \
+    m_shady = df[(df['monovar_sccaller'] == 1) & (df['monovar'] > 0) \
         & (df['sccaller'] == 0)]
     df.drop(m_shady.index, inplace=True)
 
