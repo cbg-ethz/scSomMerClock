@@ -37,13 +37,13 @@ stats=`for chromosome in {1..22}; do
     printf -- "--stats Calls/${chromosome}.mutect.vcf.stats "; done`
 
 gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" MergeMutectStats \
-        $stats \
-        --output Calls/mutect.merged.stats \
-&& gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" FilterMutectCalls \
-        --reference $REF \
-        --variant ${vcf_in} \
-        ${cont_tables} \
-        --stats Calls/mutect.merged.stats \
-        --ob-priors $rom \
-        --create-output-variant-index \
-        --output Calls/all.mutect.filtered.vcf.gz
+    $stats \
+    --output Calls/mutect.merged.stats
+gatk --java-options "-Xmx35G -Djava.io.tmpdir=Calls/" FilterMutectCalls \
+    --reference $REF \
+    --variant ${vcf_in} \
+    ${cont_tables} \
+    --stats Calls/mutect.merged.stats \
+    --ob-priors $rom \
+    --create-output-variant-index \
+    --output Calls/all.mutect.filtered.vcf.gz
