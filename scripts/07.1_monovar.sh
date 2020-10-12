@@ -3,7 +3,6 @@
 module purge
 
 monovar=monovar.py
-minDepth=10
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -37,11 +36,11 @@ samtools mpileup \
     --min-MQ 40 \
     --bam-list Processing/${chr}.bamspath.txt \
 | ${monovar} \
-    -b Processing/${chr}.bamspath.txt \
-    -f ${REF} \
-    -o Calls/${chr}.monovar.vcf \
-    -t 0.05 \
-    -p 0.002 \
-    -a 0.2 \
-    -m ${cores} \
-    -c 0
+    -bam_file_list Processing/${chr}.bamspath.txt \
+    --ref_file ${REF} \
+    --output Calls/${chr}.monovar.vcf \
+    --threshold 0.05 \
+    --pe 0.002 \
+    --pad 0.2 \
+    --cpusm ${cores} \
+    --CF_flag 0

@@ -190,8 +190,8 @@ def get_summary_statistics(df, args):
 
     # Get singletons called either by monovar and/or SCcaller
     singletons = df[
-        ((df['sum'] == 1) & ((df[['monovar', 'sccaller']].sum(axis=1) == 1) |
-            (df['monovar_sccaller'] == 1))) \
+        ((df['sum'] == 1) \
+            & (df[['monovar', 'sccaller', 'monovar_sccaller']].sum(axis=1) == 1))
         | ((df['sum'] == 2) & (df['monovar'] == 1) & (df['sccaller'] == 1))
     ]
     df.drop(singletons.index, inplace=True)
@@ -238,10 +238,10 @@ def get_summary_statistics(df, args):
     df.drop(s_b.index, inplace=True)
 
     # Get SNPs called by monovar and SCcaller, but not in bulk 
-    m_s = df[
-        (df['monovar_sccaller'] >= 1) \
-        & (df['monovar_sccaller_bulk'] == 0) & (df['bulk'] == 0) \
-        & (df['sccaller_bulk'] == 0) & (df['monovar_bulk'] == 0)
+    bulk_cols = ['bulk', 'monovar_bulk', 'sccaller_bulk', 'monovar_sccaller_bulk']
+    m_s = df[(df['monovar_sccaller'] >= 2) & (df[bulk_cols].sum(axis=1) == 0) \
+        | ((df['monovar_sccaller'] == 1) & (df['monovar'] >=  1) \
+            & (df['sccaller'] >=  1))
     ]
     df.drop(m_s.index, inplace=True)
     
@@ -287,13 +287,13 @@ def get_summary_statistics(df, args):
         rel_recs.sort_index(ascending=False).to_csv(rel_SNPs, sep='\t')
 
     data = [
-        ('Monovar', m.shape[0] + m_shady.shape[0]),
-        ('SCcaller', s.shape[0] + s_shady.shape[0]),
-        ('Monovar & SCcaller', m_s.shape[0] + m_s_shady.shape[0]),
-        ('Bulk', b.shape[0]),
-        ('Monovar & Bulk', m_b.shape[0]),
-        ('SCcaller & Bulk', s_b.shape[0]),
-        ('Monovar & SCcaller & Bulk', m_s_b.shape[0])
+        ('Monovar2', m.shape[0] + m_shady.shape[0]),
+        ('SCcaller2', s.shape[0] + s_shady.shape[0]),
+        ('Monovar2 & SCcaller2', m_s.shape[0] + m_s_shady.shape[0]),
+        ('Bulk1', b.shape[0]),
+        ('Monovar1 & Bulk1', m_b.shape[0]),
+        ('SCcaller1 & Bulk1', s_b.shape[0]),
+        ('Monovar1 & SCcaller1 & Bulk1', m_s_b.shape[0])
     ]
     out_QC = os.path.join(args.output, 'Call_summary.{}.DP{}_QUAL{}.tsv' \
         .format(args.chr, args.read_depth, args.quality)
@@ -430,8 +430,8 @@ def main(args):
 
     if args.task == 'summarize':
         if len(args.input) != 1:
-            raise IOError(
-                f'Can only summarize 1 vcf file ({len(args.input)} given)')
+            raise IOError('Can only summarize 1 vcf file ({} given)' \
+                .format(len(args.input)))
         args.input = args.input[0]
 
         try:

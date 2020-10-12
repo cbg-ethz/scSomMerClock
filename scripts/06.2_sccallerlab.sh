@@ -26,8 +26,8 @@ do
     bcftools sort  \
         --output-file ${sample}.gz \
         --output-type z \
-        ${sample} \
-    && bcftools index \
+        ${sample}
+    bcftools index \
         --force \
         --threads ${cores} \
         ${sample}.gz
@@ -49,8 +49,8 @@ bcftools concat \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
-    - \
-&& bcftools index \
+    -
+bcftools index \
     --force \
     --threads ${cores} \
     ${out_file}

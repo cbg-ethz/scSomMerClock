@@ -21,7 +21,7 @@ done
 cores=$(nproc)
 
 sample_bams_ordered=$(echo ${sample_bams} | sort -V | tr '\n' ' ')
-echo ${sample_bams_ordered}
+
 bcftools merge \
     --output ${out_file}.tmp \
     --output-type z \
@@ -34,14 +34,17 @@ bcftools merge \
 bcftools query -l ${out_file}.tmp \
     | sort -V \
     | sed 's/\.sccaller$//g' \
-    | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}' \
-&& bcftools reheader \
+    | awk '{print $0"\t"$0".sccaller" > "vcf_header.sccaller.tmp"}'
+
+bcftools reheader \
     --samples vcf_header.sccaller.tmp \
     --threads ${cores} \
     --output ${out_file} \
-    ${out_file}.tmp \
-&& bcftools index \
+    ${out_file}.tmp
+
+bcftools index \
     --force \
     --threads ${cores} \
-    ${out_file} \
-&& rm vcf_header.sccaller.tmp ${out_file}.tmp
+    ${out_file}
+    
+rm vcf_header.sccaller.tmp ${out_file}.tmp
