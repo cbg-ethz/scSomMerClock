@@ -252,17 +252,13 @@ def get_summary_statistics(df, args):
     df.drop(m_s_b.index, inplace=True)
 
     # Get SNPs called by SC algorithms in 2 samples only
-    s_shady = df[(df['sccaller'] > 0) & (df['monovar_sccaller'] == 1)\
+    s_shady = df[(df['monovar_sccaller'] == 1) & (df['sccaller'] > 0) \
         & (df['monovar'] == 0)]
     df.drop(s_shady.index, inplace=True)
 
-    m_shady = df[(df['monovar'] > 1) & (df['monovar_sccaller'] == 1)\
+    m_shady = df[(df['monovar_sccaller'] == 1) & (df['monovar'] > 1) \
         & (df['sccaller'] == 0)]
     df.drop(m_shady.index, inplace=True)
-
-    m_s_shady = df[(df['monovar'] == 1) & (df['sccaller'] == 1) \
-        & (df['monovar_sccaller'] == 1)]
-    df.drop(m_s_shady.index, inplace=True)
 
     if not df.empty:
         print('Unknown how to handle:\n{}'.format(df))
@@ -279,7 +275,7 @@ def get_summary_statistics(df, args):
             .format(args.chr, args.read_depth, args.quality))
         sc_unique.astype(int).to_csv(out_QC_SConly, sep='\t', index=False)
 
-    rel_recs = pd.concat([m_s_b, m_s, m_s_shady, m_b, s_b])
+    rel_recs = pd.concat([m_s_b, m_s, m_b, s_b])
     if not rel_recs.empty:
         rel_recs.drop('sum', axis=1, inplace=True)
         rel_SNPs = os.path.join(args.output, 'relevantSNPs.{}.DP{}_QUAL{}.tsv' \
@@ -289,7 +285,7 @@ def get_summary_statistics(df, args):
     data = [
         ('Monovar2', m.shape[0] + m_shady.shape[0]),
         ('SCcaller2', s.shape[0] + s_shady.shape[0]),
-        ('Monovar2 & SCcaller2', m_s.shape[0] + m_s_shady.shape[0]),
+        ('Monovar2 & SCcaller2', m_s.shape[0]),
         ('Bulk1', b.shape[0]),
         ('Monovar1 & Bulk1', m_b.shape[0]),
         ('SCcaller1 & Bulk1', s_b.shape[0]),
