@@ -1,4 +1,5 @@
 #!/bin/sh
+set -Eeuxo pipefail
 
 module purge
 

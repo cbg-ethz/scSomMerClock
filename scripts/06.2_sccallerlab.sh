@@ -1,4 +1,5 @@
 #!/bin/sh
+set -Eeuxo pipefail
 
 module purge
 
@@ -23,7 +24,7 @@ cores=$(nproc)
 
 for sample in ${sample_bams}
 do
-    bcftools sort  \
+    bcftools sort \
         --output-file ${sample}.gz \
         --output-type z \
         ${sample}
