@@ -44,5 +44,5 @@ samtools mpileup \
         --threshold 0.05 \
         --pe 0.002 \
         --pad 0.2 \
-        --cpusm ${cores} \
+        --cpus ${cores} \
         --CF_flag 0
