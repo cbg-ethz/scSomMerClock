@@ -38,7 +38,7 @@ samtools mpileup \
     --min-MQ 40 \
     --bam-list Processing/${chr}.bamspath.txt \
     | ${monovar} \
-        -bam_file_list Processing/${chr}.bamspath.txt \
+        --bam_file_list Processing/${chr}.bamspath.txt \
         --ref_file ${REF} \
         --output Calls/${chr}.monovar.vcf \
         --threshold 0.05 \
