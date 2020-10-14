@@ -1,4 +1,5 @@
 #!/bin/sh
+set -Eeuxo pipefail
 
 module purge
 
@@ -44,17 +45,17 @@ do
         --samples ${sample_order%?} \
         --output-type u \
         ${sample} \
-    | bcftools filter \
-        --include "${filter_str}" \
-        --output-type z \
-        --threads ${cores} \
-        - \
-    | bcftools reheader \
-        --samples vcf_header.monovar.tmp \
-        --threads ${cores} \
-        --output ${sample}.gz \
-        - \
-    && bcftools index \
+        | bcftools filter \
+            --include "${filter_str}" \
+            --output-type z \
+            --threads ${cores} \
+            - \
+            | bcftools reheader \
+                --samples vcf_header.monovar.tmp \
+                --threads ${cores} \
+                --output ${sample}.gz \
+                -
+    bcftools index \
         --force \
         --threads ${cores} \
         ${sample}.gz
@@ -72,8 +73,8 @@ bcftools concat \
     --output ${out_file} \
     --output-type z \
     --threads ${cores} \
-    ${sorted_bams} \
-&& bcftools index \
+    ${sorted_bams}
+bcftools index \
     --force \
     --threads ${cores} \
     ${out_file}

@@ -1,4 +1,5 @@
 #!/bin/sh
+set -Eeuxo pipefail
 
 module purge
 
@@ -35,12 +36,12 @@ samtools mpileup \
     --fasta-ref ${REF} \
     --min-MQ 40 \
     --bam-list Processing/${chr}.bamspath.txt \
-| ${monovar} \
-    -bam_file_list Processing/${chr}.bamspath.txt \
-    --ref_file ${REF} \
-    --output Calls/${chr}.monovar.vcf \
-    --threshold 0.05 \
-    --pe 0.002 \
-    --pad 0.2 \
-    --cpusm ${cores} \
-    --CF_flag 0
+    | ${monovar} \
+        -bam_file_list Processing/${chr}.bamspath.txt \
+        --ref_file ${REF} \
+        --output Calls/${chr}.monovar.vcf \
+        --threshold 0.05 \
+        --pe 0.002 \
+        --pad 0.2 \
+        --cpusm ${cores} \
+        --CF_flag 0

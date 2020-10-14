@@ -1,4 +1,5 @@
 #!/bin/sh
+set -Eeuxo pipefail
 
 module purge
 
@@ -28,8 +29,8 @@ bcftools concat \
     --output-type z \
     --threads ${cores} \
     --no-version \
-    ${sorted_bams} \
-&& bcftools index \
+    ${sorted_bams}
+bcftools index \
     --tbi \
     --force \
     --threads ${cores} \
