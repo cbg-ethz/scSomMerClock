@@ -1,5 +1,4 @@
 #!/bin/sh
-set -Eeuxo pipefail
 
 module purge
 
@@ -22,6 +21,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+set -Eeuxo pipefail
 
 [[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }

@@ -1,5 +1,4 @@
 #!/bin/sh
-set -Eeuxo pipefail
 
 module purge
 
@@ -21,6 +20,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+set -Eeuxo pipefail
 
 [[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
 [[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }

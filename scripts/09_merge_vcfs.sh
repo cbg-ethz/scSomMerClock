@@ -1,5 +1,4 @@
 #!/bin/sh
-set -Eeuxo pipefail
 
 module purge
 
@@ -24,6 +23,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+set -Eeuxo pipefail
 
 cores=$(nproc)
 

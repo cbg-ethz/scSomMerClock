@@ -1,5 +1,4 @@
 #!/bin/sh
-set -Eeuxo pipefail
 
 module purge
 
@@ -20,6 +19,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+set -Eeuxo pipefail
 
 [[ -z "$gnomAD" ]] && { echo "Error: genome Aggregation Database not set"; exit 1; }
 [[ -z "$normal_in" ]] && { echo "Error: Normal bulk sample not set"; exit 1; }
