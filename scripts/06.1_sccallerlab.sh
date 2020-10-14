@@ -1,6 +1,4 @@
 #!/bin/sh
-set -Eeuxo pipefail
-
 module purge
 
 minBaseQual=13
@@ -35,6 +33,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+set -Eeuxo pipefail
 
 [[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
 [[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
