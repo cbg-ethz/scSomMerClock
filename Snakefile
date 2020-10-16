@@ -219,7 +219,7 @@ rule indel_realignment2:
     shell:
         '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
-        '-t {input.target} -m {input.maps} -i1 {params.indels1} '
+        '-t {input.target} -ma {input.maps} -i1 {params.indels1} '
         '-i2 {params.indels2}'
 
 
