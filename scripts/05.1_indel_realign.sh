@@ -27,10 +27,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$INDELS1" ]] && { echo "Error: First Indel file not set"; exit 1; }
-[[ -z "$INDELS2" ]] && { echo "Error: Second Indel file not set"; exit 1; }
+set -Eeuxo pipefail
 
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \

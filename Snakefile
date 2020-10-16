@@ -205,7 +205,7 @@ rule indel_realignment2:
         bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys()),
         intervals = os.path.join('Realignment', '{chr}.intervals'),
-        map_file = os.path.join('Realignment', '{chr}.map')
+        maps = os.path.join('Realignment', '{chr}.map')
     output:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys())
@@ -219,8 +219,8 @@ rule indel_realignment2:
     shell:
         '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
-        '-i1 {params.indels1} -i2 {params.indels2}'
-
+        '-t {input.intervals} -m {input.maps} -i1 {params.indels1} '
+        '-i2 {params.indels2}'
 
 
 rule base_recal:
