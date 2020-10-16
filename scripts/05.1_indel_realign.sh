@@ -9,6 +9,9 @@ while [ "$1" != "" ]; do
         -m | --module)      shift
                             module load $1
                             ;;
+        -o | --output)      shift
+                            output=$1
+                            ;;
         -c | --chr)         shift
                             chr=$1
                             ;;
@@ -32,7 +35,7 @@ set -Eeuxo pipefail
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
     ${bams_in} \
-    -o Realignment/${chr}.intervals \
+    -o ${output} \
     -R ${REF} \
     -known ${INDELS1} \
     -known ${INDELS2} \
