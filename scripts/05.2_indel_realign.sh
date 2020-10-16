@@ -12,6 +12,12 @@ while [ "$1" != "" ]; do
         -c | --chr)         shift
                             chr=$1
                             ;;
+        -t | --target)      shift
+                            target=$1
+                            ;;
+        -m | --maps)        shift
+                            maps=$1
+                            ;;
         -r | --ref )        shift
                             REF=$1
                             ;;
@@ -26,10 +32,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$INDELS1" ]] && { echo "Error: First Indel file not set"; exit 1; }
-[[ -z "$INDELS2" ]] && { echo "Error: Second Indel file not set"; exit 1; }
+set -Eeuxo pipefail
 
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T IndelRealigner \
@@ -37,7 +40,7 @@ java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar 
     -known ${INDELS2} \
     ${bams_in} \
     -R ${REF} \
-    -targetIntervals Realignment/${chr}.intervals \
+    -targetIntervals ${target} \
     -L ${chr} \
-    --nWayOut Realignment/${chr}.map \
+    --nWayOut ${maps} \
     --maxReadsForRealignment 1000000
