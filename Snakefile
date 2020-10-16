@@ -166,43 +166,9 @@ rule sanity_check_bam:
         'xargs rm < bad_bams.fofn'
 
 
-rule base_recal1:
-    input:
-        os.path.join('Processing', '{cell}.dedup.bam')
-    output:
-        os.path.join('Processing', '{cell}.recal.table')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk4', ['gatk/4'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
-        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
-        indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
-    shell:
-        '{params.base_dir}/scripts/04.1_base_recal.sh {params.modules} '
-        '-s {wildcards.cell} -r {params.ref_genome} -d {params.dbsnp} '
-        '-i {params.indels1}'
-
-
-rule base_recal2:
-    input:
-        os.path.join('Processing', '{cell}.recal.table'),
-        os.path.join('Processing', '{cell}.dedup.bam')
-    output:
-        os.path.join('Processing', '{cell}.recal.bam')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk4', ['gatk/4'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
-    shell:
-        '{params.base_dir}/scripts/04.2_base_recal.sh {params.modules} '
-        '-s {wildcards.cell} -r {params.ref_genome}'
-
-
 rule indel_realignment0:
     input:
-        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
+        bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys())
     output:
         map_file = os.path.join('Realignment', '{chr}.map')
@@ -217,7 +183,7 @@ rule indel_realignment0:
 
 rule indel_realignment1:
     input:
-        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
+        bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys())
     output:
         os.path.join('Realignment', '{chr}.intervals')
@@ -236,7 +202,7 @@ rule indel_realignment1:
 
 rule indel_realignment2:
     input:
-        bams = expand(os.path.join('Processing', '{cell}.recal.bam'),
+        bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys()),
         intervals = os.path.join('Realignment', '{chr}.intervals'),
         map_file = os.path.join('Realignment', '{chr}.map')
@@ -256,14 +222,78 @@ rule indel_realignment2:
         '-i1 {params.indels1} -i2 {params.indels2}'
 
 
+
+rule base_recal:
+    input:
+        expand(os.path.join('Processing', '{{cell}}.real.{chr}.bam'),
+            chr=CHROM)
+    output:
+        os.path.join('Processing', '{cell}.real.bam')
+    params:
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('samtools', ['samtools'])]),
+    shell:
+        'module load samtools & samtools merge {output} {input}'
+
+
+rule base_recal1:
+    input:
+        os.path.join('Processing', '{cell}.real.bam')
+    output:
+        os.path.join('Processing', '{cell}.recal.table')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('gatk4', ['gatk/4'])]),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
+        indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
+    shell:
+        '{params.base_dir}/scripts/04.1_base_recal.sh {params.modules} '
+        '-i {input} -o {output} -r {params.ref_genome} -d {params.dbsnp} '
+        '-id {params.indels1}'
+
+
+rule base_recal2:
+    input:
+        bam = os.path.join('Processing', '{cell}.recal.table'),
+        table = os.path.join('Processing', '{cell}.real.bam')
+    output:
+        os.path.join('Processing', '{cell}.recal.bam')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('gatk4', ['gatk/4'])]),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
+    shell:
+        '{params.base_dir}/scripts/04.2_base_recal.sh {params.modules} '
+        '-i {input.bam} -t {input.table} -o {output} -r {params.ref_genome}'
+
+
+rule base_recal3:
+    input:
+        os.path.join('Processing', '{cell}.recal.bam')
+    output:
+        expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
+            chr=CHROM)
+    params:
+        modules = ' '.join([f'-m {i}' for i in \
+            config['modules'].get('samtools', ['samtools'])]),
+        chrom=CHROM
+    shell:
+        """
+        for chr in {params.chrom}; do
+            samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}/recal.${{chr}}.bam
+        done
+        """
+    
 # ------------------------------------------------------------------------------
 # ----------------------------- MUTATION CALLING -------------------------------
 # ------------------------------------------------------------------------------
 
-
 rule SCcaller1:
     input:
-        os.path.join('Processing', '{cell}.real.{chr}.bam')
+        os.path.join('Processing', '{cell}.recal.{chr}.bam')
     output:
         os.path.join('Calls', '{cell}.{chr}.sccaller.vcf')
     params:
@@ -313,7 +343,7 @@ rule SCcaller3:
 
 rule monovar0:
     input:
-        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
             cell=ss_samples)
     output:
         os.path.join('Processing', '{chr}.bamspath.txt')
@@ -357,7 +387,7 @@ rule monovar2:
 
 rule mutect1:
     input: 
-        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'), 
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'), 
             cell=bulk_samples['all'])
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),

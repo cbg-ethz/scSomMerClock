@@ -8,8 +8,11 @@ while [ "$1" != "" ]; do
         -m | --module)      shift
                             module load $1
                             ;;
-        -s | --sample )     shift
-                            cellname=$1
+        -i | --input)       shift
+                            input=$1
+                            ;;
+        -o | --output)      shift
+                            output=$1
                             ;;
         -r | --ref )        shift
                             REF=$1
@@ -17,21 +20,18 @@ while [ "$1" != "" ]; do
         -d | --dbsnp )      shift
                             DBSNP=$1
                             ;;
-        -i | --indels )   shift
+        -id | --indels )    shift
                             INDELS=$1
                             ;;
     esac
     shift
 done
 
-[[ -z "$cellname" ]] && { echo "Error: Cellnames not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$INDELS" ]] && { echo "Error: Indel file not set"; exit 1; }
-[[ -z "$DBSNP" ]] && { echo "Error: DBSNP file not set"; exit 1; }
+set -Eeuxo pipefail
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
-    -I Processing/${cellname}.dedup.bam \
-    -O Processing/${cellname}.recal.table \
+    -I ${input} \
+    -O ${output} \
     -R ${REF} \
     --known-sites ${DBSNP} \
     --known-sites ${INDELS}

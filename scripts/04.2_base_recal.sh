@@ -11,18 +11,23 @@ while [ "$1" != "" ]; do
         -r | --ref )        shift
                             REF=$1
                             ;;
-        -s | --sample )     shift
-                            cellname=$1
+        -i | --input )      shift
+                            input=$1
+                            ;;
+        -o | --output )     shift
+                            output=$1
+                            ;;
+        -t | --table )      shift
+                            table=$1
                             ;;
     esac
     shift
 done
 
-[[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
+set -Eeuxo pipefail
 
 gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" ApplyBQSR \
     -R ${REF} \
-    -I Processing/${cellname}.dedup.bam \
-    --bqsr Processing/${cellname}.recal.table \
-    -O Processing/${cellname}.recal.bam
+    -I ${input} \
+    --bqsr ${table} \
+    -O ${output}
