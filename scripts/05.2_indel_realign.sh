@@ -15,7 +15,7 @@ while [ "$1" != "" ]; do
         -t | --target)      shift
                             target=$1
                             ;;
-        -m | --maps)        shift
+        -ma | --maps)        shift
                             maps=$1
                             ;;
         -r | --ref )        shift
