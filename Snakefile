@@ -196,8 +196,8 @@ rule indel_realignment1:
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
         '{params.base_dir}/scripts/05.1_indel_realign.sh {input.bams} '
-        '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
-        '-i1 {params.indels1} -i2 {params.indels2}'
+        '{params.modules} -c {wildcards.chr} -o {output} '
+        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
 
 rule indel_realignment2:
