@@ -183,7 +183,7 @@ rule indel_realignment0:
 
 rule indel_realignment1:
     input:
-        bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
+        expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys())
     output:
         os.path.join('Realignment', '{chr}.intervals')
@@ -195,7 +195,7 @@ rule indel_realignment1:
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
     shell:
-        '{params.base_dir}/scripts/05.1_indel_realign.sh {input.bams} '
+        '{params.base_dir}/scripts/05.1_indel_realign.sh {input} '
         '{params.modules} -c {wildcards.chr} -o {output} '
         '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
 
@@ -204,7 +204,7 @@ rule indel_realignment2:
     input:
         bams = expand(os.path.join('Processing', '{cell}.dedup.bam'),
             cell=cell_map.keys()),
-        intervals = os.path.join('Realignment', '{chr}.intervals'),
+        target = os.path.join('Realignment', '{chr}.intervals'),
         maps = os.path.join('Realignment', '{chr}.map')
     output:
         expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
@@ -219,7 +219,7 @@ rule indel_realignment2:
     shell:
         '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
         '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
-        '-t {input.intervals} -m {input.maps} -i1 {params.indels1} '
+        '-t {input.target} -m {input.maps} -i1 {params.indels1} '
         '-i2 {params.indels2}'
 
 
