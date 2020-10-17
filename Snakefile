@@ -233,7 +233,7 @@ rule base_recal:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('samtools', ['samtools'])]),
     shell:
-        'module load samtools & samtools merge {output} {input}'
+        'module load samtools && samtools merge {output} {input}'
 
 
 rule base_recal1:
@@ -281,11 +281,10 @@ rule base_recal3:
             config['modules'].get('samtools', ['samtools'])]),
         chrom=CHROM
     shell:
-        """
-        for chr in {params.chrom}; do
-            samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}/recal.${{chr}}.bam
-        done
-        """
+        'for chr in {params.chrom}; do '
+        'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}/recal.${{chr}}.bam; '
+        'done'
+        
     
 # ------------------------------------------------------------------------------
 # ----------------------------- MUTATION CALLING -------------------------------
