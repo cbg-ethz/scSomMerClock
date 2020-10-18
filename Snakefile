@@ -281,8 +281,9 @@ rule base_recal3:
             config['modules'].get('samtools', ['samtools'])]),
         chrom=CHROM
     shell:
+        'module purge && module load samtools && '
         'for chr in {params.chrom}; do '
-        'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}/recal.${{chr}}.bam; '
+        'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}.recal.${{chr}}.bam; '
         'done'
         
     
