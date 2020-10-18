@@ -256,8 +256,8 @@ rule base_recal1:
 
 rule base_recal2:
     input:
-        bam = os.path.join('Processing', '{cell}.recal.table'),
-        table = os.path.join('Processing', '{cell}.real.bam')
+        bam = os.path.join('Processing', '{cell}.real.bam'),
+        table = os.path.join('Processing', '{cell}.recal.table')
     output:
         os.path.join('Processing', '{cell}.recal.bam')
     params:
