@@ -28,7 +28,7 @@ monovar:
   exe: /home/uvi/be/nbo/MonoVar_NB/src/monovar.py
 
 mutect:
-  filter: simple
+  filter: contamination
 
 filters:
   depth: 10
