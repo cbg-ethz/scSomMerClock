@@ -188,7 +188,7 @@ def get_call_summary(samples, sample_maps, depth, quality):
                 continue
 
             if sample['GQ'] < quality:
-                if 'FPL' in sample and bool(sample['FPL'][0]):
+                if 'FPL' in sample and sample['FPL'][0] != None:
                     if min(sample['FPL'][:2]) - max(sample['FPL'][2:]) \
                             < quality:
                         continue
