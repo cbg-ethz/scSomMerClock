@@ -22,9 +22,6 @@ done
 
 set -Eeuxo pipefail
 
-[[ -z "$gnomAD" ]] && { echo "Error: genome Aggregation Database not set"; exit 1; }
-[[ -z "$normal_in" ]] && { echo "Error: Normal bulk sample not set"; exit 1; }
-
 all_f1r2_input=`for chromosome in {1..22}; do
         printf -- "-I Calls/${chromosome}.f1r2.mutect.tar.gz "; done`
 gatk LearnReadOrientationModel \
