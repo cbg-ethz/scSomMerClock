@@ -410,7 +410,7 @@ def merge_summaries(args):
         with open(sum_file, 'r') as f:
             lines = f.readlines()
             for line in lines:
-                alg_counts, alg = line.split('\t')
+                alg_counts, alg = line.strip().split('\t')
                 counts[alg] += int(alg_counts)
 
     out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
