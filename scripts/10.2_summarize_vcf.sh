@@ -24,7 +24,6 @@ cores=$(nproc)
 sorted_vcfs=$(echo ${chr_vcfs} \
     | tr ' ' '\n' \
     | sort -V \
-    | sed 's/$/.gz/' \
     | tr '\n' ' '
 )
 
