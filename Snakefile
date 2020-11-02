@@ -64,22 +64,11 @@ def get_final_vcfs(wildcards):
 
 
 def get_all_files(wildcards):
-    files = [os.path.join('Calls', 'all.vcf.gz')]
+    files = [os.path.join('Calls', 'all.vcf.gz'),
+        os.path.join('QC', 'all.filtered.vcf')]
     
     if config['static'].get('QC_seq', False):
         files.append(os.path.join('QC', 'QC_sequencing.tsv'))
-
-    depth = config.get('filters', {}).get('depth', [10])
-    if not isinstance(depth, list):
-        depth = [depth]
-    qual = config.get('filters', {}).get('QUAL', [20])
-    if not isinstance(qual, list):
-        qual = [qual]
-
-    for dp in depth:
-        for qu in qual:
-            files.append(os.path.join('QC', f'Call_summary.all.DP{dp}_QUAL{qu}.tsv'))
-
 
     return files
 
@@ -88,7 +77,6 @@ rule all:
     input:
         get_all_files
         
-
 
 rule adapter_cutting:
     input:
@@ -504,7 +492,6 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv'),
         os.path.join('QC', 'all.filtered.{chr}.vcf')
     params:
         base_dir = BASE_DIR,
@@ -512,25 +499,21 @@ rule QC_calling_chr:
             config['modules'].get('QC_calling', ['pysam', 'pandas'])]),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
-            bulk_samples['tumor']])
+            bulk_samples['tumor']]),
+        params.filter_DP = config.get('filters', {}).get('depth', 10),
+        filter_QUAL = config.get('filters', {}).get('QUAL', 20)
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o QC '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
-        '-q {wildcards.filter_QUAL} -r {wildcards.filter_DP}'
+        '-q {params.filter_QUAL} -r {params.filter_DP}'
 
 
 rule QC_calling_all:
     input:
-        summary = expand(os.path.join('QC', 
-                'Call_summary.{chr}.DP{{filter_DP}}_QUAL{{filter_QUAL}}.tsv'),
-            chr=CHROM
-        ),
-        vcf = expand(os.path.join('QC', 'all.filtered.{chr}.vcf'),
-            chr=CHROM
-        )
+        expand(os.path.join('QC', 'all.filtered.{chr}.vcf'), chr=CHROM)
     output:
-        os.path.join('QC', 'Call_summary.all.DP{filter_DP}_QUAL{filter_QUAL}.tsv')
+        os.path.join('QC',  'all.filtered.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
