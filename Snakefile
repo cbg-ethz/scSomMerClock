@@ -495,8 +495,8 @@ rule QC_calling_chr:
         os.path.join('QC', 'all.{chr}.filtered.vcf')
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('QC_calling', ['pysam', 'pandas'])]),
+        modules = ' '.join(config['modules'] \
+            .get('QC_calling', ['pysam', 'pandas'])),
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
             bulk_samples['tumor']]),
@@ -516,13 +516,14 @@ rule QC_calling_all:
         os.path.join('QC',  'all.filtered.vcf')
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('QC_calling', ['pandas'])])
+        modules = ' '.join(config['modules'] \
+                .get('QC_calling', ['pysam', 'pandas']))
     shell:
         'module load {params.modules} && '
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input.summary} '
-        '-t merge -o QC'
-
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
+        '-o QC && '
+        '{params.base_dir}/scripts/10.2_summarize_vcf.sh {input} -m bcftools '
+        '-o {output}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
