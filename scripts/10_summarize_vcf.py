@@ -307,13 +307,22 @@ def get_vcf_out_str(rec, calls, sc_map):
             else:
                 call = rec.samples['{}.sccaller'.format(sample)]
             
-            try:
+            if 'FPL' in call and call['FPL'][0] != None:
                 rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
-                    f'{call["PL"][0]},{call["PL"][-2]},{call["PL"][-1]}'
-            except IndexError:
-                rec_out += '\t./.:.:.:.'
+                    f'{call["FPL"][0]},{call["FPL"][2]},{call["FPL"][2]}'
+            else:
+                PL = [i for i in call['PL'] if i != None]
+                if len(PL) == 0:
+                    rec_out += '\t./.:.:.:.'
+                elif len(PL) == 3:
+                    rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
+                        f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
+                        f'{PL[0]},{PL[1]},{PL[2]}'
+                else:
+                    import pdb; pdb.set_trace()
 
+    if "None" in rec_out: import pdb; pdb.set_trace()
     return rec_out + '\n'
 
 
