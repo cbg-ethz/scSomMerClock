@@ -32,11 +32,6 @@ done
 
 set -Eeuxo pipefail
 
-[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$GERM_RES" ]] && { echo "Error: Germline resources not set"; exit 1; }
-[[ -z "$PON" ]] && { echo "Error: Panel-Of-Normals not set"; exit 1; }
-
 cores=$(nproc)
 
 gatk Mutect2 \

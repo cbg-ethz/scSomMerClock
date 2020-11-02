@@ -28,11 +28,6 @@ done
 
 set -Eeuxo pipefail
 
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
-[[ -z "$vcf_in" ]] && { echo "Error: Input VCF file not set"; exit 1; }
-[[ -z "$rom" ]] && { echo "Error: Read-Orientation-Model not set"; exit 1; }
-
 cores=$(nproc)
 
 stats=`for chromosome in {1..22}; do

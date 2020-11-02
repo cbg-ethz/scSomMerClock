@@ -19,10 +19,7 @@ done
 
 set -Eeuxo pipefail
 
-[[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
-
 cores=$(nproc)
-
 sorted_bams=$(echo "${sample_bams}"  | tr ' ' '\n' | sort -V | tr '\n' ' ') # | sed 's/$/.gz/'
 
 bcftools concat \

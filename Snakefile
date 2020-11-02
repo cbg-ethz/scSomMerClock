@@ -12,7 +12,7 @@ workdir: DATA_DIR
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']@
 
 
 cell_map = {}
@@ -274,7 +274,7 @@ rule base_recal3:
     input:
         os.path.join('Processing', '{cell}.recal.bam')
     output:
-        expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
+        expand(os.path.join('Processing', '{{cell}}.recal.{qchr}.bam'),
             chr=CHROM)
     params:
         modules = ' '.join([f'-m {i}' for i in \
