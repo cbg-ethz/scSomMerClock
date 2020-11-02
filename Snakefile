@@ -504,8 +504,8 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv')
-        os.path.join('QC')
+        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv')summary
+        os.path.join('QC', 'all.filtered.{chr}.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -522,8 +522,11 @@ rule QC_calling_chr:
 
 rule QC_calling_all:
     input:
-        expand(os.path.join('QC', 
+        summary = expand(os.path.join('QC', 
                 'Call_summary.{chr}.DP{{filter_DP}}_QUAL{{filter_QUAL}}.tsv'),
+            chr=CHROM
+        ),
+        vcf = expand(os.path.join('QC', 'all.filtered.{chr}.vcf'),
             chr=CHROM
         )
     output:
@@ -534,9 +537,8 @@ rule QC_calling_all:
             config['modules'].get('QC_calling', ['pandas'])])
     shell:
         'module load {params.modules} && '
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
-        '-o QC'
-
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input.summary} '
+        '-t merge -o QC'
 
 
 # ------------------------------------------------------------------------------
