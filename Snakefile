@@ -12,7 +12,7 @@ workdir: DATA_DIR
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']@
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
 
 
 cell_map = {}
