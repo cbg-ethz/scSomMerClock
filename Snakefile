@@ -492,7 +492,7 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'all.filtered.{chr}.vcf')
+        os.path.join('QC', 'all.{chr}.filtered.vcf')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -511,7 +511,7 @@ rule QC_calling_chr:
 
 rule QC_calling_all:
     input:
-        expand(os.path.join('QC', 'all.filtered.{chr}.vcf'), chr=CHROM)
+        expand(os.path.join('QC', 'all.{chr}.filtered.vcf'), chr=CHROM)
     output:
         os.path.join('QC',  'all.filtered.vcf')
     params:
