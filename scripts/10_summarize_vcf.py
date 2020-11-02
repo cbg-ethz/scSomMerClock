@@ -278,9 +278,9 @@ def iterate_chrom(chr_data, sample_maps, chrom):
                     data['sccaller2+'].append(rec_data)
                 else:
                     import pdb; pdb.set_trace()
-            elif sccaller_only == 0:
+            elif sccaller_only <= 1 and monovar_only >= 2:
                 data['monovar2+'].append(rec_data)
-            elif monovar_only == 0:
+            elif monovar_only <= 1 and sccaller_only >= 2:
                 data['sccaller2+'].append(rec_data)
             else:
                 import pdb; pdb.set_trace()
