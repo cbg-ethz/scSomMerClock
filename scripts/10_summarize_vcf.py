@@ -59,7 +59,6 @@ def get_summary_df(args):
     vcf_in = VariantFile(args.input)
     in_file = os.path.basename(args.input)
 
-    import pdb; pdb.set_trace()
     samples = set([])
     for sample in vcf_in.header.samples:
         sample_detail = sample.split('.')
