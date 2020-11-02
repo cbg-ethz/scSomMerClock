@@ -404,7 +404,7 @@ def merge_summaries(args):
     }
 
     for in_file in args.input:
-        chr_no = os.path.basedir(in_file).split('.')[1]
+        chr_no = os.path.basename(in_file).split('.')[1]
         base_dir = os.path.dirname(in_file)
 
         sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
