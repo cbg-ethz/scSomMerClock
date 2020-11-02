@@ -388,8 +388,7 @@ def plot_venn(data, out_dir):
     except AttributeError:
         pass
 
-    out_file = os.path.join(args.output, 'SNP_counts_DP{}_QUAL{}.pdf' \
-        .format(args.read_depth, args.quality))
+    out_file = os.path.join(args.output, 'SNP_counts.pdf')
     print('Saving call-Venn-plots to: {}'.format(out_file))
     fig.savefig(out_file, dpi=300)
     plt.close()
@@ -441,8 +440,6 @@ def main(args):
 
     else:
         summary = merge_summaries(args)
-        args.depth = int(re.search('DP(\d+)_', args.input[0]).group(1))
-        args.quality = int(re.search('_QUAL(\d+)\.', args.input[0]).group(1))
         plot_venn(summary, args)
 
 
