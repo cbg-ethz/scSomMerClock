@@ -274,7 +274,7 @@ rule base_recal3:
     input:
         os.path.join('Processing', '{cell}.recal.bam')
     output:
-        expand(os.path.join('Processing', '{{cell}}.recal.{qchr}.bam'),
+        expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
             chr=CHROM)
     params:
         modules = ' '.join([f'-m {i}' for i in \
