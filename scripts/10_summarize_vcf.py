@@ -393,14 +393,7 @@ def plot_venn(data, out_dir):
 
 
 def merge_summaries(args):
-    counts = {'monovar2+': 0,
-        'sccaller2+': 0,
-        'bulk': 0,
-        'monovar2+ & sccaller2+': 0,
-        'monovar1+ & bulk' : 0,
-        'sccaller1+ & bulk' : 0,
-        'monovar1+ & sccaller1+ & bulk': 0
-    }
+    counts = {}
 
     for in_file in args.input:
         chr_no = os.path.basename(in_file).split('.')[1]
@@ -409,10 +402,13 @@ def merge_summaries(args):
         sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
         with open(sum_file, 'r') as f:
             lines = f.readlines()
+            alg_counts, alg = line.strip().split('\t')
             for line in lines:
-                alg_counts, alg = line.strip().split('\t')
-                counts[alg] += int(alg_counts)
-
+                try:
+                    counts[alg] += int(alg_counts)
+                except KeyError:
+                    counts[alg] = int(alg_counts)
+                
     out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
     save_summary(counts, out_QC)
 
