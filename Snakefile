@@ -500,7 +500,7 @@ rule QC_calling_chr:
         bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
         bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
             bulk_samples['tumor']]),
-        params.filter_DP = config.get('filters', {}).get('depth', 10),
+        filter_DP = config.get('filters', {}).get('depth', 10),
         filter_QUAL = config.get('filters', {}).get('QUAL', 20)
     shell:
         'module load {params.modules} && '
