@@ -504,7 +504,7 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv')summary
+        os.path.join('QC', 'Call_summary.{chr}.DP{filter_DP}_QUAL{filter_QUAL}.tsv'),
         os.path.join('QC', 'all.filtered.{chr}.vcf')
     params:
         base_dir = BASE_DIR,
