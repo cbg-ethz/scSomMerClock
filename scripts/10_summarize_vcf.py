@@ -325,7 +325,10 @@ def save_summary(data, out_file, verbose=True):
             if alg == 'singletons':
                 continue
             alg_str = alg.replace('_',' & ')
-            call_no = len(calls)
+            if isinstance(calls, list):
+                call_no = len(calls)
+            else:
+                call_no = calls
             f.write('{}\t{}\n'.format(call_no, alg))
             if verbose:
                 print('{}\t-\t{}'.format(call_no, alg_str))
