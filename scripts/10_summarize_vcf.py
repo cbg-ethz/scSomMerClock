@@ -57,9 +57,9 @@ def parse_args():
 
 def get_summary_df(args):
     vcf_in = VariantFile(args.input)
-    id_str = '{}.DP{}_QUAL{}'.format(args.chr, args.read_depth, args.quality)
     in_file = os.path.basename(args.input)
 
+    import pdb; pdb.set_trace()
     samples = set([])
     for sample in vcf_in.header.samples:
         sample_detail = sample.split('.')
@@ -74,7 +74,7 @@ def get_summary_df(args):
 
     # Iterate over rows
     print('Iterating calls - Start')
-    if args.chr == 'all':
+    if args.chr == 'all_chr':
         data = {'singletons': [], 
             'monovar2+': [],
             'sccaller2+': [],
@@ -109,7 +109,8 @@ def get_summary_df(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(args.output, 'Calls.{}.tsv'.format(id_str))
+    out_summary = os.path.join(args.output, 'Call_details.{}.tsv' \
+        .format(args.chr))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
@@ -125,12 +126,12 @@ def get_summary_df(args):
         f_vcf.write(vcf_body)
 
     if germline:
-        out_germ = os.path.join(args.output, 'Germline.{}.tsv'.format(id_str))
+        out_germ = os.path.join(args.output, 'Call_germline.{}.tsv'.format(args.chr))
         print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
-    out_QC = os.path.join(args.output, 'Call_summary.{}.tsv'.format(id_str))
+    out_QC = os.path.join(args.output, 'Call_summary.{}.tsv'.format(args.chr))
     save_summary(data, out_QC)
 
     return df, data
@@ -356,8 +357,6 @@ def plot_venn(data, out_dir):
     no_formatter = {}
     for i, j in enumerate(counts_norm):
         no_formatter[j] = counts[i]
-        # if data[i][0] in ['Monovar', 'SCcaller', 'Monovar & SCcaller']:
-        #     no_formatter[j] += r' ($\geq$2 samples)'
 
     def formatter(x):
         return no_formatter[x]
@@ -395,49 +394,31 @@ def plot_venn(data, out_dir):
 
 
 def merge_summaries(args):
-    counts = np.zeros(7)
-
-    algs = ['monovar2+', 'sccaller2+', 'bulk', 'monovar2+ & sccaller2+',
-        'monovar1+ & bulk', 'sccaller1+ & bulk', 'monovar1+ & sccaller1+ & bulk']
-
-    df_snp = pd.DataFrame([])
-    df_sc = pd.DataFrame([],
-        columns=['monovar', 'sccaller', 'monovar_sccaller', 'count'])
-    df_sc.set_index(['monovar', 'sccaller', 'monovar_sccaller'], inplace=True)
+    counts = {'monovar2+': 0,
+        'sccaller2+': 0,
+        'bulk': 0,
+        'monovar2+ & sccaller2+': 0,
+        'monovar1+ & bulk' : 0,
+        'sccaller1+ & bulk' : 0,
+        'monovar1+ & sccaller1+ & bulk': 0
+    }
 
     for in_file in args.input:
-        with open(in_file, 'r') as f:
+        chr_no = os.path.basedir(in_file).split('.')[1]
+        base_dir = os.path.dirname(in_file)
+
+        sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
+        with open(sum_file, 'r') as f:
             lines = f.readlines()
-            for i, line in enumerate(lines):
-                counts[i] += int(line.split('\t')[0])
-    
-        snp_file = in_file.replace('Call_summary', 'relevantSNPs', 1)
-        if os.path.exists(snp_file):
-            df_snp_new = pd.read_csv(snp_file, sep='\t', index_col=[0,1])
-            df_snp = df_snp.append(df_snp_new)
+            for line in lines:
+                alg, alg_counts = line.split('\t')
+                counts[alg] += int(alg_counts)
 
-        SConly_file = in_file.replace('Call_summary', 'SConly_summary', 1)
-        if os.path.exists(SConly_file):
-            df_sc_new = pd.read_csv(SConly_file, sep='\t', index_col=[0, 1, 2])
-            for idx, row in df_sc_new.iterrows():
-                try:
-                    df_sc.loc[idx] += row['count']
-                except KeyError:
-                    df_sc = df_sc.append(row)
 
-    data = [(algs[i], int(counts[i])) for i in range(7)]
-    out_QC = os.path.join(args.output, 'Call_summary.all.DP{}_QUAL{}.tsv' \
-        .format(args.read_depth, args.quality)
-    )
-    save_summary(data, out_QC)
+    out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
+    save_summary(counts, out_QC)
 
-    out_SNP = out_QC.replace('Call_summary', 'relevantSNPs', 1)
-    df_snp.sort_index().astype(int).to_csv(out_SNP, sep='\t') 
-
-    out_SConly = out_QC.replace('Call_summary', 'SConly_summary', 1)
-    df_sc.sort_values('count', ascending=False).to_csv(out_SConly, sep='\t') 
-
-    return data
+    return counts
 
 
 def main(args):
@@ -455,10 +436,10 @@ def main(args):
         try:
             args.chr = re.search('\.[0-9XY]+\.', args.input).group(0).strip('.')
         except AttributeError:
-            args.chr = 'all'
+            args.chr = 'all_chr'
 
         data = get_summary_df(args)
-        if args.chr == 'all':
+        if args.chr == 'all_chr':
             plot_venn(data, args)
 
     else:
