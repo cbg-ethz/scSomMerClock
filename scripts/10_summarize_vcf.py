@@ -402,8 +402,8 @@ def merge_summaries(args):
         sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
         with open(sum_file, 'r') as f:
             lines = f.readlines()
-            alg_counts, alg = line.strip().split('\t')
             for line in lines:
+                alg_counts, alg = line.strip().split('\t')
                 try:
                     counts[alg] += int(alg_counts)
                 except KeyError:
