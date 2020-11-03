@@ -20,7 +20,7 @@ VCF_HEADER = """##fileformat=VCFv4.1
 ##fileDate={time.tm_year}:{time.tm_mon}:{time.tm_mday}-{time.tm_hour}:{time.tm_min}:{time.tm_sec}
 ##source=MolecularClockTesting_pipeline
 ##FILTER=<ID=PASS,Description="All filters passed">
-##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of Samples With Data">'
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of Samples With Data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
@@ -506,11 +506,6 @@ def merge_summaries(args):
             ref = re.search('##reference=.*\n', str(vcf.header))[0].rstrip('\n')
             vcf_out += VCF_HEADER.format(time=time.localtime(), 
                 contigs=contigs.rstrip('\n'), ref=ref, samples=samples)
-
-            for contig in re.findall('##contig=<ID=(.*),eta=.*>\n', str(vcf.header)):
-                if contig not in sorted_chr:
-                    vcf_out = re.sub('##contig=<ID={},eta=.*>\n'.format(contig),
-                        '', vcf_out)
 
         for rec in vcf.fetch():
             vcf_out += str(rec)
