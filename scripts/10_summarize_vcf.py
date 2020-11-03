@@ -303,7 +303,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
     if len(all_mat) > 0:
         all_mat_t = np.stack(all_mat).T
     else:
-        all_mat_t = None
+        all_mat_t = []
     print('Iterating calls on Chr {} - End\n'.format(chrom))
     return data, out_vcf, gt_mat, all_mat_t, germline
     
