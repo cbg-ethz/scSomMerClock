@@ -186,9 +186,12 @@ def get_summary_df(args):
     if all_mat:
         for i, all_row in enumerate(all_mat):
             nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
+        rec_no = all_mat.shape[1]
+    else:
+        rec_no = 0
     with open(out_nexus, 'w') as f_nex:
         f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
-            sample_labels=' '.join(nex_labels), rec_no=all_mat.shape[1],
+            sample_labels=' '.join(nex_labels), rec_no=rec_no,
             matrix=nex_matrix.strip('\n')))
 
     if germline:
