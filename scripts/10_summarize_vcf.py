@@ -50,6 +50,10 @@ def parse_args():
         '-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.'
     )
+    parser.add_argument(
+        '-s', '--gt_sep', type=str, default=',',
+        help='Separator for genotype matrix. Default = ",".'
+    )
 
     args = parser.parse_args()
     return args
@@ -84,19 +88,22 @@ def get_summary_df(args):
             'monovar1+_sccaller1+_bulk': []
         }
         vcf_body = ''
+        gt_mat = []
         germline = []
         for chrom in CHROM:
             chr_data_in = vcf_in.fetch(chrom)
-            chr_data, chr_vcf_body, chr_germline = iterate_chrom(chr_data_in,
-                sample_maps, chrom)
+            chr_data, chr_vcf_body, chr_gt_mat, chr_germline = \
+                iterate_chrom(chr_data_in, sample_maps, chrom, args.gt_sep)
 
             for group in chr_data:
                 data[group].extend(chr_data[group])
             vcf_body += '\n' + chr_vcf_body
+            gt_mat.extend(chr_gt_mat)
             germline.extend(chr_germline)
     else:
         chr_data = vcf_in.fetch(args.chr)
-        data, vcf_body, germline = iterate_chrom(chr_data, sample_maps, args.chr)
+        data, vcf_body, gt_mat, germline = \
+            iterate_chrom(chr_data, sample_maps, args.chr, args.gt_sep)
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
@@ -123,6 +130,13 @@ def get_summary_df(args):
     with open(out_vcf, 'w') as f_vcf:
         f_vcf.write(vcf_header)
         f_vcf.write(vcf_body)
+
+    out_gt = os.path.join(args.output, 'Genotype_matrix.{}.csv'.format(args.chr))
+    print('Writing genotype matrix to: {}'.format(out_gt))
+    with open(out_gt, 'w') as f_gt:
+        f_gt.write('chrom:pos{}{}' \
+            .format(args.gt_sep, args.gt_sep.join(sample_maps[0].keys())))
+        f_gt.write(gt_mat)
 
     if germline:
         out_germ = os.path.join(args.output, 'Call_germline.{}.tsv'.format(args.chr))
@@ -202,8 +216,9 @@ def get_call_summary(samples, sample_maps, depth, quality):
     return sc_calls, snv_bulk, snv_germline
 
 
-def iterate_chrom(chr_data, sample_maps, chrom):
+def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
     out_vcf = ''
+    gt_mat = ''
     data = {'singletons': [], 
         'monovar2+': [],
         'sccaller2+': [],
@@ -246,15 +261,24 @@ def iterate_chrom(chr_data, sample_maps, chrom):
             # Detected by both algorithms and in bulk
             if (monovar_sccaller > 0) or (monovar_only > 1 and sccaller_only > 1):
                 data['monovar1+_sccaller1+_bulk'].append(rec_data)
-                out_vcf += get_vcf_out_str(rec, sc_calls, sample_maps[0])
+                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                out_vcf += rec_vcf
+                gt_mat += '\n{}:{}{}{}' \
+                    .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
             # Detected by monovar and in bulk
             elif monovar_only > 1 and sccaller_only == 0:
                 data['monovar1+_bulk'].append(rec_data)
-                out_vcf += get_vcf_out_str(rec, sc_calls, sample_maps[0])
+                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                out_vcf += rec_vcf
+                gt_mat += '\n{}:{}{}{}' \
+                    .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
             # Detected by sccaller and in bulk
             elif sccaller_only > 1 and sccaller_only == 0:
                 data['sccaller1+_bulk'].append(rec_data)
-                out_vcf += get_vcf_out_str(rec, sc_calls, sample_maps[0])
+                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                out_vcf += rec_vcf
+                gt_mat += '\n{}:{}{}{}' \
+                    .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
         # SNV only called in SC
         else:
             rec_data = [rec.chrom, rec.pos,
@@ -271,7 +295,10 @@ def iterate_chrom(chr_data, sample_maps, chrom):
                 if monovar_sccaller > 1 \
                         or (monovar_only > 0 and sccaller_only > 0):
                     data['monovar2+_sccaller2+'].append(rec_data)
-                    out_vcf += get_vcf_out_str(rec, sc_calls, sample_maps[0])
+                    rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                    out_vcf += rec_vcf
+                    gt_mat += '\n{}:{}{}{}' \
+                        .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
                 elif monovar_only > 0:
                     data['monovar2+'].append(rec_data)
                 elif sccaller_only > 0:
@@ -284,22 +311,24 @@ def iterate_chrom(chr_data, sample_maps, chrom):
                 data['sccaller2+'].append(rec_data)
             else:
                 import pdb; pdb.set_trace()
-            
+             
     print('Iterating calls on Chr {} - End\n'.format(chrom))
-    return data, out_vcf, germline
+    return data, out_vcf, gt_mat, germline
 
 
-def get_vcf_out_str(rec, calls, sc_map):
+def get_call_output(rec, calls, sc_map):
     best_calls = calls.argmax(axis=1)
     data_calls = np.sum(calls.max(axis=1) > -1)
 
-    rec_out = f'{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{rec.alts[0]}\t' \
+    rec_out = f'\n{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{rec.alts[0]}\t' \
         f'{min(99, rec.qual)}\tPASS\tNS={data_calls}\tGT:AD:GQ:PL'
     
+    gt_mat_row = np.zeros(len(sc_map), dtype=str)
     for sample, sample_id in sc_map.items():
         alg = best_calls[sample_id]
         gt = calls[sample_id, alg]
         if gt == -1:
+            gt_mat_row[sample_id] = '3'
             rec_out += '\t./.:.:.:.'
         else:
             if alg == 0:
@@ -311,19 +340,31 @@ def get_vcf_out_str(rec, calls, sc_map):
                 rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                     f'{call["FPL"][0]},{call["FPL"][2]},{call["FPL"][2]}'
+                gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
             else:
                 PL = [i for i in call['PL'] if i != None]
                 if len(PL) == 0:
                     rec_out += '\t./.:.:.:.'
+                    gt_mat_row[sample_id] = '3'
                 elif len(PL) == 3:
                     rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
                         f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                         f'{PL[0]},{PL[1]},{PL[2]}'
+                    gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
                 else:
                     import pdb; pdb.set_trace()
 
     if "None" in rec_out: import pdb; pdb.set_trace()
-    return rec_out + '\n'
+    return rec_out, gt_mat_row
+
+
+def get_gt_mat_entry(gt):
+    if gt[0] == 0 and gt[1] == 0:
+        return '0'
+    elif gt[0] == 0 and gt[1] != 0:
+        return '1'
+    else:
+        return '2'
 
 
 def save_summary(data, out_file, verbose=True):
@@ -405,21 +446,31 @@ def plot_venn(data, out_dir):
 
 def merge_summaries(args):
     counts = {}
+    gt_mat = ''
 
-    for in_file in args.input:
+    for i, in_file in enumerate(args.input):
         chr_no = os.path.basename(in_file).split('.')[1]
         base_dir = os.path.dirname(in_file)
 
         sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
-        with open(sum_file, 'r') as f:
-            lines = f.readlines()
+        with open(sum_file, 'r') as f_cnt:
+            lines = f_cnt.readlines()
             for line in lines:
                 alg_counts, alg = line.strip().split('\t')
                 try:
                     counts[alg] += int(alg_counts)
                 except KeyError:
                     counts[alg] = int(alg_counts)
-                
+
+        gt_file = os.path.join(base_dir, 'Genotype_matrix.{}.csv'.format(chr_no))
+        with open(gt_file, 'r') as f_gt:
+            if i == 0:
+                gt_mat += f_gt.read()
+            else:
+                header = f_gt.read_line()
+                gt_mat += '\n' + f_gt.read()
+
+    import pdb; pdb.set_trace()                
     out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
     save_summary(counts, out_QC)
 
@@ -455,3 +506,4 @@ def main(args):
 if __name__ == '__main__':
     args = parse_args()
     main(args)
+
