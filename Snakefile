@@ -23,7 +23,7 @@ with open(config['specific']['cellnames'], 'r') as f:
         if len(row) == 1:
             raise IOError('cellnames file contains only 1 columns.')
         elif len(row) > 3:
-            raise NotImplementedError(
+            raise NotImplementedError(@
                 'Only implemented for 1 or 2 samples per cell.')
         else:
             cell_map[row[-1]] = row[:-1]
@@ -521,9 +521,7 @@ rule QC_calling_all:
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
-        '-o QC && '
-        '{params.base_dir}/scripts/10.2_summarize_vcf.sh {input} -m bcftools '
-        '-o {output}'
+        '-o QC'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
