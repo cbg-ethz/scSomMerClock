@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import time
 import numpy as np
 import pandas as pd
 from collections import OrderedDict
@@ -13,6 +14,22 @@ CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
 ALG_MAP = {'monovar': 0, 'sccaller': 1, 'mutect': 2}
 SC_COLS = [0, 1, 3]
 BULK_COLS = [2, 4, 5, 6]
+
+
+VCF_HEADER = """##fileformat=VCFv4.1
+##fileDate={time.tm_year}:{time.tm_mon}:{time.tm_mday}-{time.tm_hour}:{time.tm_min}:{time.tm_sec}
+##source=MolecularClockTesting_pipeline
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of Samples With Data">'
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+{ref}
+{contigs}
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples}
+"""
+
 
 
 def parse_args():
@@ -393,15 +410,20 @@ def plot_venn(data, out_dir):
 
     # Hack to ensure min circle size
     # ------------------------------
-    counts = np.array([
-        len(data['monovar2+']),
-        len(data['sccaller2+']),
-        len(data['monovar2+_sccaller2+']),
-        len(data['bulk']),
-        len(data['monovar1+_bulk']),
-        len(data['sccaller1+_bulk']),
-        len(data['monovar1+_sccaller1+_bulk']),
-    ])
+    if isinstance(data['monovar2+'], list):
+        counts = np.array([
+            len(data['monovar2+']),
+            len(data['sccaller2+']),
+            len(data['monovar2+_sccaller2+']),
+            len(data['bulk']),
+            len(data['monovar1+_bulk']),
+            len(data['sccaller1+_bulk']),
+            len(data['monovar1+_sccaller1+_bulk']),
+        ])
+    else:
+        counts = np.array([data['monovar2+'], data['sccaller2+'],
+            data['monovar2+_sccaller2+'], data['bulk'], data['monovar1+_bulk'],
+            data['sccaller1+_bulk'], data['monovar1+_sccaller1+_bulk']])
     counts_norm = np.clip(counts / counts.sum(), 0.025, 1).round(2)
     counts_norm = counts_norm + np.arange(0.0001, 0.00071, 0.0001)
 
@@ -447,10 +469,14 @@ def plot_venn(data, out_dir):
 def merge_summaries(args):
     counts = {}
     gt_mat = ''
+    vcf_out = ''
+    vcf_map = {os.path.basename(i).split('.')[1]: i for i in args.input}
+    sorted_chr = sorted(vcf_map.keys(),
+        key = lambda x: int(x) if x not in ['X', 'Y'] else 23)
 
-    for i, in_file in enumerate(args.input):
-        chr_no = os.path.basename(in_file).split('.')[1]
-        base_dir = os.path.dirname(in_file)
+    for i, chr_no in enumerate(sorted_chr):
+        vcf_file = vcf_map[chr_no]
+        base_dir = os.path.dirname(vcf_file)
 
         sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
         with open(sum_file, 'r') as f_cnt:
@@ -467,10 +493,36 @@ def merge_summaries(args):
             if i == 0:
                 gt_mat += f_gt.read()
             else:
-                header = f_gt.read_line()
+                header = f_gt.readline()
                 gt_mat += '\n' + f_gt.read()
 
-    import pdb; pdb.set_trace()                
+        vcf = VariantFile(vcf_file)
+        if i == 0:
+            contigs = ''
+            for contig, contig_obj in vcf.header.contigs.items():
+                if contig in sorted_chr:
+                    contigs += str(contig_obj.header_record)
+            samples = '\t'.join([i for i in vcf.header.samples])
+            ref = re.search('##reference=.*\n', str(vcf.header))[0].rstrip('\n')
+            vcf_out += VCF_HEADER.format(time=time.localtime(), 
+                contigs=contigs.rstrip('\n'), ref=ref, samples=samples)
+
+            for contig in re.findall('##contig=<ID=(.*),eta=.*>\n', str(vcf.header)):
+                if contig not in sorted_chr:
+                    vcf_out = re.sub('##contig=<ID={},eta=.*>\n'.format(contig),
+                        '', vcf_out)
+
+        for rec in vcf.fetch():
+            vcf_out += str(rec)
+
+    vcf_out_file = os.path.join(args.output, 'all.filtered.vcf')
+    with open(vcf_out_file, 'w') as f_vcf:
+        f_vcf.write(vcf_out.strip('\n'))
+
+    gt_out_file = os.path.join(args.output, 'Genotype_matrix.all.csv')
+    with open(gt_out_file, 'w') as f_gt:
+        f_gt.write(gt_mat.strip('\n'))
+
     out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
     save_summary(counts, out_QC)
 
