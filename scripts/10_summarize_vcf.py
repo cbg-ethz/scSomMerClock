@@ -509,7 +509,6 @@ def merge_summaries(args):
 
         for rec in vcf.fetch():
             vcf_out += str(rec)
-        import pdb; pdb.set_trace()
 
     vcf_out_file = os.path.join(args.output, 'all.filtered.vcf')
     with open(vcf_out_file, 'w') as f_vcf:
