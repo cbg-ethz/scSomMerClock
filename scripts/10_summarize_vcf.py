@@ -178,12 +178,14 @@ def get_summary_df(args):
             .format(args.gt_sep, args.gt_sep.join(sample_maps[0].keys())))
         f_gt.write(gt_mat.rstrip('\n'))
 
+
     out_nexus = os.path.join(args.output, 'Genotype_matrix.{}.nex'.format(args.chr))
     print('Writing NEXUS file to: {}'.format(out_nexus))
     nex_labels = ['REF'] + list(sc_map.keys())
     nex_matrix = ''
-    for i, all_row in enumerate(all_mat):
-        nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
+    if all_mat:
+        for i, all_row in enumerate(all_mat):
+            nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
     with open(out_nexus, 'w') as f_nex:
         f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
             sample_labels=' '.join(nex_labels), rec_no=all_mat.shape[1],
