@@ -23,7 +23,7 @@ with open(config['specific']['cellnames'], 'r') as f:
         if len(row) == 1:
             raise IOError('cellnames file contains only 1 columns.')
         elif len(row) > 3:
-            raise NotImplementedError(@
+            raise NotImplementedError(
                 'Only implemented for 1 or 2 samples per cell.')
         else:
             cell_map[row[-1]] = row[:-1]
