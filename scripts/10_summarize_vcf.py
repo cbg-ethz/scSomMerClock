@@ -160,12 +160,14 @@ def get_summary_df(args):
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
-    vcf_header = str(vcf_in.header)
-    vcf_header = vcf_header[:vcf_header.rindex('\tFORMAT\t') + 8]
-    vcf_header += '\t'.join(sc_map.keys()) + '\n'
 
-    out_vcf = os.path.join(args.output, '{}.filtered.vcf' \
-        .format(in_file[:in_file.index('.vcf')]))
+    contigs = '\n'.join(['##contig=<ID={},eta=-1>'.format(i) for i in CHROM])
+    samples = '\t'.join(sc_map.keys())
+    ref = re.search('##reference=.*\n', str(vcf_in.header))[0].rstrip('\n')
+    vcf_header = VCF_HEADER.format(time=time.localtime(), 
+        contigs=contigs, ref=ref, samples=samples)
+
+    out_vcf = os.path.join(args.output, 'all.{}.filtered.vcf'.format(args.chr))
     print('Writing vcf file to: {}'.format(out_vcf))
     with open(out_vcf, 'w') as f_vcf:
         f_vcf.write(vcf_header)
@@ -183,12 +185,12 @@ def get_summary_df(args):
     print('Writing NEXUS file to: {}'.format(out_nexus))
     nex_labels = ['REF'] + list(sc_map.keys())
     nex_matrix = ''
-    if all_mat:
+    if isinstance(all_mat, bool):
+        rec_no = 0
+    else:
         for i, all_row in enumerate(all_mat):
             nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
         rec_no = all_mat.shape[1]
-    else:
-        rec_no = 0
     with open(out_nexus, 'w') as f_nex:
         f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
             sample_labels=' '.join(nex_labels), rec_no=rec_no,
@@ -308,7 +310,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
     if len(all_mat) > 0:
         all_mat_t = np.stack(all_mat).T
     else:
-        all_mat_t = np.empty([])
+        all_mat_t = False
     print('Iterating calls on Chr {} - End\n'.format(chrom))
     return data, out_vcf, gt_mat, all_mat_t, germline
     
@@ -516,6 +518,7 @@ def plot_venn(data, out_dir):
 def merge_summaries(args):
     counts = {}
     gt_mat = ''
+    nex_mat = {}
     vcf_out = ''
     vcf_map = {os.path.basename(i).split('.')[1]: i for i in args.input}
     sorted_chr = sorted(vcf_map.keys(),
@@ -543,6 +546,20 @@ def merge_summaries(args):
                 header = f_gt.readline()
                 gt_mat += '\n' + f_gt.read()     
 
+        nex_file = os.path.join(base_dir, 'Genotype_matrix.{}.nex'.format(chr_no))
+        with open(nex_file, 'r') as f_nex:
+            nex_str = f_nex.read()
+            start = nex_str.find('Matrix\n')
+            end = nex_str.find(';', start)
+            chr_mat = nex_str[start+6:end].strip()
+            if chr_mat:
+                for taxa in chr_mat.split('\n'):
+                    taxa_info = taxa.strip().split('\t')
+                    try:
+                        nex_mat[taxa_info[0]] += taxa_info[1]
+                    except KeyError:
+                        nex_mat[taxa_info[0]] = taxa_info[1]
+
         vcf = VariantFile(vcf_file)
         if i == 0:
             contigs = ''
@@ -556,6 +573,16 @@ def merge_summaries(args):
 
         for rec in vcf.fetch():
             vcf_out += str(rec)
+
+    nex_mat_str = ''
+    for sample_row in nex_mat.items():
+        nex_mat_str += '\t{}\t{}\n'.format(*sample_row)
+
+    nex_out_file = os.path.join(args.output, 'Genotype_matrix.all.nex')
+    with open(nex_out_file, 'w') as f_nex:
+        f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(nex_mat),
+            sample_labels=' '.join(nex_mat.keys()),
+            rec_no=len(nex_mat[taxa_info[0]]), matrix=nex_mat_str.strip('\n')))
 
     vcf_out_file = os.path.join(args.output, 'all.filtered.vcf')
     with open(vcf_out_file, 'w') as f_vcf:
