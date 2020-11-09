@@ -561,7 +561,7 @@ def merge_summaries(args):
             chr_mat = nex_str[start+6:end].strip()
             if chr_mat:
                 for taxa in chr_mat.split('\n'):
-                    taxa_info = taxa.strip().split('\t')
+                    taxa_info = taxa.strip().split('    ')
                     try:
                         nex_mat[taxa_info[0]] += taxa_info[1]
                     except KeyError:
