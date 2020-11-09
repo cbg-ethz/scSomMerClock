@@ -255,7 +255,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
                 data['bulk'].append(rec_data)
                 continue
             # Detected by both algorithms and in bulk
-            if (monovar_sccaller > 0) or (monovar_only > 1 and sccaller_only > 1):
+            if (monovar_sccaller > 0) or (monovar_only >= 1 and sccaller_only >= 1):
                 data['monovar1+_sccaller1+_bulk'].append(rec_data)
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             # Detected by monovar and in bulk
@@ -266,6 +266,8 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
             elif sccaller_only > 1 and sccaller_only == 0:
                 data['sccaller1+_bulk'].append(rec_data)
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+            else:
+                import pdb; pdb.set_trace()
         # SNV only called in SC
         else:
             rec_data = [rec.chrom, rec.pos,
@@ -304,10 +306,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
             else:
                 import pdb; pdb.set_trace()
             
-        try: 
-            out_vcf += rec_vcf
-        except:
-            import pdb; pdb.set_trace()
+        out_vcf += rec_vcf
         gt_mat += '\n{}:{}{}{}' \
             .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
         all_row = np.array([rec.ref] + [rec.alts[0]] * len(sample_maps[0]))
