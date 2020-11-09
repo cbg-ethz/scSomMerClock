@@ -31,21 +31,14 @@ VCF_HEADER = """##fileformat=VCFv4.1
 """
 
 NEXUS_TEMPLATE = """#NEXUS
-Begin TAXA;
-  Dimensions ntax={sample_no};
-  TaxLabels {sample_labels}
-End;
 
-Begin data;
-  Dimensions nchar={rec_no};
-  Format datatype=dna missing=? gap=-;
-  Matrix
+begin data;
+    dimensions ntax={sample_no} nchar={rec_no};
+    format datatype=dna missing=? gap=-;
+    matrix
 {matrix}
-  ;
-End;
-
-BEGIN TREES;
-END;
+    ;
+end;
 """
 
 
@@ -189,7 +182,7 @@ def get_summary_df(args):
         rec_no = 0
     else:
         for i, all_row in enumerate(all_mat):
-            nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
+            nex_matrix += '{}    {}\n'.format(nex_labels[i], ''.join(all_row))
         rec_no = all_mat.shape[1]
     with open(out_nexus, 'w') as f_nex:
         f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
@@ -590,7 +583,7 @@ def merge_summaries(args):
 
     nex_mat_str = ''
     for sample_row in nex_mat.items():
-        nex_mat_str += '\t{}\t{}\n'.format(*sample_row)
+        nex_mat_str += '{}    {}\n'.format(*sample_row)
 
     nex_out_file = os.path.join(args.output, 'Genotype_matrix.all.nex')
     with open(nex_out_file, 'w') as f_nex:
