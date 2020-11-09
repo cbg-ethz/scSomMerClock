@@ -296,6 +296,9 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
             elif monovar_only <= 1 and sccaller_only >= 2:
                 data['sccaller2+'].append(rec_data)
                 continue
+            elif monovar_only >= 2 and sccaller_only >= 2:
+                data['monovar2+_sccaller2+'].append(rec_data)
+                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             else:
                 import pdb; pdb.set_trace()
              
