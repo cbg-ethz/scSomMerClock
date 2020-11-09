@@ -556,8 +556,8 @@ def merge_summaries(args):
         nex_file = os.path.join(base_dir, 'Genotype_matrix.{}.nex'.format(chr_no))
         with open(nex_file, 'r') as f_nex:
             nex_str = f_nex.read()
-            start = nex_str.find('Matrix\n')
-            end = nex_str.find(';', start)
+            start = nex_str.find('matrix\n')
+            end = nex_str.find('    ;', start)
             chr_mat = nex_str[start+6:end].strip()
             if chr_mat:
                 for taxa in chr_mat.split('\n'):
@@ -565,7 +565,6 @@ def merge_summaries(args):
                     try:
                         nex_mat[taxa_info[0]] += taxa_info[1]
                     except KeyError:
-                        import pdb; pdb.set_trace()
                         nex_mat[taxa_info[0]] = taxa_info[1]
 
         vcf = VariantFile(vcf_file)
