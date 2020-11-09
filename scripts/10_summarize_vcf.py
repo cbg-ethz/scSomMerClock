@@ -239,6 +239,8 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
         if is_germline_snv:
             germline.append('{}:{}'.format(rec.chrom, rec.pos))
             continue
+        if sc_calls.max() <= 0:
+            continue
 
         # 0: monovar, 1: sccaller, 2: bulk_tumor
         monovar_only = np.sum((sc_calls[:,0] == 1) & (sc_calls[:,1] != 1))
