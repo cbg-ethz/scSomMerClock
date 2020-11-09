@@ -259,11 +259,11 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
                 data['monovar1+_sccaller1+_bulk'].append(rec_data)
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             # Detected by monovar and in bulk
-            elif monovar_only > 1 and sccaller_only == 0:
+            elif monovar_only >= 1 and sccaller_only == 0:
                 data['monovar1+_bulk'].append(rec_data)
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             # Detected by sccaller and in bulk
-            elif sccaller_only > 1 and sccaller_only == 0:
+            elif sccaller_only >= 1 and monovar_only == 0:
                 data['sccaller1+_bulk'].append(rec_data)
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             else:
