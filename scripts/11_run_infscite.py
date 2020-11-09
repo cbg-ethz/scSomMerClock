@@ -141,7 +141,8 @@ def main(args):
 
     scite_args = get_data_infSCITE(args)
 
-    os.makedirs(args.outdir, exist_ok=True)
+    if not os.path.exists(args.outdir):
+        os.makedir(args.outdir)
     out_tree = os.path.join(args.outdir, 'infSCITE_tree')
 
     run_scite = '{exe} -i {input} -r {r} -l {l} -n {n} -m {m} -fd {fd} ' \
