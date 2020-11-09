@@ -565,6 +565,7 @@ def merge_summaries(args):
                     try:
                         nex_mat[taxa_info[0]] += taxa_info[1]
                     except KeyError:
+                        import pdb; pdb.set_trace()
                         nex_mat[taxa_info[0]] = taxa_info[1]
 
         vcf = VariantFile(vcf_file)
