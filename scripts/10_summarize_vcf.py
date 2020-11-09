@@ -31,21 +31,14 @@ VCF_HEADER = """##fileformat=VCFv4.1
 """
 
 NEXUS_TEMPLATE = """#NEXUS
-Begin TAXA;
-  Dimensions ntax={sample_no};
-  TaxLabels {sample_labels}
-End;
 
-Begin data;
-  Dimensions nchar={rec_no};
-  Format datatype=dna missing=? gap=-;
-  Matrix
+begin data;
+    dimensions ntax={sample_no} nchar={rec_no};
+    format datatype=dna missing=? gap=-;
+    matrix
 {matrix}
-  ;
-End;
-
-BEGIN TREES;
-END;
+    ;
+end;
 """
 
 
@@ -189,7 +182,7 @@ def get_summary_df(args):
         rec_no = 0
     else:
         for i, all_row in enumerate(all_mat):
-            nex_matrix += '\t{}\t{}\n'.format(nex_labels[i], ''.join(all_row))
+            nex_matrix += '{}    {}\n'.format(nex_labels[i], ''.join(all_row))
         rec_no = all_mat.shape[1]
     with open(out_nexus, 'w') as f_nex:
         f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
@@ -234,7 +227,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
             filtered += 1
             continue
 
-        sc_calls, is_bulk_snv, is_germline_snv = get_call_summary(rec.samples,
+        sc_calls, is_bulk_snv, is_germline_snv = get_call_summary(rec,
             sample_maps, args.read_depth, args.quality)
         if is_germline_snv:
             germline.append('{}:{}'.format(rec.chrom, rec.pos))
@@ -343,13 +336,13 @@ def get_call_ids(sample_id, sample_maps):
     return alg, sample_map_id
 
 
-def get_call_summary(samples, sample_maps, depth, quality):
+def get_call_summary(rec, sample_maps, depth, quality):
     sc_calls = np.full((len(sample_maps[0]), 2), -1, dtype=int)
     snv_bulk = False
     snv_germline = False
 
     # 0: monovar, 1: sccaller, 2: bulk_tumor
-    for sample_id, sample in samples.iteritems():
+    for sample_id, sample in rec.samples.iteritems():
         alg, sample_map_id = get_call_ids(sample_id, sample_maps)
 
         # Skip all genotypes except: 0/1 | 1/1 | 0/2
@@ -393,7 +386,14 @@ def get_call_output(rec, calls, sc_map):
     best_calls = calls.argmax(axis=1)
     data_calls = np.sum(calls.max(axis=1) > -1)
 
-    rec_out = f'\n{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{rec.alts[0]}\t' \
+    if len(rec.alts) == 1:
+        alt = rec.alts[0]
+    else:
+        call_alls = [i['GT'][1] for i in rec.samples.values() if i['GT'][1]]
+        alls, alls_count = np.unique(call_alls, return_counts=True)
+        alt = rec.alts[alls[np.argmax(alls_count)] - 1]
+
+    rec_out = f'\n{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{alt}\t' \
         f'{min(99, rec.qual)}\tPASS\tNS={data_calls}\tGT:AD:GQ:PL'
     
     gt_mat_row = np.zeros(len(sc_map), dtype=str)
@@ -410,7 +410,7 @@ def get_call_output(rec, calls, sc_map):
                 call = rec.samples['{}.sccaller'.format(sample)]
             
             if 'FPL' in call and call['FPL'][0] != None:
-                rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
+                rec_out += f'\t{call["GT"][0]}/{min(1, call["GT"][1])}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                     f'{call["FPL"][0]},{call["FPL"][2]},{call["FPL"][2]}'
                 gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
@@ -420,7 +420,7 @@ def get_call_output(rec, calls, sc_map):
                     rec_out += '\t./.:.:.:.'
                     gt_mat_row[sample_id] = '3'
                 elif len(PL) == 3:
-                    rec_out += f'\t{call["GT"][0]}/{call["GT"][1]}:' \
+                    rec_out += f'\t{call["GT"][0]}/{min(1,call["GT"][1])}:' \
                         f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                         f'{PL[0]},{PL[1]},{PL[2]}'
                     gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
@@ -561,7 +561,7 @@ def merge_summaries(args):
             chr_mat = nex_str[start+6:end].strip()
             if chr_mat:
                 for taxa in chr_mat.split('\n'):
-                    taxa_info = taxa.strip().split('\t')
+                    taxa_info = taxa.strip().split('    ')
                     try:
                         nex_mat[taxa_info[0]] += taxa_info[1]
                     except KeyError:
@@ -583,7 +583,7 @@ def merge_summaries(args):
 
     nex_mat_str = ''
     for sample_row in nex_mat.items():
-        nex_mat_str += '\t{}\t{}\n'.format(*sample_row)
+        nex_mat_str += '{}    {}\n'.format(*sample_row)
 
     nex_out_file = os.path.join(args.output, 'Genotype_matrix.all.nex')
     with open(nex_out_file, 'w') as f_nex:
