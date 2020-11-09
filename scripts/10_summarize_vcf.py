@@ -303,8 +303,11 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
                 rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
             else:
                 import pdb; pdb.set_trace()
-             
-        out_vcf += rec_vcf
+            
+        try: 
+            out_vcf += rec_vcf
+        except:
+            import pdb; pdb.set_trace()
         gt_mat += '\n{}:{}{}{}' \
             .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
         all_row = np.array([rec.ref] + [rec.alts[0]] * len(sample_maps[0]))
