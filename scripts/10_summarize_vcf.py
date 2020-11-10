@@ -410,7 +410,7 @@ def get_call_output(rec, calls, sc_map):
                 call = rec.samples['{}.sccaller'.format(sample)]
             
             if 'FPL' in call and call['FPL'][0] != None:
-                rec_out += f'\t{call["GT"][0]}/{min(1, call["GT"][1])}:' \
+                rec_out += f'\t{min(1, call["GT"][0])}/{min(1, call["GT"][1])}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                     f'{call["FPL"][0]},{call["FPL"][2]},{call["FPL"][2]}'
                 gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
@@ -420,7 +420,7 @@ def get_call_output(rec, calls, sc_map):
                     rec_out += '\t./.:.:.:.'
                     gt_mat_row[sample_id] = '3'
                 elif len(PL) == 3:
-                    rec_out += f'\t{call["GT"][0]}/{min(1,call["GT"][1])}:' \
+                    rec_out += f'\t{min(1, call["GT"][0])}/{min(1,call["GT"][1])}:' \
                         f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                         f'{PL[0]},{PL[1]},{PL[2]}'
                     gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
