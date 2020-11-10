@@ -43,44 +43,29 @@ end;
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        prog='QC_coverage', usage='python3 QC_coverage.py <DATA> [options]',
-        description='*** Generate Lorenz curve and Gini coefficient. ***'
-    )
-    parser.add_argument(
-        'input', type=str,  nargs='*',
-        help='Absolute or relative path(s) to input VCF file'
-    )
-    parser.add_argument(
-        '-t', '--task', type=str, choices=['summarize', 'merge'],
+    parser = argparse.ArgumentParser(prog='QC_coverage',
+        usage='python3 QC_coverage.py <DATA> [options]',
+        description='*** Generate Lorenz curve and Gini coefficient. ***')
+    parser.add_argument('input', type=str,  nargs='*',
+        help='Absolute or relative path(s) to input VCF file')
+    parser.add_argument('-t', '--task', type=str, choices=['summarize', 'merge'],
         default='summarize', help='Scripts task, options are: 1. summarizing the '
         'calls in a vcf file, 2. merging the previouslz generated summaries. '
-        'Default = summarize'
-    )
-    parser.add_argument(
-        '-o', '--output', type=str, default='',
-        help='Path to the output directory. Default = <INPUT_DIR>.'
-    )
-    parser.add_argument(
-        '-bn', '--bulk_normal', type=str, default='',
-        help='Column name of bulk normal. Default = None.'
-    )
-    parser.add_argument(
-        '-bt', '--bulk_tumor', nargs='*', type=str,
-        help='Column name of bulk tumor. Default = None.'
-    )
-    parser.add_argument(
-        '-q', '--quality', type=int, default=20,
-        help='Minimum quality threshold. Default = 20.'
-    )
-    parser.add_argument(
-        '-r', '--read_depth', type=int, default=10,
-        help='Minimum read depth at loci. Default = 10.'
-    )
-    parser.add_argument(
-        '-s', '--gt_sep', type=str, default=',',
-        help='Separator for genotype matrix. Default = ",".'
-    )
+        'Default = summarize')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Path to the output directory. Default = <INPUT_DIR>.')
+    parser.add_argument('-bn', '--bulk_normal', type=str, default='',
+        help='Column name of bulk normal. Default = None.')
+    parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
+        help='Column name of bulk tumor. Default = None.')
+    parser.add_argument('-ks', '--keep_sex', action='store_true',
+        help='If flag is set, keep the sex chromosomes in the all file.')
+    parser.add_argument('-q', '--quality', type=int, default=20,
+        help='Minimum quality threshold. Default = 20.')
+    parser.add_argument('-r', '--read_depth', type=int, default=10,
+        help='Minimum read depth at loci. Default = 10.')
+    parser.add_argument('-s', '--gt_sep', type=str, default=',',
+        help='Separator for genotype matrix. Default = ",".')
 
     args = parser.parse_args()
     return args
@@ -118,6 +103,9 @@ def get_summary_df(args):
         gt_mat = ''
         germline = []
         for chrom in CHROM:
+            if not args.keep_sex and chrom in ['X', 'Y']:
+                continue
+
             chr_data_in = vcf_in.fetch(chrom)
             chr_data, chr_vcf_body, chr_gt_mat, chr_all_mat, chr_germline = \
                 iterate_chrom(chr_data_in, sample_maps, chrom, args.gt_sep)
@@ -531,11 +519,14 @@ def merge_summaries(args):
     sorted_chr = sorted(vcf_map.keys(),
         key = lambda x: int(x) if x not in ['X', 'Y'] else 23)
 
-    for i, chr_no in enumerate(sorted_chr):
-        vcf_file = vcf_map[chr_no]
+    for i, chrom in enumerate(sorted_chr):
+        if not args.keep_sex and chrom in ['X', 'Y']:
+            continue
+
+        vcf_file = vcf_map[chrom]
         base_dir = os.path.dirname(vcf_file)
 
-        sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chr_no))
+        sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chrom))
         with open(sum_file, 'r') as f_cnt:
             lines = f_cnt.readlines()
             for line in lines:
@@ -545,7 +536,7 @@ def merge_summaries(args):
                 except KeyError:
                     counts[alg] = int(alg_counts)
 
-        gt_file = os.path.join(base_dir, 'Genotype_matrix.{}.csv'.format(chr_no))
+        gt_file = os.path.join(base_dir, 'Genotype_matrix.{}.csv'.format(chrom))
         with open(gt_file, 'r') as f_gt:
             if i == 0:
                 gt_mat += f_gt.read()
@@ -553,7 +544,7 @@ def merge_summaries(args):
                 header = f_gt.readline()
                 gt_mat += '\n' + f_gt.read()     
 
-        nex_file = os.path.join(base_dir, 'Genotype_matrix.{}.nex'.format(chr_no))
+        nex_file = os.path.join(base_dir, 'Genotype_matrix.{}.nex'.format(chrom))
         with open(nex_file, 'r') as f_nex:
             nex_str = f_nex.read()
             start = nex_str.find('matrix\n')
