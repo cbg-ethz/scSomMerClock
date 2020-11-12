@@ -22,11 +22,8 @@ with open(config['specific']['cellnames'], 'r') as f:
         row = line.split('\t')
         if len(row) == 1:
             raise IOError('cellnames file contains only 1 columns.')
-        elif len(row) > 3:
-            raise NotImplementedError(
-                'Only implemented for 1 or 2 samples per cell.')
         else:
-            cell_map[row[-1]] = row[:-1]
+            cell_map[row[0]] = row[1:]
 
 # Get samples to exclude for Monovar SNV calling
 bulk_samples = {'normal': None, 'tumor': set([]), 'all': set([])}
