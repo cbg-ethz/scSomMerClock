@@ -64,6 +64,8 @@ def main(args):
         # Iterate over high-confidence heterozygous ones
         for (chrom, pos), alt in hc_hets.items():
             pileup_data = bam_file.pileup(chrom, pos, pos + 1, truncate=True)
+            alt_no = 0
+            total_no = 0
             for i, pileup in enumerate(pileup_data):
                 alt_no = np.sum([i == 'A' for i in pileup.get_query_sequences()])
                 total_no = pileup.nsegments
