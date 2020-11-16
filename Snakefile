@@ -529,6 +529,30 @@ rule QC_calling_all:
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
         '-o QC'
 
+
+# ------------------------------------------------------------------------------
+# ----------------------------- ADO Calculation --------------------------------
+# ------------------------------------------------------------------------------
+
+
+rule QC_calling_all:
+    input:
+        bulk = os.path.join('Calls', 'all.mutect.filtered.vcf.gz'),
+        ss = expand(os.path.join('Processing', '{cell}.recal.{chr}.bam'),
+            chr=CHROM, cell=ss_samples)
+    output:
+        os.path.join('QC',  'ADO_rates.txt')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join(config['modules'] \
+                .get('QC_calling', ['pysam', 'pandas'])),
+        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp'])
+    shell:
+        'module load {params.modules} && '
+        'python {params.base_dir}/scripts/ADO_calculation.py {input} '
+        '--bulk {input.bulk} --dbsnp {params.dbsnp} -o {output}'
+
+
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
 # ------------------------------------------------------------------------------
