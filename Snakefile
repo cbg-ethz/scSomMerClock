@@ -23,7 +23,16 @@ with open(config['specific']['cellnames'], 'r') as f:
         if len(row) == 1:
             raise IOError('cellnames file contains only 1 columns.')
         else:
-            cell_map[row[0]] = row[1:]
+            if row[0].startswith('SRR'):
+                if len(row) == 2:
+                    row[1] = [row[0]]
+                elif row[1].startswith('SRR') and len(row) == 3:
+                    row[-1] = row[:-1]
+                else:
+                    raise IOError('Cannot handle row in cellnames file: {}' \
+                        .format(row))
+            else:
+                cell_map[row[0]] = row[1:]
 
 # Get samples to exclude for Monovar SNV calling
 bulk_samples = {'normal': None, 'tumor': set([]), 'all': set([])}
