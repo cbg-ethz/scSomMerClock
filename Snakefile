@@ -25,9 +25,9 @@ with open(config['specific']['cellnames'], 'r') as f:
         else:
             if row[0].startswith('SRR'):
                 if len(row) == 2:
-                    row[1] = [row[0]]
+                    cell_map[row[1]] = [row[0]]
                 elif row[1].startswith('SRR') and len(row) == 3:
-                    row[-1] = row[:-1]
+                    cell_map[row[-1]] = row[:-1]
                 else:
                     raise IOError('Cannot handle row in cellnames file: {}' \
                         .format(row))
