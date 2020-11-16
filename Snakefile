@@ -23,7 +23,16 @@ with open(config['specific']['cellnames'], 'r') as f:
         if len(row) == 1:
             raise IOError('cellnames file contains only 1 columns.')
         else:
-            cell_map[row[0]] = row[1:]
+            if row[0].startswith('SRR'):
+                if len(row) == 2:
+                    row[1] = [row[0]]
+                elif row[1].startswith('SRR') and len(row) == 3:
+                    row[-1] = row[:-1]
+                else:
+                    raise IOError('Cannot handle row in cellnames file: {}' \
+                        .format(row))
+            else:
+                cell_map[row[0]] = row[1:]
 
 # Get samples to exclude for Monovar SNV calling
 bulk_samples = {'normal': None, 'tumor': set([]), 'all': set([])}
@@ -79,7 +88,7 @@ rule adapter_cutting:
     input:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
-        os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
+        temp(os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -95,7 +104,7 @@ rule alignment1:
     input:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     output:
-        os.path.join('Processing', '{sample}.sam')
+        temp(os.path.join('Processing', '{sample}.sam'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -113,7 +122,7 @@ rule alignment2:
     input:
         os.path.join('Processing', '{sample}.sam')
     output:
-        os.path.join('Processing', '{sample}.sorted.bam')
+        temp(os.path.join('Processing', '{sample}.sorted.bam'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -192,8 +201,8 @@ rule indel_realignment2:
         target = os.path.join('Realignment', '{chr}.intervals'),
         maps = os.path.join('Realignment', '{chr}.map')
     output:
-        expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
-            cell=cell_map.keys())
+        temp(expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
+            cell=cell_map.keys()))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -213,7 +222,7 @@ rule base_recal:
         expand(os.path.join('Processing', '{{cell}}.real.{chr}.bam'),
             chr=CHROM)
     output:
-        os.path.join('Processing', '{cell}.real.bam')
+        temp(os.path.join('Processing', '{cell}.real.bam'))
     params:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('samtools', ['samtools'])]),
