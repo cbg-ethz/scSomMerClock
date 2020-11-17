@@ -57,7 +57,7 @@ def get_high_conf_het_in_samples(args):
     hc_hets = get_high_confidence_heterozygous(args)
 
     pileup_arg = {'stepper': 'samtools', 'adjust_capq_threshold': 50,
-        'min_mapping_quality': 20, 'truncate': True}
+        'min_mapping_quality': 20, 'min_base_quality': 13, 'truncate': True}
 
     if args.ref:
         fasta_file = FastaFile(args.ref)
@@ -77,12 +77,15 @@ def get_high_conf_het_in_samples(args):
             pileup_arg['stop'] = pos + 1
             pileup_data = bam_file.pileup(**pileup_arg)
             for i, pileup in enumerate(pileup_data):
-                seq = pileup.get_query_sequences()
+                seq = ''.join(pileup.get_query_sequences()).upper()
                 alt_no = seq.count(alt)
-                total_no = len(seq)
+                total_no = pileup.get_num_aligned()
                 if i > 0: import pdb; pdb.set_trace()
-            df.loc[(chrom, pos), f'{cell}_alt'] = alt_no
-            df.loc[(chrom, pos), f'{cell}_n'] = total_no
+            try:
+                df.loc[(chrom, pos), cell + '_alt'] = alt_no
+                df.loc[(chrom, pos), cell + '_n'] = total_no
+            except NameError:
+                pass
     
     out_file = os.path.join(os.path.dirname(args.outfile), 'ADO_overview.tsv')
     df.astype(int).to_csv(out_file, sep='\t')
