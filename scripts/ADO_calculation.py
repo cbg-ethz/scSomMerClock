@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from pysam import VariantFile, FastaFile, AlignmentFile
 
+CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -67,11 +69,18 @@ def get_high_conf_het_in_samples(args):
     df.index.set_names(['chrom', 'pos'], inplace=True)
     # Iterate over input files
     for bam_file_path in sorted(args.input):
-        cell = os.path.basename(bam_file_path).split('.')[0]
+        sample_name = os.path.basename(bam_file_path).split('.')
+        cell = sample_name[0]
+        if sample_name[2] in CHROM:
+            s_chrom = [sample_name[2]]
+        else:
+            s_chrom = df.index.get_level_values('chrom').unique()
 
         bam_file = AlignmentFile(bam_file_path, 'rb')
         # Iterate over high-confidence heterozygous ones
-        for (chrom, pos), alt in hc_hets.items():
+        
+        for chrom, pos in df.loc[s_chrom].index:
+            alt = hc_hets[(chrom, pos)]
             pileup_arg['contig'] = chrom
             pileup_arg['start'] = pos
             pileup_arg['stop'] = pos + 1
@@ -95,6 +104,7 @@ def get_high_conf_het_in_samples(args):
 def calc_ADO_rates(df, args):
     total_cols = [i for i in df.columns if i.endswith('_n')]
     n_cols = [i for i in df.columns if i.endswith('_alt')]
+    import pdb; pdb.set_trace()
 
 
 def main(args):
