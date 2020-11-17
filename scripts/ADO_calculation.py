@@ -60,7 +60,7 @@ def get_high_conf_het_in_samples(args):
         'min_mapping_quality': 20, 'truncate': True}
 
     if args.ref:
-        fasta_file = pysam.FastaFile(my_args.fasta)
+        fasta_file = FastaFile(args.ref)
         pileup_arg['fastafile'] = fasta_file
 
     df = pd.DataFrame([], index=hc_hets.keys(), dtype=int)
@@ -92,16 +92,16 @@ def get_high_conf_het_in_samples(args):
 def calc_ADO_rates(df, args):
     total_cols = [i for i in df.columns if i.endswith('_n')]
     n_cols = [i for i in df.columns if i.endswith('_alt')]
-    import pdb; pdb.set_trace()
 
 
 def main(args):
     if args.outfile == '':
         args.outfile = os.path.join(os.path.dirname(args.bulk), 'ADO_rates.tsv')
 
-    # df = get_high_conf_het_in_samples(args)
-    int_file = '/home/hw/Desktop/molClock_project/scDNA_data/Ni9/QC/ADO_overview.tsv'
-    df = pd.read_csv(int_file, sep='\t', index_col=[0, 1])
+    df = get_high_conf_het_in_samples(args)
+    # import pdb; pdb.set_trace()
+    # int_file = '/home/hw/Desktop/molClock_project/scDNA_data/Ni9/QC/ADO_overview.tsv'
+    # df = pd.read_csv(int_file, sep='\t', index_col=[0, 1])
     calc_ADO_rates(df, args)
 
 
