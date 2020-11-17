@@ -16,8 +16,10 @@ def parse_args():
         default='Path to vcf file containing mutations called in tumor bulk.')
     parser.add_argument('-d', '--dbsnp', type=str, required=True,
         help='Path to zipped and indexed DBSNP file.')
+    parser.add_argument('-r', '--ref', type=str, default='',
+        help='Path to fasta reference file.')
     parser.add_argument('-o', '--outfile', type=str, default='',
-        help='Ooutput file name. Default = <BULK DIR>/ADO_rates.tsv.')
+        help='Output file name. Default = <BULK DIR>/ADO_rates.tsv.')
     args = parser.parse_args()
     return args
 
@@ -51,8 +53,15 @@ def get_high_confidence_heterozygous(args):
     return hc_het
 
 
-def main(args):
+def get_high_conf_het_in_samples(args):
     hc_hets = get_high_confidence_heterozygous(args)
+
+    pileup_arg = {'stepper': 'samtools', 'adjust_capq_threshold': 50,
+        'min_mapping_quality': 20, 'truncate': True}
+
+    if args.ref:
+        fasta_file = pysam.FastaFile(my_args.fasta)
+        pileup_arg['fastafile'] = fasta_file
 
     df = pd.DataFrame([], index=hc_hets.keys(), dtype=int)
     df.index.set_names(['chrom', 'pos'], inplace=True)
@@ -63,19 +72,37 @@ def main(args):
         bam_file = AlignmentFile(bam_file_path, 'rb')
         # Iterate over high-confidence heterozygous ones
         for (chrom, pos), alt in hc_hets.items():
-            pileup_data = bam_file.pileup(chrom, pos, pos + 1, truncate=True)
-            alt_no = 0
-            total_no = 0
+            pileup_arg['contig'] = chrom
+            pileup_arg['start'] = pos
+            pileup_arg['stop'] = pos + 1
+            pileup_data = bam_file.pileup(**pileup_arg)
             for i, pileup in enumerate(pileup_data):
-                alt_no = np.sum([i == 'A' for i in pileup.get_query_sequences()])
-                total_no = pileup.nsegments
+                seq = pileup.get_query_sequences()
+                alt_no = seq.count(alt)
+                total_no = len(seq)
                 if i > 0: import pdb; pdb.set_trace()
             df.loc[(chrom, pos), f'{cell}_alt'] = alt_no
             df.loc[(chrom, pos), f'{cell}_n'] = total_no
     
+    out_file = os.path.join(os.path.dirname(args.outfile), 'ADO_overview.tsv')
+    df.astype(int).to_csv(out_file, sep='\t')
+    return df
+
+
+def calc_ADO_rates(df, args):
+    total_cols = [i for i in df.columns if i.endswith('_n')]
+    n_cols = [i for i in df.columns if i.endswith('_alt')]
+    import pdb; pdb.set_trace()
+
+
+def main(args):
     if args.outfile == '':
         args.outfile = os.path.join(os.path.dirname(args.bulk), 'ADO_rates.tsv')
-    df.astype(int).to_csv(args.outfile, sep='\t')
+
+    # df = get_high_conf_het_in_samples(args)
+    int_file = '/home/hw/Desktop/molClock_project/scDNA_data/Ni9/QC/ADO_overview.tsv'
+    df = pd.read_csv(int_file, sep='\t', index_col=[0, 1])
+    calc_ADO_rates(df, args)
 
 
 if __name__ == '__main__':

@@ -535,7 +535,7 @@ rule QC_calling_all:
 # ------------------------------------------------------------------------------
 
 
-rule QC_calling_all:
+rule ADO_calculation:
     input:
         bulk = os.path.join('Calls', 'all.mutect.filtered.vcf.gz'),
         ss = expand(os.path.join('Processing', '{cell}.recal.{chr}.bam'),
@@ -546,11 +546,13 @@ rule QC_calling_all:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
                 .get('QC_calling', ['pysam', 'pandas'])),
-        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp'])
+        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/ADO_calculation.py {input} '
-        '--bulk {input.bulk} --dbsnp {params.dbsnp} -o {output}'
+        '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
+        '-o {output}'
 
 
 # ------------------------------------------------------------------------------
