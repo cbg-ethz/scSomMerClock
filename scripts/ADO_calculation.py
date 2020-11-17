@@ -76,8 +76,9 @@ def get_high_conf_het_in_samples(args):
             pileup_arg['start'] = pos
             pileup_arg['stop'] = pos + 1
             pileup_data = bam_file.pileup(**pileup_arg)
+            import pdb; pdb.set_trace()
             for i, pileup in enumerate(pileup_data):
-                seq = pileup.get_query_sequences()
+                seq = [i.upper() for i in pileup.get_query_sequences()]
                 alt_no = seq.count(alt)
                 total_no = len(seq)
                 if i > 0: import pdb; pdb.set_trace()
