@@ -100,8 +100,9 @@ def get_high_conf_het_in_samples(args):
   
     out_dir = os.path.dirname(args.outfile)
     if len(cell_names) == 1:
+        out_cell_name = cell_names.pop()
         out_file = os.path.join(out_dir,
-            'ADO_overview_{}.tsv'.format(cell_names[0]))
+            'ADO_overview_{}.tsv'.format(out_cell_name))
     else:
         out_file = os.path.join(out_dir, 'ADO_overview.tsv')
     df.to_csv(out_file, sep='\t')
