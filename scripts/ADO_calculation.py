@@ -68,6 +68,7 @@ def get_high_conf_het_in_samples(args):
     df = pd.DataFrame([], index=hc_hets.keys(), dtype=int)
     df.index.set_names(['chrom', 'pos'], inplace=True)
     # Iterate over input files
+    cell_names = set([])
     for bam_file_path in sorted(args.input):
         sample_name = os.path.basename(bam_file_path).split('.')
         cell = sample_name[0]
@@ -75,6 +76,7 @@ def get_high_conf_het_in_samples(args):
             s_chrom = [sample_name[2]]
         else:
             s_chrom = df.index.get_level_values('chrom').unique()
+        cell_names.add(cell)
 
         bam_file = AlignmentFile(bam_file_path, 'rb')
         # Iterate over high-confidence heterozygous ones
@@ -95,9 +97,14 @@ def get_high_conf_het_in_samples(args):
                 df.loc[(chrom, pos), cell + '_n'] = total_no
             except NameError:
                 pass
-    
-    out_file = os.path.join(os.path.dirname(args.outfile), 'ADO_overview.tsv')
-    df.astype(int).to_csv(out_file, sep='\t')
+  
+    out_dir = os.path.dirname(args.outfile)
+    if len(cell_names) == 1:
+        out_file = os.path.join(out_dir,
+            'ADO_overview_{}.tsv'.format(cell_names[0]))
+    else:
+        out_file = os.path.join(out_dir, 'ADO_overview.tsv')
+    df.to_csv(out_file, sep='\t')
     return df
 
 

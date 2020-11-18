@@ -91,7 +91,7 @@ mutect2:
 
 mutect3:
   cpus-per-task: 2
-
+  mem: 16G
 
 mutect4:
   cpus-per-task: 2
