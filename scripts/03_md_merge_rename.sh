@@ -18,7 +18,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
+set -Eeuxo pipefail
 
 java -Xmx32g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
     ${bams_in} \

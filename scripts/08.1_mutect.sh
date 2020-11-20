@@ -34,6 +34,23 @@ set -Eeuxo pipefail
 
 cores=$(nproc)
 
+bams_in_temp=""
+for bam in $bams_in; do
+    if [[ "$bam" == "-I" ]]; then
+        continue
+    fi
+    sample="$(cut -d '.' -f 1 <<< "${bam##*/}" )"
+    java -Xmx28g -jar $EBROOTPICARD/picard.jar AddOrReplaceReadGroups \
+        I=$bam \
+        O=$bam.temp \
+        RGID=$sample \
+        RGSM=$sample \
+        RGLB=KAPA \
+        RGPL=ILLUMINA \
+        RGPU=unit1
+    mv $bam.temp $bam
+done
+
 gatk Mutect2 \
     --reference ${REF} \
     ${bams_in} \
