@@ -390,8 +390,8 @@ rule mutect1:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
-            [config['modules'].get('gatk41', ['gatk/4.1']),
-            config['modules'].get('picard', ['picard'])]]),
+            [config['modules'].get('gatk41', 'gatk/4.1'),
+            config['modules'].get('picard', 'picard')]]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
