@@ -54,7 +54,7 @@ def parse_args():
         'Default = summarize')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
-    parser.add_argument('-bn', '--bulk_normal', type=str, default='',
+    parser.add_argument('-bn', '--bulk_normal', nargs='*', type=str, default=[''],
         help='Column name of bulk normal. Default = None.')
     parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
         help='Column name of bulk tumor. Default = None.')
