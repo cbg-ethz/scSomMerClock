@@ -44,6 +44,7 @@ modules:
   bedtools: [bedtools/2.28.0]
   SCcaller: [samtools, pysam/0.15.4-python-2.7.17, numpy/1.16.6-python-2.7.17]
   monovar: [samtools,  pysam/0.15.4-python-2.7.17, numpy/1.16.6-python-2.7.17, scipy/1.1.0-python-2.7.15]
+  mutect1: [gatk/4.1.1.0, picard/2.18.14]
   QC_seq: [pandas/1.0.1-python-3.7.7, matplotlib/3.1.3-python-3.7.7]
   bcftools: [bcftools]
   QC_calling: [pysam/0.16.0.1-python-3.7.7, pandas/1.0.1-python-3.7.7]

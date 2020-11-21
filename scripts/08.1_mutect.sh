@@ -34,7 +34,6 @@ set -Eeuxo pipefail
 
 cores=$(nproc)
 
-bams_in_temp=""
 for bam in $bams_in; do
     if [[ "$bam" == "-I" ]]; then
         continue
