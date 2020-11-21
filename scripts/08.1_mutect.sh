@@ -48,6 +48,8 @@ for bam in $bams_in; do
         RGPL=ILLUMINA \
         RGPU=unit1
     mv $bam.temp $bam
+    java -Xmx28g -jar $EBROOTPICARD/picard.jar BuildBamIndex \
+        I=$bam
 done
 
 gatk Mutect2 \

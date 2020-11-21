@@ -81,8 +81,8 @@ monovar1:
 
 mutect1:
   cpus-per-task: 4
-  time: 359
-  mem: 30G
+  time: 1439
+  mem: 32G
 
 
 mutect2:
