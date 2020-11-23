@@ -503,9 +503,8 @@ rule QC_calling_chr:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
             .get('QC_calling', ['pysam', 'pandas'])),
-        bulk_normal = cell_map[config['specific'].get('bulk_normal', '')],
-        bulk_tumor = ' '.join([' '.join(cell_map[i]) for i in \
-            bulk_samples['tumor']]),
+        bulk_normal = config['specific'].get('bulk_normal', ''),
+        bulk_tumor = ' '.join([' '.join(i) for i in bulk_samples['tumor']]),
         filter_DP = config.get('filters', {}).get('depth', 10),
         filter_QUAL = config.get('filters', {}).get('QUAL', 20)
     shell:
