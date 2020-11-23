@@ -217,10 +217,13 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
 
         sc_calls, is_bulk_snv, is_germline_snv = get_call_summary(rec,
             sample_maps, args.read_depth, args.quality)
+
         if is_germline_snv:
             germline.append('{}:{}'.format(rec.chrom, rec.pos))
             continue
         if sc_calls.max() <= 0:
+            if is_bulk_snv:
+                data['bulk'].append([rec.chrom, rec.pos, 0, 0, 1, 0, 0, 0, 0])
             continue
 
         # 0: monovar, 1: sccaller, 2: bulk_tumor
@@ -294,7 +297,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
         all_row[np.argwhere(gt_row == '0') + 1] = rec.ref
         all_row[np.argwhere(gt_row == '3') + 1] = '?'
         all_mat.append(all_row)
-        
+    
     if len(all_mat) > 0:
         all_mat_t = np.stack(all_mat).T
     else:
