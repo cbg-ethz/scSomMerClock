@@ -54,7 +54,7 @@ indel_realignment0:
 indel_realignment1:
   partition: amd-shared
   qos: amd-shared
-  time: 120
+  time: 239
   mem: 20G
 
 
