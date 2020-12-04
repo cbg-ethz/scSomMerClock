@@ -36,25 +36,18 @@ done
 
 set -Eeuxo pipefail
 
-[[ -z "$cellname" ]] && { echo "Error: Cellname not set"; exit 1; }
-[[ -z "$chr" ]] && { echo "Error: Chromosome not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$SCcaller" ]] && { echo "Error: SCcaller exe not set"; exit 1; }
-[[ -z "$bulk_normal" ]] && { echo "Error: Bulk normal not set"; exit 1; }
-[[ -z "$DBSNP" ]] && { echo "Error: DBSNP file not set"; exit 1; }
-
 cores=$(nproc)
 
 python $SCcaller \
-    --bam Processing/${cellname}.real.${chr}.bam \
+    --bam Processing/${cellname}.recal.${chr}.bam \
     --fasta ${REF} \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
-    --bulk Processing/${bulk_normal}.real.${chr}.bam \
+    --bulk Processing/${bulk_normal}.recal.${chr}.bam \
     --output Calls/${cellname}.${chr}.sccaller.vcf \
     --cpu_num ${cores} \
     --engine pysam \
     --min_depth ${minDepth} \
     --minvar 2 \
     --bulk_min_depth 0
-# && rm sc_${cellname}.real.${chr}.sccallerlab_01to-1.log
+# && rm sc_${cellname}.recal.${chr}.sccallerlab_01to-1.log
