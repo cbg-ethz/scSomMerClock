@@ -7,7 +7,7 @@ from itertools import product
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-workdir: DATA_DIR
+# workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -51,7 +51,7 @@ if config['specific'].get('bulk_samples', False):
 
 ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
 ss_samples.sort()
-
+import pdb; pdb.set_trace()
 
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
@@ -562,6 +562,20 @@ rule ADO_calculation:
 # ------------------------------------------------------------------------------
 # --------------------------- SCIPHI PREPROCESSING -----------------------------
 # ------------------------------------------------------------------------------
+
+rule generate_cellNames:
+    output:
+        os.path.join('SciPhi', 'cellNames.txt')
+    params:
+        cell = ss_samples
+    run:
+        out_str = ''
+        for i in params.cells:
+            pass
+
+        with open(output, 'w') as f:
+            f.write(out_str)
+
 
 rule generate_mpileup:
     input:
