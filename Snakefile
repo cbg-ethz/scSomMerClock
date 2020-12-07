@@ -51,7 +51,6 @@ if config['specific'].get('bulk_samples', False):
 
 ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
 ss_samples.sort()
-import pdb; pdb.set_trace()
 
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
