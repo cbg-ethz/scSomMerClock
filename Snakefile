@@ -79,10 +79,15 @@ def get_all_files(wildcards):
     return files
 
 
-rule all:
-    input:
-        get_all_files
-        
+if config.get('ethan', {}).get('run', False):
+    rule all:
+        input:
+            os.path.join('SciPhi', 'preprocessed.all.tsv')
+else:
+    rule all:
+        input:
+            get_all_files
+            
 
 rule adapter_cutting:
     input:
@@ -466,7 +471,7 @@ else:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \
                 config['modules'].get('gatk41', ['gatk/4.1'])]),
-            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
         shell:
             '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
             '{params.modules} -i {input.vcf} -rom {input.rom} '
@@ -553,6 +558,59 @@ rule ADO_calculation:
         '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
         '-o {output}'
 
+
+# ------------------------------------------------------------------------------
+# --------------------------- SCIPHI PREPROCESSING -----------------------------
+# ------------------------------------------------------------------------------
+
+rule generate_mpileup:
+    input:
+        os.path.join('Processing', '{chr}.bamspath.txt')
+    output:
+        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+    params:
+        base_dir = BASE_DIR,
+        ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        modules = ' '.join(config['modules'] \
+                .get('SciPhi', ['samtools']))
+    shell:
+        'module load {params.modules} && '
+        'samtools mpileup \ '
+        '   --region ${chr} \ '
+        '   --no-BAQ \ '
+        '   --min-BQ 13 \ '
+        '   --max-depth 10000 \ '
+        '   --fasta-ref ${params.ref} \ '
+        '   --min-MQ 40 \ '
+        '   --bam-list {input} > {output}'
+
+
+rule run_sciphi:
+    input:
+        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+    output:
+        os.path.join('SciPhi', 'preprocessed.{chr}.tsv')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join(config['modules'] \
+                .get('SciPhi', ['gcccore, boost, seqan, dlib, zlib'])),
+        sciphi = config['ethan']['sciphi']
+    shell:
+        'module load {params.modules} && '
+        '{params.sciphi} --cwm 2 --slt on -o SciPhi/preprocessed {input}'
+
+
+rule concatenate_sciphi:
+    input:
+        expand(os.path.join('SciPhi', 'preprocessed.{chr}.tsv'), chr=CHROM)
+    output:
+        os.path.join('SciPhi', 'preprocessed.all.tsv')
+    params:
+        base_dir = BASE_DIR,
+        modules = ' '.join(config['modules'] \
+                .get('QC_calling', ['pysam', 'pandas']))
+    shell:
+        'echo "asdaw"'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
