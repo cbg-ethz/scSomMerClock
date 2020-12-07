@@ -79,6 +79,11 @@ def get_all_files(wildcards):
 
 
 if config.get('ethan', {}).get('run', False):
+    with open(os.path.join(DATA_DIR, config['ethan']['cells']), 'r') as f_in:
+        x = f_in.read().strip().split('\n')
+
+    ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
+
     rule all:
         input:
             os.path.join('SciPhi', 'preprocessed.all.tsv')
@@ -562,21 +567,16 @@ rule ADO_calculation:
 # --------------------------- SCIPHI PREPROCESSING -----------------------------
 # ------------------------------------------------------------------------------
 
-rule generate_cellNames:
+rule generate_bamfiles:
+    input:
+        expand(os.path.join('Processing', '{cell}.recal.{chr}.bam'),
+            cell=ss_samples_ethan)
     output:
-        names = os.path.join('SciPhi', 'cellNames.txt')
-    params:
-        cells = ss_samples
+        os.path.join('SciPhi', '{chr}.bamspath.txt')
     run:
-        out_str = ''
-        for i in params.cells:
-            if i.startswith('N'):
-                out_str += '{}\tCN\n'.format(i)
-            else:
-                out_str += '{}\tCT\n'.format(i)
-
-        with open(output.names, 'w') as f:
-            f.write(out_str.strip())
+        with open(output[0], 'w') as f:
+            for bam_file in input:
+                f.write(f'{bam_file}\n')
 
 
 rule generate_mpileup:

@@ -53,6 +53,7 @@ modules:
 ethan:
   run: True
   sciphi: /home/uvi/be/nbo/SCIPhI/build/sciphi
+  cells: Wu61_SciPhi_cells.tsv
 
   # $EBROOTBOOST
   # $EBROOTSEQAN
