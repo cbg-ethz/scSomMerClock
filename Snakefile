@@ -7,7 +7,7 @@ from itertools import product
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-# workdir: DATA_DIR
+workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -571,10 +571,13 @@ rule generate_cellNames:
     run:
         out_str = ''
         for i in params.cells:
-            pass
+            if i.startswith('N'):
+                out_str += '{}\tCN\n'.format(i)
+            else:
+                out_str += '{}\tCT\n'.format(i)
 
         with open(output, 'w') as f:
-            f.write(out_str)
+            f.write(out_str.strip())
 
 
 rule generate_mpileup:
@@ -601,7 +604,8 @@ rule generate_mpileup:
 
 rule run_sciphi:
     input:
-        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        names = os.path.join('SciPhi', 'cellNames.txt')
     output:
         os.path.join('SciPhi', 'preprocessed.{chr}.tsv')
     params:
@@ -611,7 +615,8 @@ rule run_sciphi:
         sciphi = config['ethan']['sciphi']
     shell:
         'module load {params.modules} && '
-        '{params.sciphi} --cwm 2 --slt on -o SciPhi/preprocessed {input}'
+        '{params.sciphi} --cwm 2 --slt on --in {input.names} '
+        '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
 rule concatenate_sciphi:
