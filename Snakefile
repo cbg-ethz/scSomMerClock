@@ -574,9 +574,9 @@ rule generate_mpileup:
         modules = ' '.join(config['modules'] \
                 .get('SciPhi', ['samtools']))
     shell:
-        'module load {params.modules} && '
+        'module load {params.modules} && mkdir -p SciPhi &&'
         'samtools mpileup \ '
-        '   --region ${wildcards.chr} \ '
+        '   --region {wildcards.chr} \ '
         '   --no-BAQ \ '
         '   --min-BQ 13 \ '
         '   --max-depth 10000 \ '
