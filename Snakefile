@@ -566,7 +566,7 @@ rule generate_cellNames:
     output:
         os.path.join('SciPhi', 'cellNames.txt')
     params:
-        cell = ss_samples
+        cells = ss_samples
     run:
         out_str = ''
         for i in params.cells:
