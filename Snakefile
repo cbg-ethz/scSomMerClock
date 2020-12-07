@@ -581,7 +581,7 @@ rule generate_bamfiles:
 
 rule generate_mpileup:
     input:
-        os.path.join('Processing', '{chr}.bamspath.txt')
+        os.path.join('SciPhi', '{chr}.bamspath.txt')
     output:
         os.path.join('SciPhi', 'ss.{chr}.mpileup')
     params:
@@ -604,17 +604,17 @@ rule generate_mpileup:
 rule run_sciphi:
     input:
         pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-        names = os.path.join('SciPhi', 'cellNames.txt')
     output:
         os.path.join('SciPhi', 'preprocessed.{chr}.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
                 .get('SciPhi', ['gcccore, boost, seqan, dlib, zlib'])),
-        sciphi = config['ethan']['sciphi']
+        sciphi = config['ethan']['sciphi'],
+        names = os.path.join(DATA_DIR, config['ethan']['cells'])
     shell:
         'module load {params.modules} && '
-        '{params.sciphi} --cwm 2 --slt on --in {input.names} '
+        '{params.sciphi} --cwm 2 --slt on --in {params.names} '
         '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
