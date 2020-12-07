@@ -580,7 +580,7 @@ rule generate_mpileup:
         '   --no-BAQ \ '
         '   --min-BQ 13 \ '
         '   --max-depth 10000 \ '
-        '   --fasta-ref ${params.ref} \ '
+        '   --fasta-ref {params.ref} \ '
         '   --min-MQ 40 \ '
         '   --bam-list {input} > {output}'
 
