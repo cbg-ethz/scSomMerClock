@@ -51,7 +51,7 @@ if config['specific'].get('bulk_samples', False):
 
 ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
 ss_samples.sort()
-
+import pdb; pdb.set_trace()
 
 def get_corr_samples(wildcards):
     return [os.path.join('Processing', f'{i}.sorted.bam') \
@@ -563,6 +563,23 @@ rule ADO_calculation:
 # --------------------------- SCIPHI PREPROCESSING -----------------------------
 # ------------------------------------------------------------------------------
 
+rule generate_cellNames:
+    output:
+        os.path.join('SciPhi', 'cellNames.txt')
+    params:
+        cell = ss_samples
+    run:
+        out_str = ''
+        for i in params.cells:
+            if i.startswith('N'):
+                out_str += '{}\tCN\n'.format(i)
+            else:
+                out_str += '{}\tCT\n'.format(i)
+
+        with open(output, 'w') as f:
+            f.write(out_str.strip())
+
+
 rule generate_mpileup:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
@@ -587,7 +604,8 @@ rule generate_mpileup:
 
 rule run_sciphi:
     input:
-        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        names = os.path.join('SciPhi', 'cellNames.txt')
     output:
         os.path.join('SciPhi', 'preprocessed.{chr}.tsv')
     params:
@@ -597,7 +615,8 @@ rule run_sciphi:
         sciphi = config['ethan']['sciphi']
     shell:
         'module load {params.modules} && '
-        '{params.sciphi} --cwm 2 --slt on -o SciPhi/preprocessed {input}'
+        '{params.sciphi} --cwm 2 --slt on --in {input.names} '
+        '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
 rule concatenate_sciphi:
