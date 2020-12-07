@@ -576,7 +576,7 @@ rule generate_mpileup:
     shell:
         'module load {params.modules} && '
         'samtools mpileup \ '
-        '   --region ${chr} \ '
+        '   --region ${wildcards.chr} \ '
         '   --no-BAQ \ '
         '   --min-BQ 13 \ '
         '   --max-depth 10000 \ '
