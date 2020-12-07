@@ -564,7 +564,7 @@ rule ADO_calculation:
 
 rule generate_cellNames:
     output:
-        os.path.join('SciPhi', 'cellNames.txt')
+        names = os.path.join('SciPhi', 'cellNames.txt')
     params:
         cells = ss_samples
     run:
@@ -575,7 +575,7 @@ rule generate_cellNames:
             else:
                 out_str += '{}\tCT\n'.format(i)
 
-        with open(output, 'w') as f:
+        with open(output.names, 'w') as f:
             f.write(out_str.strip())
 
 
