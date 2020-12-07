@@ -569,7 +569,7 @@ rule ADO_calculation:
 
 rule generate_bamfiles:
     input:
-        expand(os.path.join('Processing', '{cell}.recal.{chr}.bam'),
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
             cell=ss_samples_ethan)
     output:
         os.path.join('SciPhi', '{chr}.bamspath.txt')
