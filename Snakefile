@@ -605,7 +605,7 @@ rule run_sciphi:
     input:
         pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
     output:
-        os.path.join('SciPhi', 'preprocessed.{chr}.tsv')
+        os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 'nuc.tsv')
     params:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
@@ -620,7 +620,9 @@ rule run_sciphi:
 
 rule concatenate_sciphi:
     input:
-        expand(os.path.join('SciPhi', 'preprocessed.{chr}.tsv'), chr=CHROM)
+        expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
+                'nuc.tsv'),
+            chr=CHROM)
     output:
         os.path.join('SciPhi', 'preprocessed.all.tsv')
     params:
