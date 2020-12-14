@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import numpy as np
 
 NEXUS_TEMPLATE = """#NEXUS
 
@@ -107,6 +106,8 @@ def parse_with_pysam(vcf_in):
 
 
 def snv_gen_to_new(in_file):
+    import numpy as np
+    
     with open(in_file, 'r') as f_in:
         data_raw = f_in.read().strip().split('\n')
 
