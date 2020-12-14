@@ -47,8 +47,8 @@ if config.get('hpc', False):
         params:
             modules = 'cesga/2018 gcc/6.4.0 openmpi/2.1.1 mrbayes/3.2.7'
         shell:
-            'module load {params.modules}; '
-            'srun {params.mb_exe} {input} > {input}.log'
+            'module load {params.modules} && '
+            'srun m {input} > {input}.log'
 else:
     rule run_mrbayes:
         input:
