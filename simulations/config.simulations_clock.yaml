@@ -1,0 +1,11 @@
+cellcoal:
+  exe: /home/hw/Desktop/molClock_project/cellcoal/bin/cellcoal-1.1.1
+  parameters: /home/hw/Desktop/molClock_project/MolClockAnalysis/simulations/parameters.simulations_clock.DP
+
+
+mrbayes:
+  exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
+  ngen: 1000000
+
+
+hpc: False
