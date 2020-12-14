@@ -109,3 +109,12 @@ generate_mpileup:
 run_sciphi:
   time: 359
   mem: 16G
+<<<<<<< HEAD
+=======
+
+
+run_mrbayes:
+  cpus-per-task: 4
+  time: 600
+  mem: 16G
+>>>>>>> f9cb63e90d398f5a20a0e7fee833c7098bc79994
