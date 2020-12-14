@@ -112,6 +112,6 @@ run_sciphi:
 
 
 run_mrbayes:
-  cpus-per-task: 4
+  cpus-per-task: 1
   time: 600
   mem: 16G
