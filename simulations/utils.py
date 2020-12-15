@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import os
+import math
+
 
 NEXUS_TEMPLATE = """#NEXUS
 
@@ -121,3 +124,59 @@ def snv_gen_to_new(in_file):
         cells.append(cell_name)
         df[i] = cell_snvs.split(' ')
     import pdb; pdb.set_trace()
+
+
+def get_Bayes_factor(in_files, out_file):
+    scores = {}
+    for in_file in in_files:
+        _, run, model, _ = os.path.basename(in_file).split('.')
+        with open(in_file, 'r') as f_score:
+            score_raw = f_score.read().strip().split('\n')
+        score = float(score_raw[-1].split('\t')[2])
+        
+        if not run in scores:
+            scores[run] = {'clock': -1, 'noClock': -1}
+        scores[run][model] = score
+
+    out_str = ''
+    for run, run_info in scores.items():
+        h1 = run_info['clock']
+        h2 = run_info['noClock']
+        diff = min(99, h1 - h2)
+
+        logB_12 = 2 * diff
+        if logB_12 < 2:
+            evidence = 'None'
+        elif logB_12 < 6:
+            evidence = 'Positive'
+        elif logB_12 < 6:
+            evidence = 'Strong'
+        else:
+            evidence = 'Very Strong'
+
+        out_str += f'{run}\t{h1}\t{h2}\t{logB_12}\t{math.exp(diff)}\t{evidence}\n'
+
+    with open(out_file, 'w') as f_out:
+        f_out.write('run\tH_1:clock\tH_2:noClock\t2log_e(B_12)\tB_12\tEvidence\n')
+        f_out.write(out_str.strip())
+    
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog='utils.py',
+        usage='python3 utils.py <DATA> [options]',
+        description='*** Convert VCF to NEXUS file ***')
+    parser.add_argument('input', type=str,  nargs='*',
+        help='Absolute or relative path(s) to input VCF file')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Path to the output directory. Default = <INPUT_DIR>.')
+    parser.add_argument('-n', '--ngen', type=int, default=1e6,
+        help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    vcf_to_nex(args.input, args.outut, args.ngen)
+    

@@ -69,4 +69,5 @@ rule merge_results:
     output:
         os.path.join('mrbayes_results', 'clock_test_summary.tsv')
     run:
+        get_Bayes_factor(input, output[0])
         import pdb; pdb.set_trace()
