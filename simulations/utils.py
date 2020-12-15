@@ -2,7 +2,7 @@
 
 import os
 import math
-import argparser
+import argparse
 
 
 NEXUS_TEMPLATE = """#NEXUS
