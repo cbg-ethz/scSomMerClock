@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import math
 import argparse
 
@@ -43,11 +44,15 @@ def vcf_to_nex(vcf_file, out_file, ngen):
     if vcf_file.endswith('gz'):
         import gzip
         file_stream = gzip.open(vcf_file, 'rb')
+        byte = True
     else:
         file_stream = open(vcf_file, 'r')
+        byte = False
 
     with file_stream as f_in:
         for line in f_in:
+            if byte:
+                line = line.decode("utf-8")
             # VCF header
             if line.startswith('##'):
                 header += line
@@ -64,9 +69,9 @@ def vcf_to_nex(vcf_file, out_file, ngen):
                     gt = s_rec[:s_rec.index(':')]
                     if len(gt) < 3:
                         s_rec_ref = '0'
-                        s_rec_alt = gt.strip('|')
+                        s_rec_alt = re.split('[/\|]', gt)
                     else:
-                        s_rec_ref, s_rec_alt = gt.split('|')
+                        s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
 
                     if s_rec_ref == '.':
                         samples[s_i] += '?'
