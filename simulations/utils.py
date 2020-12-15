@@ -173,7 +173,7 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
         usage='python3 utils.py <DATA> [options]',
         description='*** Convert VCF to NEXUS file ***')
-    parser.add_argument('input', type=str,  nargs='*',
+    parser.add_argument('input', type=str,
         help='Absolute or relative path(s) to input VCF file')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
