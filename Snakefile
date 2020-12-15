@@ -299,7 +299,7 @@ rule SCcaller1:
     input:
         os.path.join('Processing', '{cell}.recal.{chr}.bam')
     output:
-        os.path.join('Calls', '{cell}.{chr}.sccaller.vcf')
+        temp(os.path.join('Calls', '{cell}.{chr}.sccaller.vcf'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -350,7 +350,7 @@ rule monovar0:
         expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
             cell=ss_samples)
     output:
-        os.path.join('Processing', '{chr}.bamspath.txt')
+        temp(os.path.join('Processing', '{chr}.bamspath.txt'))
     run:
         with open(output[0], 'w') as f:
             for bam_file in input:
@@ -361,7 +361,7 @@ rule monovar1:
     input:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
-        os.path.join('Calls', '{chr}.monovar.vcf')
+        temp(os.path.join('Calls', '{chr}.monovar.vcf'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -507,7 +507,7 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        os.path.join('QC', 'all.{chr}.filtered.vcf')
+        temp(os.path.join('QC', 'all.{chr}.filtered.vcf'))
     params:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
@@ -566,71 +566,72 @@ rule ADO_calculation:
 # ------------------------------------------------------------------------------
 # --------------------------- SCIPHI PREPROCESSING -----------------------------
 # ------------------------------------------------------------------------------
+if config.get('ethan', {}).get('run', False):
 
-rule generate_bamfiles:
-    input:
-        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
-            cell=ss_samples_ethan)
-    output:
-        os.path.join('SciPhi', '{chr}.bamspath.txt')
-    run:
-        with open(output[0], 'w') as f:
-            for bam_file in input:
-                f.write(f'{bam_file}\n')
-
-
-rule generate_mpileup:
-    input:
-        os.path.join('SciPhi', '{chr}.bamspath.txt')
-    output:
-        os.path.join('SciPhi', 'ss.{chr}.mpileup')
-    params:
-        base_dir = BASE_DIR,
-        ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
-        modules = ' '.join(config['modules'] \
-                .get('SciPhi', ['samtools']))
-    shell:
-        'module load {params.modules} && mkdir -p SciPhi &&'
-        'samtools mpileup \ '
-        '   --region {wildcards.chr} \ '
-        '   --no-BAQ \ '
-        '   --min-BQ 13 \ '
-        '   --max-depth 10000 \ '
-        '   --fasta-ref {params.ref} \ '
-        '   --min-MQ 40 \ '
-        '   --bam-list {input} > {output}'
+    rule generate_bamfiles:
+        input:
+            expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
+                cell=ss_samples_ethan)
+        output:
+            os.path.join('SciPhi', '{chr}.bamspath.txt')
+        run:
+            with open(output[0], 'w') as f:
+                for bam_file in input:
+                    f.write(f'{bam_file}\n')
 
 
-rule run_sciphi:
-    input:
-        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-    output:
-        os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 'nuc.tsv')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join(config['modules'] \
-                .get('SciPhi', ['gcccore, boost, seqan, dlib, zlib'])),
-        sciphi = config['ethan']['sciphi'],
-        names = os.path.join(DATA_DIR, config['ethan']['cells'])
-    shell:
-        'module load {params.modules} && '
-        '{params.sciphi} --cwm 2 --slt on --in {params.names} '
-        '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
+    rule generate_mpileup:
+        input:
+            os.path.join('SciPhi', '{chr}.bamspath.txt')
+        output:
+            os.path.join('SciPhi', 'ss.{chr}.mpileup')
+        params:
+            base_dir = BASE_DIR,
+            ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
+            modules = ' '.join(config['modules'] \
+                    .get('SciPhi', ['samtools']))
+        shell:
+            'module load {params.modules} && mkdir -p SciPhi &&'
+            'samtools mpileup \ '
+            '   --region {wildcards.chr} \ '
+            '   --no-BAQ \ '
+            '   --min-BQ 13 \ '
+            '   --max-depth 10000 \ '
+            '   --fasta-ref {params.ref} \ '
+            '   --min-MQ 40 \ '
+            '   --bam-list {input} > {output}'
 
 
-rule concatenate_sciphi:
-    input:
-        expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
-                'nuc.tsv'),
-            chr=CHROM)
-    output:
-        os.path.join('SciPhi', 'preprocessed.all.tsv')
-    params:
-        base_dir = BASE_DIR,
-        modules = ' '.join(config['modules'] \
-                .get('QC_calling', ['pysam', 'pandas']))
-    shell:
-        'echo "asdaw"'
+    rule run_sciphi:
+        input:
+            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        output:
+            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 'nuc.tsv')
+        params:
+            base_dir = BASE_DIR,
+            modules = ' '.join(config['modules'] \
+                    .get('SciPhi', ['gcccore, boost, seqan, dlib, zlib'])),
+            sciphi = config['ethan']['sciphi'],
+            names = os.path.join(DATA_DIR, config['ethan']['cells'])
+        shell:
+            'module load {params.modules} && '
+            '{params.sciphi} --cwm 2 --slt on --in {params.names} '
+            '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
+
+
+    rule concatenate_sciphi:
+        input:
+            expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
+                    'nuc.tsv'),
+                chr=CHROM)
+        output:
+            os.path.join('SciPhi', 'preprocessed.all.tsv')
+        params:
+            base_dir = BASE_DIR,
+            modules = ' '.join(config['modules'] \
+                    .get('QC_calling', ['pysam', 'pandas']))
+        shell:
+            'echo "asdaw"'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------

@@ -448,7 +448,7 @@ def save_summary(data, out_file, verbose=True):
                 print('{}\t-\t{}'.format(call_no, alg_str))
 
 
-def plot_venn(data, out_dir):
+def plot_venn(data, args):
     try:
         import matplotlib.pyplot as plt
         from matplotlib_venn import venn3, venn3_circles
@@ -628,5 +628,3 @@ def main(args):
 if __name__ == '__main__':
     args = parse_args()
     main(args)
-
-
