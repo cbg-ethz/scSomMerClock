@@ -2,6 +2,7 @@
 
 import os
 import math
+import argparser
 
 
 NEXUS_TEMPLATE = """#NEXUS
@@ -39,7 +40,13 @@ def load_config(configfile):
 
 def vcf_to_nex(vcf_file, out_file, ngen):
     header = ''
-    with open(vcf_file, 'r') as f_in:
+    if vcf_file.endswith('gz'):
+        import gzip
+        file_stream = gzip.open(vcf_file, 'rb')
+    else:
+        file_stream = open(vcf_file, 'r')
+
+    with file_stream as f_in:
         for line in f_in:
             # VCF header
             if line.startswith('##'):
