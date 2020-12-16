@@ -161,7 +161,7 @@ def get_Bayes_factor(in_files, out_file):
             evidence = 'None'
         elif logB_12 < 6:
             evidence = 'Positive'
-        elif logB_12 < 6:
+        elif logB_12 < 10:
             evidence = 'Strong'
         else:
             evidence = 'Very Strong'
@@ -169,7 +169,7 @@ def get_Bayes_factor(in_files, out_file):
         out_str += f'{run}\t{h1}\t{h2}\t{logB_12}\t{math.exp(diff)}\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
-        f_out.write('run\tH_1:clock\tH_2:noClock\t2log_e(B_12)\tB_12\tEvidence\n')
+        f_out.write('run\tH_0:clock\tH_1:noClock\t2log_e(B_12)\tB_12\tEvidence\n')
         f_out.write(out_str.strip())
     
 
