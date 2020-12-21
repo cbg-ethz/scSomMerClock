@@ -19,11 +19,9 @@ end;
 begin mrbayes;
     set autoclose=yes nowarnings=yes;
     lset nst=6 rates=invgamma;
+    prset brlenspr={brlen_prior};
     ss ngen={ngen};
-    sump outputname={out_file}.noClock;
-    prset brlenspr=clock:uniform;
-    ss ngen={ngen};
-    sump outputname={out_file}.clock;
+    sump outputname={out_file};
 end;
 """
 
@@ -39,7 +37,7 @@ def load_config(configfile):
     return cc_params
 
 
-def vcf_to_nex(vcf_file, out_file, ngen):
+def vcf_to_nex(vcf_file, out_files, ngen):
     header = ''
     if vcf_file.endswith('gz'):
         import gzip
@@ -85,12 +83,19 @@ def vcf_to_nex(vcf_file, out_file, ngen):
         mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
     rec_no = len(samples[0])
 
-    nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names), rec_no=rec_no,
-        sample_labels=' '.join(sample_names), matrix=mat_str.strip('\n'),
-        out_file=out_file, ngen=ngen)
+    for out_file in out_files:
+        model = out_file.split('.')[-1]
+        if model == 'clock':
+            brlen_prior = 'clock:uniform'
+        else:
+            brlen_prior = 'unconstrained:exp(10.0)'
 
-    with open(out_file, 'w') as f_out:
-        f_out.write(nex_str)
+        nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
+            rec_no=rec_no, sample_labels=' '.join(sample_names),
+            matrix=mat_str.strip('\n'), out_file=out_file, ngen=ngen)
+
+        with open(out_file, 'w') as f_out:
+            f_out.write(nex_str)
     
 
 def parse_with_pysam(vcf_in):
@@ -152,9 +157,9 @@ def get_Bayes_factor(in_files, out_file):
 
     out_str = ''
     for run, run_info in scores.items():
-        h1 = run_info['clock']
-        h2 = run_info['noClock']
-        diff = min(99, h1 - h2)
+        h0 = run_info['clock']
+        h1 = run_info['noClock']
+        diff = max(-99, h1 - h0)
 
         logB_12 = 2 * diff
         if logB_12 < 2:
@@ -169,7 +174,7 @@ def get_Bayes_factor(in_files, out_file):
         out_str += f'{run}\t{h1}\t{h2}\t{logB_12}\t{math.exp(diff)}\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
-        f_out.write('run\tH_0:clock\tH_1:noClock\t2log_e(B_12)\tB_12\tEvidence\n')
+        f_out.write('run\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\tEvidence\n')
         f_out.write(out_str.strip())
     
 
