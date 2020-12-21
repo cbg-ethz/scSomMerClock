@@ -71,4 +71,4 @@ rule merge_results:
         os.path.join('mrbayes_results', 'clock_test_summary.tsv')
     run:
         get_Bayes_factor(input, output[0])
-        
+

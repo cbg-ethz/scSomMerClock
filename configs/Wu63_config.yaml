@@ -51,7 +51,7 @@ modules:
   SciPhi: [gcccore/6.4.0, boost/1.73.0-python-3.7.7, seqan/2.4.0, dlib/19.16, zlib/1.2.11, samtools]
 
 ethan:
-  run: True
+  run: False
   sciphi: /home/uvi/be/nbo/SCIPhI/build/sciphi
   cells: Wu61_SciPhi_cells.tsv
 
