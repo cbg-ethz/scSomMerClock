@@ -30,7 +30,7 @@ rule vcf_to_nex:
     input:
         os.path.join(cc_out, 'vcf_dir', 'vcf.{run}')
     output:
-        expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}'),
+        expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{{run}}.{model}'),
             model=['clock', 'noClock']) 
     params:
         ngen = config['mrbayes'].get('ngen', 1000000)
