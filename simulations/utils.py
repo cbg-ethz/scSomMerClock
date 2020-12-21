@@ -92,7 +92,8 @@ def vcf_to_nex(vcf_file, out_files, ngen):
 
         nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
             rec_no=rec_no, sample_labels=' '.join(sample_names),
-            matrix=mat_str.strip('\n'), out_file=out_file, ngen=ngen)
+            matrix=mat_str.strip('\n'), out_file=out_file, ngen=ngen,
+            brlen_prior=brlen_prior)
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
