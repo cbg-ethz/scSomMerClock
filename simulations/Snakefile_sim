@@ -30,32 +30,33 @@ rule vcf_to_nex:
     input:
         os.path.join(cc_out, 'vcf_dir', 'vcf.{run}')
     output:
-        os.path.join(cc_out, 'nxs_dir', 'nxs.{run}')
+        expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}'),
+            model=['clock', 'noClock']) 
     params:
         ngen = config['mrbayes'].get('ngen', 1000000)
     run:
-        vcf_to_nex(input[0], output[0], params.ngen)    
+        vcf_to_nex(input[0], output, params.ngen)    
 
 
 if config.get('hpc', False):
     rule run_mrbayes:
         input:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}')
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.clock.lstat'),
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.noClock.lstat')
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
-            modules = 'cesga/2018 gcc/6.4.0 openmpi/2.1.1 mrbayes/3.2.7'
+            modules = 'gcc/6.4.0 openmpi/2.1.1 mrbayes/3.2.7'
         shell:
             'module load {params.modules} && '
             'mb {input} > {input}.log'
 else:
     rule run_mrbayes:
         input:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}')
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.clock.lstat'),
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.noClock.lstat')
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
+            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe'],
         shell:
@@ -70,3 +71,4 @@ rule merge_results:
         os.path.join('mrbayes_results', 'clock_test_summary.tsv')
     run:
         get_Bayes_factor(input, output[0])
+
