@@ -43,7 +43,6 @@ if config.get('hpc', False):
         input:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
             modules = 'gcc/6.4.0 openmpi/2.1.1 mrbayes/3.2.7'
@@ -55,10 +54,9 @@ else:
         input:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
-            mb_exe = config['mrbayes']['exe'],
+            mb_exe = config['mrbayes']['exe']
         shell:
             '{params.mb_exe} {input} > {input}.log'
 
