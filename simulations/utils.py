@@ -160,7 +160,7 @@ def get_Bayes_factor(in_files, out_file):
     for run, run_info in scores.items():
         h0 = run_info['clock']
         h1 = run_info['noClock']
-        diff = max(-99, h1 - h0)
+        diff = min(max(-99, h1 - h0), 99)
 
         logB_01 = 2 * diff
         if logB_01 < 2:
