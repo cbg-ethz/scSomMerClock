@@ -162,17 +162,17 @@ def get_Bayes_factor(in_files, out_file):
         h1 = run_info['noClock']
         diff = max(-99, h1 - h0)
 
-        logB_12 = 2 * diff
-        if logB_12 < 2:
+        logB_01 = 2 * diff
+        if logB_01 < 2:
             evidence = 'None'
-        elif logB_12 < 6:
+        elif logB_01 < 6:
             evidence = 'Positive'
-        elif logB_12 < 10:
+        elif logB_01 < 10:
             evidence = 'Strong'
         else:
             evidence = 'Very Strong'
 
-        out_str += f'{run}\t{h1}\t{h2}\t{logB_12}\t{math.exp(diff)}\t{evidence}\n'
+        out_str += f'{run}\t{h0}\t{h1}\t{logB_01}\t{math.exp(diff)}\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write('run\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\tEvidence\n')
