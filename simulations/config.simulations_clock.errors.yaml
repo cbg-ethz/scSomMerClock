@@ -1,0 +1,11 @@
+cellcoal:
+  exe: /home/uvi/be/nbo/cellcoal/bin/cellcoal-1.1.1
+  parameters: /home/uvi/be/nbo/MolClockAnalysis/simulations/parameters.simulations_clock.DP
+
+
+mrbayes:
+  exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
+  ngen: 500000
+
+
+hpc: True
