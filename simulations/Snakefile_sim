@@ -66,7 +66,7 @@ rule merge_results:
         expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
             run=[f'{i+1:04d}' for i in range(n)], model=['clock', 'noClock'])
     output:
-        os.path.join('mrbayes_results', 'clock_test_summary.tsv')
+        os.path.join(cc_out, 'clock_test_summary.tsv')
     run:
         get_Bayes_factor(input, output[0])
 
