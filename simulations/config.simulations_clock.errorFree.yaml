@@ -6,6 +6,7 @@ cellcoal:
 mrbayes:
   exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
   ngen: 1000000
+  ss: False
 
 
 hpc: True

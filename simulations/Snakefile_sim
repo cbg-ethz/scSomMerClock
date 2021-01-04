@@ -33,9 +33,10 @@ rule vcf_to_nex:
         expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{{run}}.{model}'),
             model=['clock', 'noClock']) 
     params:
-        ngen = config['mrbayes'].get('ngen', 1000000)
+        ngen = config['mrbayes'].get('ngen', 1000000),
+        ss = config['mrbayes'].get('ss', False)
     run:
-        vcf_to_nex(input[0], output, params.ngen)    
+        vcf_to_nex(input[0], output, params.ngen, params.ss)    
 
 
 if config.get('hpc', False):

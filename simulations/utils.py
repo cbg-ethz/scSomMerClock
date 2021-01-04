@@ -20,7 +20,7 @@ begin mrbayes;
     set autoclose=yes nowarnings=yes;
     lset nst=6 rates=invgamma;
     prset brlenspr={brlen_prior};
-    ss ngen={ngen};
+    {alg} ngen={ngen};
     sump outputname={out_file};
 end;
 """
@@ -37,7 +37,7 @@ def load_config(configfile):
     return cc_params
 
 
-def vcf_to_nex(vcf_file, out_files, ngen):
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
     header = ''
     if vcf_file.endswith('gz'):
         import gzip
@@ -83,6 +83,11 @@ def vcf_to_nex(vcf_file, out_files, ngen):
         mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
     rec_no = len(samples[0])
 
+    if ss_flag:
+        alg = 'ss'
+    else:
+        alg = 'mcmc'
+
     for out_file in out_files:
         model = out_file.split('.')[-1]
         if model == 'clock':
@@ -92,7 +97,7 @@ def vcf_to_nex(vcf_file, out_files, ngen):
 
         nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
             rec_no=rec_no, sample_labels=' '.join(sample_names),
-            matrix=mat_str.strip('\n'), out_file=out_file, ngen=ngen,
+            matrix=mat_str.strip('\n'), out_file=out_file, alg=alg, ngen=ngen,
             brlen_prior=brlen_prior)
 
         with open(out_file, 'w') as f_out:
