@@ -1,9 +1,8 @@
 __default__:
-  h_vmem: '8192'
-  h_rt: '4:00'
-  threads: '1'
-  queue: ''
-    
+  - '-R "rusage[mem=4096]"'
+  - '-W 04:00'
+  - '-n 1'
+
 
 adapter_cutting:
   threads: '10'
@@ -59,6 +58,7 @@ monovar:
 
 
 run_mrbayes:
-  threads: '1'
-  time: '24:00'
-  h_vmem: '16384'
+  - '-R "rusage[mem=16384]"'
+  - '-W 24:00'
+  - '-n 1'
+
