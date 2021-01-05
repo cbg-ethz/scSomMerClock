@@ -8,3 +8,9 @@ To run on CESGA hpc cluster
 ```bash
 snakemake -j 198 -s Snakefile_sim --configfile config.simulations_clock.yaml -k --profile ../hpc/slurm &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
 ```
+
+
+To run on ETHZ hpc cluster
+```bash
+snakemake -j 198 -s Snakefile_sim --configfile config.simulations_clock.yaml -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
+```

@@ -67,7 +67,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                     gt = s_rec[:s_rec.index(':')]
                     if len(gt) < 3:
                         s_rec_ref = '0'
-                        s_rec_alt = re.split('[/\|]', gt)
+                        s_rec_alt = re.split('[/\|]', gt)[-1]
                     else:
                         s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
 
@@ -195,11 +195,13 @@ def parse_args():
         help='Path to the output directory. Default = <INPUT_DIR>.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
         help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
+    parser.add_argument('-ss', '--stepping_stone', action='store_true',
+        help='Use stepping stone sampling instead of MCMC.')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
-    vcf_to_nex(args.input, args.output, args.ngen)
+    vcf_to_nex(args.input, args.output, args.ngen, args.stepping_stone)
     
