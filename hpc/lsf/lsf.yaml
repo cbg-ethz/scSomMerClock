@@ -1,5 +1,5 @@
 __default__:
-  h_vmem: '4096'
+  h_vmem: '8192'
   h_rt: '4:00'
   threads: '1'
   queue: ''
@@ -54,5 +54,11 @@ SCcaller1:
 
 monovar:
   threads: '3'
-  time: 06:00
+  time: '06:00'
   mem: '20480'
+
+
+run_mrbayes:
+  threads: '1'
+  time: '24:00'
+  mem: '16384'
