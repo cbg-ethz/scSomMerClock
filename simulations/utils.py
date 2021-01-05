@@ -66,8 +66,15 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                 for s_i, s_rec in enumerate(line_cols[9:]):
                     gt = s_rec[:s_rec.index(':')]
                     if len(gt) < 3:
-                        s_rec_ref = '0'
-                        s_rec_alt = re.split('[/\|]', gt)[-1]
+                        if gt.startswith('|'):
+                            s_rec_ref = '0'
+                            s_rec_alt = gt[1]
+                        elif gt.endswith('|'):
+                            s_rec_ref = gt[0]
+                            s_rec_alt = '0'
+                        else:
+                            import pdb; pdb.set_trace()
+                        
                     else:
                         s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
 
@@ -76,7 +83,10 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                     elif s_rec_ref == '0' and s_rec_alt == '0':
                         samples[s_i] += ref
                     else:
-                        samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
+                        try:
+                            samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
+                        except:
+                            import pdb; pdb.set_trace()
     
     mat_str = ''
     for sample_idx, genotypes in samples.items():
