@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import math
 import re
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -220,9 +221,9 @@ class Submitter:
 
 if __name__ == "__main__":
     workdir = str(Path(__file__).parent.absolute())
-    config_file = workdir + "/lsf.yaml"
-    if config_file.exists():
-        with config_file.open() as stream:
+    config_file = os.path.join(workdir, "lsf.yaml")
+    if os.path.exists(config_file):
+        with open(config_file, "r") as stream:
             lsf_config = Config.from_stream(stream)
     else:
         lsf_config = Config()
