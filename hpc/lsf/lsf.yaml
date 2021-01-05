@@ -55,10 +55,10 @@ SCcaller1:
 monovar:
   threads: '3'
   time: '06:00'
-  mem: '20480'
+  h_vmem: '20480'
 
 
 run_mrbayes:
   threads: '1'
   time: '24:00'
-  mem: '16384'
+  h_vmem: '16384'
