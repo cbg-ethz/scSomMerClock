@@ -22,6 +22,8 @@ rule run_cellcoal:
         exe = config['cellcoal']['exe'],
         param_file = config['cellcoal']['parameters'],
         outdir = cc_out
+    resources:
+        mem_mb = 16384
     shell:
         '{params.exe} -F{params.param_file} -o{params.outdir}'
 

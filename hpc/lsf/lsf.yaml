@@ -63,6 +63,12 @@ run_cellcoal:
   - '-n 1'
 
 
+vcf_to_nex:
+  - '-R "rusage[mem=1024]"'
+  - '-W 01:00'
+  - '-n 1'
+
+
 run_mrbayes:
   - '-R "rusage[mem=16384]"'
   - '-W 24:00'
@@ -73,3 +79,8 @@ run_mrbayes_hpc:
   - '-R "rusage[mem=4096]"'
   - '-W 08:00'
   - '-n 4'
+
+merge_results:
+  - '-R "rusage[mem=2048]"'
+  - '-W 01:00'
+  - '-n 1'
