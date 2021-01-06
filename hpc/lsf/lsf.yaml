@@ -5,62 +5,63 @@ __default__:
 
 
 adapter_cutting:
-  threads: '10'
-  h_rt: '24:00'
+  - '-n 10'
+  - '-W 24:00'
 
 
 alignment1:
-  threads: '10'
-  h_rt: '48:00'
+  - '-n 10'
+  - '-W 48:00'
 
 
 alignment2:
-  threads: '10'
-  h_rt: '48:00'
+  - '-n 10'
+  - '-W 48:00'
 
 
 remove_duplicates:
-  h_rt: '10:00'
-  h_vmem: '51200'
+  - '-R "rusage[mem=51200]"'
+  - '-W 10:00'
 
 
 base_recal1:
-  h_rt: '4:00'
-  h_vmem: '51200'
+  - '-R "rusage[mem=51200]"'
+  - '-W 04:00'
+
 
 base_recal2:
-  h_rt: '4:00'
-  h_vmem: '51200'
+  - '-R "rusage[mem=51200]"'
+  - '-W 04:00'
 
 
 indel_realignment0:
-  h_rt: '1:00'
+  - '-W 01:00'
 
 
 indel_realignment1:
-  h_rt: '04:00'
-  h_vmem: '20480'
+  - '-R "rusage[mem=20480]"'
 
 indel_realignment2:
-  h_rt: '08:00'
-  h_vmem: '40960'
+  - '-R "rusage[mem=40960]"'
+  - '-W 08:00'
 
 
 SCcaller1:
-  h_rt: '24:00'
-  h_vmem: '40960'
+  - '-R "rusage[mem=40960]"'
+  - '-W 24:00'
 
 
 monovar:
-  threads: '3'
-  time: '06:00'
-  h_vmem: '20480'
+  - '-R "rusage[mem=20480]"'
+  - '-W 06:00'
+  - '-n 4'
 
 
 run_cellcoal:
   - '-R "rusage[mem=16384]"'
-  - '-W 4:00'
+  - '-W 04:00'
   - '-n 1'
+
 
 run_mrbayes:
   - '-R "rusage[mem=16384]"'
