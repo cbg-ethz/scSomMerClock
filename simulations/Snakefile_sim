@@ -40,7 +40,7 @@ rule vcf_to_nex:
 
 
 if config.get('hpc', False):
-    rule run_mrbayes:
+    rule run_mrbayes_hpc:
         input:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
@@ -51,8 +51,6 @@ if config.get('hpc', False):
             'gcc/6.4.0',
             'openmpi/2.1.1',
             'mrbayes/3.2.7'
-        threads:
-            4
         shell:
             'mpirun mb {input} > {input}.log'
 else:

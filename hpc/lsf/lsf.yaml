@@ -62,3 +62,8 @@ run_mrbayes:
   - '-W 24:00'
   - '-n 1'
 
+
+run_mrbayes_hpc:
+  - '-R "rusage[mem=4096]"'
+  - '-W 24:00'
+  - '-n 4'
