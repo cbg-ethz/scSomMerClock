@@ -46,7 +46,7 @@ if config.get('hpc', False):
         output:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         conda:
-            'envs/open_mpi.yaml'
+            'envs/mrbayes.yaml'
         envmodules:
             'gcc/6.4.0',
             'openmpi/2.1.1',

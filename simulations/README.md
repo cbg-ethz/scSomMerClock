@@ -13,6 +13,6 @@ snakemake -j 198 -s Snakefile_sim --configfile config.simulations_clock.yaml -k 
 
 To run on ETHZ hpc cluster
 ```bash
-source activate crp
+source activate snakemake
 snakemake -s Snakefile_sim --configfile config.simulations_clock.yaml --use-conda -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
 ```
