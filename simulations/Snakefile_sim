@@ -45,11 +45,16 @@ if config.get('hpc', False):
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
         output:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
-        params:
-            modules = 'gcc/6.4.0 openmpi/2.1.1 mrbayes/3.2.7'
+        conda:
+            'envs/open_mpi.yaml'
+        envmodules:
+            'gcc/6.4.0',
+            'openmpi/2.1.1',
+            'mrbayes/3.2.7'
+        threads:
+            4
         shell:
-            'module load {params.modules} && '
-            'mb {input} > {input}.log'
+            'mpirun mb {input} > {input}.log'
 else:
     rule run_mrbayes:
         input:
@@ -59,7 +64,7 @@ else:
         params:
             mb_exe = config['mrbayes']['exe']
         shell:
-            '{params.mb_exe} {input} > {input}.log'
+            '{params.mb_exe} {input} > {input}.log }'
 
 
 rule merge_results:

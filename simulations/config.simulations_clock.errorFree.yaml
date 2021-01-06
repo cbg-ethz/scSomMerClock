@@ -10,3 +10,4 @@ mrbayes:
 
 
 hpc: True
+mpi: True
