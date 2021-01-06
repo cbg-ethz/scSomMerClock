@@ -57,6 +57,11 @@ monovar:
   h_vmem: '20480'
 
 
+run_cellcoal:
+  - '-R "rusage[mem=16384]"'
+  - '-W 4:00'
+  - '-n 1'
+
 run_mrbayes:
   - '-R "rusage[mem=16384]"'
   - '-W 24:00'
