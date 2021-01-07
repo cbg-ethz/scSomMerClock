@@ -34,11 +34,12 @@ def parse_args():
     return args
 
 
-def calc_gini(x):
-    return -1
-    n = x.shape[0]
-    cumx = np.cumsum(x)
-    return (n + 1 - 2 * np.sum(cumx) / cumx[-1]) / n
+def calc_gini(x, y):
+    # Gini coefficient = A / (A / B)
+    # B = np.trapz(y, x)
+    # A + B = 1 * 1 * 0.5 = 0.5
+    A = 0.5 - np.trapz(y, x)
+    return 2 * A
 
 
 def main(args):
@@ -66,8 +67,9 @@ def main(args):
         cov_total = 1 - df.iloc[0, 4]
 
         # normalized over covered basepairs
-        x = np.cumsum((df.iloc[1:,4] / cov_total).values)
-        x = np.insert(x, 0, 0) 
+        # x = np.cumsum((df.iloc[1:,4] / cov_total).values) 
+        x = np.cumsum(df.iloc[1:,2]).values / df.iloc[1:,2].sum()
+        x = np.insert(x, 0, 0)
         # normalized over full genome/exome
         # x = np.cumsum(df[4].values)
         
@@ -80,7 +82,7 @@ def main(args):
             cov_breadth.extend([breadth, breadth / cov_total])
 
         df_sum.iloc[i] = [avg_depth, cov_depth, cov_total] + cov_breadth \
-            + [calc_gini(x)]
+            + [calc_gini(x, y)]
 
         sample_col = next(COLORS)
         # Scatter plot of Lorenz curve
