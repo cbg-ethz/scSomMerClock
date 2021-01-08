@@ -195,12 +195,14 @@ rule indel_realignment1:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
-        indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
+        indels2 = '' if not config['static'].get('indel_db2', False) else
+            '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
         '{params.base_dir}/scripts/05.1_indel_realign.sh {input} '
-        '{params.modules} -c {wildcards.chr} -o {output} '
-        '-r {params.ref_genome} -i1 {params.indels1} -i2 {params.indels2}'
+        '{params.modules} -c {params.pref}{wildcards.chr} -o {output} '
+        '-r {params.ref_genome} -i1 {params.indels1} {params.indels2}'
 
 
 rule indel_realignment2:
@@ -217,13 +219,15 @@ rule indel_realignment2:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
-        indels2 = os.path.join(RES_PATH, config['static']['indel_db2'])
+        indels2 = '' if not config['static'].get('indel_db2', False) else
+            '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
         '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
-        '{params.modules} -c {wildcards.chr} -r {params.ref_genome} '
+        '{params.modules} -c {params.pref}{wildcards.chr} -r {params.ref_genome} '
         '-t {input.target} -ma {input.maps} -i1 {params.indels1} '
-        '-i2 {params.indels2}'
+        '{params.indels2}'
 
 
 rule base_recal:

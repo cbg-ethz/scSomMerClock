@@ -3,6 +3,7 @@
 module purge
 
 bams_in=""
+INDELS2=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -25,7 +26,7 @@ while [ "$1" != "" ]; do
                             INDELS1=$1
                             ;;
         -i2 | --indels2 )   shift
-                            INDELS2=$1
+                            INDELS2="-known $1 "
                             ;;
         *)                  bams_in+="-I $1 "
     esac
@@ -37,7 +38,7 @@ set -Eeuxo pipefail
 java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T IndelRealigner \
     -known ${INDELS1} \
-    -known ${INDELS2} \
+    ${INDELS2} \
     ${bams_in} \
     -R ${REF} \
     -targetIntervals ${target} \
