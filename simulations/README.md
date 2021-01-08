@@ -11,8 +11,8 @@ snakemake -j 198 -s Snakefile_sim --configfile config.simulations_clock.yaml -k 
 ```
 
 
-To run on ETHZ hpc cluster
+To run on ETHZ hpc cluster, you need a conda environment with snakemake installed. If it is called snakemake, run:
 ```bash
-source activate snakemake
+conda activate snakemake
 snakemake -s Snakefile_sim --configfile config.simulations_clock.yaml --use-conda -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
 ```
