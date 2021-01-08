@@ -3,7 +3,7 @@ static:
   WGA_ref: hg19.fasta
   dbsnp: dbsnp_138.hg19.vcf.gz
   indel_db1: Mills_and_1000G_gold_standard.indels.hg19.sites.vcf
-  indel_db2: 1000G_phase1.indels.b37.vcf
+  indel_db2: 
   germline: af-only-gnomad.raw.sites.b37.vcf.gz
   gnomAD: small_exac_common_3_b37.vcf.gz
 
