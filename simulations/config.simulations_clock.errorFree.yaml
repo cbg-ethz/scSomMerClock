@@ -1,11 +1,11 @@
 cellcoal:
-  exe: /home/uvi/be/nbo/cellcoal/bin/cellcoal-1.1.1
-  parameters: /home/uvi/be/nbo/MolClockAnalysis/simulations/parameters.simulations_clock.errorFree
+  exe: ../../cellcoal/bin/cellcoal-1.1.1
+  parameters: parameters.simulations_clock.errorFree
 
 
 mrbayes:
   exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
-  ngen: 1000000
+  ngen: 10000000
   ss: False
 
 

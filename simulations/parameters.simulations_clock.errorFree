@@ -1,7 +1,7 @@
 [PARAMETER FILE for CellCoal] [text in brackets will be ignored]
     
 [COALESCENT]
-    [number of replicates] n10
+    [number of replicates] n100
     [number of cells] s30
     [number of sites] l10000
     [effective population size] e10000
