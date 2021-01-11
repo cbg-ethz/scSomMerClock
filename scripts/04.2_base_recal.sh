@@ -25,8 +25,9 @@ while [ "$1" != "" ]; do
 done
 
 set -Eeuxo pipefail
+MEM_GB=$(awk '/Active:/ { printf "%.0f \n", $2/1024/1024 - 2}' /proc/meminfo)
 
-gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" ApplyBQSR \
+gatk --java-options "-Xmx${MEM_GB}G -Djava.io.tmpdir=Processing/" ApplyBQSR \
     -R ${REF} \
     -I ${input} \
     --bqsr ${table} \

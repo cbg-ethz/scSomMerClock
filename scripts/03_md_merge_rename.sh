@@ -19,8 +19,9 @@ while [ "$1" != "" ]; do
 done
 
 set -Eeuxo pipefail
+MEM_GB=$(awk '/Active:/ { printf "%.0f \n", $2/1024/1024 - 2}' /proc/meminfo)
 
-java -Xmx32g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
+java -Xmx${MEM_GB}g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
     ${bams_in} \
     TMP_DIR=Processing/ \
     O=Processing/${cellname}.dedup.bam \

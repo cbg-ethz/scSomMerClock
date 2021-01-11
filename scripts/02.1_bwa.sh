@@ -25,9 +25,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
-[[ -z "$REF" ]] && { echo "Error: Reference not set"; exit 1; }
-[[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
+set -Eeuxo pipefail
 
 SM=$(echo ${sample} | cut -d "_" -f1)
 PL="ILLUMINA"

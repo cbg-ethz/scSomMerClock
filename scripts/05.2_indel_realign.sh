@@ -34,8 +34,9 @@ while [ "$1" != "" ]; do
 done
 
 set -Eeuxo pipefail
+MEM_GB=$(awk '/Active:/ { printf "%.0f \n", $2/1024/1024 - 4}' /proc/meminfo)
 
-java -Djava.io.tmpdir=Processing/ -Xmx35G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+java -Djava.io.tmpdir=Processing/ -Xmx${MEM_GB}G -jar $EBROOTGATK/GenomeAnalysisTK.jar \
     -T IndelRealigner \
     -known ${INDELS1} \
     ${INDELS2} \

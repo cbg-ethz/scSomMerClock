@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-import sys
-from itertools import product
+
 
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
@@ -98,6 +97,10 @@ rule adapter_cutting:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
         temp(os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'))
+    threads:
+        4
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -114,6 +117,10 @@ rule alignment1:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     output:
         temp(os.path.join('Processing', '{sample}.sam'))
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    threads:
+        8
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -132,6 +139,8 @@ rule alignment2:
         os.path.join('Processing', '{sample}.sam')
     output:
         temp(os.path.join('Processing', '{sample}.sorted.bam'))
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -146,6 +155,8 @@ rule remove_duplicates:
         get_corr_samples
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -190,6 +201,10 @@ rule indel_realignment1:
             cell=cell_map.keys())
     output:
         os.path.join('Realignment', '{chr}.intervals')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    threads:
+        4
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -214,6 +229,8 @@ rule indel_realignment2:
     output:
         temp(expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys()))
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -248,6 +265,8 @@ rule base_recal1:
         os.path.join('Processing', '{cell}.real.bam')
     output:
         os.path.join('Processing', '{cell}.recal.table')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -267,6 +286,8 @@ rule base_recal2:
         table = os.path.join('Processing', '{cell}.recal.table')
     output:
         os.path.join('Processing', '{cell}.recal.bam')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -304,6 +325,10 @@ rule SCcaller1:
         os.path.join('Processing', '{cell}.recal.{chr}.bam')
     output:
         temp(os.path.join('Calls', '{cell}.{chr}.sccaller.vcf'))
+    threads:
+        4
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -366,6 +391,10 @@ rule monovar1:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
         temp(os.path.join('Calls', '{chr}.monovar.vcf'))
+    threads:
+        3
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -400,6 +429,10 @@ rule mutect1:
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
         os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz')
+    threads:
+        4
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -420,6 +453,8 @@ rule mutect2:
         expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
     output:
         os.path.join('Calls', 'all.mutect.vcf.gz')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -435,6 +470,8 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
             os.path.join('Calls', 'all.mutect.vcf.gz'),
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        threads:
+            2
         params:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \
@@ -457,6 +494,10 @@ else:
             expand(os.path.join('Calls', '{cell}.contamination.table'), 
                 cell=bulk_samples['tumor']),
             os.path.join('Calls', 'read-orientation-model.tar.gz')
+        threads:
+            2
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \
@@ -475,6 +516,8 @@ else:
             rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        threads:
+            2
         params:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \
@@ -512,6 +555,8 @@ rule QC_calling_chr:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
         temp(os.path.join('QC', 'all.{chr}.filtered.vcf'))
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
@@ -589,6 +634,8 @@ if config.get('ethan', {}).get('run', False):
             os.path.join('SciPhi', '{chr}.bamspath.txt')
         output:
             os.path.join('SciPhi', 'ss.{chr}.mpileup')
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
             ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
@@ -611,6 +658,8 @@ if config.get('ethan', {}).get('run', False):
             pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
         output:
             os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 'nuc.tsv')
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
             modules = ' '.join(config['modules'] \

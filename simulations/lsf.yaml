@@ -1,0 +1,72 @@
+__default__:
+  - '-W 04:00'
+
+
+# ------------------------------- PREPROCESSING --------------------------------
+
+adapter_cutting:
+  - '-W 24:00'
+
+
+alignment1:
+  - '-W 48:00'
+
+
+alignment2:
+  - '-W 48:00'
+
+
+remove_duplicates:
+  - '-W 10:00'
+
+
+base_recal1:
+  - '-W 24:00'
+
+
+base_recal2:
+  - '-W 24:00'
+
+
+indel_realignment0:
+  - '-W 01:00'
+
+
+indel_realignment2:
+  - '-W 08:00'
+
+
+# --------------------------------- SNV CALLING --------------------------------
+
+SCcaller1:
+  - '-W 24:00'
+
+
+monovar:
+  - '-W 24:00'
+
+
+# -------------------------------- QC & STUFF ----------------------------------
+
+QC_calling_chr:
+  - '-W 01:00'
+
+
+run_cellcoal:
+  - '-W 00:30'
+
+
+vcf_to_nex:
+  - '-W 00:05'
+
+
+run_mrbayes:
+  - '-W 24:00'
+
+
+run_mrbayes_hpc:
+  - '-W 24:00'
+
+
+merge_results:
+  - '-W 00:05'

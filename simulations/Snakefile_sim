@@ -37,6 +37,8 @@ rule vcf_to_nex:
     params:
         ngen = config['mrbayes'].get('ngen', 1000000),
         ss = config['mrbayes'].get('ss', False)
+    resources:
+        mem_mb = 1024
     run:
         vcf_to_nex(input[0], output, params.ngen, params.ss)    
 
@@ -67,6 +69,8 @@ else:
             os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe']
+        resources:
+            mem_mb=16384
         shell:
             '{params.mb_exe} {input} > {input}.log }'
 
@@ -77,6 +81,8 @@ rule merge_results:
             run=[f'{i+1:04d}' for i in range(n)], model=['clock', 'noClock'])
     output:
         os.path.join(cc_out, 'clock_test_summary.tsv')
+    resources:
+        mem_mb=2048
     run:
         get_Bayes_factor(input, output[0])
 

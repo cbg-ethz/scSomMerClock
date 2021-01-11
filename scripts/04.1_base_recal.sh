@@ -28,8 +28,9 @@ while [ "$1" != "" ]; do
 done
 
 set -Eeuxo pipefail
+MEM_GB=$(awk '/Active:/ { printf "%.0f \n", $2/1024/1024 - 2}' /proc/meminfo)
 
-gatk --java-options "-Xmx24G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
+gatk --java-options "-Xmx${MEM_GB}G -Djava.io.tmpdir=Processing/" BaseRecalibrator \
     -I ${input} \
     -O ${output} \
     -R ${REF} \

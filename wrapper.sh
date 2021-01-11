@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SNAKE_CMD="snakemake --keep-going --restart-times=0 --rerun-incomplete"
+SNAKE_CMD="snakemake --keep-going --restart-times=2 --rerun-incomplete"
 LOGGING=true
 while [ "$1" != "" ]; do
     case $1 in
