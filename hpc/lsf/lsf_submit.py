@@ -220,8 +220,9 @@ class Submitter:
 
 
 if __name__ == "__main__":
-    workdir = str(Path(__file__).parent.absolute())
+    workdir = os.path.dirname(os.path.abspath(__file__))
     config_file = os.path.join(workdir, "lsf.yaml")
+
     if os.path.exists(config_file):
         with open(config_file, "r") as stream:
             lsf_config = Config.from_stream(stream)
