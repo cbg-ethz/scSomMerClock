@@ -9,7 +9,7 @@ class CookieCutter:
 
     @staticmethod
     def get_default_mem_mb() -> int:
-        return int("4096")
+        return int("2048")
 
     @staticmethod
     def get_log_dir() -> str:
