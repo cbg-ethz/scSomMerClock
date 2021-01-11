@@ -55,6 +55,8 @@ if config.get('hpc', False):
             'mrbayes/3.2.7'
         threads:
             4
+        resources:
+            mem_mb=8192
         shell:
             'mpirun mb {input} > {input}.log'
 else:
