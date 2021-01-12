@@ -328,7 +328,7 @@ rule SCcaller1:
     threads:
         4
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
