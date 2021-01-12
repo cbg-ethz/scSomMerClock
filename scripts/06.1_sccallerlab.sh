@@ -38,6 +38,7 @@ done
 set -Eeuxo pipefail
 
 if [ -z ${bulk_normal} ] || [ ${bulk_normal} == "None" ]
+then
     bulk=""
 else
     bulk="--bulk Processing/${bulk_normal}.recal.${chr}.bam"
