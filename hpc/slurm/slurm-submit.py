@@ -9,7 +9,7 @@ from snakemake.utils import read_job_properties
 import slurm_utils
 
 # cookiecutter arguments
-SBATCH_DEFAULTS = """ --time=04:00:00 --mem=20G"""
+SBATCH_DEFAULTS = """ --time=01:00:00 --mem=2G"""
 CLUSTER_CONFIG = "molClock_defaults.yaml"
 ADVANCED_ARGUMENT_CONVERSION = {"yes": True, "no": False}["no"]
 
