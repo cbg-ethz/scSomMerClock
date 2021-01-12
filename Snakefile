@@ -394,7 +394,7 @@ rule monovar1:
     threads:
         3
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 4096
+        mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
