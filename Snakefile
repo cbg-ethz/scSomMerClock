@@ -474,6 +474,8 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
         threads:
             2
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \

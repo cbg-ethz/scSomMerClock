@@ -2,49 +2,27 @@ __default__:
   partition: amd-shared
   qos: amd-shared
   cpus-per-task: 1
-  time: 240
-  mem: 8G
+  time: 60
+  mem: 2G
   mail-user: nico.borgsmueller@bsse.ethz.ch
   mail-type: FAIL
   output: logs/slurm-%j.out
 
 
 adapter_cutting:
-  partition: amd-shared
-  qos: amd-shared
-  cpus-per-task: 4
   time: 720
-  mem: 16G
 
 
 alignment1:
-  cpus-per-task: 8
   time: 720
-  mem: 40G
+
 
 alignment2:
   time: 720
-  mem: 40G
+
 
 remove_duplicates:
-  partition: amd-shared
-  qos: amd-shared
   time: 360
-  mem: 40G
-
-
-base_recal1:
-  partition: amd-shared
-  qos: amd-shared
-  time: 360
-  mem: 40G
-
-
-base_recal2:
-  partition: amd-shared
-  qos: amd-shared
-  time: 360
-  mem: 40G
 
 
 indel_realignment0:
@@ -52,66 +30,44 @@ indel_realignment0:
 
 
 indel_realignment1:
-  partition: amd-shared
-  qos: amd-shared
   time: 600
-  mem: 20G
 
 
 indel_realignment2:
-  partition: amd-shared
-  qos: amd-shared
   time: 1920
-  mem: 40G
+
+
+base_recal1:
+  time: 360
+
+
+base_recal2:
+  time: 360
 
 
 SCcaller1:
-  partition: amd-shared
-  qos: amd-shared
-  cpus-per-task: 4
-  time: 2879
-  mem: 60G
+  time: 2880
 
 
 monovar1:
-  cpus-per-task: 3
-  time: 1439
-  mem: 10G
+  time: 1440
 
 
 mutect1:
-  cpus-per-task: 4
-  time: 1439
-  mem: 32G
-
-
-mutect2:
-  mem: 40G
-
-
-mutect3:
-  cpus-per-task: 2
-  mem: 16G
-
-mutect4:
-  cpus-per-task: 2
+  time: 1440
 
 
 QC_calling_chr:
-  time: 359
-  mem: 16G
+  time: 360
 
 
 generate_mpileup:
-  time: 359
-  mem: 16G
+  time: 360
+
 
 run_sciphi:
-  time: 359
-  mem: 16G
+  time: 360
 
 
 run_mrbayes:
-  cpus-per-task: 1
-  time: 1439
-  mem: 16G
+  time: 1440
