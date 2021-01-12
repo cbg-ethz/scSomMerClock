@@ -62,11 +62,11 @@ vcf_to_nex:
 
 
 run_mrbayes:
-  - '-W 24:00'
+  - '-W 16:00'
 
 
 run_mrbayes_hpc:
-  - '-W 24:00'
+  - '-W 16:00'
 
 
 merge_results:

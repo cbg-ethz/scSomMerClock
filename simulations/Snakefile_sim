@@ -58,7 +58,7 @@ if config.get('hpc', False):
         threads:
             4
         resources:
-            mem_mb=8192
+            mem_mb=4096
         shell:
             'mpirun mb {input} > {input}.log'
 else:
