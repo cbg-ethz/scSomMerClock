@@ -3,6 +3,7 @@ module purge
 
 minBaseQual=13
 minDepth=10
+bulk_normal=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -36,6 +37,12 @@ done
 
 set -Eeuxo pipefail
 
+if [ -z ${bulk_normal} ]
+    bulk=""
+else
+    bulk="--bulk Processing/${bulk_normal}.recal.${chr}.bam"
+fi
+
 cores=$(nproc)
 
 python $SCcaller \
@@ -43,7 +50,7 @@ python $SCcaller \
     --fasta ${REF} \
     --snp_type dbsnp \
     --snp_in ${DBSNP} \
-    --bulk Processing/${bulk_normal}.recal.${chr}.bam \
+    ${bulk} \
     --output Calls/${cellname}.${chr}.sccaller.vcf \
     --cpu_num ${cores} \
     --engine pysam \
