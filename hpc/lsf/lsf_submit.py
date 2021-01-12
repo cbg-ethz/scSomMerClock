@@ -228,6 +228,7 @@ if __name__ == "__main__":
             lsf_config = Config.from_stream(stream)
     else:
         lsf_config = Config()
+    
     jobscript = sys.argv[-1]
     cluster_cmds = sys.argv[1:-1]
     memory_units = Unit.from_suffix(CookieCutter.get_lsf_unit_for_limits())

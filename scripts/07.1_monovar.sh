@@ -3,6 +3,7 @@
 module purge
 
 monovar=monovar.py
+prefix=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
@@ -14,6 +15,9 @@ while [ "$1" != "" ]; do
                             ;;
         -r | --ref )        shift
                             REF=$1
+                            ;;
+        -p | --pref )       shift
+                            prefix=$1
                             ;;
         -e | --exe )        shift
                             monovar=$1
@@ -27,7 +31,7 @@ set -Eeuxo pipefail
 cores=$(nproc)
 
 samtools mpileup \
-    --region ${chr} \
+    --region ${prefix}${chr} \
     --no-BAQ \
     --min-BQ 13 \
     --max-depth 10000 \

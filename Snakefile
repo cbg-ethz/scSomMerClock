@@ -400,10 +400,12 @@ rule monovar1:
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('monovar', ['monovar', 'samtools'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         monovar = config['monovar']['exe']
     shell:
         '{params.base_dir}/scripts/07.1_monovar.sh {params.modules} '
-        '-c {wildcards.chr} -r {params.ref_genome} -e {params.monovar}'
+        '-c {wildcards.chr} -r {params.ref_genome} -p {params.pref} '
+        '-e {params.monovar}'
 
 
 rule monovar2:
