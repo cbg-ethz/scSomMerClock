@@ -66,7 +66,7 @@ run_mrbayes:
 
 
 run_mrbayes_hpc:
-  - '-W 16:00'
+  - '-W 24:00'
 
 
 merge_results:
