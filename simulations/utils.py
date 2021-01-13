@@ -145,6 +145,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                 for s_i, s_rec in enumerate(line_cols[9:]):
                     gt = s_rec[:s_rec.index(':')]
                     if len(gt) < 3:
+                        import pdb; pdb.set_trace()
                         true_all1, true_all2 = s_rec[-3:].split('|')
                         if true_all1 == ref:
                             s_rec_ref = '0'

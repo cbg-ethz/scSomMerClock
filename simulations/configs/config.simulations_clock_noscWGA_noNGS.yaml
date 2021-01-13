@@ -1,7 +1,7 @@
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
   parameter: cellcoal_parameters.template
-  no_rep: 10
+  no_rep: 100
   model:
     no_cells: 30
     no_sites: 10000
@@ -21,7 +21,7 @@ cellcoal:
 
 mrbayes:
   exe: ../../MrBayes/src/mb
-  ngen: [10000000, 20000000]
+  ngen: [5000000, 10000000, 20000000, 40000000]
   ss: False
 
 
