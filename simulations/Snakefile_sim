@@ -20,6 +20,8 @@ rule create_cellcoal_config:
         os.path.join(out_dir, 'cellcoal_parameters')
     params:
         template = config['cellcoal']['parameter']
+    resources:
+        mem_mb = 1024
     run:
         cc_config = get_cellcoal_config(config, params.template, out_dir)
         with open(output[0], 'w') as f:

@@ -52,6 +52,9 @@ QC_calling_chr:
   - '-W 01:00'
 
 
+create_cellcoal_config:
+  - '-W 00:05'
+
 run_cellcoal:
   - '-W 00:30'
 
