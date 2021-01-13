@@ -130,5 +130,5 @@ dmypy.json
 
 # log file directory
 logs/*
-simulations/cellcoal_results/*
+simulations/results_*
 *.snakemake

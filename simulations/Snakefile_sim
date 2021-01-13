@@ -7,6 +7,8 @@ from utils import *
 
 out_dir = get_out_dir(config)
 no_rep = config['cellcoal']['no_rep']
+if isinstance(config['mrbayes']['ngen'], (int, float)):
+    config['mrbayes']['ngen'] = [config["mrbayes"]['ngen']]
 
 rule all:
     input:
@@ -42,23 +44,23 @@ rule vcf_to_nex:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{model}'),
-            model=['clock', 'noClock']) 
+        temp(expand(os.path.join(out_dir,
+                'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
+            model=['clock', 'noClock']))
     params:
-        ngen = config['mrbayes'].get('ngen', 1000000),
         ss = config['mrbayes'].get('ss', False)
     resources:
         mem_mb = 1024
     run:
-        vcf_to_nex(input[0], output, params.ngen, params.ss)    
+        vcf_to_nex(input[0], output, wildcards.steps, params.ss)    
 
 
 if config.get('hpc', False):
     rule run_mrbayes_hpc:
         input:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
         conda:
             'envs/mrbayes.yaml'
         envmodules:
@@ -74,9 +76,9 @@ if config.get('hpc', False):
 else:
     rule run_mrbayes:
         input:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe']
         resources:
@@ -87,8 +89,9 @@ else:
 
 rule merge_results:
     input:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
-            run=[f'{i+1:04d}' for i in range(no_rep)], model=['clock', 'noClock'])
+        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat'),
+            run=[f'{i+1:04d}' for i in range(no_rep)],
+            steps=config['mrbayes']['ngen'], model=['clock', 'noClock'])
     output:
         os.path.join(out_dir, 'clock_test_summary.tsv')
     resources:
