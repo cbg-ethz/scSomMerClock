@@ -43,7 +43,7 @@ def get_out_dir(config):
     else:
         sim_NGS = 'NGS'
 
-    mb_ngen = '.'.join([str(i) for i in config['mrbayes']['ngen']])
+    mb_ngen = '-'.join(['{:.0E}'.format(i) for i in config['mrbayes']['ngen']])
     if config['mrbayes'].get('ss', False):
         mb_sampling = 'ss'
     else:
