@@ -4,35 +4,45 @@ import os
 import sys
 from utils import *
 
-cc_params = load_config(config['cellcoal']['parameters'])
-n = int(cc_params['number of replicates'])
-cc_out = cc_params['results folder name']
 
+out_dir = get_out_dir(config)
+no_rep = config['cellcoal']['no_rep']
 
 rule all:
     input:
-        os.path.join(cc_out, 'clock_test_summary.tsv')
+        os.path.join(out_dir, 'clock_test_summary.tsv')
             
 
-rule run_cellcoal:
+rule create_cellcoal_config:
     output:
-        expand(os.path.join(cc_out, 'vcf_dir', 'vcf.{run}'),
-            run=[f'{i+1:04d}' for i in range(n)])
+        os.path.join(out_dir, 'cellcoal_parameters')
     params:
-        exe = config['cellcoal']['exe'],
-        param_file = config['cellcoal']['parameters'],
-        outdir = cc_out
+        template = config['cellcoal']['parameter']
+    run:
+        cc_config = get_cellcoal_config(config, params.template, out_dir)
+        with open(output[0], 'w') as f:
+            f.write(cc_config)
+
+
+rule run_cellcoal:
+    input:
+        os.path.join(out_dir, 'cellcoal_parameters')
+    output:
+        expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
+            run=[f'{i+1:04d}' for i in range(no_rep)])
+    params:
+        exe = config['cellcoal']['exe']
     resources:
         mem_mb = 16384
     shell:
-        '{params.exe} -F{params.param_file} -o{params.outdir}'
+        '{params.exe} -F{input}'
 
 
 rule vcf_to_nex:
     input:
-        os.path.join(cc_out, 'vcf_dir', 'vcf.{run}')
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
-        expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{{run}}.{model}'),
+        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{model}'),
             model=['clock', 'noClock']) 
     params:
         ngen = config['mrbayes'].get('ngen', 1000000),
@@ -46,9 +56,9 @@ rule vcf_to_nex:
 if config.get('hpc', False):
     rule run_mrbayes_hpc:
         input:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         conda:
             'envs/mrbayes.yaml'
         envmodules:
@@ -64,9 +74,9 @@ if config.get('hpc', False):
 else:
     rule run_mrbayes:
         input:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}')
         output:
-            os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat')
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe']
         resources:
@@ -77,10 +87,10 @@ else:
 
 rule merge_results:
     input:
-        expand(os.path.join(cc_out, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
-            run=[f'{i+1:04d}' for i in range(n)], model=['clock', 'noClock'])
+        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{model}.lstat'),
+            run=[f'{i+1:04d}' for i in range(no_rep)], model=['clock', 'noClock'])
     output:
-        os.path.join(cc_out, 'clock_test_summary.tsv')
+        os.path.join(out_dir, 'clock_test_summary.tsv')
     resources:
         mem_mb=2048
     run:

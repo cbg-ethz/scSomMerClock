@@ -26,7 +26,86 @@ end;
 """
 
 
-def load_config(configfile):
+def get_out_dir(config):
+    cc_brv = config['cellcoal']['model'].get('brach_rate_var', None)
+    if cc_brv:
+        model = 'noClock{}'.format(cc_brv)
+    else:
+        model = 'clock'
+
+    if not config['cellcoal']['scWGA'].get('simulate', False):
+        sim_scWGA = 'noScWGA'
+    else:
+        sim_scWGA = 'scWGA'
+
+    if not config['cellcoal']['NGS'].get('simulate', False):
+        sim_NGS = 'noNGS'
+    else:
+        sim_NGS = 'NGS'
+
+    mb_ngen = config['mrbayes']['ngen']
+    if config['mrbayes'].get('ss', False):
+        mb_sampling = 'ss'
+    else:
+        mb_sampling = 'mcmc'
+
+    return 'results_{}_{}_{}_{}{}' \
+        .format(model, sim_scWGA, sim_NGS, mb_sampling, mb_ngen)
+
+
+def get_cellcoal_config(config, template_file, out_dir):
+    with open(template_file, 'r') as f:
+        templ = f.read()
+
+    templ = re.sub('{no_rep}', str(config['cellcoal'].get('no_rep', 10)), templ) 
+    templ = re.sub('{no_cells}',
+        str(config['cellcoal']['model'].get('no_cells', 30)), templ)
+    templ = re.sub('{no_sites}',
+        str(config['cellcoal']['model'].get('no_sites', 10000)), templ)
+    templ = re.sub('{pop_size}',
+        str(config['cellcoal']['model'].get('pop_size', 10000)), templ)
+    templ = re.sub('{out_dir}', out_dir, templ)
+
+    if config['cellcoal']['model'].get('no_muts', None):
+        templ = re.sub('{no_muts}',
+            'j{}'.format(config['cellcoal']['model']['no_muts']), templ)
+    else:
+        templ = re.sub('{no_muts}', '', templ)
+
+    if config['cellcoal']['model'].get('branch_rate_var', None):
+        templ = re.sub('{no_muts}',
+            'i{}'.format(config['cellcoal']['model']['branch_rate_var']), templ)
+    else:
+        templ = re.sub('{branch_rate_var}', '', templ)
+
+    if config['cellcoal']['scWGA'].get('simulate', False):
+        templ = re.sub('{ADO_rate}',
+            'D{}'.format(config['cellcoal']['scWGA']['ADO_rate']), templ)
+        templ = re.sub('{ampl_error}',
+            'A{} {} {}'.format(*config['cellcoal']['scWGA']['ampl_error']), templ)
+        templ = re.sub('{doublet_rate}',
+            'B{} {}'.format(*config['cellcoal']['scWGA']['doublet_rate']), templ)
+    else:
+        templ = re.sub('{ADO_rate}', '', templ)
+        templ = re.sub('{ampl_error}', '', templ)
+        templ = re.sub('{doublet_rate}', '', templ)
+
+    if config['cellcoal']['NGS'].get('simulate', False):
+        templ = re.sub('{seq_cov}',
+            'C{}'.format(config['cellcoal']['NGS']['seq_cov']), templ)
+        templ = re.sub('{seq_overdis}',
+            'V{}'.format(config['cellcoal']['NGS']['seq_overdis']), templ)
+        templ = re.sub('{seq_error}',
+            'E{}'.format(config['cellcoal']['NGS']['seq_error']), templ)
+    else:
+        templ = re.sub('{seq_cov}', '', templ)
+        templ = re.sub('{seq_overdis}', '', templ)
+        templ = re.sub('{seq_error}', '', templ)
+
+    return templ
+
+
+def load_cellcoal_config(configfile):
     cc_params = {}
     with open(configfile, 'r') as f:
         for line in f.read().strip().split('\n'):
@@ -66,14 +145,16 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                 for s_i, s_rec in enumerate(line_cols[9:]):
                     gt = s_rec[:s_rec.index(':')]
                     if len(gt) < 3:
-                        if gt.startswith('|'):
+                        true_all1, true_all2 = s_rec[-3:].split('|')
+                        if true_all1 == ref:
                             s_rec_ref = '0'
-                            s_rec_alt = gt[1]
-                        elif gt.endswith('|'):
-                            s_rec_ref = gt[0]
+                        else:
+                            s_rec_ref = str(alts.index(true_all1) + 1)
+
+                        if true_all2 == ref:
                             s_rec_alt = '0'
                         else:
-                            import pdb; pdb.set_trace()
+                            s_rec_alt = str(alts.index(true_all2) + 1)
                         
                     else:
                         s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
@@ -83,10 +164,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                     elif s_rec_ref == '0' and s_rec_alt == '0':
                         samples[s_i] += ref
                     else:
-                        try:
-                            samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
-                        except:
-                            import pdb; pdb.set_trace()
+                        samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
     
     mat_str = ''
     for sample_idx, genotypes in samples.items():

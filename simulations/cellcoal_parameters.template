@@ -1,10 +1,10 @@
 [PARAMETER FILE for CellCoal] [text in brackets will be ignored]
     
 [COALESCENT]
-    [number of replicates] n100
-    [number of cells] s30
-    [number of sites] l10000
-    [effective population size] e10000
+    [number of replicates] n{no_rep}
+    [number of cells] s{no_cells}
+    [number of sites] l{no_sites}
+    [effective population size] e{pop_size}
     [demographics] [h2 1000 100 40000 200 30000 20000]
     [exponential growth rate] g1e-5 [ln2=0.6931 max]
     [birth rate] [K1]
@@ -13,7 +13,7 @@
 [GENEALOGY MODIFIERS]
     [root branch length ratio] k0.5
     [outgroup branch length ratio] q0
-    [rate variation among branches] [i1]
+    [rate variation among branches] {branch_rate_var}
 
 [MUTATION MODEL]
     [alphabet binary:0 DNA:1] b1
@@ -21,7 +21,7 @@
     [somatic mutation rate] [u1e-5]
     [CN_LOH rate] [H1e-5]
     [deletion rate] [d1e-6]
-    [fixed number of mutations - ISM] j1000
+    [fixed number of mutations - ISM] {no_muts}
     [trinucleotide genetic signature - ISM] [S1 1 1.0] [S2 11 0.3 22 0.7]
      [default mutation model is ISM diploid]    
     [alternative mutation model ISMhap:0 Mk2:1 finiteDNA:2] [m2]
@@ -30,10 +30,7 @@
     [base frequencies]  f0.3 0.2 0.2 0.3
     [transition/transversion ratio] [t1.7]
     [rate variation among sites] [a1.0]
-    [mutation matrix ACGT x ACGT] r0 1 1 1
-                                    1 0 1 1
-                                    1 1 0 1
-                                    1 1 1 0
+    [mutation matrix ACGT x ACGT] r0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0
 
                                 [r0 1 2 3
                                   1 0 4 5
@@ -46,12 +43,12 @@
                                   0.04 0.12 0.03 0.00]
 
 [scWGA PARAMETERS]
-    [fixed allelic dropout (ADO)] [D0.2]
+    [fixed allelic dropout (ADO)] {ADO_rate}
     [ADO per cell] [P0.1 0.01]
     [ADO per site] [Q0.2 0.01]
     [maternal allelic imbalance] [I0.5 0.01]
-    [amplification error] [A0.01 0.001 0]
-    [doublet rate per cell] [B0.02 0.01]
+    [amplification error] {ampl_error}
+    [doublet rate per cell] {doublet_rate}
 
 
 [GENOTYPING PARAMETERS]
@@ -59,10 +56,10 @@
 
 
 [NGS PARAMETERS]
-    [sequencing coverage; reads simulated] C20
-    [coverage overdispersion] V5
+    [sequencing coverage; reads simulated] {seq_cov}
+    [coverage overdispersion] {seq_overdis}
     [haploid coverage] [R0.5]   
-    [sequencing error] E0.01
+    [sequencing error] {seq_error}
     [error matrix ACGT x ACGT] [X0 1 1 1
                                  1 0 1 1
                                  1 1 0 1
@@ -79,7 +76,7 @@
     [print true haplotypes] 9
     [print replicates in individual folders] v
     [print consensus IUPAC haplotypes] [x]
-    [results folder name] ocellcoal_results
+    [results folder name] o{out_dir}
     [user tree file] [Tusertree.0001]
     [user genome file] [Uusergenome.fas]
     

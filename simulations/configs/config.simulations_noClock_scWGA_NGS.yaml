@@ -1,0 +1,28 @@
+cellcoal:
+  exe: ../../cellcoal/bin/cellcoal-1.1.1
+  parameter: cellcoal_parameters.template
+  no_rep: 10
+  model:
+    no_cells: 30
+    no_sites: 10000
+    pop_size: 10000
+    no_muts: 1000
+    brach_rate_var: 1
+  scWGA:
+    simulate: True
+    ADO_rate: 0.2
+    doublet_rate: [0.02, 0.01]
+    ampl_error: [0.01, 0.001, 0]
+  NGS:
+    simulate: True
+    seq_cov: 20
+    seq_overdis: 5
+    seq_error: 0.01
+
+mrbayes:
+  exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
+  ngen: 10000000
+  ss: False
+
+
+hpc: True
