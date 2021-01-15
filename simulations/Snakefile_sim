@@ -46,11 +46,12 @@ rule vcf_to_mpileup:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup')
+        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
     resources:
         mem_mb = 1024
     run:
-        vcf_to_pileup(input[0], output[0])
+        vcf_to_pileup(input[0], output.pileup, output.samples)
 
 
 rule run_monovar:
@@ -63,7 +64,7 @@ rule run_monovar:
     resources:
         mem_mb = lambda wildcards, attempt: 4096
     params:
-        exe = config['monovar']['exe']
+        exe = config.get('monovar', {}).get('exe', '')
     shell:
         'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
         '-m {threads}'

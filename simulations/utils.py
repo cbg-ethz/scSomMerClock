@@ -118,7 +118,7 @@ def load_cellcoal_config(configfile):
     return cc_params
 
 
-def vcf_to_pileup(vcf_file, out_file):
+def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -155,10 +155,12 @@ def vcf_to_pileup(vcf_file, out_file):
             pileup += '{}\t{}\t{}\t{}\n' \
                 .format(cols[0], cols[1], ref, new_pileup.rstrip())
     
-    with open(out_file, 'w') as f_pileup:
+    with open(out_pileup, 'w') as f_pileup:
         f_pileup.write(pileup.rstrip())
 
-    with open('{}.SampleNames.txt'.format(vcf_file) , 'w') as f_names:
+    if not out_samples:
+        out_samples = '{}.SampleNames.txt'.format(vcf_file)
+    with open(out_samples, 'w') as f_names:
         f_names.write('\n'.join(sample_names))
 
 
