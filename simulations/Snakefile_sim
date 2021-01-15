@@ -49,7 +49,7 @@ rule vcf_to_mpileup:
         pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
     resources:
-        mem_mb = 1024
+        mem_mb = 4096
     run:
         vcf_to_pileup(input[0], output.pileup, output.samples)
 
