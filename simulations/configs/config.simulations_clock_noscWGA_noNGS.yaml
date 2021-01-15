@@ -1,7 +1,7 @@
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
   parameter: cellcoal_parameters.template
-  no_rep: 100
+  no_rep: 1
   model:
     no_cells: 30
     no_sites: 10000
@@ -9,12 +9,12 @@ cellcoal:
     no_muts: 1000
     brach_rate_var: 
   scWGA:
-    simulate: False
+    simulate: True
     ADO_rate: 0.2
     doublet_rate: [0.02, 0.01]
     ampl_error: [0.01, 0.001, 0]
   NGS:
-    simulate: False
+    simulate: True
     seq_cov: 20
     seq_overdis: 5
     seq_error: 0.01
@@ -23,6 +23,11 @@ mrbayes:
   exe: ../../MrBayes/src/mb
   ngen: [5000000, 10000000, 20000000, 40000000]
   ss: False
+
+
+monovar:
+  run: True
+  exe: ../../MonoVar_NB/src/monovar.py
 
 
 hpc: True

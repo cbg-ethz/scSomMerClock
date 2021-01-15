@@ -97,8 +97,7 @@ rule adapter_cutting:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
         temp(os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'))
-    threads:
-        4
+    threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
@@ -119,8 +118,7 @@ rule alignment1:
         temp(os.path.join('Processing', '{sample}.sam'))
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
-    threads:
-        8
+    threads: 8
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -203,8 +201,7 @@ rule indel_realignment1:
         os.path.join('Realignment', '{chr}.intervals')
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
-    threads:
-        4
+    threads: 4
     params:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
@@ -325,8 +322,7 @@ rule SCcaller1:
         os.path.join('Processing', '{cell}.recal.{chr}.bam')
     output:
         temp(os.path.join('Calls', '{cell}.{chr}.sccaller.vcf'))
-    threads:
-        4
+    threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
@@ -391,8 +387,7 @@ rule monovar1:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
         temp(os.path.join('Calls', '{chr}.monovar.vcf'))
-    threads:
-        3
+    threads: 3
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
@@ -431,8 +426,7 @@ rule mutect1:
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
         os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz')
-    threads:
-        4
+    threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
@@ -472,8 +466,7 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
             os.path.join('Calls', 'all.mutect.vcf.gz'),
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
-        threads:
-            2
+        threads: 2
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
@@ -498,8 +491,7 @@ else:
             expand(os.path.join('Calls', '{cell}.contamination.table'), 
                 cell=bulk_samples['tumor']),
             os.path.join('Calls', 'read-orientation-model.tar.gz')
-        threads:
-            2
+        threads: 2
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
@@ -520,8 +512,7 @@ else:
             rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
-        threads:
-            2
+        threads: 2
         params:
             base_dir = BASE_DIR,
             modules = ' '.join([f'-m {i}' for i in \

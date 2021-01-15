@@ -17,7 +17,7 @@ rule all:
 
 rule create_cellcoal_config:
     output:
-        os.path.join(out_dir, 'cellcoal_parameters')
+        os.path.join('cellcoal_parameters')
     params:
         template = config['cellcoal']['parameter']
     resources:
@@ -30,7 +30,7 @@ rule create_cellcoal_config:
 
 rule run_cellcoal:
     input:
-        os.path.join(out_dir, 'cellcoal_parameters')
+        os.path.join('cellcoal_parameters')
     output:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
             run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
@@ -39,12 +39,44 @@ rule run_cellcoal:
     params:
         exe = config['cellcoal']['exe']
     shell:
-        '{params.exe} -F{input}'
+        '{params.exe} -F{input} && mv {input} {out_dir}/{input}'
 
+
+rule vcf_to_mpileup:
+    input:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup')
+    resources:
+        mem_mb = 1024
+    run:
+        vcf_to_pileup(input[0], output[0])
+
+
+rule run_monovar:
+    input:
+        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
+    output:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
+    threads: 2
+    resources:
+        mem_mb = lambda wildcards, attempt: 4096
+    params:
+        exe = config['monovar']['exe']
+    shell:
+        'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
+        '-m {threads}'
+
+
+if config.get('monovar', {}).get('run', False):
+    vcf_in_file = 'vcf.{run}.monovar.vcf'
+else:
+    vcf_in_file = 'vcf.{run}'
 
 rule vcf_to_nex:
     input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+        os.path.join(out_dir, 'vcf_dir', vcf_in_file)
     output:
         temp(expand(os.path.join(out_dir,
                 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
@@ -54,7 +86,7 @@ rule vcf_to_nex:
     params:
         ss = config['mrbayes'].get('ss', False)
     run:
-        vcf_to_nex(input[0], output, wildcards.steps, params.ss)    
+        vcf_to_nex(input[0], output, wildcards.steps, params.ss)
 
 
 if config.get('hpc', False):
@@ -69,8 +101,7 @@ if config.get('hpc', False):
             'gcc/6.4.0',
             'openmpi/2.1.1',
             'mrbayes/3.2.7'
-        threads:
-            4
+        threads: 4
         resources:
             mem_mb=4096
         shell:

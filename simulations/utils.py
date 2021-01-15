@@ -2,10 +2,12 @@
 
 import os
 import re
+import gzip
 import math
 import argparse
 
 
+BASES = ['A', 'C', 'G', 'T']
 NEXUS_TEMPLATE = """#NEXUS
 
 begin data;
@@ -116,56 +118,101 @@ def load_cellcoal_config(configfile):
     return cc_params
 
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
-    header = ''
+def vcf_to_pileup(vcf_file, out_file):
     if vcf_file.endswith('gz'):
-        import gzip
         file_stream = gzip.open(vcf_file, 'rb')
-        byte = True
     else:
         file_stream = open(vcf_file, 'r')
-        byte = False
+
+    pileup = ''
+    with file_stream as f_in:
+        for line in f_in:
+            # Skip VCF header lines
+            if line.startswith('#'):
+                # Safe cell/sample names
+                if line.startswith('#CHROM'):
+                    sample_names = line.strip().split('\t')[9:]
+                continue
+            # VCF records
+            cols = line.strip().split('\t')
+            ref = cols[3]
+
+            new_pileup = ''
+            for s_rec in cols[9:]:
+                s_rec_format = s_rec.split(':')
+                DP = int(s_rec_format[1])
+                s_bases = ''
+                for base_i, base_no in enumerate(s_rec_format[2].split(',')):
+                    if BASES[base_i] == ref:
+                        s_bases += '.' * int(base_no)
+                    else:
+                        s_bases += BASES[base_i] * int(base_no)
+
+                if DP == 0:
+                    new_pileup += '0\t*\t*\t'
+                else:
+                    new_pileup += '{}\t{}\t{}\t'.format(DP, s_bases, '~' * DP)
+            pileup += '{}\t{}\t{}\t{}\n' \
+                .format(cols[0], cols[1], ref, new_pileup.rstrip())
+    
+    with open(out_file, 'w') as f_pileup:
+        f_pileup.write(pileup.rstrip())
+
+    with open('{}.SampleNames.txt'.format(vcf_file) , 'w') as f_names:
+        f_names.write('\n'.join(sample_names))
+
+
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
+    if vcf_file.endswith('gz'):
+        file_stream = gzip.open(vcf_file, 'rb')
+    else:
+        file_stream = open(vcf_file, 'r')
 
     with file_stream as f_in:
         for line in f_in:
-            if byte:
-                line = line.decode("utf-8")
-            # VCF header
-            if line.startswith('##'):
-                header += line
-            # Column headers
-            elif line.startswith('#'):
-                sample_names = line.strip().split('\t')[9:]
-                samples = {int(i): '' for i in range(len(sample_names))}
+            # Skip VCF header lines
+            if line.startswith('#'):
+                # Safe column headers
+                if line.startswith('#CHROM'):
+                    sample_names = line.strip().split('\t')[9:]
+                    samples = {int(i): '' for i in range(len(sample_names))}
+                continue
             # VCF records
-            else:
-                line_cols = line.strip().split('\t')
-                ref = line_cols[3]
-                alts = line_cols[4].split(',')
-                for s_i, s_rec in enumerate(line_cols[9:]):
+            line_cols = line.strip().split('\t')
+            ref = line_cols[3]
+            alts = line_cols[4].split(',')
+            for s_i, s_rec in enumerate(line_cols[9:]):
+                try:
                     gt = s_rec[:s_rec.index(':')]
-                    if len(gt) < 3:
-                        import pdb; pdb.set_trace()
-                        true_all1, true_all2 = s_rec[-3:].split('|')
-                        if true_all1 == ref:
-                            s_rec_ref = '0'
-                        else:
-                            s_rec_ref = str(alts.index(true_all1) + 1)
+                # Missing in Monovar output format
+                except ValueError:
+                    samples[s_i] += '?'
+                    continue
 
-                        if true_all2 == ref:
-                            s_rec_alt = '0'
-                        else:
-                            s_rec_alt = str(alts.index(true_all2) + 1)
-                        
+                if len(gt) < 3:
+                    true_all1, true_all2 = s_rec[-3:].split('|')
+                    if true_all1 == ref:
+                        s_rec_ref = '0'
                     else:
-                        s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
+                        s_rec_ref = str(alts.index(true_all1) + 1)
 
-                    if s_rec_ref == '.':
-                        samples[s_i] += '?'
-                    elif s_rec_ref == '0' and s_rec_alt == '0':
-                        samples[s_i] += ref
+                    if true_all2 == ref:
+                        s_rec_alt = '0'
                     else:
-                        samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
+                        s_rec_alt = str(alts.index(true_all2) + 1)
+                    
+                else:
+                    s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
+
+                # Missing
+                if s_rec_ref == '.':
+                    samples[s_i] += '?'
+                # Wildtype
+                elif s_rec_ref == '0' and s_rec_alt == '0':
+                    samples[s_i] += ref
+                # Heterozygous/Homozygous
+                else:
+                    samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
     
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -191,6 +238,11 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
+    
+
+def format_record(format_str, s_rec):
+    s_rec_vals = s_rec.split(':')
+    return {j: s_rec_vals[i] for i,j in enumerate(format_str.split(':'))}
     
 
 def parse_with_pysam(vcf_in):
@@ -277,9 +329,11 @@ def get_Bayes_factor(in_files, out_file):
 def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
         usage='python3 utils.py <DATA> [options]',
-        description='*** Convert VCF to NEXUS file ***')
+        description='*** Convert VCF to NEXUS or mpileup file ***')
     parser.add_argument('input', type=str,
         help='Absolute or relative path(s) to input VCF file')
+    parser.add_argument('-f', '--format', type=str, choices=['nxs', 'mpileup'],
+        default='nxs', help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
@@ -292,5 +346,14 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    vcf_to_nex(args.input, args.output, args.ngen, args.stepping_stone)
+    if not args.output:
+        args.output = os.path.dirname(args.input)
+
+    if args.format == 'nxs':
+        out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
+            for i in ['clock', 'noClock']]
+        vcf_to_nex(args.input, out_files, args.ngen, args.stepping_stone)
+    else:
+        out_file = '{}.mpileup'.format(args.output)
+        vcf_to_pileup(args.input, out_file)
     
