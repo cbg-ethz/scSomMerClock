@@ -35,7 +35,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
             run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
     resources:
-        mem_mb = 16384
+        mem_mb = 32768
     params:
         exe = config['cellcoal']['exe']
     shell:
