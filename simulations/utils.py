@@ -26,7 +26,7 @@ begin mrbayes;
     sump outputname={out_file};
 end;
 """
-
+import pdb; pdb.set_trace()
 
 def get_out_dir(config):
     cc_brv = config['cellcoal']['model'].get('brach_rate_var', None)
@@ -51,8 +51,11 @@ def get_out_dir(config):
     else:
         mb_sampling = 'mcmc'
 
-    return 'results_{}_{}_{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, mb_sampling, mb_ngen)
+    if not config.get('static', {}).get('out_dir', False):
+        config['static']['out_dir'] == os.path.dirname(os.path.abspath(__file__))
+
+    return os.path.join(config['static']['out_dir'], 'results_{}_{}_{}_{}{}' \
+        .format(model, sim_scWGA, sim_NGS, mb_sampling, mb_ngen))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
