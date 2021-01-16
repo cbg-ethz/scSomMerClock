@@ -26,7 +26,7 @@ begin mrbayes;
     sump outputname={out_file};
 end;
 """
-import pdb; pdb.set_trace()
+
 
 def get_out_dir(config):
     cc_brv = config['cellcoal']['model'].get('brach_rate_var', None)
