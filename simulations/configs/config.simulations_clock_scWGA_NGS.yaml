@@ -25,4 +25,9 @@ mrbayes:
   ss: False
 
 
+monovar:
+  run: False
+  exe: ../../MonoVar_NB/src/monovar.py
+
+
 hpc: True
