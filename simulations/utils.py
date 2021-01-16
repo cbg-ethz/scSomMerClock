@@ -144,7 +144,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
                     DP = int(s_rec_format[1])
                 except ValueError:
                     DP = 0
-                    import pdb: pdb.set_trace()
+                    import pdb; pdb.set_trace()
                 else:
                     if DP == 0:
                         new_pileup += '0\t*\t*\t'
