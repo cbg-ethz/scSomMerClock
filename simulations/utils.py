@@ -140,7 +140,15 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
             new_pileup = ''
             for s_rec in cols[9:]:
                 s_rec_format = s_rec.split(':')
-                DP = int(s_rec_format[1])
+                try:
+                    DP = int(s_rec_format[1])
+                except ValueError:
+                    DP = 0
+                    import pdb: pdb.set_trace()
+                else:
+                    if DP == 0:
+                        new_pileup += '0\t*\t*\t'
+                        continue
                 s_bases = ''
                 for base_i, base_no in enumerate(s_rec_format[2].split(',')):
                     if BASES[base_i] == ref:
@@ -148,10 +156,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
                     else:
                         s_bases += BASES[base_i] * int(base_no)
 
-                if DP == 0:
-                    new_pileup += '0\t*\t*\t'
-                else:
-                    new_pileup += '{}\t{}\t{}\t'.format(DP, s_bases, '~' * DP)
+                new_pileup += '{}\t{}\t{}\t'.format(DP, s_bases, '~' * DP)
             pileup += '{}\t{}\t{}\t{}\n' \
                 .format(cols[0], cols[1], ref, new_pileup.rstrip())
     

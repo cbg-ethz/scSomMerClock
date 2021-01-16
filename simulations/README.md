@@ -7,12 +7,12 @@ snakemake -j 1 -s Snakefile_sim --configfile config.simulations_clock.yaml
 To run on CESGA hpc cluster
 ```bash
 module load snakemake
-snakemake -j 198 -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-envmodules -k --profile ../hpc/slurm &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
+snakemake -j 198 -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-envmodules -k --profile ../hpc/slurm &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &
 ```
 
 
 To run on ETHZ hpc cluster, you need a conda environment with snakemake installed. If it is called snakemake, run:
 ```bash
 conda activate snakemake
-snakemake -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-conda -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out
+snakemake -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-conda -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &
 ```
