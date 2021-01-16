@@ -184,6 +184,8 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                     sample_names = line.strip().split('\t')[9:]
                     samples = {int(i): '' for i in range(len(sample_names))}
                 continue
+            elif line.strip() == '':
+                continue
             # VCF records
             line_cols = line.strip().split('\t')
             ref = line_cols[3]
