@@ -26,7 +26,7 @@ mrbayes:
 
 
 monovar:
-  run: False
+  run: True
   exe: ../../MonoVar_NB/src/monovar.py
 
 

@@ -63,6 +63,9 @@ rule run_monovar:
     threads: 2
     resources:
         mem_mb = lambda wildcards, attempt: 4096
+    envmodules:
+        'scipy/1.4.1-python-3.7.7',
+        'pysam/0.16.0.1-python-3.7.7'
     params:
         exe = config.get('monovar', {}).get('exe', '')
     shell:
