@@ -52,9 +52,11 @@ def get_out_dir(config):
         mb_sampling = 'mcmc'
 
     if not config.get('static', {}).get('out_dir', False):
-        config['static']['out_dir'] == os.path.dirname(os.path.abspath(__file__))
+        out_dir = os.path.dirname(os.path.abspath(__file__))
+    else:
+        out_dir = config['static']['out_dir']
 
-    return os.path.join(config['static']['out_dir'], 'results_{}_{}_{}_{}{}' \
+    return os.path.join(out_dir, 'results_{}_{}_{}_{}{}' \
         .format(model, sim_scWGA, sim_NGS, mb_sampling, mb_ngen))
 
 

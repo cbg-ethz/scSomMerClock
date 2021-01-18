@@ -1,3 +1,6 @@
+static:
+  out_dir: /home/uvi/be/nbo/data/data/simulations
+
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
   parameter: cellcoal_parameters.template
