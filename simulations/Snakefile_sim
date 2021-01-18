@@ -63,6 +63,8 @@ rule run_monovar:
     threads: 2
     resources:
         mem_mb = lambda wildcards, attempt: 4096
+    conda:
+        'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
         'pysam/0.16.0.1-python-3.7.7'
