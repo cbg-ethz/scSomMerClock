@@ -174,7 +174,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
         f_names.write('\n'.join(sample_names))
 
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -193,13 +193,23 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag):
                 continue
             # VCF records
             line_cols = line.strip().split('\t')
+            # Check if filter passed
+            if not 'PASS' in line_cols[6]:
+                continue
+
             ref = line_cols[3]
             alts = line_cols[4].split(',')
+            DP_col = line_cols[8].split(':').index('DP')
+
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
                     gt = s_rec[:s_rec.index(':')]
                 # Missing in Monovar output format
                 except ValueError:
+                    samples[s_i] += '?'
+                    continue
+
+                if int(s_rec.split(':')[DP_col]) < minDP:
                     samples[s_i] += '?'
                     continue
 
@@ -354,6 +364,9 @@ def parse_args():
         help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
     parser.add_argument('-ss', '--stepping_stone', action='store_true',
         help='Use stepping stone sampling instead of MCMC.')
+    parser.add_argument('-dp', '--minDP', type=int, default=10,
+        help='Minimum reads to include a locus (else: missing). Default = 10.')
+
     args = parser.parse_args()
     return args
 
@@ -366,7 +379,8 @@ if __name__ == '__main__':
     if args.format == 'nxs':
         out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
             for i in ['clock', 'noClock']]
-        vcf_to_nex(args.input, out_files, args.ngen, args.stepping_stone)
+        vcf_to_nex(args.input, out_files, args.ngen, args.stepping_stone,
+            args.minDP)
     else:
         out_file = '{}.mpileup'.format(args.output)
         vcf_to_pileup(args.input, out_file)
