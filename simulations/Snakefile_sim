@@ -111,7 +111,9 @@ if config.get('hpc', False):
         resources:
             mem_mb=4096
         shell:
-            'mpirun mb {input} > {input}.log'
+            'cd {out_dir} && '
+            'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+            '> {input}.log'
 else:
     rule run_mrbayes:
         input:
@@ -123,7 +125,9 @@ else:
         resources:
             mem_mb=16384
         shell:
-            '{params.mb_exe} {input} > {input}.log }'
+            'cd {out_dir} && '
+            '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+            '> {input}.log }'
 
 
 rule merge_results:
