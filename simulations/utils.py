@@ -322,30 +322,35 @@ def get_Bayes_factor(in_files, out_file):
             score_raw = f_score.read().strip().split('\n')
         score = float(score_raw[-1].split('\t')[2])
         
-        if not run in scores:
-            scores[run] = {'clock': -1, 'noClock': -1}
-        scores[run][model] = score
+        if not steps in scores:
+            scores[steps] = {run: {'clock': -1, 'noClock': -1}}
+        if not run in scores[steps]:
+            scores[steps][run] = {'clock': -1, 'noClock': -1}
+        scores[steps][run][model] = score
 
     out_str = ''
-    for run, run_info in scores.items():
-        h0 = run_info['clock']
-        h1 = run_info['noClock']
-        diff = min(max(-99, h1 - h0), 99)
+    for step, step_info in scores.items():
+        for run, run_info in step_info.items():
+            h0 = run_info['clock']
+            h1 = run_info['noClock']
+            diff = min(max(-99, h1 - h0), 99)
 
-        logB_01 = 2 * diff
-        if logB_01 < 2:
-            evidence = 'None'
-        elif logB_01 < 6:
-            evidence = 'Positive'
-        elif logB_01 < 10:
-            evidence = 'Strong'
-        else:
-            evidence = 'Very Strong'
+            logB_01 = 2 * diff
+            if logB_01 < 2:
+                evidence = 'None'
+            elif logB_01 < 6:
+                evidence = 'Positive'
+            elif logB_01 < 10:
+                evidence = 'Strong'
+            else:
+                evidence = 'Very Strong'
 
-        out_str += f'{run}\t{h0}\t{h1}\t{logB_01}\t{math.exp(diff)}\t{evidence}\n'
+            out_str += f'{step}\t{run}\t{h0}\t{h1}\t{logB_01}\t{math.exp(diff)}' \
+                '\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
-        f_out.write('run\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\tEvidence\n')
+        f_out.write('steps\trun\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\t'
+            'Evidence\n')
         f_out.write(out_str.strip())
     
 
