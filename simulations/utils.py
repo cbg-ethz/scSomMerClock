@@ -317,7 +317,7 @@ def snv_gen_to_new(in_file):
 def get_Bayes_factor(in_files, out_file):
     scores = {}
     for in_file in in_files:
-        _, run, model, _ = os.path.basename(in_file).split('.')
+        _, run, steps, model, _ = os.path.basename(in_file).split('.')
         with open(in_file, 'r') as f_score:
             score_raw = f_score.read().strip().split('\n')
         score = float(score_raw[-1].split('\t')[2])
@@ -349,6 +349,70 @@ def get_Bayes_factor(in_files, out_file):
         f_out.write(out_str.strip())
     
 
+# REF: C
+# ALT: A,G,T
+
+# GT: 0|0
+# DP:18
+# RC: 0,18,0,0
+# G10: -44.58,-1.08,-44.46,-44.46,-0.08,-1.08,-1.08,-44.58,-44.46,-44.58
+# G10N: -44.51,-1.00,-44.38,-44.38,0.00,-1.00,-1.00,-44.51,-44.38,-44.51
+# GL: -0.08,-1.08,-44.58,-1.08,-44.46,-44.58,-1.08,-44.46,-44.46,-44.58
+# GLN: 0.00,-1.00,-44.51,-1.00,-44.38,-44.51,-1.00,-44.38,-44.38,-44.51
+# PL: -1,-11,-446,-11,-445,-446,-11,-445,-445,-446
+# PLN: 0,-10,-445,-10,-444,-445,-10,-444,-444,-445
+# ML: C/C
+# NG: C|C
+# DG: ./.
+# TG: C|C
+def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
+    import numpy as np
+    # CellCoal order: AA AC AG AT CC CG CT GG GT TT
+    ll_GT = {}
+    for ia1, A1 in enumerate(['A', 'C', 'G', 'T']):
+        for ia2, A2 in [(0, 'A'), (1, 'C'), (2, 'G'), (3, 'T')][ia1:]:
+            ll = 0
+            for ib, read in enumerate(reads):
+                for j in range(read):
+                    if gamma:
+                        p_bA1 = four_temp_ampl(ib == ia1, eps, gamma) 
+                        p_bA2 = four_temp_ampl(ib == ia2, eps, gamma)
+                    else:
+                        p_bA1 = GATK(ib == ia1, eps) 
+                        p_bA2 = GATK(ib == ia2, eps)
+
+                    if delta:
+                        ll += math.log10(
+                            (1 - delta) * (0.5 * p_bA1 + 0.5 * p_bA2) +
+                            delta/2 * p_bA1 + delta/2 * p_bA2)
+                    else:
+                        ll += math.log10(0.5 * p_bA1 + 0.5 * p_bA2)
+            ll_GT[A1 + A2] = round(ll, 2)
+    print(ll_GT)
+    import pdb; pdb.set_trace()
+
+
+def GATK(is_same, eps):
+    if is_same:
+        return 1 - eps
+    else:
+        return eps / 3
+
+
+def four_temp_ampl(is_same, eps, gamma):
+    if is_same:
+        return (1 - gamma) * (1 - eps) + gamma * eps / 3
+    else:
+        return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
+
+
+def two_temp_ampl(is_same, eps, gamma):
+    if is_same:
+        return (1 - gamma) * (1 - eps) + gamma * eps / 3
+    else:
+        return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
@@ -372,6 +436,8 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    calc_GT_likelihood([0, 18, 0, 0], eps=1e-02, delta=0.2, gamma=1e-02)
+
     args = parse_args()
     if not args.output:
         args.output = os.path.dirname(args.input)
