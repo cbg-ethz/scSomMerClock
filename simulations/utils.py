@@ -346,7 +346,7 @@ def get_Bayes_factor(in_files, out_file):
             else:
                 evidence = 'Very Strong'
 
-            out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t'
+            out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t' \
                 f'{math.exp(diff):.0f}\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
