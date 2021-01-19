@@ -5,6 +5,7 @@ import re
 import gzip
 import math
 import argparse
+from statistics import mean, stdev
 
 
 BASES = ['A', 'C', 'G', 'T']
@@ -330,30 +331,52 @@ def get_Bayes_factor(in_files, out_file):
         scores[steps][run][model] = score
 
     out_str = ''
+    summary_str = ''
     for step, step_info in sorted(scores.items()):
+        h0_all = []
+        h1_all = []
+        logB1_01_all = []
+        evidence_all = []
         for run, run_info in step_info.items():
             h0 = run_info['clock']
+            h0_all.append(h0)
             h1 = run_info['noClock']
+            h1_all.append(h1)
             diff = min(max(-99, h1 - h0), 99)
 
             logB_01 = 2 * diff
+            logB1_01_all.append(logB_01)
             if logB_01 < 2:
                 evidence = 'None'
+                evidence_all.append(0)
             elif logB_01 < 6:
                 evidence = 'Positive'
+                evidence_all.append(1)
             elif logB_01 < 10:
                 evidence = 'Strong'
+                evidence_all.append(1)
             else:
                 evidence = 'Very Strong'
+                evidence_all.append(1)
 
             out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t' \
                 f'{math.exp(diff):.0f}\t{evidence}\n'
+        summary_str += f'{step}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
+            f'{mean(h1_all):.2f}\t{stdev(h1_all):.2f}\t{mean(logB_01_all):.2f}\t' \
+            f'{stdev(logB_01_all):.2f}\t{sum(evidence_all)\len(evidence_all)}\n'
+
 
     with open(out_file, 'w') as f_out:
         f_out.write('steps\trun\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\t'
             'Evidence\n')
         f_out.write(out_str.strip())
-    
+
+
+    with open(out_file.replace('.tsv', '.short.tsv'), 'w') as f_out:
+        f_out.write('steps\tAvg. H_0:clock\tStd. H_0:clock\tAvg. H_1:noClock'
+            '\tStd. H_1:noClock\tAvg. 2log_e(B_01)\tStd. 2log_e(B_01)\tEvidence\n')
+        f_out.write(summary_str.strip())
+
 
 # REF: C
 # ALT: A,G,T
