@@ -318,6 +318,7 @@ def get_Bayes_factor(in_files, out_file):
     scores = {}
     for in_file in in_files:
         _, run, steps, model, _ = os.path.basename(in_file).split('.')
+        steps = int(steps)
         with open(in_file, 'r') as f_score:
             score_raw = f_score.read().strip().split('\n')
         score = float(score_raw[-1].split('\t')[2])
@@ -329,7 +330,7 @@ def get_Bayes_factor(in_files, out_file):
         scores[steps][run][model] = score
 
     out_str = ''
-    for step, step_info in scores.items():
+    for step, step_info in sorted(scores.items()):
         for run, run_info in step_info.items():
             h0 = run_info['clock']
             h1 = run_info['noClock']
