@@ -346,7 +346,7 @@ def get_Bayes_factor(in_files, out_file):
                 evidence = 'Very Strong'
 
             out_str += f'{step}\t{run}\t{h0}\t{h1}\t{logB_01}\t{math.exp(diff)}' \
-                '\t{evidence}\n'
+                f'\t{evidence}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write('steps\trun\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\t'
