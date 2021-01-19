@@ -418,10 +418,11 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
         usage='python3 utils.py <DATA> [options]',
         description='*** Convert VCF to NEXUS or mpileup file ***')
-    parser.add_argument('input', type=str,
-        help='Absolute or relative path(s) to input VCF file')
-    parser.add_argument('-f', '--format', type=str, choices=['nxs', 'mpileup'],
-        default='nxs', help='Output format to convert to. Default = "nxs".')
+    parser.add_argument('input', nargs='+', type=str, 
+        help='Absolute or relative path(s) to input VCF file(s)')
+    parser.add_argument('-f', '--format', type=str, 
+        choices=['nxs', 'mpileup', 'bayes'], default='nxs',
+        help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
@@ -436,18 +437,20 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    calc_GT_likelihood([0, 18, 0, 0], eps=1e-02, delta=0.2, gamma=1e-02)
+    # calc_GT_likelihood([0, 18, 0, 0], eps=1e-02, delta=0.2, gamma=1e-02)
 
     args = parse_args()
     if not args.output:
-        args.output = os.path.dirname(args.input)
+        args.output = os.path.dirname(args.input[0])
 
     if args.format == 'nxs':
         out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
             for i in ['clock', 'noClock']]
-        vcf_to_nex(args.input, out_files, args.ngen, args.stepping_stone,
+        vcf_to_nex(args.input[0], out_files, args.ngen, args.stepping_stone,
             args.minDP)
+    elif args.format == 'mpileup':
+        out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
+        vcf_to_pileup(args.input[0], out_file)
     else:
-        out_file = '{}.mpileup'.format(args.output)
-        vcf_to_pileup(args.input, out_file)
-    
+        out_file = os.path.join(args.output, 'clock_test_summary.tsv')
+        get_Bayes_factor(args.input, out_file)

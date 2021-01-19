@@ -113,7 +113,8 @@ if config.get('hpc', False):
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {input}.log'
+            '> {input}.log && '
+            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 else:
     rule run_mrbayes:
         input:

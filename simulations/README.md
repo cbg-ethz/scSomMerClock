@@ -1,7 +1,7 @@
 ## How to run
 Enter the following to the command line:
 ```bash
-snakemake -j 1 -s Snakefile_sim --configfile config.simulations_clock.yaml
+snakemake -j 1 -s Snakefile_sim --configfile config.simulations_clock.yaml --restart-times=0
 ```
 
 To run on CESGA hpc cluster
