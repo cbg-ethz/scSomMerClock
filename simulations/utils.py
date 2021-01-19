@@ -335,7 +335,7 @@ def get_Bayes_factor(in_files, out_file):
     for step, step_info in sorted(scores.items()):
         h0_all = []
         h1_all = []
-        logB1_01_all = []
+        logB_01_all = []
         evidence_all = []
         for run, run_info in step_info.items():
             h0 = run_info['clock']
@@ -345,7 +345,7 @@ def get_Bayes_factor(in_files, out_file):
             diff = min(max(-99, h1 - h0), 99)
 
             logB_01 = 2 * diff
-            logB1_01_all.append(logB_01)
+            logB_01_all.append(logB_01)
             if logB_01 < 2:
                 evidence = 'None'
                 evidence_all.append(0)
