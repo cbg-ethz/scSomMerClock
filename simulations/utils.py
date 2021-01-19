@@ -361,7 +361,7 @@ def get_Bayes_factor(in_files, out_file):
 
             out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t' \
                 f'{math.exp(diff):.0f}\t{evidence}\n'
-        summary_str += f'{step}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
+        summary_str += f'{step:.0E}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
             f'{mean(h1_all):.2f}\t{stdev(h1_all):.2f}\t{mean(logB_01_all):.2f}\t' \
             f'{stdev(logB_01_all):.2f}\t{sum(evidence_all)}/{len(evidence_all)}\n'
 
