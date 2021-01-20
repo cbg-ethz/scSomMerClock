@@ -315,8 +315,28 @@ def snv_gen_to_new(in_file):
     import pdb; pdb.set_trace()
 
 
+def tail(f, lines=1, _buffer=4098):
+    """From https://stackoverflow.com/questions/136168"""
+    lines_found = []
+    block_counter = -1
+
+    while len(lines_found) < lines:
+        try:
+            f.seek(block_counter * _buffer, os.SEEK_END)
+        except IOError:
+            f.seek(0)
+            lines_found = f.readlines()
+            break
+
+        lines_found = f.readlines()
+        block_counter -= 1
+
+    return '\n'.join(lines_found[-lines:])
+
+
 def get_Bayes_factor(in_files, out_file):
     scores = {}
+    runtimes = {}
     for in_file in in_files:
         _, run, steps, model, _ = os.path.basename(in_file).split('.')
         steps = int(steps)
@@ -324,11 +344,20 @@ def get_Bayes_factor(in_files, out_file):
             score_raw = f_score.read().strip().split('\n')
         score = float(score_raw[-1].split('\t')[2])
         
+        log_tail = tail(open(in_file.replace('.lstat', '.log'), 'r'), 1000)
+        runtime_str = re.search(
+            'Analysis completed in (\d+) hours (\d+) mins (\d+) seconds',
+            log_tail)
+        runtime = int(runtime_str[3]) \
+            + 60 * (int(runtime_str[2]) + 60 * int(runtime_str[1]))
+
         if not steps in scores:
             scores[steps] = {run: {'clock': -1, 'noClock': -1}}
+            runtimes[steps] = []
         if not run in scores[steps]:
             scores[steps][run] = {'clock': -1, 'noClock': -1}
         scores[steps][run][model] = score
+        runtimes[steps].append(runtime)
 
     out_str = ''
     summary_str = ''
@@ -361,22 +390,91 @@ def get_Bayes_factor(in_files, out_file):
 
             out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t' \
                 f'{math.exp(diff):.0f}\t{evidence}\n'
-        summary_str += f'{step:.0E}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
+
+        if len(step_info) < 2:
+            continue
+
+        summary_str += f'{step:.0E}\t{mean(runtimes[step]):.2f}\t' \
+            f'{stdev(runtimes[step])}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
             f'{mean(h1_all):.2f}\t{stdev(h1_all):.2f}\t{mean(logB_01_all):.2f}\t' \
             f'{stdev(logB_01_all):.2f}\t{sum(evidence_all)}/{len(evidence_all)}\n'
-
 
     with open(out_file, 'w') as f_out:
         f_out.write('steps\trun\tH_0:clock\tH_1:noClock\t2log_e(B_01)\tB_01\t'
             'Evidence\n')
         f_out.write(out_str.strip())
 
+    if summary_str:
+        with open(out_file.replace('.tsv', '.short.tsv'), 'w') as f_out:
+            f_out.write('steps\tAvg. runtime [secs]\tStd. runtime [secs]\t'
+                'Avg. H_0:clock\tStd. H_0:clock\tAvg. H_1:noClock\t'
+                'Std. H_1:noClock\tAvg. 2log_e(B_01)\tStd. 2log_e(B_01)\tEvidence\n')
+            f_out.write(summary_str.strip())
 
-    with open(out_file.replace('.tsv', '.short.tsv'), 'w') as f_out:
-        f_out.write('steps\tAvg. H_0:clock\tStd. H_0:clock\tAvg. H_1:noClock'
-            '\tStd. H_1:noClock\tAvg. 2log_e(B_01)\tStd. 2log_e(B_01)\tEvidence\n')
-        f_out.write(summary_str.strip())
 
+
+def generate_mrbayes_plots(in_file, out_file):
+    import numpy as np
+    import pandas as pd
+    from scipy.stats import linregress
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+    from matplotlib.ticker import FormatStrFormatter
+
+    TICK_FONTSIZE = 12
+    LABEL_FONTSIZE = 16
+
+    def get_ratio(ev_str):
+        success, total = ev_str.split('/')
+        return float(success) / float(total)
+
+    df = pd.read_csv(in_file, sep='\t')
+    df['ratio'] = df['Evidence'].apply(lambda x: get_ratio(x))
+
+    fig = plt.figure(figsize=(10, 12))
+    gs = GridSpec(3, 1)
+    ax0 = fig.add_subplot(gs[0, 0])
+    ax1 = fig.add_subplot(gs[1, 0])
+    ax2 = fig.add_subplot(gs[2, 0])
+
+    ax0.errorbar(df['steps'], df['Avg. H_0:clock'], yerr= df['Std. H_0:clock'],
+        label=r'$H_0$', color='#1F78B4', capsize=4, ls='--', marker='x')
+    ax0.errorbar(df['steps'], df['Avg. H_1:noClock'], yerr= df['Std. H_1:noClock'],
+        label=r'$H_1$', color='#33A02C', capsize=4, ls='--', marker='x')
+    ax0.set_ylabel('Log-likelihood', fontsize=LABEL_FONTSIZE)
+    ax0.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
+    ax0.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
+    ax0.legend(fontsize=TICK_FONTSIZE)
+
+    ax1.errorbar(df['steps'], df['Avg. 2log_e(B_01)'],
+        yerr= df['Std. 2log_e(B_01)'], color='#E31A1C', capsize=4, ls='--',
+        marker='x')
+    ax1.set_ylabel(r'$2 log_e(B_{01})$', fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
+    ax1.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
+
+    reg_line = linregress(df['steps'], df['ratio'])
+    reg_x_alpha = (0.05 - reg_line.intercept) / reg_line.slope
+    reg_x = np.linspace(df['steps'].min(), math.ceil(reg_x_alpha / 1e7) * 1e7, 20)
+    reg_y = reg_line.intercept + reg_line.slope * reg_x
+
+    ax2.plot(reg_x, reg_y, color='#6A3D9A', ls='--', marker='x',
+        label=f'{reg_line.intercept:.2f} + {reg_line.slope:.2E} * x    ($R^2$={reg_line.rvalue:.2f})')
+    ax2.plot(df['steps'], df['ratio'], color='#FF7F00', ls='', marker='x',
+        label='real')
+    ax2.axhline(0.05, ls=':')
+    ax2.axvline(reg_x_alpha, ls=':')
+    ax2.text(reg_x_alpha, 0.05, f'({reg_x_alpha:.2E}, 0.05)', va='top',
+        ha='right', fontsize=TICK_FONTSIZE)
+    ax2.set_ylabel(r'$H_0$ rejected [%]', fontsize=LABEL_FONTSIZE)
+    ax2.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
+    ax2.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
+    ax2.set_ylim(-.05, 1.05)
+    ax2.legend(fontsize=TICK_FONTSIZE)
+   
+    fig.suptitle('Simulations: no WGS, no NGS', fontsize=LABEL_FONTSIZE * 1.5)
+
+    plt.show()
 
 # REF: C
 # ALT: A,G,T
@@ -475,7 +573,7 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=str, 
         help='Absolute or relative path(s) to input VCF file(s)')
     parser.add_argument('-f', '--format', type=str, 
-        choices=['nxs', 'mpileup', 'bayes'], default='nxs',
+        choices=['nxs', 'mpileup', 'bayes', 'plot'], default='nxs',
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
@@ -505,6 +603,9 @@ if __name__ == '__main__':
     elif args.format == 'mpileup':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
         vcf_to_pileup(args.input[0], out_file)
+    elif args.format == 'plot':
+        out_file = os.path.join(args.output, '{}.summary.pdf'.format(args.input[0]))
+        generate_mrbayes_plots(args.input[0], out_file)
     else:
         out_file = os.path.join(args.output, 'clock_test_summary.tsv')
         get_Bayes_factor(args.input, out_file)
