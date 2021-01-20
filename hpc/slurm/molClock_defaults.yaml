@@ -55,11 +55,11 @@ SCcaller1:
 
 
 monovar1:
-  time: 1439
+  time: 1440
 
 
 mutect1:
-  time: 1439
+  time: 1440
 
 
 # -------------------------------- QC & STUFF ----------------------------------
@@ -72,20 +72,24 @@ generate_mpileup:
   time: 360
 
 
+create_cellcoal_config:
+  time: 5
+
+
 run_sciphi:
   time: 360
 
 
 vcf_to_nex:
-  time: 60
+  time: 5
 
 
 run_mrbayes:
-  time: 1440
+  time: 2880
 
 
 run_mrbayes_hpc:
-  time: 1440
+  time: 2880
 
 
 merge_results:
