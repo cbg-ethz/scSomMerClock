@@ -395,28 +395,42 @@ def get_Bayes_factor(in_files, out_file):
 # DG: ./.
 # TG: C|C
 def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
+    # Line 4647 in cellcoal
     import numpy as np
     # CellCoal order: AA AC AG AT CC CG CT GG GT TT
     ll_GT = {}
     for ia1, A1 in enumerate(['A', 'C', 'G', 'T']):
         for ia2, A2 in [(0, 'A'), (1, 'C'), (2, 'G'), (3, 'T')][ia1:]:
             ll = 0
+            ll2 = 0
             for ib, read in enumerate(reads):
-                for j in range(read):
-                    if gamma:
-                        p_bA1 = four_temp_ampl(ib == ia1, eps, gamma) 
-                        p_bA2 = four_temp_ampl(ib == ia2, eps, gamma)
-                    else:
-                        p_bA1 = GATK(ib == ia1, eps) 
-                        p_bA2 = GATK(ib == ia2, eps)
+                if gamma:
+                    p_bA1 = four_temp_ampl2(ib == ia1, eps, gamma) 
+                    p_bA2 = four_temp_ampl2(ib == ia2, eps, gamma)
+                else:
+                    p_bA1 = GATK(ib == ia1, eps) 
+                    p_bA2 = GATK(ib == ia2, eps)
 
-                    if delta:
-                        ll += math.log10(
-                            (1 - delta) * (0.5 * p_bA1 + 0.5 * p_bA2) +
-                            delta/2 * p_bA1 + delta/2 * p_bA2)
-                    else:
-                        ll += math.log10(0.5 * p_bA1 + 0.5 * p_bA2)
+                if delta:
+                    ll += read * math.log10(
+                        (1 - delta) * (0.5 * p_bA1 + 0.5 * p_bA2) +
+                        delta/2 * p_bA1 + delta/2 * p_bA2)
+
+                    t1 = read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
+                    t2 = read * np.log10(p_bA1)
+                    t3 = read * np.log10(p_bA2)
+                    t_max = np.max([t1, t2, t3])
+                    num1 = (1 - delta) * math.pow(10, t1 - t_max)
+                    num2 = delta/2 * math.pow(10, t2 - t_max)
+                    num3 = delta/2 * math.pow(10, t3 - t_max)
+                    gl = num1 + num2 + num3
+                    ll2 +=  (t_max + math.log10(gl))
+                else:
+                    ll += read * math.log10(0.5 * p_bA1 + 0.5 * p_bA2)
+                # print(ll, ll2)
+                # import pdb; pdb.set_trace()
             ll_GT[A1 + A2] = round(ll, 2)
+            print(ll, ll2)
     print(ll_GT)
     import pdb; pdb.set_trace()
 
@@ -432,14 +446,25 @@ def four_temp_ampl(is_same, eps, gamma):
     if is_same:
         return (1 - gamma) * (1 - eps) + gamma * eps / 3
     else:
-        return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
+        return (1 - gamma) * eps / 3 + (gamma / 3) * (1 - eps / 3)
 
 
-def two_temp_ampl(is_same, eps, gamma):
+# Line 4559
+# Line 4675
+def four_temp_ampl2(is_same, eps, gamma):
     if is_same:
-        return (1 - gamma) * (1 - eps) + gamma * eps / 3
+        return (1 - gamma) * (1 - eps) 
     else:
-        return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
+        return (1 - gamma) * eps / 3
+
+
+# def two_temp_ampl(is_same, eps, gamma):
+#     3 * ((1 - gamma) * eps + gamma * eps)
+
+#     if is_same:
+#         return (1 - gamma) * (1 - eps) + gamma * eps / 3
+#     else:
+#         return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
 
 
 

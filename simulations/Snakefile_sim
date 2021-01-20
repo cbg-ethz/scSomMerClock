@@ -128,7 +128,8 @@ else:
         shell:
             'cd {out_dir} && '
             '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {input}.log }'
+            '> {input}.log && '
+            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 
 
 rule merge_results:
