@@ -430,6 +430,7 @@ def generate_mrbayes_plots(in_file, out_file):
 
     df = pd.read_csv(in_file, sep='\t')
     df['ratio'] = df['Evidence'].apply(lambda x: get_ratio(x))
+    df['runtime'] = df['Avg. runtime [secs]'].apply(lambda x: x / 60 / 60)
 
     fig = plt.figure(figsize=(10, 12))
     gs = GridSpec(3, 1)
@@ -471,7 +472,15 @@ def generate_mrbayes_plots(in_file, out_file):
     ax2.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
     ax2.set_ylim(-.05, 1.05)
     ax2.legend(fontsize=TICK_FONTSIZE)
-   
+
+    reg_line2 = linregress(df['steps'], df['runtime'])
+    def mcmc_to_runtime(x):
+        return reg_line2.intercept + reg_line2.slope * x
+    
+    secax = ax2.secondary_xaxis('top', functions=(mcmc_to_runtime, mcmc_to_runtime))
+    secax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    secax.set_xlabel('Runtime [h]')   
+
     fig.suptitle('Simulations: no WGS, no NGS', fontsize=LABEL_FONTSIZE * 1.5)
 
     plt.show()
@@ -492,6 +501,8 @@ def generate_mrbayes_plots(in_file, out_file):
 # NG: C|C
 # DG: ./.
 # TG: C|C
+
+
 def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
     # Line 4647 in cellcoal
     import numpy as np
@@ -503,11 +514,16 @@ def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
             ll2 = 0
             for ib, read in enumerate(reads):
                 if gamma:
-                    p_bA1 = four_temp_ampl2(ib == ia1, eps, gamma) 
-                    p_bA2 = four_temp_ampl2(ib == ia2, eps, gamma)
+                    p_bA1 = four_temp_ampl(ib == ia1, eps, gamma) 
+                    p_bA2 = four_temp_ampl(ib == ia2, eps, gamma)
                 else:
                     p_bA1 = GATK(ib == ia1, eps) 
                     p_bA2 = GATK(ib == ia2, eps)
+
+                if ia1 == ia2:
+                    ll += read * math.log10(p_bA1)
+                    ll2 += read * math.log10(p_bA1)
+                    continue
 
                 if delta:
                     ll += read * math.log10(
@@ -522,13 +538,13 @@ def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
                     num2 = delta/2 * math.pow(10, t2 - t_max)
                     num3 = delta/2 * math.pow(10, t3 - t_max)
                     gl = num1 + num2 + num3
-                    ll2 +=  (t_max + math.log10(gl))
+                    ll2 += (t_max + math.log10(gl))
                 else:
                     ll += read * math.log10(0.5 * p_bA1 + 0.5 * p_bA2)
                 # print(ll, ll2)
                 # import pdb; pdb.set_trace()
             ll_GT[A1 + A2] = round(ll, 2)
-            print(ll, ll2)
+            print(f'{A1}{A2}:\t{ll:02.4f}\t{ll2:.4f}')
     print(ll_GT)
     import pdb; pdb.set_trace()
 
@@ -540,20 +556,12 @@ def GATK(is_same, eps):
         return eps / 3
 
 
+# Line 4675
 def four_temp_ampl(is_same, eps, gamma):
     if is_same:
         return (1 - gamma) * (1 - eps) + gamma * eps / 3
     else:
         return (1 - gamma) * eps / 3 + (gamma / 3) * (1 - eps / 3)
-
-
-# Line 4559
-# Line 4675
-def four_temp_ampl2(is_same, eps, gamma):
-    if is_same:
-        return (1 - gamma) * (1 - eps) 
-    else:
-        return (1 - gamma) * eps / 3
 
 
 # def two_temp_ampl(is_same, eps, gamma):

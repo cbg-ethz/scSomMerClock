@@ -5,6 +5,13 @@ import sys
 from utils import *
 
 
+hpc = [sys.argv[i + 1] for i, j in enumerate(sys.argv) if j == '--profile']
+if not hpc:
+    hpc = 'lsf'
+else:
+    hpc = hpc[0].split(os.path.sep)[-1]
+
+
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config["mrbayes"]['ngen']]
 out_dir = get_out_dir(config)
@@ -62,7 +69,7 @@ rule run_monovar:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
     threads: 2
     resources:
-        mem_mb = lambda wildcards, attempt: 4096
+        mem_mb = 4096 if hpc == 'lsf' else 2 * 4096
     conda:
         'envs/monovar.yaml'
     envmodules:
@@ -109,7 +116,7 @@ if config.get('hpc', False):
             'mrbayes/3.2.7'
         threads: 4
         resources:
-            mem_mb=4096
+            mem_mb = 4096 if hpc == 'lsf' else 4 * 4096
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
@@ -124,7 +131,7 @@ else:
         params:
             mb_exe = config['mrbayes']['exe']
         resources:
-            mem_mb=16384
+            mem_mb = 16384
         shell:
             'cd {out_dir} && '
             '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
