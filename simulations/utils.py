@@ -6,6 +6,7 @@ import gzip
 import math
 import argparse
 from statistics import mean, stdev
+import numpy as np
 
 
 BASES = ['A', 'C', 'G', 'T']
@@ -26,6 +27,16 @@ begin mrbayes;
     {alg} ngen={ngen};
     sump outputname={out_file};
 end;
+"""
+
+
+VCF_TEMPLATE = """##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="True genotype">
+##contig=<ID=1,length={contig_length}>
+##source=germline variants from CellCoal simulation
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT{cells}
+{rows}
 """
 
 
@@ -53,7 +64,7 @@ def get_out_dir(config):
         mb_sampling = 'mcmc'
 
     if not config.get('static', {}).get('out_dir', False):
-        out_dir = os.path.dirname(os.path.abspath(__file__))
+        out_dir = os.path.dirname(os.path.relpath(__file__))
     else:
         out_dir = config['static']['out_dir']
 
@@ -73,6 +84,8 @@ def get_cellcoal_config(config, template_file, out_dir):
     templ = re.sub('{pop_size}',
         str(config['cellcoal']['model'].get('pop_size', 10000)), templ)
     templ = re.sub('{out_dir}', out_dir, templ)
+    templ = re.sub('{seq_cov}',
+        str(config['cellcoal'].get('NGS', {}).get('seq_cov', 20)), templ)
 
     if config['cellcoal']['model'].get('no_muts', None):
         templ = re.sub('{no_muts}',
@@ -81,12 +94,18 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{no_muts}', '', templ)
 
     if config['cellcoal']['model'].get('branch_rate_var', None):
-        templ = re.sub('{no_muts}',
+        templ = re.sub('{branch_rate_var}',
             'i{}'.format(config['cellcoal']['model']['branch_rate_var']), templ)
     else:
         templ = re.sub('{branch_rate_var}', '', templ)
 
-    if config['cellcoal']['scWGA'].get('simulate', False):
+    if config['cellcoal']['model'].get('germline_rate', 0.0) > 0:
+        templ = re.sub('{germline_rate}',
+            'c{}'.format(config['cellcoal']['model']['germline_rate']), templ)
+    else:
+        templ = re.sub('{germline_rate}', '', templ)
+
+    if config['cellcoal']['scWGA'].get('errors', False):
         templ = re.sub('{ADO_rate}',
             'D{}'.format(config['cellcoal']['scWGA']['ADO_rate']), templ)
         templ = re.sub('{ampl_error}',
@@ -98,15 +117,12 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{ampl_error}', '', templ)
         templ = re.sub('{doublet_rate}', '', templ)
 
-    if config['cellcoal']['NGS'].get('simulate', False):
-        templ = re.sub('{seq_cov}',
-            'C{}'.format(config['cellcoal']['NGS']['seq_cov']), templ)
+    if config['cellcoal']['NGS'].get('errors', False):
         templ = re.sub('{seq_overdis}',
             'V{}'.format(config['cellcoal']['NGS']['seq_overdis']), templ)
         templ = re.sub('{seq_error}',
             'E{}'.format(config['cellcoal']['NGS']['seq_error']), templ)
     else:
-        templ = re.sub('{seq_cov}', '', templ)
         templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', '', templ)
 
@@ -265,6 +281,108 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
             f_out.write(nex_str)
     
 
+def haplotypes_to_vcf(true_hap_file, out_file):
+    run_no = os.path.basename(true_hap_file).split('.')[-1]
+
+    ref = np.array([])
+    with open(true_hap_file, 'r') as f:
+        haps = {}
+        for cell_hap in f.read().strip().split('\n')[1:]:
+            cell_name, cell_bases = [i for i in cell_hap.split(' ') if i]
+            base_array = np.array([i for i in cell_bases])
+            if cell_name.startswith('outgcell'):
+                ref = base_array
+                continue
+
+            try:
+                haps[cell_name[:-1]][cell_name[-1]] = base_array
+            except KeyError:
+                haps[cell_name[:-1]] = {cell_name[-1]: base_array}
+
+    if ref.size == 0:
+        raise IOError('true_hap need to contain outgcell! (OUTPUT arg: -5)')
+
+    out_dir = os.path.dirname(out_file)
+    if not os.path.exists(out_dir):
+        os.path.mkdir(out_dir)
+
+    save_fasta(ref, out_dir, run_no)
+    outgr = haps.pop('outgroot')
+    save_germline_vcf(outgr, ref, out_dir, run_no)
+    save_true_vcf(haps, ref, out_file)
+
+    
+def save_fasta(ref, out_dir, run_no):
+    lines = ((len(ref) - 1) // 60) + 1
+    lines_str = [''.join(ref[i * 60: (i + 1) * 60]) for i in range(lines)]
+    fa_str = '\n'.join(lines_str)
+
+    out_file = os.path.join(out_dir, 'reference.{}.fa'.format(run_no))
+    with open(out_file, 'w') as f:
+        f.write('>1 - replicate.{}\n{}'.format(run_no, fa_str))
+        
+
+def save_germline_vcf(data, ref, out_dir, run_no):
+    gl = []
+    for al, al_bases in data.items():
+        gl.extend(
+            [(i, al_bases[i]) for i in np.argwhere(al_bases != ref).flatten()])
+
+    out_str = ''
+    for i, (pos, alt) in enumerate(gl):
+        out_str += '1\t{pos}\tgermline{id}\t{ref}\t{alt}\t.\tPASS\t.\t.\n' \
+            .format(pos=pos, id=i, ref=ref[pos], alt=alt)
+
+    out_file = os.path.join(out_dir, 'germlines.{}.vcf'.format(run_no))
+    with open(out_file, 'w') as f:
+        f.write(VCF_TEMPLATE \
+            .format(contig_length=len(ref), rows=out_str.rstrip(), cells=''))
+
+
+def save_true_vcf(data, ref, out_file):
+    out_str = ''
+    cells = data.keys()
+    for i, ref_al in enumerate(ref):
+        is_SNV = False
+        alts = []
+        recs = []
+        for cell in cells:
+            al1 = data[cell]['m'][i]
+            al2 = data[cell]['p'][i]
+            # Homozygous
+            if al1 != ref_al and al2 != ref_al:
+                if not al1 in alts:
+                    alts.append(al1)
+                recs.append('{i}|{i}'.format(i=alts.index(al1)))
+                is_SNV = True
+            # Heterozygous maternal allele
+            elif al1 != ref_al:       
+                if not al1 in alts:
+                    alts.append(al1)
+                recs.append('0|{}'.format(alts.index(al1)+1))
+                is_SNV = True
+            # Heterozygous paternal allele
+            elif al2 != ref_al:
+                if not al2 in alts:
+                    alts.append(al2)
+                recs.append('0|{}'.format(alts.index(al2)+1))
+                is_SNV = True
+            # Wildtype
+            else:
+                recs.append('0|0')
+
+        if is_SNV:
+            alt_str = ','.join(alts)
+            rec_str = '\t'.join(recs)
+            out_str += '1\t{pos}\tsnv{id:06d}\t{ref}\t{alt}\t.\tPASS\t.\tGT\t{recs}\n' \
+                .format(pos=i+1, id=i+1, ref=ref_al, alt=alt_str, recs=rec_str)
+
+    with open(out_file, 'w') as f:
+        f.write(VCF_TEMPLATE\
+            .format(contig_length=len(ref), rows=out_str.rstrip(),
+                cells='\t{}'.format('\t'.join(cells))))
+
+
 def format_record(format_str, s_rec):
     s_rec_vals = s_rec.split(':')
     return {j: s_rec_vals[i] for i,j in enumerate(format_str.split(':'))}
@@ -298,8 +416,6 @@ def parse_with_pysam(vcf_in):
 
 
 def snv_gen_to_new(in_file):
-    import numpy as np
-    
     with open(in_file, 'r') as f_in:
         data_raw = f_in.read().strip().split('\n')
 
@@ -577,11 +693,13 @@ def four_temp_ampl(is_same, eps, gamma):
 def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
         usage='python3 utils.py <DATA> [options]',
-        description='*** Convert VCF to NEXUS or mpileup file ***')
+        description='*** This script does one of the following:\n\t-VCF to NEXUS'
+            '\n\t-VCF to mpileup\n\t-true_hap to ref & germline\n\t-summarize '
+            'mrbayes .lstat files\n\tplot summarized mrbayes output\n***')
     parser.add_argument('input', nargs='+', type=str, 
         help='Absolute or relative path(s) to input VCF file(s)')
     parser.add_argument('-f', '--format', type=str, 
-        choices=['nxs', 'mpileup', 'bayes', 'plot'], default='nxs',
+        choices=['nxs', 'mpileup', 'bayes', 'plot', 'ref'], default='nxs',
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
@@ -614,6 +732,10 @@ if __name__ == '__main__':
     elif args.format == 'plot':
         out_file = os.path.join(args.output, '{}.summary.pdf'.format(args.input[0]))
         generate_mrbayes_plots(args.input[0], out_file)
+    elif args.format == 'ref':
+        run_id = os.path.basename(args.input[0]).split('.')[-1]
+        out_file = os.path.join(args.output, 'true_vcf.{}'.format(run_id))
+        haplotypes_to_vcf(args.input[0], out_file)
     else:
         out_file = os.path.join(args.output, 'clock_test_summary.tsv')
         get_Bayes_factor(args.input, out_file)

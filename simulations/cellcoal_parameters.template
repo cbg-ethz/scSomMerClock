@@ -17,7 +17,7 @@
 
 [MUTATION MODEL]
     [alphabet binary:0 DNA:1] b1
-    [germline SNP rate] [c0.00001]
+    [germline SNP rate] {germline_rate}
     [somatic mutation rate] [u1e-5]
     [CN_LOH rate] [H1e-5]
     [deletion rate] [d1e-6]
@@ -56,7 +56,7 @@
 
 
 [NGS PARAMETERS]
-    [sequencing coverage; reads simulated] {seq_cov}
+    [sequencing coverage; reads simulated] C{seq_cov}
     [coverage overdispersion] {seq_overdis}
     [haploid coverage] [R0.5]   
     [sequencing error] {seq_error}
@@ -65,12 +65,12 @@
                                  1 1 0 1
                                  1 1 1 0]
 [OUTPUT]
-    [print SNV genotypes] 1
-    [print SNV haplotypes] 2
-    [print full genotypes] 3
-    [print full haplotypes] 4
-    [print root ancestors] [5]
-    [print trees] 6
+    [print SNV genotypes] [1]
+    [print SNV haplotypes] [2]
+    [print full genotypes] [3]
+    [print full haplotypes] [4]
+    [print root ancestors] 5
+    [print trees] [6]
     [print times] [7]
     [print CATG] [8]
     [print true haplotypes] 9
@@ -82,7 +82,7 @@
     
 [OTHER]
     [use tumor nomenclature for cells] [W]
-    [noisy] y1
+    [noisy] y2
     [seed] [#1542634305] [if no seed is specified, the current time will be used as seed]
 
     [noisy = 0: does not print anything

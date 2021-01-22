@@ -7,19 +7,21 @@ from utils import *
 
 hpc = [sys.argv[i + 1] for i, j in enumerate(sys.argv) if j == '--profile']
 if not hpc:
-    hpc = 'lsf'
+    hpc = 'local'
 else:
     hpc = hpc[0].split(os.path.sep)[-1]
 
 
 if isinstance(config['mrbayes']['ngen'], (int, float)):
-    config['mrbayes']['ngen'] = [config["mrbayes"]['ngen']]
+    config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir = get_out_dir(config)
 
 
 rule all:
     input:
-        os.path.join(out_dir, 'clock_test_summary.tsv')
+        os.path.join(out_dir, 'clock_test_summary.tsv'),
+        expand(os.path.join(out_dir, 'true_vcf_dir', 'true_vcf.{run}'),
+            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
             
 
 rule create_cellcoal_config:
@@ -46,7 +48,20 @@ rule run_cellcoal:
     params:
         exe = config['cellcoal']['exe']
     shell:
-        '{params.exe} -F{input} && mv {input} {out_dir}/{input}'
+        'mkdir -p {out_dir} && {params.exe} -F{input} && mv {input} {out_dir}/{input}'
+
+
+rule get_true_GT:
+    input:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
+    resources:
+        mem_mb = 4096
+    run:
+        true_hap_file = os.path.join(out_dir, 'true_haplotypes_dir',
+            'true_hap.{}'.format(wildcards.run))
+        haplotypes_to_vcf(true_hap_file, output[0])
 
 
 rule vcf_to_mpileup:
@@ -102,7 +117,22 @@ rule vcf_to_nex:
         vcf_to_nex(input[0], output, wildcards.steps, params.ss)
 
 
-if config.get('hpc', False):
+if hpc == 'local':
+    rule run_mrbayes:
+        input:
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
+        output:
+            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
+        params:
+            mb_exe = config['mrbayes']['exe']
+        resources:
+            mem_mb = 16384
+        shell:
+            'cd {out_dir} && '
+            '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+            '> {input}.log && '
+            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
+else:
     rule run_mrbayes_hpc:
         input:
             os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
@@ -120,21 +150,6 @@ if config.get('hpc', False):
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {input}.log && '
-            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
-else:
-    rule run_mrbayes:
-        input:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
-        output:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
-        params:
-            mb_exe = config['mrbayes']['exe']
-        resources:
-            mem_mb = 16384
-        shell:
-            'cd {out_dir} && '
-            '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
             '> {input}.log && '
             'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 
