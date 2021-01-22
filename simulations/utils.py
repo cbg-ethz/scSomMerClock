@@ -6,6 +6,7 @@ import gzip
 import math
 import argparse
 from statistics import mean, stdev
+import numpy as np
 
 
 BASES = ['A', 'C', 'G', 'T']
