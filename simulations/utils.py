@@ -692,13 +692,13 @@ def four_temp_ampl(is_same, eps, gamma):
 def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
         usage='python3 utils.py <DATA> [options]',
-        description='*** This script does one of the following:\n\t-VCF to NEXUS'
-            '\n\t-VCF to mpileup\n\t-true_hap to ref & germline\n\t-summarize '
-            'mrbayes .lstat files\n\tplot summarized mrbayes output\n***')
-    parser.add_argument('input', nargs='+', type=str, 
-        help='Absolute or relative path(s) to input VCF file(s)')
+        description='*** This script does one of the following: 1. VCF to NEXUS'
+            '\n\t2. VCF to mpileup\n\t3. true_hap to ref & germline\n\t4. summarize '
+            'mrbayes .lstat files\n\t5. plot summarized mrbayes output\n***')
+    parser.add_argument('input', nargs='+', type=str,
+        help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str, 
-        choices=['nxs', 'mpileup', 'bayes', 'plot', 'ref'], default='nxs',
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'plot'], default='nxs',
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
