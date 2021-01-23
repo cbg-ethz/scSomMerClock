@@ -89,7 +89,7 @@ run_mrbayes:
 
 
 run_mrbayes_hpc:
-  time: 5040
+  time: 14400
 
 
 merge_results:
