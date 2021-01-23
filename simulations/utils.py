@@ -257,17 +257,17 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
                 else:
                     samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
                     
-                s_recs = s_rec.split(':')
-                ml_gt = ''.join(sorted(s_recs[-4].split('/')))
-                tr_gt = ''.join(sorted(s_recs[-1].split('|')))
-                if ml_gt != tr_gt:
-                    rec_dict = {j: s_recs[i] for i,j in enumerate(FORMAT_col)}
-                    print('read counts: {}'.format(rec_dict['RC']))
-                    print('GT ll norm: {}'.format(rec_dict['G10N']))
-                    print(f'predicted: {ml_gt}\t true: {tr_gt}')
-                    read_counts = [int(i) for i in rec_dict['RC'].split(',')]
-                    calc_G10N_likelihood(read_counts, eps=1e-02, delta=0.2, gamma=1e-02)
-                    import pdb; pdb.set_trace()
+                # s_recs = s_rec.split(':')
+                # ml_gt = ''.join(sorted(s_recs[-4].split('/')))
+                # tr_gt = ''.join(sorted(s_recs[-1].split('|')))
+                # if ml_gt != tr_gt:
+                #     rec_dict = {j: s_recs[i] for i,j in enumerate(FORMAT_col)}
+                #     print('read counts: {}'.format(rec_dict['RC']))
+                #     print('GT ll norm: {}'.format(rec_dict['G10N']))
+                #     print(f'predicted: {ml_gt}\t true: {tr_gt}')
+                #     read_counts = [int(i) for i in rec_dict['RC'].split(',')]
+                #     calc_G10N_likelihood(read_counts, eps=1e-02, delta=0.2, gamma=1e-02)
+                #     import pdb; pdb.set_trace()
 
 
     mat_str = ''
