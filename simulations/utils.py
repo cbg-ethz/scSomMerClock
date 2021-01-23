@@ -7,7 +7,6 @@ import math
 import argparse
 from pprint import pprint as pp
 from statistics import mean, stdev
-import numpy as np
 
 
 BASES = ['A', 'C', 'G', 'T']
