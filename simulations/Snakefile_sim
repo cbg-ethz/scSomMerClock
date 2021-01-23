@@ -20,7 +20,7 @@ out_dir = get_out_dir(config)
 rule all:
     input:
         os.path.join(out_dir, 'clock_test_summary.tsv'),
-        expand(os.path.join(out_dir, 'true_vcf_dir', 'true_vcf.{run}'),
+        expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}'),
             run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
             
 
@@ -42,6 +42,8 @@ rule run_cellcoal:
         os.path.join('cellcoal_parameters')
     output:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
+            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]),
+        expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}'),
             run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
     resources:
         mem_mb = 32768
@@ -53,15 +55,13 @@ rule run_cellcoal:
 
 rule get_true_GT:
     input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+        os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}')
     output:
         os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
     resources:
         mem_mb = 4096
     run:
-        true_hap_file = os.path.join(out_dir, 'true_haplotypes_dir',
-            'true_hap.{}'.format(wildcards.run))
-        haplotypes_to_vcf(true_hap_file, output[0])
+        haplotypes_to_vcf(input[0], output[0])
 
 
 rule vcf_to_mpileup:

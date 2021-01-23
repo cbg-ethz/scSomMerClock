@@ -5,6 +5,7 @@ import re
 import gzip
 import math
 import argparse
+from pprint import pprint as pp
 from statistics import mean, stdev
 import numpy as np
 
@@ -216,7 +217,9 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
 
             ref = line_cols[3]
             alts = line_cols[4].split(',')
-            DP_col = line_cols[8].split(':').index('DP')
+            FORMAT_col = line_cols[8].split(':')
+            DP_col = FORMAT_col.index('DP')
+
 
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
@@ -254,7 +257,20 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
                 # Heterozygous/Homozygous
                 else:
                     samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
-    
+                    
+                s_recs = s_rec.split(':')
+                ml_gt = ''.join(sorted(s_recs[-4].split('/')))
+                tr_gt = ''.join(sorted(s_recs[-1].split('|')))
+                if ml_gt != tr_gt:
+                    rec_dict = {j: s_recs[i] for i,j in enumerate(FORMAT_col)}
+                    print('read counts: {}'.format(rec_dict['RC']))
+                    print('GT ll norm: {}'.format(rec_dict['G10N']))
+                    print(f'predicted: {ml_gt}\t true: {tr_gt}')
+                    read_counts = [int(i) for i in rec_dict['RC'].split(',')]
+                    calc_G10N_likelihood(read_counts, eps=1e-02, delta=0.2, gamma=1e-02)
+                    import pdb; pdb.set_trace()
+
+
     mat_str = ''
     for sample_idx, genotypes in samples.items():
         mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
@@ -380,54 +396,6 @@ def save_true_vcf(data, ref, out_file):
         f.write(VCF_TEMPLATE\
             .format(contig_length=len(ref), rows=out_str.rstrip(),
                 cells='\t{}'.format('\t'.join(cells))))
-
-
-def format_record(format_str, s_rec):
-    s_rec_vals = s_rec.split(':')
-    return {j: s_rec_vals[i] for i,j in enumerate(format_str.split(':'))}
-    
-
-def parse_with_pysam(vcf_in):
-    from pysam import VariantFile
-
-    vcf = VariantFile(vcf_in)
-    samples = {i: '' for i in vcf.header.samples}
-    
-    for rec_idx, rec in enumerate(vcf.fetch()):
-        for sample_id, sample in rec.samples.iteritems():
-            s_ref, s_alt = sample['GT']
-            if s_ref == None:
-                samples[sample_id] += '?'
-            elif s_ref == 0 and s_alt == 0:
-                samples[sample_id] += rec.ref
-            else:
-                samples[sample_id] += rec.alts[max(s_ref, s_alt) - 1]
-
-    mat_str = ''
-    sample_names = []
-    for i, (sample_name, genotypes) in enumerate(samples.items()):
-        sample_names.append(sample_name)
-        if i == 0:
-            rec_no = len(genotypes)
-        mat_str += '{}    {}\n'.format(sample_name,  genotypes)
-
-    return mat_str, rec_no, sample_names
-
-
-def snv_gen_to_new(in_file):
-    with open(in_file, 'r') as f_in:
-        data_raw = f_in.read().strip().split('\n')
-
-    sample_no = int(data_raw[0].split(' ')[0])
-    rec_no = int(data_raw[0].split(' ')[1])
-
-    df = np.empty((sample_no, rec_no), dtype='S2')
-    cells = []
-    for i, line in enumerate(data_raw[2:]):
-        cell_name, cell_snvs = line.split('  ')
-        cells.append(cell_name)
-        df[i] = cell_snvs.split(' ')
-    import pdb; pdb.set_trace()
 
 
 def tail(f, lines=1, _buffer=4098):
@@ -600,25 +568,8 @@ def generate_mrbayes_plots(in_file, out_file):
 
     plt.show()
 
-# REF: C
-# ALT: A,G,T
 
-# GT: 0|0
-# DP:18
-# RC: 0,18,0,0
-# G10: -44.58,-1.08,-44.46,-44.46,-0.08,-1.08,-1.08,-44.58,-44.46,-44.58
-# G10N: -44.51,-1.00,-44.38,-44.38,0.00,-1.00,-1.00,-44.51,-44.38,-44.51
-# GL: -0.08,-1.08,-44.58,-1.08,-44.46,-44.58,-1.08,-44.46,-44.46,-44.58
-# GLN: 0.00,-1.00,-44.51,-1.00,-44.38,-44.51,-1.00,-44.38,-44.38,-44.51
-# PL: -1,-11,-446,-11,-445,-446,-11,-445,-445,-446
-# PLN: 0,-10,-445,-10,-444,-445,-10,-444,-444,-445
-# ML: C/C
-# NG: C|C
-# DG: ./.
-# TG: C|C
-
-
-def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
+def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
     # Line 4647 in cellcoal
     import numpy as np
     # CellCoal order: AA AC AG AT CC CG CT GG GT TT
@@ -626,7 +577,10 @@ def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
     for ia1, A1 in enumerate(['A', 'C', 'G', 'T']):
         for ia2, A2 in [(0, 'A'), (1, 'C'), (2, 'G'), (3, 'T')][ia1:]:
             ll = 0
-            ll2 = 0
+
+            g0 = 0
+            g1 = 0
+            g2 = 0
             for ib, read in enumerate(reads):
                 if gamma:
                     p_bA1 = four_temp_ampl(ib == ia1, eps, gamma) 
@@ -634,35 +588,37 @@ def calc_GT_likelihood(reads, eps=None, delta=None, gamma=None):
                 else:
                     p_bA1 = GATK(ib == ia1, eps) 
                     p_bA2 = GATK(ib == ia2, eps)
-
-                if ia1 == ia2:
-                    ll += read * math.log10(p_bA1)
-                    ll2 += read * math.log10(p_bA1)
-                    continue
-
                 if delta:
-                    ll += read * math.log10(
-                        (1 - delta) * (0.5 * p_bA1 + 0.5 * p_bA2) +
-                        delta/2 * p_bA1 + delta/2 * p_bA2)
-
-                    t1 = read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
-                    t2 = read * np.log10(p_bA1)
-                    t3 = read * np.log10(p_bA2)
-                    t_max = np.max([t1, t2, t3])
-                    num1 = (1 - delta) * math.pow(10, t1 - t_max)
-                    num2 = delta/2 * math.pow(10, t2 - t_max)
-                    num3 = delta/2 * math.pow(10, t3 - t_max)
-                    gl = num1 + num2 + num3
-                    ll2 += (t_max + math.log10(gl))
+                    # Lines 4688f
+                    g0 += read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
+                    g1 += read * np.log10(p_bA1)
+                    g2 += read * np.log10(p_bA2)
                 else:
-                    ll += read * math.log10(0.5 * p_bA1 + 0.5 * p_bA2)
-                # print(ll, ll2)
-                # import pdb; pdb.set_trace()
-            ll_GT[A1 + A2] = round(ll, 2)
-            print(f'{A1}{A2}:\t{ll:02.4f}\t{ll2:.4f}')
-    print(ll_GT)
-    import pdb; pdb.set_trace()
+                    ll += read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
 
+            if delta:
+                g0 = np.log10(1 - delta) + g0
+                g1 = np.log10(delta/2) + g1
+                g2 = np.log10(delta/2) + g2
+
+                max_t = np.max([g0, g1, g2])
+
+                # t0 = (1 - delta) * g0
+                # t1 = (delta/2) * g1
+                # t2 = (delta/2) * g2
+
+                t0 = g0
+                t1 = g1
+                t2 = g2
+
+                ll = max_t + np.log10(np.power(10, t0 - max_t) \
+                    + np.power(10, t1 - max_t) + np.power(10, t2 - max_t))
+                
+                ll_GT[A1 + A2] = round(ll, 2)
+    import pdb; pdb.set_trace()
+    x = np.array(list(ll_GT.values()))
+    ll_norm = _normalize_log(np.array(list(ll_GT.values())))
+    
 
 def GATK(is_same, eps):
     if is_same:
