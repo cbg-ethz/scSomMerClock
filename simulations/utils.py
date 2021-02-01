@@ -477,7 +477,7 @@ def get_Bayes_factor(in_files, out_file):
             continue
 
         summary_str += f'{step:.0E}\t{mean(runtimes[step]):.2f}\t' \
-            f'{stdev(runtimes[step])}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
+            f'{stdev(runtimes[step]):.2f}\t{mean(h0_all):.2f}\t{stdev(h0_all):.2f}\t' \
             f'{mean(h1_all):.2f}\t{stdev(h1_all):.2f}\t{mean(logB_01_all):.2f}\t' \
             f'{stdev(logB_01_all):.2f}\t{sum(evidence_all)}/{len(evidence_all)}\n'
 
@@ -514,7 +514,7 @@ def generate_mrbayes_plots(in_file, out_file):
     df['ratio'] = df['Evidence'].apply(lambda x: get_ratio(x))
     df['runtime'] = df['Avg. runtime [secs]'].apply(lambda x: x / 60 / 60)
 
-    fig = plt.figure(figsize=(10, 12))
+    fig = plt.figure(figsize=(16, 12))
     gs = GridSpec(3, 1)
     ax0 = fig.add_subplot(gs[0, 0])
     ax1 = fig.add_subplot(gs[1, 0])
@@ -530,20 +530,21 @@ def generate_mrbayes_plots(in_file, out_file):
     ax0.legend(fontsize=TICK_FONTSIZE)
 
     ax1.errorbar(df['steps'], df['Avg. 2log_e(B_01)'],
-        yerr= df['Std. 2log_e(B_01)'], color='#E31A1C', capsize=4, ls='--',
+        yerr= df['Std. 2log_e(B_01)'], color='#FF7F00', capsize=4, ls='--',
         marker='x')
     ax1.set_ylabel(r'$2 log_e(B_{01})$', fontsize=LABEL_FONTSIZE)
     ax1.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
     ax1.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
 
     reg_line = linregress(df['steps'], df['ratio'])
+
     reg_x_alpha = (0.05 - reg_line.intercept) / reg_line.slope
     reg_x = np.linspace(df['steps'].min(), math.ceil(reg_x_alpha / 1e7) * 1e7, 20)
     reg_y = reg_line.intercept + reg_line.slope * reg_x
 
     ax2.plot(reg_x, reg_y, color='#6A3D9A', ls='--', marker='x',
         label=f'{reg_line.intercept:.2f} + {reg_line.slope:.2E} * x    ($R^2$={reg_line.rvalue:.2f})')
-    ax2.plot(df['steps'], df['ratio'], color='#FF7F00', ls='', marker='x',
+    ax2.plot(df['steps'], df['ratio'], color='#E31A1C', ls='', marker='x',
         label='real')
     ax2.axhline(0.05, ls=':')
     ax2.axvline(reg_x_alpha, ls=':')
@@ -565,7 +566,13 @@ def generate_mrbayes_plots(in_file, out_file):
 
     fig.suptitle('Simulations: no WGS, no NGS', fontsize=LABEL_FONTSIZE * 1.5)
 
-    plt.show()
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92,
+        hspace=0.5)
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
 
 
 def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
@@ -656,7 +663,7 @@ def parse_args():
         choices=['nxs', 'mpileup', 'ref', 'bayes', 'plot'], default='nxs',
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
-        help='Path to the output directory. Default = <INPUT_DIR>.')
+        help='Path to the output directory/file. Default = <INPUT_DIR>.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
         help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
     parser.add_argument('-ss', '--stepping_stone', action='store_true',
@@ -684,7 +691,10 @@ if __name__ == '__main__':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
         vcf_to_pileup(args.input[0], out_file)
     elif args.format == 'plot':
-        out_file = os.path.join(args.output, '{}.summary.pdf'.format(args.input[0]))
+        if args.output == os.path.dirname(args.input[0]):
+            out_file = ''
+        else:
+            out_file = args.output
         generate_mrbayes_plots(args.input[0], out_file)
     elif args.format == 'ref':
         run_id = os.path.basename(args.input[0]).split('.')[-1]

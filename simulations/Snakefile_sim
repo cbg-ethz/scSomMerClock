@@ -17,6 +17,21 @@ if isinstance(config['mrbayes']['ngen'], (int, float)):
 out_dir = get_out_dir(config)
 
 
+def get_mrbayes_hpc_runtime(steps):
+    if steps <= 5E56:
+        return '04:00'
+    elif steps <= 10E6:
+        return '08:00'
+    if steps <= 20E6:
+        return '16:00'
+    elif steps <= 40E6:
+        return '24:00'
+    elif steps <= 80E6:
+        return '36:00'
+    else:
+        return '48:00'
+
+
 rule all:
     input:
         os.path.join(out_dir, 'clock_test_summary.tsv'),
@@ -146,7 +161,8 @@ else:
             'mrbayes/3.2.7'
         threads: 4
         resources:
-            mem_mb = 4096 if hpc == 'lsf' else 4 * 4096
+            mem_mb = 4096 if hpc == 'lsf' else 4 * 4096,
+            runtime = lambda wildcards, steps: get_mrbayes_hpc_runtime(steps)
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
