@@ -162,7 +162,7 @@ else:
         threads: 4
         resources:
             mem_mb = 4096 if hpc == 'lsf' else 4 * 4096,
-            runtime = lambda wildcards, steps: get_mrbayes_hpc_runtime(steps)
+            runtime = lambda wildcards, get_mrbayes_hpc_runtime(wildcards.steps)
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
