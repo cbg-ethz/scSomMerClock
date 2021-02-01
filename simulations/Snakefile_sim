@@ -18,15 +18,16 @@ out_dir = get_out_dir(config)
 
 
 def get_mrbayes_hpc_runtime(steps):
-    if steps <= 5E56:
+    steps_int = int(steps)
+    if steps_int <= 5E56:
         return '04:00'
-    elif steps <= 10E6:
+    elif steps_int <= 10E6:
         return '08:00'
-    if steps <= 20E6:
+    if steps_int <= 20E6:
         return '16:00'
-    elif steps <= 40E6:
+    elif steps_int <= 40E6:
         return '24:00'
-    elif steps <= 80E6:
+    elif steps_int <= 80E6:
         return '36:00'
     else:
         return '48:00'
@@ -162,7 +163,7 @@ else:
         threads: 4
         resources:
             mem_mb = 4096 if hpc == 'lsf' else 4 * 4096,
-            runtime = lambda wildcards, get_mrbayes_hpc_runtime(wildcards.steps)
+            runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps)
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
