@@ -23,10 +23,12 @@ def get_mrbayes_hpc_runtime(steps):
         return '04:00'
     elif steps_int <= 10E6:
         return '08:00'
-    if steps_int <= 20E6:
+    elif steps_int <= 20E6:
         return '16:00'
     elif steps_int <= 40E6:
         return '24:00'
+    elif steps_int <= 60E6:
+        return '32:00'
     elif steps_int <= 80E6:
         return '36:00'
     else:
