@@ -4,6 +4,8 @@ import os
 import sys
 from utils import *
 
+MODELS = ['clock', 'noClock']
+RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 
 hpc = [sys.argv[i + 1] for i, j in enumerate(sys.argv) if j == '--profile']
 if not hpc:
@@ -39,7 +41,7 @@ rule all:
     input:
         os.path.join(out_dir, 'clock_test_summary.tsv'),
         expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}'),
-            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
+            run=RUNS)
             
 
 rule create_cellcoal_config:
@@ -59,10 +61,10 @@ rule run_cellcoal:
     input:
         os.path.join('cellcoal_parameters')
     output:
-        expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
-            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]),
+        expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
         expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}'),
-            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])])
+            run=RUNS)
+
     resources:
         mem_mb = 32768
     params:
@@ -124,9 +126,8 @@ rule vcf_to_nex:
     input:
         os.path.join(out_dir, 'vcf_dir', vcf_in_file)
     output:
-        temp(expand(os.path.join(out_dir,
-                'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
-            model=['clock', 'noClock']))
+        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
+            model=MODELS)
     resources:
         mem_mb = 1024
     params:
@@ -165,7 +166,7 @@ else:
         threads: 4
         resources:
             mem_mb = 4096 if hpc == 'lsf' else 4 * 4096,
-            runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps)
+            runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
@@ -176,8 +177,7 @@ else:
 rule merge_results:
     input:
         expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat'),
-            run=[f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])],
-            steps=config['mrbayes']['ngen'], model=['clock', 'noClock'])
+            run=RUNS, steps=config['mrbayes']['ngen'], model=MODELS)
     output:
         os.path.join(out_dir, 'clock_test_summary.tsv')
     resources:
