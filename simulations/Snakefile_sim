@@ -169,7 +169,7 @@ else:
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {out_dir}/{input}.log && '
+            '> {input}.log && '
             'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 
 
