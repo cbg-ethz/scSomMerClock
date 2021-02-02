@@ -1,3 +1,6 @@
+static:
+  out_dir: 
+
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
   parameter: cellcoal_parameters.template
@@ -7,15 +10,16 @@ cellcoal:
     no_sites: 10000
     pop_size: 10000
     no_muts: 1000
+    germline_rate: 0.0000
     brach_rate_var: 1
   scWGA:
-    simulate: False
+    errors: False
     ADO_rate: 0.2
     doublet_rate: [0.02, 0.01]
     ampl_error: [0.01, 0.001, 0]
   NGS:
-    simulate: False
     seq_cov: 20
+    errors: False
     seq_overdis: 5
     seq_error: 0.01
 
@@ -24,5 +28,8 @@ mrbayes:
   ngen: 10000000
   ss: False
 
+monovar:
+  run: False
+  exe: ../../MonoVar_NB/src/monovar.py
 
-hpc: True
+scheduler: lsf
