@@ -495,7 +495,7 @@ def get_Bayes_factor(in_files, out_file):
 
 
 
-def generate_mrbayes_plots(in_file, out_file):
+def generate_mrbayes_plots(in_file, out_file, regress=False):
     import numpy as np
     import pandas as pd
     from scipy.stats import linregress
@@ -536,25 +536,28 @@ def generate_mrbayes_plots(in_file, out_file):
     ax1.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
     ax1.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
 
-    reg_line = linregress(df['steps'], df['ratio'])
-
-    reg_x_alpha = (0.05 - reg_line.intercept) / reg_line.slope
-    reg_x = np.linspace(df['steps'].min(), math.ceil(reg_x_alpha / 1e7) * 1e7, 20)
-    reg_y = reg_line.intercept + reg_line.slope * reg_x
-
-    ax2.plot(reg_x, reg_y, color='#6A3D9A', ls='--', marker='x',
-        label=f'{reg_line.intercept:.2f} + {reg_line.slope:.2E} * x    ($R^2$={reg_line.rvalue:.2f})')
     ax2.plot(df['steps'], df['ratio'], color='#E31A1C', ls='', marker='x',
         label='real')
-    ax2.axhline(0.05, ls=':')
-    ax2.axvline(reg_x_alpha, ls=':')
-    ax2.text(reg_x_alpha, 0.05, f'({reg_x_alpha:.2E}, 0.05)', va='top',
-        ha='right', fontsize=TICK_FONTSIZE)
+
+    if regress:
+        reg_line = linregress(df['steps'], df['ratio'])
+        reg_x_alpha = (0.05 - reg_line.intercept) / reg_line.slope
+        reg_x = np.linspace(df['steps'].min(), math.ceil(reg_x_alpha / 1e7) * 1e7, 20)
+        reg_y = reg_line.intercept + reg_line.slope * reg_x
+
+        ax2.plot(reg_x, reg_y, color='#6A3D9A', ls='--', marker='x',
+            label=f'{reg_line.intercept:.2f} + {reg_line.slope:.2E} * x    '
+                f'($R^2$={reg_line.rvalue:.2f})')
+        ax2.axhline(0.05, ls=':')
+        ax2.axvline(reg_x_alpha, ls=':')
+        ax2.text(reg_x_alpha, 0.05, f'({reg_x_alpha:.2E}, 0.05)', va='top',
+            ha='right', fontsize=TICK_FONTSIZE)
+        ax2.legend(fontsize=TICK_FONTSIZE)
+
     ax2.set_ylabel(r'$H_0$ rejected [%]', fontsize=LABEL_FONTSIZE)
     ax2.set_xlabel('MCMC steps', fontsize=LABEL_FONTSIZE)
     ax2.xaxis.set_major_formatter(FormatStrFormatter('%.0E'))
     ax2.set_ylim(-.05, 1.05)
-    ax2.legend(fontsize=TICK_FONTSIZE)
 
     reg_line2 = linregress(df['steps'], df['runtime'])
     def mcmc_to_runtime(x):
@@ -650,6 +653,18 @@ def four_temp_ampl(is_same, eps, gamma):
 #         return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
 
 
+def convert_steps(in_dir, steps):
+    runs = set([])
+    for in_file in os.listdir(in_dir):
+        _, run, steps, model, _ = in_file.split('.')
+        if run in runs:
+            break
+        else:
+            runs.add(run)
+
+        for step in steps:
+            pass
+
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='utils.py',
@@ -660,7 +675,7 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=str,
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str, 
-        choices=['nxs', 'mpileup', 'ref', 'bayes', 'plot'], default='nxs',
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'plot', 'steps'], default='nxs',
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -670,6 +685,8 @@ def parse_args():
         help='Use stepping stone sampling instead of MCMC.')
     parser.add_argument('-dp', '--minDP', type=int, default=10,
         help='Minimum reads to include a locus (else: missing). Default = 10.')
+    parser.add_argument('-s', '--steps', nargs='+', type=int,
+        help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
 
     args = parser.parse_args()
     return args
@@ -700,6 +717,8 @@ if __name__ == '__main__':
         run_id = os.path.basename(args.input[0]).split('.')[-1]
         out_file = os.path.join(args.output, 'true_vcf.{}'.format(run_id))
         haplotypes_to_vcf(args.input[0], out_file)
+    elif args.format == 'steps':
+        convert_steps(args.input, args.steps)
     else:
         out_file = os.path.join(args.output, 'clock_test_summary.tsv')
         get_Bayes_factor(args.input, out_file)

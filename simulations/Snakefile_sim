@@ -7,12 +7,7 @@ from utils import *
 MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 
-hpc = [sys.argv[i + 1] for i, j in enumerate(sys.argv) if j == '--profile']
-if not hpc:
-    hpc = 'local'
-else:
-    hpc = hpc[0].split(os.path.sep)[-1]
-
+scheduler = config.get('scheduler', None)
 
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
@@ -104,7 +99,7 @@ rule run_monovar:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
     threads: 2
     resources:
-        mem_mb = 4096 if hpc == 'lsf' else 2 * 4096
+        mem_mb = 4096 if scheduler == 'lsf' else 2 * 4096
     conda:
         'envs/monovar.yaml'
     envmodules:
@@ -136,7 +131,7 @@ rule vcf_to_nex:
         vcf_to_nex(input[0], output, wildcards.steps, params.ss)
 
 
-if hpc == 'local':
+if not scheduler:
     rule run_mrbayes:
         input:
             os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
@@ -165,7 +160,7 @@ else:
             'mrbayes/3.2.7'
         threads: 4
         resources:
-            mem_mb = 4096 if hpc == 'lsf' else 4 * 4096,
+            mem_mb = 4096 if scheduler == 'lsf' else 4 * 4096,
             runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
         shell:
             'cd {out_dir} && '
