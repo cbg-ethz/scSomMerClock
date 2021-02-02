@@ -165,7 +165,7 @@ else:
         shell:
             'cd {out_dir} && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {input}.log && '
+            '> nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
             'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 
 
