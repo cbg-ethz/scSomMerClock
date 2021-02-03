@@ -12,7 +12,7 @@
 
 [GENEALOGY MODIFIERS]
     [root branch length ratio] k0.5
-    [outgroup branch length ratio] q0
+    [outgroup branch length ratio] q0.1
     [rate variation among branches] {branch_rate_var}
 
 [MUTATION MODEL]
@@ -70,7 +70,7 @@
     [print full genotypes] [3]
     [print full haplotypes] [4]
     [print root ancestors] 5
-    [print trees] [6]
+    [print trees] {out_tree}
     [print times] [7]
     [print CATG] [8]
     [print true haplotypes] 9

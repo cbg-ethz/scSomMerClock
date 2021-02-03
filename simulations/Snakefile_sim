@@ -126,9 +126,10 @@ rule vcf_to_nex:
     resources:
         mem_mb = 1024
     params:
-        ss = config['mrbayes'].get('ss', False)
+        ss = config['mrbayes'].get('ss', False),
+        tree = config['mrbayes'].get('use_tree', False),
     run:
-        vcf_to_nex(input[0], output, wildcards.steps, params.ss)
+        vcf_to_nex(input[0], output, wildcards.steps, params.ss, params.tree)
 
 
 if not scheduler:
@@ -144,7 +145,7 @@ if not scheduler:
         shell:
             'cd {out_dir} && '
             '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> {input}.log && '
+            '> nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
             'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
 else:
     rule run_mrbayes_hpc:

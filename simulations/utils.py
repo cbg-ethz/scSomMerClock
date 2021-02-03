@@ -20,10 +20,16 @@ begin data;
     ;
 end;
 
+begin trees;
+    {tree_str}
+end;
+
 begin mrbayes;
     set autoclose=yes nowarnings=yes;
     lset nst=6 rates=invgamma;
+    outgroup healthycell;
     prset brlenspr={brlen_prior};
+    {fixed_tree}
     {alg} ngen={ngen};
     sump outputname={out_file};
 end;
@@ -126,6 +132,11 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', '', templ)
 
+    if config.get('mrbayes', {}).get('use_tree', False):
+        templ = re.sub('{out_tree}', '6', templ)
+    else:
+        templ = re.sub('{out_tree}', '', templ)
+
     return templ
 
 
@@ -191,7 +202,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
         f_names.write('\n'.join(sample_names))
 
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, tree=False, minDP=10):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -269,7 +280,6 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
                 #     calc_G10N_likelihood(read_counts, eps=1e-02, delta=0.2, gamma=1e-02)
                 #     import pdb; pdb.set_trace()
 
-
     mat_str = ''
     for sample_idx, genotypes in samples.items():
         mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
@@ -280,17 +290,44 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, minDP=10):
     else:
         alg = 'mcmc'
 
+    if tree:
+        run_nr = os.path.basename(vcf_file).split('.')[-1]
+        tree_file = os.sep.join(vcf_file.split(os.sep)[:-2] \
+            + ['trees_dir', 'trees.{}'.format(run_nr)])
+        with open(tree_file, 'r') as f_tree:
+            tree_nexus = f_tree.read().strip()
+        tree_nexus = tree_nexus.replace('cell', 'tumcell')
+        tree_nexus = tree_nexus.replace('outgtumcell', 'healthycell')
+
+        tree_name = 'treeCellCoal'
+        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
+    else:
+        fixed_tree = ''
+
     for out_file in out_files:
         model = out_file.split('.')[-1]
         if model == 'clock':
             brlen_prior = 'clock:uniform'
+            if tree:
+                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_nexus)
+            else:
+                tree_str = ''
+
         else:
             brlen_prior = 'unconstrained:exp(10.0)'
+            if tree:
+                tree_nexus_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
+                    tree_nexus[1:])
+                tree_str = 'tree {} = [&U] {}'\
+                    .format(tree_name, tree_nexus_unrooted)
+            else:
+                tree_str = ''
 
         nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
             rec_no=rec_no, sample_labels=' '.join(sample_names),
-            matrix=mat_str.strip('\n'), out_file=os.path.basename(out_file),
-            alg=alg, ngen=ngen, brlen_prior=brlen_prior)
+            matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
+            out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
+            brlen_prior=brlen_prior)
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
@@ -427,11 +464,15 @@ def get_Bayes_factor(in_files, out_file):
         score = float(score_raw[-1].split('\t')[2])
         
         log_tail = tail(open(in_file.replace('.lstat', '.log'), 'r'), 1000)
-        runtime_str = re.search(
-            'Analysis completed in (\d+) hours (\d+) mins (\d+) seconds',
-            log_tail)
-        runtime = int(runtime_str[3]) \
-            + 60 * (int(runtime_str[2]) + 60 * int(runtime_str[1]))
+        runtime_start = log_tail.index('Analysis completed in')
+        runtime_end = log_tail[runtime_start:].index('seconds') + runtime_start
+        runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
+        
+        if len(runtime) == 3:
+            runtime = 60 * 60 * int(runtime[0]) + 60 * int(runtime[1]) \
+                + int(runtime[2])
+        else:
+            runtime = 60 * int(runtime[0]) + int(runtime[1])
 
         if not steps in scores:
             scores[steps] = {run: {'clock': -1, 'noClock': -1}}
@@ -453,7 +494,13 @@ def get_Bayes_factor(in_files, out_file):
             h0_all.append(h0)
             h1 = run_info['noClock']
             h1_all.append(h1)
-            diff = min(max(-99, h1 - h0), 99)
+            diff = h1 - h0
+            if diff > 50:
+                B01 = math.inf
+            elif diff < -50:
+                B01 = math.inf
+            else:
+                B01 = math.exp(diff)
 
             logB_01 = 2 * diff
             logB_01_all.append(logB_01)
@@ -471,7 +518,7 @@ def get_Bayes_factor(in_files, out_file):
                 evidence_all.append(1)
 
             out_str += f'{step}\t{run}\t{h0:.2f}\t{h1:.2f}\t{logB_01:.2f}\t' \
-                f'{math.exp(diff):.0f}\t{evidence}\n'
+                f'{B01:.0f}\t{evidence}\n'
 
         if len(step_info) < 2:
             continue
@@ -683,6 +730,8 @@ def parse_args():
         help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
     parser.add_argument('-ss', '--stepping_stone', action='store_true',
         help='Use stepping stone sampling instead of MCMC.')
+    parser.add_argument('-t', '--use_tree', action='store_true',
+        help='Add the true cellcoal tree to the nexus file.')
     parser.add_argument('-dp', '--minDP', type=int, default=10,
         help='Minimum reads to include a locus (else: missing). Default = 10.')
     parser.add_argument('-s', '--steps', nargs='+', type=int,
@@ -703,7 +752,7 @@ if __name__ == '__main__':
         out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
             for i in ['clock', 'noClock']]
         vcf_to_nex(args.input[0], out_files, args.ngen, args.stepping_stone,
-            args.minDP)
+            args.use_tree, args.minDP)
     elif args.format == 'mpileup':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
         vcf_to_pileup(args.input[0], out_file)
