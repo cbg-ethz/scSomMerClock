@@ -84,7 +84,10 @@ def get_summary_df(args):
             samples.add(sample_name)
 
     sc_map = OrderedDict([(j, i) for i, j in enumerate(sorted(samples))])
-    bk_map = OrderedDict([(j, i) for i, j in enumerate(sorted(args.bulk_tumor))])
+    if args.bulk_tumor:
+        bk_map = OrderedDict([(j, i) for i, j in enumerate(sorted(args.bulk_tumor))])
+    else:
+        bk_map = OrderedDict()
     sample_maps = (sc_map, bk_map)
 
     # Iterate over rows
