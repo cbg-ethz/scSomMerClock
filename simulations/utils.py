@@ -544,30 +544,30 @@ def get_Bayes_factor(in_files, out_file, ss=False):
 
         summary_str += f"{step:.0E}\t{mean(runtimes[step]):.2f}\t" \
             f"{stdev(runtimes[step]):.2f}\t" \
-            f"{mean(summary_df['harmonic']['h0']):.2f}\t" \
-            f"{stdev(summary_df['harmonic']['h0']):.2f}\t" \
-            f"{mean(summary_df['harmonic']['h0_diff']):.2f}\t" \
-            f"{stdev(summary_df['harmonic']['h0_diff']):.2f}\t" \
-            f"{mean(summary_df['harmonic']['h1']):.2f}\t" \
-            f"{stdev(summary_df['harmonic']['h1']):.2f}\t" \
-            f"{mean(summary_df['harmonic']['h1_diff']):.2f}\t" \
-            f"{stdev(summary_df['harmonic']['h1_diff']):.2f}\t" \
-            f"{mean(summary_df['harmonic']['logB_01']):.2f}\t" \
-            f"{stdev(summary_df['harmonic']['logB_01']):.2f}\t" \
+            f"{mean(summary_df['harmonic']['h0']):.1f}\t" \
+            f"{stdev(summary_df['harmonic']['h0']):.1f}\t" \
+            f"{mean(summary_df['harmonic']['h0_diff']):.0f}\t" \
+            f"{stdev(summary_df['harmonic']['h0_diff']):.0f}\t" \
+            f"{mean(summary_df['harmonic']['h1']):.1f}\t" \
+            f"{stdev(summary_df['harmonic']['h1']):.1f}\t" \
+            f"{mean(summary_df['harmonic']['h1_diff']):.0f}\t" \
+            f"{stdev(summary_df['harmonic']['h1_diff']):.0f}\t" \
+            f"{mean(summary_df['harmonic']['logB_01']):.1f}\t" \
+            f"{stdev(summary_df['harmonic']['logB_01']):.1f}\t" \
             f"{sum(summary_df['harmonic']['evidence'])}/" \
             f"{len(summary_df['harmonic']['evidence'])}\n"
 
         if ss:
-            summary_str += f"{mean(summary_df['ss']['h0']):.2f}\t" \
-            f"{stdev(summary_df['ss']['h0']):.2f}\t" \
-            f"{mean(summary_df['ss']['h0_diff']):.2f}\t" \
-            f"{stdev(summary_df['ss']['h0_diff']):.2f}\t" \
-            f"{mean(summary_df['ss']['h1']):.2f}\t" \
-            f"{stdev(summary_df['ss']['h1']):.2f}\t" \
-            f"{mean(summary_df['ss']['h1_diff']):.2f}\t" \
-            f"{stdev(summary_df['ss']['h1_diff']):.2f}\t" \
-            f"{mean(summary_df['ss']['logB_01']):.2f}\t" \
-            f"{stdev(summary_df['ss']['logB_01']):.2f}\t" \
+            summary_str += f"{mean(summary_df['ss']['h0']):.1f}\t" \
+            f"{stdev(summary_df['ss']['h0']):.1f}\t" \
+            f"{mean(summary_df['ss']['h0_diff']):.0f}\t" \
+            f"{stdev(summary_df['ss']['h0_diff']):.0f}\t" \
+            f"{mean(summary_df['ss']['h1']):.1f}\t" \
+            f"{stdev(summary_df['ss']['h1']):.1f}\t" \
+            f"{mean(summary_df['ss']['h1_diff']):.0f}\t" \
+            f"{stdev(summary_df['ss']['h1_diff']):.0f}\t" \
+            f"{mean(summary_df['ss']['logB_01']):.1f}\t" \
+            f"{stdev(summary_df['ss']['logB_01']):.1f}\t" \
             f"{sum(summary_df['ss']['evidence'])}/" \
             f"{len(summary_df['ss']['evidence'])}\n"
 
@@ -637,8 +637,8 @@ def get_marginal_ll_str(h0, h1):
         evidence = 'Very Strong'
         evidence_flag = 1
 
-    out_str = f'{h0[0]:.2f}\t{h0[1]:.2f}\t{h1[0]:.2f}\t{h1[1]:.2f}\t' \
-        f'{logB_01:.2f}\t{B01:.0f}\t{evidence}'
+    out_str = f'{h0[0]:.1f}\t{h0[1]:.0f}\t{h1[0]:.1f}\t{h1[1]:.0f}\t' \
+        f'{logB_01:.1f}\t{B01:.0f}\t{evidence}'
     return out_str, logB_01, evidence_flag
 
 
