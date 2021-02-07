@@ -542,8 +542,7 @@ def get_Bayes_factor(in_files, out_file, ss=False):
         if len(step_info) < 2:
             continue
 
-        summary_str += f"{step:.0E}\t{mean(runtimes[step]):.2f}\t" \
-            f"{stdev(runtimes[step]):.2f}\t" \
+        summary_str += f"{step:.0E}\t{max(runtimes[step]):.2f}\t" \
             f"{mean(summary_df['harmonic']['h0']):.1f}\t" \
             f"{stdev(summary_df['harmonic']['h0']):.1f}\t" \
             f"{mean(summary_df['harmonic']['h0_diff']):.0f}\t" \
@@ -592,7 +591,7 @@ def get_Bayes_factor(in_files, out_file, ss=False):
     if summary_str:
         with open(out_file.replace('.tsv', '.short.tsv'), 'w') as f_out:
             if ss:
-                f_out.write('steps\tAvg. runtime [secs]\tStd. runtime [secs]\t'
+                f_out.write('steps\tMax. runtime [secs]\t'
                     'Avg. H0:clock (harmonic mean)\tStd. H0:clock (harmonic mean)\t'
                     'Avg. H0 LL diff (harmonic mean)\tStd. H0 LL diff (harmonic mean)\t'
                     'Avg. H1:noClock (harmonic mean)\tStd. H1:noClock (harmonic mean)\t'
@@ -605,7 +604,7 @@ def get_Bayes_factor(in_files, out_file, ss=False):
                     'Avg. 2log_e(B_01) (ss)\tStd. 2log_e(B_01) (ss)\t'
                     'Evidence (ss)\n')
             else:
-                f_out.write('steps\tAvg. runtime [secs]\tStd. runtime [secs]\t'
+                f_out.write('steps\tMax. runtime [secs]\t'
                     'Avg. H0:clock (harmonic mean)\tStd. H0:clock (harmonic mean)\t'
                     'Avg. H0 LL diff (harmonic mean)\tStd. H0 LL diff (harmonic mean)\t'
                     'Avg. H1:noClock (harmonic mean)\tStd. H1:noClock (harmonic mean)\t'
