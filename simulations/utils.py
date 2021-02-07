@@ -535,7 +535,7 @@ def get_Bayes_factor(in_files, out_file, ss=False):
                 summary_df['ss']['logB_01'].append(logB_01_ss)
                 summary_df['ss']['evidence'].append(evidence_flag_ss)
 
-                out_str += new_out_str_ss
+                out_str += '\t' + new_out_str_ss
 
             out_str += '\n'
 
