@@ -555,10 +555,10 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             f"{mean(summary_df['harmonic']['logB_01']):.1f}\t" \
             f"{stdev(summary_df['harmonic']['logB_01']):.1f}\t" \
             f"{sum(summary_df['harmonic']['evidence'])}/" \
-            f"{len(summary_df['harmonic']['evidence'])}\n"
+            f"{len(summary_df['harmonic']['evidence'])}"
 
         if ss:
-            summary_str += f"{mean(summary_df['ss']['h0']):.1f}\t" \
+            summary_str += f"\t{mean(summary_df['ss']['h0']):.1f}\t" \
             f"{stdev(summary_df['ss']['h0']):.1f}\t" \
             f"{mean(summary_df['ss']['h0_diff']):.0f}\t" \
             f"{stdev(summary_df['ss']['h0_diff']):.0f}\t" \
@@ -569,7 +569,8 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             f"{mean(summary_df['ss']['logB_01']):.1f}\t" \
             f"{stdev(summary_df['ss']['logB_01']):.1f}\t" \
             f"{sum(summary_df['ss']['evidence'])}/" \
-            f"{len(summary_df['ss']['evidence'])}\n"
+            f"{len(summary_df['ss']['evidence'])}"
+        summary_str += '\n'
 
     with open(out_file, 'w') as f_out:
         if ss:
