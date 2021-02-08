@@ -510,6 +510,9 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             h0 = run_info['clock']
             h1 = run_info['noClock']
             
+            if h0[0] == -1 or h1[0] == -1:
+                continue
+
             summary_df['harmonic']['h0'].append(h0[0])
             summary_df['harmonic']['h0_diff'].append(h0[1])
             summary_df['harmonic']['h1'].append(h1[0])
