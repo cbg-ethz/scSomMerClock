@@ -74,5 +74,5 @@ run_mrbayes_hpc:
   - '-W 48:00'
 
 
-merge_results:
+merge_mrbayes_results:
   - '-W 00:15'

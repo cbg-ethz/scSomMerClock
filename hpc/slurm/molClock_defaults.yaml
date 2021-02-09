@@ -76,6 +76,10 @@ create_cellcoal_config:
   time: 5
 
 
+run_cellcoal:
+  time: 120
+
+
 run_sciphi:
   time: 360
 
@@ -92,5 +96,9 @@ run_mrbayes_hpc:
   time: 14400
 
 
-merge_results:
+run_PAUP:
+  time: 5
+
+
+merge_mrbayes_results:
   time: 60
