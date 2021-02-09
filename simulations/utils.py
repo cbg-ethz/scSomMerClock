@@ -57,7 +57,7 @@ VCF_TEMPLATE = """##fileformat=VCFv4.1
 
 
 def get_out_dir(config):
-    cc_brv = config['cellcoal']['model'].get('brach_rate_var', None)
+    cc_brv = config['cellcoal']['model'].get('branch_rate_var', None)
     if cc_brv:
         model = 'noClock{}'.format(cc_brv)
     else:
@@ -667,7 +667,11 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         _, run, _, model, _, _ = os.path.basename(in_file).split('.')
         with open(in_file, 'r') as f_score:
             score_raw = f_score.read().strip().split('\n')
-        score = -float(score_raw[-1].split('\t')[1])
+        try:
+            score = -float(score_raw[-1].split('\t')[1])
+        except ValueError:
+            print(f'Cannot read: {in_file}')
+            continue
 
         if not run in scores:
             scores[run] ={'clock': -1, 'noClock': -1}
@@ -684,10 +688,10 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         LR = -2 * (h0 - h1)
         p_val = chi2.sf(LR, cell_no - 2)
         if p_val < alpha:
-            hyp = 'h1'
+            hyp = 'H1'
             avg[4] += 1
         else:
-            hyp = 'h0'
+            hyp = 'H0'
             avg[3] += 1
 
         avg[0].append(h0)
@@ -700,7 +704,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         f_out.write('run\tH0:clock\tH1:noClock\tp-value\thypothesis\n')
         f_out.write(out_str)
         f_out.write(f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t'
-            f'{avg[3]} H0; {avg[4]} H1')
+            f'H0:{avg[3]};H1:{avg[4]}')
 
 
 def generate_mrbayes_plots(in_file, out_file, regress=False):

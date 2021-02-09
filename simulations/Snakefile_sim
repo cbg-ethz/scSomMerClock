@@ -68,7 +68,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}'),
             run=RUNS)
     resources:
-        mem_mb = 32768
+        mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
     params:
         exe = config['cellcoal']['exe']
     shell:
