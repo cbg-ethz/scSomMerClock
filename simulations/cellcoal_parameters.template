@@ -12,7 +12,7 @@
 
 [GENEALOGY MODIFIERS]
     [root branch length ratio] k0.5
-    [outgroup branch length ratio] q0.1
+    [outgroup branch length ratio] q{outgroup_branch_length}
     [rate variation among branches] {branch_rate_var}
 
 [MUTATION MODEL]

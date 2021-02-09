@@ -33,8 +33,18 @@ begin mrbayes;
     {alg} ngen={ngen};
     sump outputname={out_file};
 end;
-"""
 
+begin PAUP;
+    Set autoclose=yes warnreset=no warntree=no warntsave=No;
+    Set criterion=like;
+    Outgroup healthycell;
+    LSet nst=1 base=equal rates=gamma shape=est;
+    LSet clock={clock_str};
+    lscores 1/ clock={clock_str} scorefile={out_file}.PAUP.score append;
+    quit;
+end;
+    
+"""
 
 VCF_TEMPLATE = """##fileformat=VCFv4.1
 ##FILTER=<ID=PASS,Description="All filters passed">
@@ -92,6 +102,8 @@ def get_cellcoal_config(config, template_file, out_dir):
     templ = re.sub('{out_dir}', out_dir, templ)
     templ = re.sub('{seq_cov}',
         str(config['cellcoal'].get('NGS', {}).get('seq_cov', 20)), templ)
+    templ = re.sub('{outgroup_branch_length}',
+        str(config['cellcoal']['model'].get('outgroup_branch_length', 1)), templ)
 
     if config['cellcoal']['model'].get('no_muts', None):
         templ = re.sub('{no_muts}',
@@ -307,13 +319,14 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, tree=False, minDP=10):
     for out_file in out_files:
         model = out_file.split('.')[-1]
         if model == 'clock':
+            clock_str = 'yes'
             brlen_prior = 'clock:uniform'
             if tree:
                 tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_nexus)
             else:
                 tree_str = ''
-
         else:
+            clock_str = 'no'
             brlen_prior = 'unconstrained:exp(10.0)'
             if tree:
                 tree_nexus_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
@@ -327,7 +340,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, tree=False, minDP=10):
             rec_no=rec_no, sample_labels=' '.join(sample_names),
             matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
             out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
-            brlen_prior=brlen_prior)
+            brlen_prior=brlen_prior, clock_str=clock_str)
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
@@ -643,6 +656,51 @@ def get_marginal_ll_str(h0, h1):
     out_str = f'{h0[0]:.1f}\t{h0[1]:.0f}\t{h1[0]:.1f}\t{h1[1]:.0f}\t' \
         f'{logB_01:.1f}\t{B01:.0f}\t{evidence}'
     return out_str, logB_01, evidence_flag
+
+
+
+def get_LRT(in_files, out_file, cell_no, alpha=0.05):
+    from scipy.stats.distributions import chi2
+
+    scores = {}
+    for in_file in in_files:
+        _, run, _, model, _, _ = os.path.basename(in_file).split('.')
+        with open(in_file, 'r') as f_score:
+            score_raw = f_score.read().strip().split('\n')
+        score = -float(score_raw[-1].split('\t')[1])
+
+        if not run in scores:
+            scores[run] ={'clock': -1, 'noClock': -1}
+        scores[run][model] = score
+
+    out_str = ''
+    avg = [[], [], [], 0, 0]
+    for run, run_info in sorted(scores.items()):
+        h0 = run_info['clock']
+        h1 = run_info['noClock']
+        if h0 == -1 or h1 == -1:
+            continue
+
+        LR = -2 * (h0 - h1)
+        p_val = chi2.sf(LR, cell_no - 2)
+        if p_val < alpha:
+            hyp = 'h1'
+            avg[4] += 1
+        else:
+            hyp = 'h0'
+            avg[3] += 1
+
+        avg[0].append(h0)
+        avg[1].append(h1)
+        avg[2].append(p_val)
+
+        out_str += f'{run}\t{h0:.1f}\t{h1:.1f}\t{p_val:.2E}\t{hyp}\n'
+
+    with open(out_file, 'w') as f_out:
+        f_out.write('run\tH0:clock\tH1:noClock\tp-value\thypothesis\n')
+        f_out.write(out_str)
+        f_out.write(f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t'
+            f'{avg[3]} H0; {avg[4]} H1')
 
 
 def generate_mrbayes_plots(in_file, out_file, regress=False):
