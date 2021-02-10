@@ -894,13 +894,15 @@ def parse_args():
             'mrbayes .lstat files\n\t5. plot summarized mrbayes output\n***')
     parser.add_argument('input', nargs='+', type=str,
         help='Absolute or relative path(s) to input file(s)')
-    parser.add_argument('-f', '--format', type=str, 
-        choices=['nxs', 'mpileup', 'ref', 'bayes', 'plot', 'steps'], default='nxs',
+    parser.add_argument('-f', '--format', type=str,  default='nxs',
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
         help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
+    parser.add_argument('-nc', '--no_cells', type=int, default=-1,
+        help='Number of cells. Required for LRT.')
     parser.add_argument('-ss', '--stepping_stone', action='store_true',
         help='Use stepping stone sampling instead of MCMC.')
     parser.add_argument('-t', '--use_tree', action='store_true',
@@ -941,6 +943,10 @@ if __name__ == '__main__':
         haplotypes_to_vcf(args.input[0], out_file)
     elif args.format == 'steps':
         convert_steps(args.input, args.steps)
+    elif args.format == 'LRT':
+        if args.no_cells < 1:
+            raise IOError('For LRT, the number of cells must be specified!')
+        get_LRT(args.input, args.output, args.no_cells + 1)
     else:
         out_file = os.path.join(args.output, 'clock_test_summary.tsv')
         get_Bayes_factor(args.input, out_file, args.stepping_stone)

@@ -217,7 +217,7 @@ rule merge_paup_results:
     resources:
         mem_mb=2048
     params:
-        no_cells = config['cellcoal']['model']['no_cells']
-    run:
-        get_LRT(input, output[0], params.no_cells + 1)
+        no_cells = config['cellcoal']['model']['no_cells'] + 1
+    shell:
+        'python utils {input} -f LRT -o {output} -nc {params.no_cells}'
 
