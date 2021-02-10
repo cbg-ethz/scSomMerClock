@@ -677,7 +677,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             score_raw = f_score.read().strip().split('\n')
         try:
             score = -float(score_raw[-1].split('\t')[1])
-        except ValueError:
+        except ValueError.IndexError:
             print(f'Cannot read: {in_file}')
             continue
 
