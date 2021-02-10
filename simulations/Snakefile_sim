@@ -135,7 +135,8 @@ rule vcf_to_nex:
         mem_mb = 1024
     params:
         ss = config['mrbayes'].get('ss', False),
-        tree = config['mrbayes'].get('use_tree', False),
+        tree = config['mrbayes'].get('use_tree', False) \
+            or config['paup'].get('run', False),
     run:
         vcf_to_nex(input[0], output, wildcards.steps, params.ss, params.tree)
 

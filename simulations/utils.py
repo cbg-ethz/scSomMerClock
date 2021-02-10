@@ -63,12 +63,12 @@ def get_out_dir(config):
     else:
         model = 'clock'
 
-    if not config['cellcoal']['scWGA'].get('simulate', False):
+    if not config['cellcoal']['scWGA'].get('errors', False):
         sim_scWGA = 'noScWGA'
     else:
         sim_scWGA = 'scWGA'
 
-    if not config['cellcoal']['NGS'].get('simulate', False):
+    if not config['cellcoal']['NGS'].get('errors', False):
         sim_NGS = 'noNGS'
     else:
         sim_NGS = 'NGS'
