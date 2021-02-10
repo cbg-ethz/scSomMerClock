@@ -144,7 +144,8 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', '', templ)
 
-    if config.get('mrbayes', {}).get('use_tree', False):
+    if config.get('mrbayes', {}).get('use_tree', False) \
+            or config.get('paup', {}).get('run', False):
         templ = re.sub('{out_tree}', '6', templ)
     else:
         templ = re.sub('{out_tree}', '', templ)
