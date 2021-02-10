@@ -73,11 +73,18 @@ def get_out_dir(config):
     else:
         sim_NGS = 'NGS'
 
-    mb_ngen = '-'.join(['{:.0E}'.format(i) for i in config['mrbayes']['ngen']])
-    if config['mrbayes'].get('ss', False):
-        mb_sampling = 'ss'
+    if config.get('mrbayes', {}).get('run', False):
+        mb_ngen = '-'.join(['{:.0E}'.format(i) for i in config['mrbayes']['ngen']])
+        if config['mrbayes'].get('ss', False):
+            sampling = 'ss'
+        else:
+            sampling = 'mcmc'
+    elif config.get('paup', {}).get('run', False):
+        mb_ngen = 1
+        sampling = 'ML'
     else:
-        mb_sampling = 'mcmc'
+        mb_ngen = -1
+        sampling = ''
 
     if not config.get('static', {}).get('out_dir', False):
         out_dir = os.path.dirname(os.path.relpath(__file__))
@@ -85,7 +92,7 @@ def get_out_dir(config):
         out_dir = config['static']['out_dir']
 
     return os.path.join(out_dir, 'results_{}_{}_{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, mb_sampling, mb_ngen))
+        .format(model, sim_scWGA, sim_NGS, sampling, mb_ngen))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
