@@ -8,6 +8,9 @@ import argparse
 from pprint import pprint as pp
 from statistics import mean, stdev
 
+TICK_FONTSIZE = 12
+LABEL_FONTSIZE = 16
+
 
 BASES = ['A', 'C', 'G', 'T']
 NEXUS_TEMPLATE = """#NEXUS
@@ -723,9 +726,6 @@ def generate_mrbayes_plots(in_file, out_file, regress=False):
     from matplotlib.gridspec import GridSpec
     from matplotlib.ticker import FormatStrFormatter
 
-    TICK_FONTSIZE = 12
-    LABEL_FONTSIZE = 16
-
     def get_ratio(ev_str):
         success, total = ev_str.split('/')
         return float(success) / float(total)
@@ -789,6 +789,27 @@ def generate_mrbayes_plots(in_file, out_file, regress=False):
 
     fig.suptitle('Simulations: no WGS, no NGS', fontsize=LABEL_FONTSIZE * 1.5)
 
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92,
+        hspace=0.5)
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
+def generate_pval_plot(in_file, out_file):
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    df = pd.read_csv(in_file, sep='\t')    
+    fig, ax = plt.subplots(figsize=(16, 12))
+
+    ax.hist(df['p-value'], bins=100, range=(0, 1))
+    ax.set_ylabel(f'counts (n={df.shape[0]})', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('p-values', fontsize=LABEL_FONTSIZE)
+    
     fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92,
         hspace=0.5)
     if out_file:
@@ -895,7 +916,7 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=str,
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str,  default='nxs',
-        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps'],
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps', 'pval'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -937,6 +958,12 @@ if __name__ == '__main__':
         else:
             out_file = args.output
         generate_mrbayes_plots(args.input[0], out_file)
+    elif args.format == 'pval':
+        if args.output == os.path.dirname(args.input[0]):
+            out_file = ''
+        else:
+            out_file = args.output
+        generate_pval_plot(args.input[0], out_file)
     elif args.format == 'ref':
         run_id = os.path.basename(args.input[0]).split('.')[-1]
         out_file = os.path.join(args.output, 'true_vcf.{}'.format(run_id))

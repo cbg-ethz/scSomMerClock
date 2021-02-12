@@ -18,17 +18,17 @@ out_dir = get_out_dir(config)
 def get_mrbayes_hpc_runtime(steps):
     steps_int = int(steps)
     if steps_int <= 5E6:
-        return '04:00'
+        return '08:00'
     elif steps_int <= 10E6:
-        return '12:00'
-    elif steps_int <= 20E6:
         return '24:00'
-    elif steps_int <= 60E6:
-        return '32:00'
-    elif steps_int <= 80E6:
-        return '40:00'
-    else:
+    elif steps_int <= 20E6:
         return '48:00'
+    elif steps_int <= 60E6:
+        return '64:00'
+    elif steps_int <= 80E6:
+        return '80:00'
+    else:
+        return '96:00'
 
 
 def get_final_files(wildcards):
