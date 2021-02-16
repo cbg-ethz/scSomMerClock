@@ -33,8 +33,9 @@ def get_mrbayes_hpc_runtime(steps):
 
 def get_final_files(wildcards):
     files = []
-    # files.append([os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}') 
-    #     for i in RUNS])
+    if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
+        files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}') 
+            for i in RUNS]
     if config.get('mrbayes', {}).get('run', False):
         files.append(os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv'))
     if config.get('paup', {}).get('run', False):
@@ -65,12 +66,10 @@ rule run_cellcoal:
         os.path.join('cellcoal_parameters')
     output:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
-        expand(os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}'),
-            run=RUNS)
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
     params:
-        exe = config['cellcoal']['exe']
+        exe = config['cellcoal']['exe'],
     shell:
         'mkdir -p {out_dir} && {params.exe} -F{input} > {out_dir}/log && '
         'mv {input} {out_dir}/{input}'
@@ -78,7 +77,7 @@ rule run_cellcoal:
 
 rule get_true_GT:
     input:
-        os.path.join(out_dir, 'true_haplotypes_dir', 'true_hap.{run}')
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
         os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
     resources:
@@ -86,6 +85,33 @@ rule get_true_GT:
     run:
         haplotypes_to_vcf(input[0], output[0])
 
+
+if config.get('monovar', {}).get('run', False):
+    vcf_in_file = 'vcf.{run}.monovar.vcf'
+else:
+    vcf_in_file = 'vcf.{run}'
+
+rule vcf_to_nex:
+    input:
+        os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+    output:
+        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
+            model=MODELS)
+    resources:
+        mem_mb = 1024
+    params:
+        ss = config.get('mrbayes', {}).get('ss', False),
+        tree = config.get('mrbayes', {}).get('use_tree', False) \
+            or config.get('paup', {}).get('run', False),
+        full_GT = config.get('paup', {}).get('full_GT', False),
+        learn_tree = config.get('paup', {}).get('learn_tree', False),
+    run:
+        vcf_to_nex(input[0], output, wildcards.steps,
+            ss_flag=params.ss, tree=params.tree, learn_tree=params.learn_tree,
+            full_GT=params.full_GT)
+
+
+# ------------------------------- MONOVAR --------------------------------------
 
 rule vcf_to_mpileup:
     input:
@@ -118,27 +144,6 @@ rule run_monovar:
     shell:
         'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
         '-m {threads}'
-
-
-if config.get('monovar', {}).get('run', False):
-    vcf_in_file = 'vcf.{run}.monovar.vcf'
-else:
-    vcf_in_file = 'vcf.{run}'
-
-rule vcf_to_nex:
-    input:
-        os.path.join(out_dir, 'vcf_dir', vcf_in_file)
-    output:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
-            model=MODELS)
-    resources:
-        mem_mb = 1024
-    params:
-        ss = config.get('mrbayes', {}).get('ss', False),
-        tree = config.get('mrbayes', {}).get('use_tree', False) \
-            or config.get('paup', {}).get('run', False),
-    run:
-        vcf_to_nex(input[0], output, wildcards.steps, params.ss, params.tree)
 
 
 # ------------------------------- MRBAYES --------------------------------------
@@ -201,15 +206,28 @@ rule run_PAUP:
     output:
         os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}.PAUP.score')
     params:
-        paup_exe = config['paup']['exe']
+        paup_exe = config.get('paup', {}).get('exe', 'paup')
     shell:
-        '{params.paup_exe} {input} > {input}.PAUP.log'
+        '{params.paup_exe} -n {input} > {input}.PAUP.log'
+
+
+def get_paup_input(wildcards):
+    if config.get('paup', {}).get('learn_tree', False):
+        models = ['clock']
+    else:
+        models = MODELS
+
+    in_files = []
+    for model in models:
+        for run in RUNS:
+            in_files.append(os.path.join(out_dir, 'nxs_dir',
+                'nxs.{}.0.{}.PAUP.score'.format(run, model)))
+    return in_files
 
 
 rule merge_paup_results:
     input:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}.PAUP.score'),
-            run=RUNS, model=MODELS)
+        get_paup_input
     output:
         os.path.join(out_dir, 'paup.clock_test_summary.tsv')
     envmodules:
@@ -217,7 +235,7 @@ rule merge_paup_results:
     resources:
         mem_mb=2048
     params:
-        no_cells = config['cellcoal']['model']['no_cells'] + 1
+        no_cells = config['cellcoal']['model']['no_cells'] + 1,
     shell:
         'python utils.py {input} -f LRT -o {output} -nc {params.no_cells}'
 

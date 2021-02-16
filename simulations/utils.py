@@ -42,12 +42,12 @@ begin PAUP;
     Set criterion=like;
     Outgroup healthycell;
     LSet nst=1 base=equal rates=gamma shape=est;
-    LSet clock={clock_str};
-    lscores 1/ clock={clock_str} scorefile={out_file}.PAUP.score append;
-    quit;
+
+    {paup_tree}
 end;
     
 """
+
 
 VCF_TEMPLATE = """##fileformat=VCFv4.1
 ##FILTER=<ID=PASS,Description="All filters passed">
@@ -133,6 +133,11 @@ def get_cellcoal_config(config, template_file, out_dir):
     else:
         templ = re.sub('{germline_rate}', '', templ)
 
+    if config['cellcoal']['model'].get('binary_alphabet', False):
+        templ = re.sub('{alphabet}', '0', templ)
+    else:
+        templ = re.sub('{alphabet}', '1', templ)
+
     if config['cellcoal']['scWGA'].get('errors', False):
         templ = re.sub('{ADO_rate}',
             'D{}'.format(config['cellcoal']['scWGA']['ADO_rate']), templ)
@@ -155,10 +160,23 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{seq_error}', '', templ)
 
     if config.get('mrbayes', {}).get('use_tree', False) \
-            or config.get('paup', {}).get('run', False):
+            or (config.get('paup', {}).get('run', False) \
+                and not config.get('paup', {}).get('learn_tree', False)) \
+            or config['cellcoal'].get('output', {}).get('tree', False):
         templ = re.sub('{out_tree}', '6', templ)
     else:
         templ = re.sub('{out_tree}', '', templ)
+
+    if config['cellcoal'].get('output', {}).get('full_GT', False) \
+            or config.get('paup', {}).get('full_GT', False) :
+        templ = re.sub('{out_full_GT}', '3', templ)
+    else:
+        templ = re.sub('{out_full_GT}', '', templ)
+
+    if config['cellcoal'].get('output', {}).get('true_haplotype', False):
+        templ = re.sub('{out_true_hap}', '9', templ)
+    else:
+        templ = re.sub('{out_true_hap}', '', templ)
 
     return templ
 
@@ -225,7 +243,87 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
         f_names.write('\n'.join(sample_names))
 
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, tree=False, minDP=10):
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
+            learn_tree=False, full_GT=False, minDP=1):
+    if full_GT:
+        samples, sample_names = get_sample_dict_from_FG(vcf_file)
+    else:
+        samples, sample_names = get_sample_dict_from_vcf(vcf_file)
+
+    mat_str = ''
+    for sample_idx, genotypes in samples.items():
+        mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
+    rec_no = len(samples[0])
+
+    if ss_flag:
+        alg = 'ss'
+    else:
+        alg = 'mcmc'
+
+    if tree:
+        run_nr = os.path.basename(vcf_file).split('.')[-1]
+        tree_file = os.sep.join(vcf_file.split(os.sep)[:-2] \
+            + ['trees_dir', 'trees.{}'.format(run_nr)])
+        with open(tree_file, 'r') as f_tree:
+            tree_nexus = f_tree.read().strip()
+        tree_nexus = tree_nexus.replace('cell', 'tumcell')
+        tree_nexus = tree_nexus.replace('outgtumcell', 'healthycell')
+
+        tree_name = 'treeCellCoal'
+        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
+    else:
+        fixed_tree = ''
+
+    if learn_tree:
+        paup_tree = 'Lset clock=no;\n' \
+            '    log file={out_file}.PAUP.score start=yes replace=yes;\n' \
+            '    Hsearch;\n' \
+            '    RootTrees rootMethod=outgroup outroot=monophyl;\n' \
+            '    clockChecker tree=all lrt=yes;\n' \
+            '    log stop;' \
+            '    quit;'
+    else:
+        paup_tree_raw = 'LSet clock={clock_str};\n' \
+            '    lscores 1/ clock={clock_str} scorefile={out_file}.PAUP.score append;\n'\
+            '    quit;'
+
+    for out_file in out_files:
+        model = out_file.split('.')[-1]
+        if model == 'clock':
+            brlen_prior = 'clock:uniform'
+            clock_str='yes'
+            if tree:
+                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_nexus)
+            else:
+                tree_str = ''
+        else:
+            brlen_prior = 'unconstrained:exp(10.0)'
+            clock_str='no'
+            if tree:
+                tree_nexus_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
+                    tree_nexus[1:])
+                tree_str = 'tree {} = [&U] {}'\
+                    .format(tree_name, tree_nexus_unrooted)
+            else:
+                tree_str = ''
+
+        if learn_tree:
+            paup_tree = paup_tree_raw.format(out_file=os.path.basename(out_file))
+        else:
+            paup_tree = paup_tree_raw \
+                .format(clock_str=clock_str, out_file=os.path.basename(out_file))
+
+        nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
+            rec_no=rec_no, sample_labels=' '.join(sample_names),
+            matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
+            out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
+            brlen_prior=brlen_prior, paup_tree=paup_tree)
+
+        with open(out_file, 'w') as f_out:
+            f_out.write(nex_str)
+   
+
+def get_sample_dict_from_vcf(vcf_file):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -290,72 +388,47 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag, tree=False, minDP=10):
                 # Heterozygous/Homozygous
                 else:
                     samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
-                    
-                # s_recs = s_rec.split(':')
-                # ml_gt = ''.join(sorted(s_recs[-4].split('/')))
-                # tr_gt = ''.join(sorted(s_recs[-1].split('|')))
-                # if ml_gt != tr_gt:
-                #     rec_dict = {j: s_recs[i] for i,j in enumerate(FORMAT_col)}
-                #     print('read counts: {}'.format(rec_dict['RC']))
-                #     print('GT ll norm: {}'.format(rec_dict['G10N']))
-                #     print(f'predicted: {ml_gt}\t true: {tr_gt}')
-                #     read_counts = [int(i) for i in rec_dict['RC'].split(',')]
-                #     calc_G10N_likelihood(read_counts, eps=1e-02, delta=0.2, gamma=1e-02)
-                #     import pdb; pdb.set_trace()
+    return samples, sample_names
 
-    mat_str = ''
-    for sample_idx, genotypes in samples.items():
-        mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
-    rec_no = len(samples[0])
 
-    if ss_flag:
-        alg = 'ss'
-    else:
-        alg = 'mcmc'
+def get_sample_dict_from_FG(vcf_file):
+    ref = {}
+    with open(vcf_file, 'r') as f_in:
+        for line in f_in:
+            if line.startswith('#') or line.strip() == '':
+                continue
+            line_cols = line.strip().split('\t')
+            pos = int(line.strip().split('\t')[1])
+            ref_base = line.strip().split('\t')[3]
+            ref[pos] = ref_base
 
-    if tree:
-        run_nr = os.path.basename(vcf_file).split('.')[-1]
-        tree_file = os.sep.join(vcf_file.split(os.sep)[:-2] \
-            + ['trees_dir', 'trees.{}'.format(run_nr)])
-        with open(tree_file, 'r') as f_tree:
-            tree_nexus = f_tree.read().strip()
-        tree_nexus = tree_nexus.replace('cell', 'tumcell')
-        tree_nexus = tree_nexus.replace('outgtumcell', 'healthycell')
+    FG_file = vcf_file.replace('vcf_dir', 'full_genotypes_dir') \
+        .replace('vcf', 'full_gen')
 
-        tree_name = 'treeCellCoal'
-        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
-    else:
-        fixed_tree = ''
+    with open(FG_file, 'r') as f_in:
+        samples = {}
+        sample_names = []
+        for i, line in enumerate(f_in):
+            if i == 0:
+                continue
+            sample_name, BPs = line.split('  ')
+            GT = ''
+            for j, BP in enumerate(BPs.split(' '), 1):
+                if BP[0] == BP[1]:
+                    GT += BP[0]
+                elif BP[0] == ref[j]:
+                    GT += BP[1]
+                else:
+                    GT += BP[0]
 
-    for out_file in out_files:
-        model = out_file.split('.')[-1]
-        if model == 'clock':
-            clock_str = 'yes'
-            brlen_prior = 'clock:uniform'
-            if tree:
-                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_nexus)
+            if sample_name.startswith('cell'):
+                sample_names.append(sample_name.replace('cell', 'tumcell'))
             else:
-                tree_str = ''
-        else:
-            clock_str = 'no'
-            brlen_prior = 'unconstrained:exp(10.0)'
-            if tree:
-                tree_nexus_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
-                    tree_nexus[1:])
-                tree_str = 'tree {} = [&U] {}'\
-                    .format(tree_name, tree_nexus_unrooted)
-            else:
-                tree_str = ''
+                sample_names.append('healthycell')
 
-        nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
-            rec_no=rec_no, sample_labels=' '.join(sample_names),
-            matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
-            out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
-            brlen_prior=brlen_prior, clock_str=clock_str)
+            samples[i - 1] = GT
+    return samples, sample_names
 
-        with open(out_file, 'w') as f_out:
-            f_out.write(nex_str)
-    
 
 def haplotypes_to_vcf(true_hap_file, out_file):
     run_no = os.path.basename(true_hap_file).split('.')[-1]
