@@ -230,6 +230,8 @@ rule merge_paup_results:
         get_paup_input
     output:
         os.path.join(out_dir, 'paup.clock_test_summary.tsv')
+    conda:
+        'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7'
     resources:

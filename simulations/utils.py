@@ -275,7 +275,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
         fixed_tree = ''
 
     if learn_tree:
-        paup_tree = 'Lset clock=no;\n' \
+        paup_tree_raw = 'Lset clock=no;\n' \
             '    log file={out_file}.PAUP.score start=yes replace=yes;\n' \
             '    Hsearch;\n' \
             '    RootTrees rootMethod=outgroup outroot=monophyl;\n' \
