@@ -248,7 +248,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
     else:
-        samples, sample_names = get_sample_dict_from_vcf(vcf_file)
+        samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP)
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -323,7 +323,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             f_out.write(nex_str)
    
 
-def get_sample_dict_from_vcf(vcf_file):
+def get_sample_dict_from_vcf(vcf_file, minDP):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -385,7 +385,6 @@ def get_sample_dict_from_vcf(vcf_file):
                 # Wildtype
                 elif s_rec_ref == '0' and s_rec_alt == '0':
                     samples[s_i] += ref
-                # Heterozygous/Homozygous
                 else:
                     samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
     return samples, sample_names
@@ -414,12 +413,14 @@ def get_sample_dict_from_FG(vcf_file):
             sample_name, BPs = line.split('  ')
             GT = ''
             for j, BP in enumerate(BPs.split(' '), 1):
-                if BP[0] == BP[1]:
+                # Reference or no mutation detected
+                if BP[0] == BP[1] or j not in ref:
                     GT += BP[0]
                 elif BP[0] == ref[j]:
                     GT += BP[1]
                 else:
                     GT += BP[0]
+
 
             if sample_name.startswith('cell'):
                 sample_names.append(sample_name.replace('cell', 'tumcell'))
@@ -938,7 +939,7 @@ def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
                     + np.power(10, t1 - max_t) + np.power(10, t2 - max_t))
                 
                 ll_GT[A1 + A2] = round(ll, 2)
-    import pdb; pdb.set_trace()
+
     x = np.array(list(ll_GT.values()))
     ll_norm = _normalize_log(np.array(list(ll_GT.values())))
     
@@ -1001,8 +1002,12 @@ def parse_args():
         help='Use stepping stone sampling instead of MCMC.')
     parser.add_argument('-t', '--use_tree', action='store_true',
         help='Add the true cellcoal tree to the nexus file.')
-    parser.add_argument('-dp', '--minDP', type=int, default=10,
-        help='Minimum reads to include a locus (else: missing). Default = 10.')
+    parser.add_argument('-lt', '--learn_tree', action='store_true',
+        help='Learn the tree under no constraints model.')
+    parser.add_argument('-fg', '--full_GT', action='store_true',
+        help='Use the full genotype instead of only SNPs for inference.')
+    parser.add_argument('-dp', '--minDP', type=int, default=1,
+        help='Minimum reads to include a locus (else: missing). Default = 1.')
     parser.add_argument('-s', '--steps', nargs='+', type=int,
         help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
 
@@ -1020,8 +1025,10 @@ if __name__ == '__main__':
     if args.format == 'nxs':
         out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
             for i in ['clock', 'noClock']]
-        vcf_to_nex(args.input[0], out_files, args.ngen, args.stepping_stone,
-            args.use_tree, args.minDP)
+        vcf_to_nex(args.input[0], out_files, args.ngen,
+            ss_flag=args.stepping_stone, tree=args.use_tree,
+            learn_tree=args.learn_tree, full_GT=args.full_GT, minDP=args.minDP)
+          
     elif args.format == 'mpileup':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
         vcf_to_pileup(args.input[0], out_file)
@@ -1048,5 +1055,8 @@ if __name__ == '__main__':
             raise IOError('For LRT, the number of cells must be specified!')
         get_LRT(args.input, args.output, args.no_cells + 1)
     else:
-        out_file = os.path.join(args.output, 'clock_test_summary.tsv')
+        if args.output == os.path.dirname(args.input[0]):
+            out_file = os.path.join(args.output, 'clock_test_summary.tsv')
+        else:
+            out_file = args.output
         get_Bayes_factor(args.input, out_file, args.stepping_stone)

@@ -55,6 +55,7 @@ rule create_cellcoal_config:
         template = config['cellcoal']['parameter']
     resources:
         mem_mb = 1024
+    group: 'cellcoal'
     run:
         cc_config = get_cellcoal_config(config, params.template, out_dir)
         with open(output[0], 'w') as f:
@@ -68,6 +69,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
+    group: 'cellcoal'
     params:
         exe = config['cellcoal']['exe'],
     shell:
@@ -99,6 +101,7 @@ rule vcf_to_nex:
             model=MODELS)
     resources:
         mem_mb = 1024
+    group: 'paup'
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
         tree = config.get('mrbayes', {}).get('use_tree', False) \
@@ -121,6 +124,7 @@ rule vcf_to_mpileup:
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
     resources:
         mem_mb = 4096
+    group: 'monovar'
     run:
         vcf_to_pileup(input[0], output.pileup, output.samples)
 
@@ -134,6 +138,7 @@ rule run_monovar:
     threads: 2
     resources:
         mem_mb = 4096 if scheduler == 'lsf' else 2 * 4096
+    group: 'monovar'
     conda:
         'envs/monovar.yaml'
     envmodules:
@@ -194,8 +199,10 @@ rule merge_mrbayes_results:
         os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv')
     resources:
         mem_mb=2048
+    params:
+        ss = '-ss' if config.get('mrbayes', {}).get('ss', False) else '',
     run:
-        get_Bayes_factor(input, output[0])
+        'python utils.py {input} -f bayes -o {output} {params.ss}'
 
 
 # -------------------------------- PAUP ----------------------------------------
@@ -207,6 +214,7 @@ rule run_PAUP:
         os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}.PAUP.score')
     params:
         paup_exe = config.get('paup', {}).get('exe', 'paup')
+    group: 'paup'
     shell:
         '{params.paup_exe} -n {input} > {input}.PAUP.log'
 
