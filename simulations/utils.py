@@ -41,7 +41,7 @@ begin PAUP;
     Set autoclose=yes warnreset=no warntree=no warntsave=No;
     Set criterion=like;
     Outgroup healthycell;
-    LSet nst=1 base=equal rates=gamma shape=est;
+    LSet nst=1 base=equal rates=gamma shape=est modelRates=estimate;
 
     {paup_tree}
 end;
