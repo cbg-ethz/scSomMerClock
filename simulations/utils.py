@@ -102,8 +102,14 @@ def get_out_dir(config):
     else:
         data_type = ''
 
-    return os.path.join(out_dir, 'results_{}_{}_{}{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, data_type, sampling, mb_ngen))
+    filters = ''
+    if config['cellcoal'].get('SNP_filter', {}).get('depth', False):
+        filters += '_minDP{}'.format(config['cellcoal']['SNP_filter']['depth'])
+    if config['cellcoal'].get('SNP_filter', {}).get('quality', False): 
+        filters += '_minGQ{}'.format(config['cellcoal']['SNP_filter']['quality'])
+
+    return os.path.join(out_dir, 'results_{}_{}_{}{}{}_{}{}' \
+        .format(model, sim_scWGA, sim_NGS, data_type, filters, sampling, mb_ngen))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
