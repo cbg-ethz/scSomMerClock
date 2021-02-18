@@ -96,9 +96,9 @@ def get_out_dir(config):
 
     if config.get('paup', {}).get('run', False):
         if config['paup'].get('full_GT', False):
-            data_type = '_onlySNP'
-        else:
             data_type = '_fullGT'
+        else:
+            data_type = '_onlySNP'
     else:
         data_type = ''
 
