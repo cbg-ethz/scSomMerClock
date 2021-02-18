@@ -94,8 +94,16 @@ def get_out_dir(config):
     else:
         out_dir = config['static']['out_dir']
 
-    return os.path.join(out_dir, 'results_{}_{}_{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, sampling, mb_ngen))
+    if config.get('paup', {}).get('run', False):
+        if config['paup'].get(full_GT, False):
+            data_type = '_onlySNP'
+        else:
+            data_type = '_fullGT'
+    else:
+        data_type = ''
+
+    return os.path.join(out_dir, 'results_{}_{}_{}{}_{}{}' \
+        .format(model, sim_scWGA, sim_NGS, data_type, sampling, mb_ngen))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
@@ -244,11 +252,11 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
 
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
-            learn_tree=False, full_GT=False, minDP=1):
+            learn_tree=False, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
     else:
-        samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP)
+        samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP, minGQ)
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -323,7 +331,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             f_out.write(nex_str)
    
 
-def get_sample_dict_from_vcf(vcf_file, minDP):
+def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -350,7 +358,7 @@ def get_sample_dict_from_vcf(vcf_file, minDP):
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
             DP_col = FORMAT_col.index('DP')
-
+            GQ_col = FORMAT_col.index('PLN')
 
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
@@ -359,8 +367,10 @@ def get_sample_dict_from_vcf(vcf_file, minDP):
                 except ValueError:
                     samples[s_i] += '?'
                     continue
+                s_rec_details = s_rec.split(':')
+                s_rec_GQ = [-float(i) for i in s_rec_details[GQ_col].split(',')]
 
-                if int(s_rec.split(':')[DP_col]) < minDP:
+                if int(s_rec_details[DP_col]) < minDP or s_rec_GQ[1] < minGQ:
                     samples[s_i] += '?'
                     continue
 
@@ -789,7 +799,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         f_out.write('run\tH0:clock\tH1:noClock\tp-value\thypothesis\n')
         f_out.write(out_str)
         f_out.write(f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t'
-            f'H0:{avg[3]};H1:{avg[4]}')
+            f'H0:{avg[3]};H1:{avg[4]}\n')
 
 
 def generate_mrbayes_plots(in_file, out_file, regress=False):
@@ -1007,7 +1017,10 @@ def parse_args():
     parser.add_argument('-fg', '--full_GT', action='store_true',
         help='Use the full genotype instead of only SNPs for inference.')
     parser.add_argument('-dp', '--minDP', type=int, default=1,
-        help='Minimum reads to include a locus (else: missing). Default = 1.')
+        help='Min. reads to include a locus (else missing). Default = 1.')
+    parser.add_argument('-gq', '--minGQ', type=int, default=1,
+        help='Min. Genotype Quality to include a locus (else missing). '
+            'Default = 1.')
     parser.add_argument('-s', '--steps', nargs='+', type=int,
         help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
 
@@ -1027,7 +1040,8 @@ if __name__ == '__main__':
             for i in ['clock', 'noClock']]
         vcf_to_nex(args.input[0], out_files, args.ngen,
             ss_flag=args.stepping_stone, tree=args.use_tree,
-            learn_tree=args.learn_tree, full_GT=args.full_GT, minDP=args.minDP)
+            learn_tree=args.learn_tree, full_GT=args.full_GT, minDP=args.minDP,
+            minGQ=args.minGQ)
           
     elif args.format == 'mpileup':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))

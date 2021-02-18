@@ -4,32 +4,49 @@ static:
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
   parameter: cellcoal_parameters.template
-  no_rep: 10
+  no_rep: 100
   model:
     no_cells: 30
     no_sites: 10000
     pop_size: 10000
     no_muts: 1000
     germline_rate: 0.0005
-    brach_rate_var: 1
+    branch_rate_var: 1
+    outgroup_branch_length: 1
+    binary_alphabet: False
   scWGA:
     errors: True
     ADO_rate: 0.2
     doublet_rate: [0.02, 0.01]
-    ampl_error: [0.01, 0.001, 0]
+    ampl_error: [0.01, 1e-8, 0]
   NGS:
     seq_cov: 20
     errors: True
     seq_overdis: 5
     seq_error: 0.01
+  output:
+    tree: False
+    full_GT: False
+    true_haplotypes: False
+  SNP_filter:
+    depth: 10
+    quality: 20
 
 mrbayes:
-  exe: /home/hw/Desktop/molClock_project/MrBayes/src/mb
-  ngen: 10000000
-  ss: False
+  run: False
+  exe: ../../MrBayes/src/mb
+  use_tree: True
+  ngen: [2000000]
+  ss: True
+
+paup:
+  run: True
+  full_GT: False
+  learn_tree: False
+  exe: ../../paup4a168_ubuntu64 
 
 monovar:
   run: False
   exe: ../../MonoVar_NB/src/monovar.py
 
-scheduler: lsf
+scheduler: slurm

@@ -54,7 +54,8 @@ rule create_cellcoal_config:
         cellcoal = 'cellcoal_parameters',
         snakemake ='snakemake_config.yaml',
     params:
-        template = config['cellcoal']['parameter']
+        template = config['cellcoal'] \
+            .get('parameter', 'cellcoal_parameters.template'),
     resources:
         mem_mb = 1024
     run:
@@ -111,10 +112,12 @@ rule vcf_to_nex:
             or config.get('paup', {}).get('run', False),
         full_GT = config.get('paup', {}).get('full_GT', False),
         learn_tree = config.get('paup', {}).get('learn_tree', False),
+        min_DP = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
+        min_GQ = config['cellcoal'].get('SNP_filter', {}).get('quality', 1),
     run:
         vcf_to_nex(input[0], output, wildcards.steps,
             ss_flag=params.ss, tree=params.tree, learn_tree=params.learn_tree,
-            full_GT=params.full_GT)
+            full_GT=params.full_GT, minDP=params.min_DP, minGQ=params.min_GQ)
 
 
 # ------------------------------- MONOVAR --------------------------------------

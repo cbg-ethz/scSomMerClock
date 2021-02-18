@@ -11,7 +11,7 @@ cellcoal:
     pop_size: 10000
     no_muts: 1000
     germline_rate: 0.0005
-    branch_rate_var: 0
+    branch_rate_var:   # empty for clock, e.g. 1 for non-clock
     outgroup_branch_length: 1
     binary_alphabet: False
   scWGA:
@@ -28,6 +28,9 @@ cellcoal:
     tree: False
     full_GT: False
     true_haplotypes: False
+  SNP_filter:
+    depth: 10
+    quality: 20
 
 mrbayes:
   run: False
@@ -38,12 +41,12 @@ mrbayes:
 
 paup:
   run: True
-  full_GT: True
+  full_GT: False
   learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
 monovar:
   run: False
-  exe: ../../paup4a168_ubuntu64
+  exe: ../../MonoVar_NB/src/monovar.py
 
-scheduler: 
+scheduler: slurm
