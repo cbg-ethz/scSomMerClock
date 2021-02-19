@@ -380,7 +380,8 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                     s_rec_GQ_col = GQ_col
                 else:
                     s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
-                s_rec_GQ = [-float(i) for i in s_rec_details[GQ_col].split(',')]
+                s_rec_GQ = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
+                    .split(',')]
 
 
                 if int(s_rec_details[DP_col]) < minDP or s_rec_GQ[1] < minGQ:
@@ -586,10 +587,14 @@ def get_Bayes_factor(in_files, out_file, ss=False):
         score_diff = abs(float(score_raw[-2].split('\t')[2]) - \
             float(score_raw[-3].split('\t')[2]))
         
-        log_tail = tail(open(in_file.replace('.lstat', '.log'), 'r'), 1000)
-        runtime_start = log_tail.index('Analysis completed in')
-        runtime_end = log_tail[runtime_start:].index('seconds') + runtime_start
-        runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
+        try:
+            log_tail = tail(open(in_file.replace('.lstat', '.log'), 'r'), 1000)
+        except FileNotFoundError:
+            runtime = (0, -1)
+        else:
+            runtime_start = log_tail.index('Analysis completed in')
+            runtime_end = log_tail[runtime_start:].index('seconds') + runtime_start
+            runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
         
         if ss:
             ss_start = log_tail.index('Marginal likelihood (ln)')
