@@ -41,7 +41,7 @@ begin PAUP;
     Set autoclose=yes warnreset=no warntree=no warntsave=No;
     Set criterion=like;
     Outgroup healthycell;
-    LSet nst=1 base=equal rates=gamma shape=est modelRates=estimate;
+    LSet nst=1 base=equal rates=gamma shape=est;
 
     {paup_tree}
 end;
@@ -374,7 +374,14 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                     samples[s_i] += '?'
                     continue
                 s_rec_details = s_rec.split(':')
+                
+
+                if len(FORMAT_col) == len(s_rec_details):
+                    s_rec_GQ_col = GQ_col
+                else:
+                    s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
                 s_rec_GQ = [-float(i) for i in s_rec_details[GQ_col].split(',')]
+
 
                 if int(s_rec_details[DP_col]) < minDP or s_rec_GQ[1] < minGQ:
                     samples[s_i] += '?'
