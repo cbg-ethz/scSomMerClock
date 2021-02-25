@@ -380,11 +380,21 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                     s_rec_GQ_col = GQ_col
                 else:
                     s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
-                s_rec_GQ = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
+                s_rec_GQ_all = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
                     .split(',')]
+                s_rec_GQ = sorted(s_rec_GQ_all)[1]
 
+                if s_rec_GQ >= minGQ:
+                    GQ_skip_flag = False
+                else:
+                    GQ_skip_flag = True
+                    GT_max = s_rec_GQ_all.index(0)
+                    # 00,01,11,02,12,22,03,13,23,33
+                    if GT_max != 0 \
+                            and s_rec_GQ_all[0] - max(s_rec_GQ_all[1:]) >= minGQ:
+                        GQ_skip_flag = False
 
-                if int(s_rec_details[DP_col]) < minDP or s_rec_GQ[1] < minGQ:
+                if int(s_rec_details[DP_col]) < minDP or GQ_skip_flag:
                     samples[s_i] += '?'
                     continue
 
@@ -597,6 +607,9 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
         
         if ss:
+            if not log_tail:
+                raise IOError('Log file with SS score not found: {}' \
+                    .format(in_file.replace('.lstat', '.log')))
             ss_start = log_tail.index('Marginal likelihood (ln)')
             ss_end = log_tail[ss_start:].index('More statistics on stepping-stone')
             ss_raw = [i.strip() for i in \
