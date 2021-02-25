@@ -374,7 +374,6 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                     samples[s_i] += '?'
                     continue
                 s_rec_details = s_rec.split(':')
-                
 
                 if len(FORMAT_col) == len(s_rec_details):
                     s_rec_GQ_col = GQ_col
