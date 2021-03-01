@@ -1098,9 +1098,11 @@ if __name__ == '__main__':
         if args.no_cells < 1:
             raise IOError('For LRT, the number of cells must be specified!')
         get_LRT(args.input, args.output, args.no_cells + 1)
-    else:
+    elif args.format == 'bayes':
         if args.output == os.path.dirname(args.input[0]):
             out_file = os.path.join(args.output, 'clock_test_summary.tsv')
         else:
             out_file = args.output
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
+    else:
+        raise IOError('Unknown format type: {}'.format(args.format))
