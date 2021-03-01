@@ -207,7 +207,7 @@ rule merge_mrbayes_results:
         mem_mb=2048
     params:
         ss = '-ss' if config.get('mrbayes', {}).get('ss', False) else '',
-    run:
+    shell:
         'python utils.py {input} -f bayes -o {output} {params.ss}'
 
 
