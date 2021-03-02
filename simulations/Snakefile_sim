@@ -36,7 +36,7 @@ def get_mrbayes_hpc_runtime(steps):
     if scheduler == 'lsf':
         return runtime[:-3]
     else:
-        return scheduler
+        return runtime
 
 
 def get_final_files(wildcards):
