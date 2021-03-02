@@ -33,16 +33,16 @@ sbatch_options.update(slurm_utils.parse_sbatch_defaults(SBATCH_DEFAULTS))
 # 2) cluster_config defaults
 sbatch_options.update(cluster_config["__default__"])
 
-# 3) Convert resources (no unit conversion!) and threads
-sbatch_options.update(
-    slurm_utils.convert_job_properties(job_properties, RESOURCE_MAPPING)
-)
-
 # 4) cluster_config for particular rule
 sbatch_options.update(cluster_config.get(job_properties.get("rule"), {}))
 
 # 5) cluster_config options
 sbatch_options.update(job_properties.get("cluster", {}))
+
+# 3) Convert resources (no unit conversion!) and threads
+sbatch_options.update(
+    slurm_utils.convert_job_properties(job_properties, RESOURCE_MAPPING)
+)
 
 # 6) Advanced conversion of parameters
 if ADVANCED_ARGUMENT_CONVERSION:

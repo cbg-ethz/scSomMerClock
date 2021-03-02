@@ -19,19 +19,24 @@ out_dir = get_out_dir(config)
 def get_mrbayes_hpc_runtime(steps):
     steps_int = int(steps)
     if steps_int <= 1E6:
-        return '04:00'
+        runtime = '04:00:00'
     elif steps_int <= 5E6:
-        return '08:00'
+        runtime = '08:00:00'
     elif steps_int <= 10E6:
-        return '24:00'
+        runtime = '24:00:00'
     elif steps_int <= 20E6:
-        return '48:00'
+        runtime = '48:00:00'
     elif steps_int <= 60E6:
-        return '64:00'
+        runtime = '64:00:00'
     elif steps_int <= 80E6:
-        return '80:00'
+        runtime = '80:00:00'
     else:
-        return '96:00'
+        runtime = '96:00:00'
+        
+    if scheduler == 'lsf':
+        return runtime[:-3]
+    else:
+        return scheduler
 
 
 def get_final_files(wildcards):
@@ -188,7 +193,7 @@ else:
             'mrbayes/3.2.7'
         threads: 4
         resources:
-            mem_mb = 4096 if scheduler == 'lsf' else 4 * 4096,
+            mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
             runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
         shell:
             'cd {out_dir} && '
