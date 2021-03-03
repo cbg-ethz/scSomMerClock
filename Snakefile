@@ -653,7 +653,8 @@ if config.get('ethan', {}).get('run', False):
         input:
             pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
         output:
-            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 'nuc.tsv')
+            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+                'readCounts.tsv')
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
@@ -671,7 +672,7 @@ if config.get('ethan', {}).get('run', False):
     rule concatenate_sciphi:
         input:
             expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
-                    'nuc.tsv'),
+                    'readCounts.tsv'),
                 chr=CHROM)
         output:
             os.path.join('SciPhi', 'preprocessed.all.tsv')
