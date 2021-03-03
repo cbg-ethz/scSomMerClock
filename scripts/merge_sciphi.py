@@ -74,13 +74,12 @@ def merge_readCounts(args):
                 mut_str += '\n' + mut_line
 
         for bg_i, bg_line in enumerate(file_raw[-3:]):
-            bg_raw = bg_line.split('\t')
-
-            for bg_j in range(len(bg_raw) // 2):
+            for bg_j in bg_line.split('\t'):
+                i1, i2 = bg_j.split(',')
                 try:
-                    bg[bg_i][bg_raw[2 * bg_j]] += int(bg_raw[2 * bg_j + 1])
+                    bg[bg_i][i1] += int(i2)
                 except KeyError:
-                    bg[bg_i][bg_raw[2 * bg_j]] = int(bg_raw[2 * bg_j + 1])
+                    bg[bg_i][i1] = int(i2)
 
     bg_str = '=background='
     for bg_line_out in bg:
