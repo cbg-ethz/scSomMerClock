@@ -534,7 +534,7 @@ rule merge_calls:
         base_dir = BASE_DIR,
         modules = ' '.join([f'-m {i}' for i in \
             config['modules'].get('bcftools', ['bcftools'])]),
-        out_dir = 'Calls'
+        out_dir = 'Calls',
     shell:
         '{params.base_dir}/scripts/09_merge_vcfs.sh {input} {params.modules} '
         '-o {params.out_dir}'
@@ -559,12 +559,13 @@ rule QC_calling_chr:
         bulk_normal = config['specific'].get('bulk_normal', ''),
         bulk_tumor = ' '.join([' '.join(i) for i in bulk_samples['tumor']]),
         filter_DP = config.get('filters', {}).get('depth', 10),
-        filter_QUAL = config.get('filters', {}).get('QUAL', 20)
+        filter_QUAL = config.get('filters', {}).get('QUAL', 20),
+        pref = '-p chr' if config['static']['WGA_ref'].startswith('hg19') else '',
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o QC '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
-        '-q {params.filter_QUAL} -r {params.filter_DP}'
+        '-q {params.filter_QUAL} -r {params.filter_DP} {params.pref}'
 
 
 rule QC_calling_all:
@@ -575,7 +576,7 @@ rule QC_calling_all:
     params:
         base_dir = BASE_DIR,
         modules = ' '.join(config['modules'] \
-                .get('QC_calling', ['pysam', 'pandas']))
+                .get('QC_calling', ['pysam', 'pandas'])),
     shell:
         'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '

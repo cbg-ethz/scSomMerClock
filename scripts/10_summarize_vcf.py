@@ -64,6 +64,8 @@ def parse_args():
         help='Minimum quality threshold. Default = 20.')
     parser.add_argument('-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.')
+    parser.add_argument('-p', '--prefix', type=str, default='',
+        help='Prefix for chromosome, e.g. "chr". Default = "".')
     parser.add_argument('-s', '--gt_sep', type=str, default=',',
         help='Separator for genotype matrix. Default = ",".')
 
@@ -109,6 +111,8 @@ def get_summary_df(args):
             if not args.keep_sex and chrom in ['X', 'Y']:
                 continue
 
+            if args.pref != '':
+                chrom = args.pref + chrom
             chr_data_in = vcf_in.fetch(chrom)
             chr_data, chr_vcf_body, chr_gt_mat, chr_all_mat, chr_germline = \
                 iterate_chrom(chr_data_in, sample_maps, chrom, args.gt_sep)
