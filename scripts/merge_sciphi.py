@@ -67,26 +67,28 @@ def merge_readCounts(args):
         cand_sites += int(file_raw[3])
         bg_sites += int(file_raw[5])
 
-        for mut_line in file_raw[9:]:
-            if mut_line == '=background=':
-                break
+        bg_flag = False
+        for line in file_raw[9:]:
+            if bg_flag or line == '=background=':
+                bg_flag = True
+                bg_elements = line.split('\t')
+                for bg_j, bg_element in enumerate(bg_elements):
+                    try:
+                        i1, i2 = bg_element.split(',')
+                    except:
+                        print(in_file, bg_i, bg_elements[bg_i-1], bg_element, bg_elements[bg_i+1])
+                        continue
+                        
+                    try:
+                        bg[bg_i][i1] += int(i2)
+                    except KeyError:
+                        bg[bg_i][i1] = int(i2)
+                    except ValueError:
+                        print(bg_j)
             else:
-                mut_str += '\n' + mut_line
+                mut_str += '\n' + _line
 
         for bg_i, bg_line in enumerate(file_raw[-5:]):
-            bg_elements = bg_line.split('\t')
-            for bg_j, bg_element in enumerate(bg_elements):
-                try:
-                    i1, i2 = bg_element.split(',')
-                except:
-                    print(in_file, bg_i, bg_elements[bg_i-1], bg_element, bg_elements[bg_i+1])
-                    continue
-                try:
-                    bg[bg_i][i1] += int(i2)
-                except KeyError:
-                    bg[bg_i][i1] = int(i2)
-                except ValueError:
-                    print bg_j
 
     bg_str = '=background='
     for bg_line_out in bg:
