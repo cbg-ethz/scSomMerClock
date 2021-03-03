@@ -74,11 +74,12 @@ def merge_readCounts(args):
                 mut_str += '\n' + mut_line
 
         for bg_i, bg_line in enumerate(file_raw[-5:]):
-            for bg_j in bg_line.split('\t'):
+            bg_elements = bg_line.split('\t')
+            for bg_j, bg_element in enumerate(bg_elements):
                 try:
-                    i1, i2 = bg_j.split(',')
+                    i1, i2 = bg_element.split(',')
                 except:
-                    print(in_file, bg_i, bg_j)
+                    print(in_file, bg_i, bg_elements[bg_i-1], bg_element, bg_elements[bg_i+1])
                     continue
                 try:
                     bg[bg_i][i1] += int(i2)
