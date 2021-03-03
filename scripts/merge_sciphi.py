@@ -78,7 +78,7 @@ def merge_readCounts(args):
                     except:
                         print(in_file, bg_i, bg_elements[bg_i-1], bg_element, bg_elements[bg_i+1])
                         continue
-                        
+
                     try:
                         bg[bg_i][i1] += int(i2)
                     except KeyError:
@@ -87,8 +87,6 @@ def merge_readCounts(args):
                         print(bg_j)
             else:
                 mut_str += '\n' + _line
-
-        for bg_i, bg_line in enumerate(file_raw[-5:]):
 
     bg_str = '=background='
     for bg_line_out in bg:
