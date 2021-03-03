@@ -56,7 +56,16 @@ def merge_readCounts(args):
     cand_sites = 0
     bg_sites = 0
 
-    for i, in_file in enumerate(sorted(args.input)):
+    def set_chr(x):
+        try:
+            return int(x)
+        except:
+            if x == 'X':
+                return 23
+            else:
+                return 24
+
+    for i, in_file in enumerate(sorted(args.input, key=lambda x: set_chr(x))):
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
 
