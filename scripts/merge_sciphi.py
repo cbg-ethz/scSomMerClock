@@ -67,11 +67,11 @@ def merge_readCounts(args):
         cand_sites += int(file_raw[3])
         bg_sites += int(file_raw[5])
 
-        bg_flag = False
+        bg_row = -1
         for line_no, line in enumerate(file_raw[9:]):
             if line  == '=background=':
-                bg_flag = True
-            elif bg_flag:
+                bg_row = 0
+            elif bg_row >= 0:
                 bg_elements = line.split('\t')
                 for bg_j, bg_element in enumerate(bg_elements):
                     try:
@@ -81,11 +81,12 @@ def merge_readCounts(args):
                         exit()
 
                     try:
-                        bg[bg_i][i1] += int(i2)
+                        bg[bg_row][i1] += int(i2)
                     except KeyError:
-                        bg[bg_i][i1] = int(i2)
+                        bg[bg_row][i1] = int(i2)
                     except ValueError:
                         print(bg_j)
+                bg_row += 1
             else:
                 mut_str += '\n' + line
 
