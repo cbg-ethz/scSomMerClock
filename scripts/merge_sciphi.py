@@ -76,8 +76,8 @@ def merge_readCounts(args):
                     try:
                         i1, i2 = bg_element.split(',')
                     except:
-                        print(in_file, line_no, bg_elements[bg_j-1], bg_element, bg_elements[bg_j+1])
-                        continue
+                        print(in_file, line_no, bg_elements[bg_j-1], bg_element)
+                        exit()
 
                     try:
                         bg[bg_i][i1] += int(i2)
