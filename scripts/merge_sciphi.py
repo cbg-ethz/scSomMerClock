@@ -52,7 +52,7 @@ def merge_standard(args):
 
 
 def merge_readCounts(args):
-    bg = [{}, {}, {}] 
+    bg = [{}, {}, {}, {}, {}] 
     cand_sites = 0
     bg_sites = 0
 
@@ -83,7 +83,7 @@ def merge_readCounts(args):
 
     bg_str = '=background='
     for bg_line_out in bg:
-        bg_str_new = '\t'.join(['{}\t{}'.format(*i) for i in bg_line_out.items()])
+        bg_str_new = '\t'.join(['{},{}'.format(*i) for i in bg_line_out.items()])
         bg_str += '\n' + bg_str_new
 
     par_str = '=numCandidateMutatedSites={}\n=numBackgroundSites={}' \
