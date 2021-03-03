@@ -56,7 +56,7 @@ def merge_readCounts(args):
     cand_sites = 0
     bg_sites = 0
 
-    for i, in_file in enumerate(args.input):
+    for i, in_file in enumerate(sorted(args.input)):
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
 
@@ -84,18 +84,17 @@ def merge_readCounts(args):
                         bg[bg_row][i1] += int(i2)
                     except KeyError:
                         bg[bg_row][i1] = int(i2)
-                    except ValueError:
-                        print(bg_j)
+
                 bg_row += 1
             else:
                 mut_str += '\n' + line
 
     bg_str = '=background='
     for bg_line_out in bg:
-        bg_str_new = '\t'.join(['{},{}'.format(*i) for i in bg_line_out.items()])
+        bg_str_new = '\t'.join(['{},{}'.format(*i) for i in sorted(bg_line_out.items())])
         bg_str += '\n' + bg_str_new
 
-    par_str = '=numCandidateMutatedSites={}\n=numBackgroundSites={}' \
+    par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}' \
         .format(cand_sites, bg_sites)
 
     return sample_str, par_str, mut_str, bg_str
