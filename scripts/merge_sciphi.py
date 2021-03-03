@@ -73,7 +73,7 @@ def merge_readCounts(args):
             else:
                 mut_str += '\n' + mut_line
 
-        for bg_i, bg_line in enumerate(file_raw[-3:]):
+        for bg_i, bg_line in enumerate(file_raw[-5:]):
             for bg_j in bg_line.split('\t'):
                 i1, i2 = bg_j.split(',')
                 try:
