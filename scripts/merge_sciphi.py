@@ -86,7 +86,7 @@ def merge_readCounts(args):
                     except ValueError:
                         print(bg_j)
             else:
-                mut_str += '\n' + _line
+                mut_str += '\n' + line
 
     bg_str = '=background='
     for bg_line_out in bg:
