@@ -94,7 +94,7 @@ def merge_readCounts(args):
         bg_str_new = '\t'.join(['{},{}'.format(*i) for i in sorted(bg_line_out.items())])
         bg_str += '\n' + bg_str_new
 
-    par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}' \
+    par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}\n=mutations=' \
         .format(cand_sites, bg_sites)
 
     return sample_str, par_str, mut_str, bg_str
