@@ -111,8 +111,8 @@ def get_summary_df(args):
             if not args.keep_sex and chrom in ['X', 'Y']:
                 continue
 
-            if args.pref != '':
-                chrom = args.pref + chrom
+            if args.prefix != '':
+                chrom = args.prefix + chrom
             chr_data_in = vcf_in.fetch(chrom)
             chr_data, chr_vcf_body, chr_gt_mat, chr_all_mat, chr_germline = \
                 iterate_chrom(chr_data_in, sample_maps, chrom, args.gt_sep)
