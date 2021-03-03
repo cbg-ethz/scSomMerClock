@@ -78,12 +78,14 @@ def merge_readCounts(args):
                 try:
                     i1, i2 = bg_j.split(',')
                 except:
-                    print(bg_j)
+                    print(in_file, bg_i, bg_j)
                     continue
                 try:
                     bg[bg_i][i1] += int(i2)
                 except KeyError:
                     bg[bg_i][i1] = int(i2)
+                except ValueError:
+                    print bg_j
 
     bg_str = '=background='
     for bg_line_out in bg:
