@@ -664,7 +664,7 @@ if config.get('ethan', {}).get('run', False):
             names = os.path.join(DATA_DIR, config['ethan']['cells'])
         shell:
             'module load {params.modules} && '
-            '{params.sciphi} --cwm 2 --slt on --in {params.names} '
+            '{params.sciphi} --cwm 2 --slt on --af on --in {params.names} '
             '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
