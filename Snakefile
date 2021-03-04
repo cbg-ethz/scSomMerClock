@@ -681,7 +681,7 @@ if config.get('ethan', {}).get('run', False):
             modules = ' '.join(config['modules'] \
                     .get('QC_calling', ['pysam', 'pandas']))
         shell:
-            '{params.base_dir}/scripts/merge_sciphi.py {input}'
+            'python {params.base_dir}/scripts/merge_sciphi.py {input}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------
