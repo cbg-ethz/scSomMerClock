@@ -85,7 +85,7 @@ if config.get('ethan', {}).get('run', False):
 
     rule all:
         input:
-            os.path.join('SciPhi', 'preprocessed.all.tsv')
+            os.path.join('SciPhi', 'SciPhi_merged.tsv')
 else:
     rule all:
         input:
@@ -675,7 +675,9 @@ if config.get('ethan', {}).get('run', False):
                     'readCounts.tsv'),
                 chr=CHROM)
         output:
-            os.path.join('SciPhi', 'preprocessed.all.tsv')
+            os.path.join('SciPhi', 'SciPhi_merged.tsv')
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
             modules = ' '.join(config['modules'] \

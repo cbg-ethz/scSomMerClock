@@ -89,9 +89,12 @@ class Submitter:
         mem_value_to_submit  = math.ceil(mem_in_clusters_units.value)
         resources_str = "-M {mem} -n {threads} " \
                 "-R 'select[mem>{mem}] rusage[mem={mem}] span[hosts=1]'" \
-            .format(mem=mem_value_to_submit, threads=self.threads) 
-        if self.resources.get('runtime', False):
-            resources_str += " -W {rt}".format(rt=self.resources['runtime'])
+            .format(mem=mem_value_to_submit, threads=self.threads)
+
+        for time_str in ("time", "runtime", "walltime"):
+            if self.resources.get(time_str, False):
+                resources_str += " -W {}".format(self.resources[time_str])
+
         return resources_str
 
     @property
