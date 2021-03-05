@@ -52,7 +52,8 @@ def merge_standard(args):
 
 
 def merge_readCounts(args):
-    bg = [{}, {}, {}, {}, {}] 
+    bg = [{}, {}, {}, {}, {}]
+    
     cand_sites = 0
     bg_sites = 0
 
@@ -73,7 +74,7 @@ def merge_readCounts(args):
 
         if i == 0:
             sample_str = '\n'.join(file_raw[:2])
-            mut_str = file_raw[8]
+            mut_str = file_raw[6]
 
         cand_sites += int(file_raw[3])
         bg_sites += int(file_raw[5])
@@ -106,7 +107,7 @@ def merge_readCounts(args):
             for i in sorted(bg_line_out.items(), key=lambda x: int(x[0]))])
         bg_str += '\n' + bg_str_new
 
-    par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}\n=mutations=' \
+    par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}' \
         .format(cand_sites, bg_sites)
 
     return sample_str, par_str, mut_str, bg_str
