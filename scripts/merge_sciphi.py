@@ -102,7 +102,8 @@ def merge_readCounts(args):
 
     bg_str = '=background='
     for bg_line_out in bg:
-        bg_str_new = '\t'.join(['{},{}'.format(*i) for i in sorted(bg_line_out.items())])
+        bg_str_new = '\t'.join(['{},{}'.format(*i) \
+            for i in sorted(bg_line_out.items(), key=lambda x: int(x[0]))])
         bg_str += '\n' + bg_str_new
 
     par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}\n=mutations=' \
