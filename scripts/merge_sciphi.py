@@ -79,7 +79,7 @@ def merge_readCounts(args):
         bg_sites += int(file_raw[5])
 
         bg_row = -1
-        for line_no, line in enumerate(file_raw[9:]):
+        for line_no, line in enumerate(file_raw[7:]):
             if line  == '=background=':
                 bg_row = 0
             elif bg_row >= 0:
