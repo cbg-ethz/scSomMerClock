@@ -5,6 +5,7 @@ import re
 import gzip
 import math
 import argparse
+import subprocess
 from pprint import pprint as pp
 from statistics import mean, stdev
 
@@ -337,11 +338,16 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             f_out.write(nex_str)
    
 
-def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
+def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
         file_stream = open(vcf_file, 'r')
+
+    if GT:
+        missing = '3'
+    else:
+        missing = '?' 
 
     with file_stream as f_in:
         for line in f_in:
@@ -371,7 +377,7 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                     gt = s_rec[:s_rec.index(':')]
                 # Missing in Monovar output format
                 except ValueError:
-                    samples[s_i] += '?'
+                    samples[s_i] += missing
                     continue
                 s_rec_details = s_rec.split(':')
 
@@ -394,7 +400,7 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
                         GQ_skip_flag = False
 
                 if int(s_rec_details[DP_col]) < minDP or GQ_skip_flag:
-                    samples[s_i] += '?'
+                    samples[s_i] += missing
                     continue
 
                 if len(gt) < 3:
@@ -414,12 +420,18 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1):
 
                 # Missing
                 if s_rec_ref == '.':
-                    samples[s_i] += '?'
+                    samples[s_i] += missing
                 # Wildtype
                 elif s_rec_ref == '0' and s_rec_alt == '0':
-                    samples[s_i] += ref
+                    if GT:
+                        samples[s_i] += '0'
+                    else:
+                        samples[s_i] += ref
                 else:
-                    samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
+                    if GT:
+                        samples[s_i] += '1'
+                    else:
+                        samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
     return samples, sample_names
 
 
@@ -832,6 +844,60 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             f'H0:{avg[3]};H1:{avg[4]}\n')
 
 
+def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
+    import numpy as np
+
+    # RUN SiCloneFit
+    if not os.path.exists(exe):
+        raise RuntimeError(
+            'SCITE not compiled: run "g++ *.cpp -o SCITE -std=c++11" inside '
+            '{}'.format(os.path.dirname(exe))
+        )
+
+    run_no = vcf_file.split('.')[-1]
+    out_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-2] + ['scite_dir'])
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
+    data_raw, cells = get_sample_dict_from_vcf(vcf_file, GT=True)
+    data_list = []
+    for cell_data in data_raw.values():
+        data_list.append([int(i) for i in cell_data])
+    data = np.array(data_list).T
+
+    data_file = os.path.join(out_dir, 'SCITE.{}.csv'.format(run_no))
+    np.savetxt(data_file, data.astype(int), delimiter=' ', newline='\n', fmt='%d')
+    no_muts, no_cells = data.shape
+
+    mut_file = os.path.join(out_dir, 'muts.txt')
+    if not os.path.exists(mut_file):
+        with open(mut_file, 'w') as f_mut:
+            f_mut.write('\n'.join(['m{}'.format(i) for i in range(no_muts)]))
+
+    out_files = os.path.join(out_dir, 'scite_tree.{}'.format(run_no))
+    cmmd = ' '.join(
+        [exe, '-i', data_file, '-transpose', '-r 1', '-n', str(no_muts),
+        '-m', str(no_cells), '-l', str(steps), '-fd', str(fd), '-ad', str(ad),
+        '-e 0.1', '-a',  '-o', out_files, '-names', mut_file,
+        '-max_treelist_size 1']
+    )
+
+    if not silent:
+        print('output directory:\n{}'.format(out_dir))
+        print('\nShell command:\n{}\n'.format(cmmd))
+
+    SCITE = subprocess.Popen(
+        cmmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = SCITE.communicate()
+    SCITE.wait()
+
+    if stderr:
+        for i in str(stdout).split('\\n'):
+            print(i)
+        raise RuntimeError('SCITE Error')
+
+
 def generate_mrbayes_plots(in_file, out_file, regress=False):
     import numpy as np
     import pandas as pd
@@ -931,81 +997,6 @@ def generate_pval_plot(in_file, out_file):
     else:
         plt.show()
     plt.close()
-
-
-def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
-    # Line 4647 in cellcoal
-    import numpy as np
-    # CellCoal order: AA AC AG AT CC CG CT GG GT TT
-    ll_GT = {}
-    for ia1, A1 in enumerate(['A', 'C', 'G', 'T']):
-        for ia2, A2 in [(0, 'A'), (1, 'C'), (2, 'G'), (3, 'T')][ia1:]:
-            ll = 0
-
-            g0 = 0
-            g1 = 0
-            g2 = 0
-            for ib, read in enumerate(reads):
-                if gamma:
-                    p_bA1 = four_temp_ampl(ib == ia1, eps, gamma) 
-                    p_bA2 = four_temp_ampl(ib == ia2, eps, gamma)
-                else:
-                    p_bA1 = GATK(ib == ia1, eps) 
-                    p_bA2 = GATK(ib == ia2, eps)
-                if delta:
-                    # Lines 4688f
-                    g0 += read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
-                    g1 += read * np.log10(p_bA1)
-                    g2 += read * np.log10(p_bA2)
-                else:
-                    ll += read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)
-
-            if delta:
-                g0 = np.log10(1 - delta) + g0
-                g1 = np.log10(delta/2) + g1
-                g2 = np.log10(delta/2) + g2
-
-                max_t = np.max([g0, g1, g2])
-
-                # t0 = (1 - delta) * g0
-                # t1 = (delta/2) * g1
-                # t2 = (delta/2) * g2
-
-                t0 = g0
-                t1 = g1
-                t2 = g2
-
-                ll = max_t + np.log10(np.power(10, t0 - max_t) \
-                    + np.power(10, t1 - max_t) + np.power(10, t2 - max_t))
-                
-                ll_GT[A1 + A2] = round(ll, 2)
-
-    x = np.array(list(ll_GT.values()))
-    ll_norm = _normalize_log(np.array(list(ll_GT.values())))
-    
-
-def GATK(is_same, eps):
-    if is_same:
-        return 1 - eps
-    else:
-        return eps / 3
-
-
-# Line 4675
-def four_temp_ampl(is_same, eps, gamma):
-    if is_same:
-        return (1 - gamma) * (1 - eps) + gamma * eps / 3
-    else:
-        return (1 - gamma) * eps / 3 + (gamma / 3) * (1 - eps / 3)
-
-
-# def two_temp_ampl(is_same, eps, gamma):
-#     3 * ((1 - gamma) * eps + gamma * eps)
-
-#     if is_same:
-#         return (1 - gamma) * (1 - eps) + gamma * eps / 3
-#     else:
-#         return (1 - gamma) * eps / 3 + gamma * (1 - eps / 3) / 3
 
 
 def convert_steps(in_dir, steps):

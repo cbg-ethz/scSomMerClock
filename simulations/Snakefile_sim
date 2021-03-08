@@ -48,6 +48,9 @@ def get_final_files(wildcards):
         files.append(os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv'))
     if config.get('paup', {}).get('run', False):
         files.append(os.path.join(out_dir, 'paup.clock_test_summary.tsv'))
+    if config.get('scite', {}).get('run', False):
+        files += [os.path.join(out_dir, 'scite_dir', f'scite_tree.{i}_ml0.newick') 
+            for i in RUNS]
     return files
 
 
@@ -259,3 +262,18 @@ rule merge_paup_results:
     shell:
         'python utils.py {input} -f LRT -o {output} -nc {params.no_cells} && '
         'tail -n 1 {output}'
+
+
+# -------------------------------- SCITE ---------------------------------------
+rule run_scite:
+    input:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
+    resources:
+        mem_mb=4048
+    params:
+        steps = config['scite'].get('steps', 1E6),
+        exe = config['scite']['exe'],
+    run:
+        run_scite_subprocess(params.exe, params.steps, input[0])
