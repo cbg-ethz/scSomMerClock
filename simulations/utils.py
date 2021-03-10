@@ -42,7 +42,11 @@ begin PAUP;
     Set autoclose=yes warnreset=no warntree=no warntsave=No;
     Set criterion=like;
     Outgroup healthycell;
-    LSet nst=1 base=equal rates=gamma shape=est;
+    {paup_const}
+    LSet nst=1 base=equal rates=gamma shape=est condvar={paup_corr};
+
+    RootTrees rootMethod=outgroup outroot=monophyl;
+    clockChecker tree=all lrt=yes;
 
     {paup_tree}
 end;
@@ -177,7 +181,8 @@ def get_cellcoal_config(config, template_file, out_dir):
     if config.get('mrbayes', {}).get('use_tree', False) \
             or (config.get('paup', {}).get('run', False) \
                 and not config.get('paup', {}).get('learn_tree', False)) \
-            or config['cellcoal'].get('output', {}).get('tree', False):
+            or config['cellcoal'].get('output', {}).get('tree', False) \
+            or config.get('sieve', {}).get('run', False):
         templ = re.sub('{out_tree}', '6', templ)
     else:
         templ = re.sub('{out_tree}', '', templ)
@@ -207,7 +212,7 @@ def load_cellcoal_config(configfile):
     return cc_params
 
 
-def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
+def vcf_to_pileup(vcf_file, out_pileup, out_samples='', out_sample_types=''):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -257,13 +262,23 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples=''):
     with open(out_samples, 'w') as f_names:
         f_names.write('\n'.join(sample_names))
 
+    if not out_sample_types:
+        out_samples = '{}.SampleTypes.txt'.format(vcf_file)
+    with open(out_samples, 'w') as f_names:
+        f_names.write('\n'.join(
+            ['{}\tCT'.format(i) if not i.startswith('healthy') \
+                else '{}\tCN'.format(i) for i in sample_names])
+        )
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             learn_tree=False, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
+        paup_corr=('no', '')
     else:
         samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP, minGQ)
+        paup_corr=('yes', 'exclude constant;')
+
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -332,7 +347,8 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             rec_no=rec_no, sample_labels=' '.join(sample_names),
             matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
             out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
-            brlen_prior=brlen_prior, paup_tree=paup_tree)
+            brlen_prior=brlen_prior, paup_tree=paup_tree, paup_corr=paup_corr[0],
+            paup_const=paup_corr[1])
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)

@@ -3,7 +3,7 @@ static:
 
 cellcoal:
   exe: ../../cellcoal/bin/cellcoal-1.1.1
-  parameter: cellcoal_parameters.template
+  parameter: templates/cellcoal_parameters.template
   no_rep: 10
   model:
     no_cells: 30
@@ -25,12 +25,12 @@ cellcoal:
     seq_overdis: 5
     seq_error: 0.01
   output:
-    tree: False
+    tree: True
     full_GT: False
     true_haplotypes: False
   SNP_filter:
-    depth: 10
-    quality: 20
+    depth: 1
+    quality: 1
 
 mrbayes:
   run: False
@@ -48,5 +48,18 @@ paup:
 monovar:
   run: False
   exe: ../../MonoVar_NB/src/monovar.py
+
+scite:
+  run: False
+  exe: ../../infSCITE/infSCITE
+  steps: 10000
+
+
+sieve:
+  run: False
+  sciphi_exe: ../../SCIPhI/build/sciphi
+  beast_bin: ../../beast/bin
+  templates: templates
+
 
 scheduler: slurm

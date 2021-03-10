@@ -51,6 +51,9 @@ def get_final_files(wildcards):
     if config.get('scite', {}).get('run', False):
         files += [os.path.join(out_dir, 'scite_dir', f'scite_tree.{i}_ml0.newick') 
             for i in RUNS]
+    if config.get('sieve', {}).get('run', False):
+        files.append(os.path.join(out_dir, 'sieve.clock_test_summary.tsv'))
+
     return files
 
 
@@ -137,7 +140,8 @@ rule vcf_to_mpileup:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
         pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt'),
+        s_types = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     resources:
         mem_mb = 4096
     run:
@@ -254,11 +258,11 @@ rule merge_paup_results:
     conda:
         'envs/monovar.yaml'
     envmodules:
-        'scipy/1.4.1-python-3.7.7'
+        'scipy/1.4.1-python-3.7.7',
     resources:
         mem_mb=2048
     params:
-        no_cells = config['cellcoal']['model']['no_cells'] + 1,
+        no_cells = config['cellcoal']['model']['no_cells'],
     shell:
         'python utils.py {input} -f LRT -o {output} -nc {params.no_cells} && '
         'tail -n 1 {output}'
@@ -277,3 +281,86 @@ rule run_scite:
         exe = config['scite']['exe'],
     run:
         run_scite_subprocess(params.exe, params.steps, input[0])
+
+
+# -------------------------------- SIEVE ---------------------------------------
+
+rule run_sciphi:
+    input:
+        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
+            'readCounts.tsv')
+    resources:
+        mem_mb=4048
+    envmodules:
+        'gcccore/6.4.0',
+        'boost/1.73.0-python-3.7.7',
+        'seqan/2.4.0',
+        'dlib/19.16',
+        'zlib/1.2.11'
+    params:
+        sciphi = config['sieve']['sciphi_exe'],
+    shell:
+        '{params.sciphi} --cwm 2 --slt on --af on --in {input.samples} '
+        '-o {out_dir}/sieve_dir/sciphi.{wildcards.run} {input.pileup}'
+
+
+rule run_sieve_data_collector:
+    input:
+        read_counts = os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}',
+            'best_index', 'readCounts.tsv'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+            'sieve_{model}_updated.xml')
+    params:
+        beast = config['sieve']['beast_bin'],
+        templates = config['sieve']['templates']
+    shell:
+        '{params.beast}/applauncher DataCollectorLauncher -prefix '
+        '{out_dir}/sieve_dir/data.{wildcards.run}.{wildcards.model}/ '
+        '-cell {input.samples} -sciphi -data {input.read_counts} '
+        '-template {params.templates}/sieve_{wildcards.model}.xml'
+
+
+rule run_NS_converter:
+    input:
+        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+            'sieve_{model}_updated.xml')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+            'sieve_{model}_NS.xml')
+    params:
+        beast = config['sieve']['beast_bin'],
+    shell:
+        '{params.beast}/applauncher MCMC2NS -xml {input} -output {output}'
+
+
+rule run_sieve:
+    input:
+        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+            'sieve_{model}_NS.xml')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+            'sieve_{model}_final')
+    threads: 2
+    params:
+        beast = config['sieve']['beast_bin'],
+    shell:
+        '{params.beast}/beast -threads {threads} -prefix '
+        '{out_dir}/sieve_dir/sieve.{wildcards.run}.{wildcards.model} {input}'
+
+
+rule merge_sieve_results:
+    input:
+        expand(os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+                'sieve_{model}_final'),
+            run=RUNS, model=MODELS)
+    output:
+        os.path.join(out_dir, 'sieve.clock_test_summary.tsv')
+    resources:
+        mem_mb=2048
+    shell:
+        'python utils.py {input} -f sieve -o {output}'
