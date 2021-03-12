@@ -68,15 +68,20 @@ def get_out_dir(config):
     else:
         model = 'clock'
 
-    if not config['cellcoal']['scWGA'].get('errors', False):
-        sim_scWGA = 'noScWGA'
+    if config['cellcoal']['scWGA'].get('errors', False):
+        sim_scWGA = 'scWGA-{}-{}-{}'.format(
+            config['cellcoal']['scWGA']['ADO_rate'],
+            config['cellcoal']['scWGA']['doublet_rate'][0],
+            config['cellcoal']['scWGA']['ampl_error'][0])
     else:
-        sim_scWGA = 'scWGA'
+        sim_scWGA = 'scWGA-0-0-0'
 
-    if not config['cellcoal']['NGS'].get('errors', False):
-        sim_NGS = 'noNGS'
+    sim_NGS = 'NGS-{}-'.format(config['cellcoal']['NGS']['seq_cov'])
+    if config['cellcoal']['NGS'].get('errors', False):
+        sim_NGS += '{}-{}'.format(config['cellcoal']['NGS']['seq_overdis'],
+            config['cellcoal']['NGS']['seq_error'])
     else:
-        sim_NGS = 'NGS'
+        sim_NGS += '0-0'
 
     if config.get('mrbayes', {}).get('run', False):
         mb_ngen = '-'.join(['{:.0E}'.format(i) for i in config['mrbayes']['ngen']])
