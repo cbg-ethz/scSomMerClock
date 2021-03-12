@@ -62,21 +62,17 @@ VCF_TEMPLATE = """##fileformat=VCFv4.1
 
 
 def get_out_dir(config):
-    cc_brv = config['cellcoal']['model'].get('branch_rate_var', None)
-    if cc_brv:
-        model = 'noClock{}'.format(cc_brv)
-    else:
-        model = 'clock'
+    model = 'clock{}'.format(config['cellcoal']['model'].get('branch_rate_var', 0))
 
     if config['cellcoal']['scWGA'].get('errors', False):
-        sim_scWGA = 'scWGA-{}-{}-{}'.format(
+        sim_scWGA = 'WGA{}-{}-{}'.format(
             config['cellcoal']['scWGA']['ADO_rate'],
             config['cellcoal']['scWGA']['doublet_rate'][0],
             config['cellcoal']['scWGA']['ampl_error'][0])
     else:
-        sim_scWGA = 'scWGA-0-0-0'
+        sim_scWGA = 'WGA-0-0-0'
 
-    sim_NGS = 'NGS-{}-'.format(config['cellcoal']['NGS']['seq_cov'])
+    sim_NGS = 'NGS{}-'.format(config['cellcoal']['NGS']['seq_cov'])
     if config['cellcoal']['NGS'].get('errors', False):
         sim_NGS += '{}-{}'.format(config['cellcoal']['NGS']['seq_overdis'],
             config['cellcoal']['NGS']['seq_error'])
@@ -101,20 +97,12 @@ def get_out_dir(config):
     else:
         out_dir = config['static']['out_dir']
 
-    if config.get('paup', {}).get('run', False):
-        if config['paup'].get('full_GT', False):
-            data_type = '_fullGT'
-        else:
-            data_type = '_onlySNP'
-    else:
-        data_type = ''
-
-    filters =  '_min{},{}'.format(
+    filters =  '_min{}-{}'.format(
         config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
         config['cellcoal'].get('SNP_filter', {}).get('quality', 1))
 
-    return os.path.join(out_dir, 'results_{}_{}_{}{}{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, data_type, filters, sampling, mb_ngen))
+    return os.path.join(out_dir, 'res_{}_{}_{}{}_{}{}' \
+        .format(model, sim_scWGA, sim_NGS, filters, sampling, mb_ngen))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
