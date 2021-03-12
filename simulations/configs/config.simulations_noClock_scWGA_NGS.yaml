@@ -41,7 +41,7 @@ mrbayes:
 
 paup:
   run: True
-  full_GT: True
+  full_GT: False
   learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
