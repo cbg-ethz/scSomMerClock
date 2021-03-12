@@ -30,7 +30,7 @@ end;
 
 begin mrbayes;
     set autoclose=yes nowarnings=yes;
-    lset nst=6 rates=invgamma;
+    lset nst=1 rates=gamma;
     outgroup healthycell;
     prset brlenspr={brlen_prior};
     {fixed_tree}
@@ -44,9 +44,6 @@ begin PAUP;
     Outgroup healthycell;
     {paup_const}
     LSet nst=1 base=equal rates=gamma shape=est condvar={paup_corr};
-
-    RootTrees rootMethod=outgroup outroot=monophyl;
-    clockChecker tree=all lrt=yes;
 
     {paup_tree}
 end;
@@ -107,11 +104,9 @@ def get_out_dir(config):
     else:
         data_type = ''
 
-    filters = ''
-    if config['cellcoal'].get('SNP_filter', {}).get('depth', False):
-        filters += '_minDP{}'.format(config['cellcoal']['SNP_filter']['depth'])
-    if config['cellcoal'].get('SNP_filter', {}).get('quality', False): 
-        filters += '_minGQ{}'.format(config['cellcoal']['SNP_filter']['quality'])
+    filters =  '_min{},{}'.format(
+        config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
+        config['cellcoal'].get('SNP_filter', {}).get('quality', 1))
 
     return os.path.join(out_dir, 'results_{}_{}_{}{}{}_{}{}' \
         .format(model, sim_scWGA, sim_NGS, data_type, filters, sampling, mb_ngen))
@@ -188,7 +183,8 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{out_tree}', '', templ)
 
     if config['cellcoal'].get('output', {}).get('full_GT', False) \
-            or config.get('paup', {}).get('full_GT', False) :
+            or config.get('paup', {}).get('full_GT', False) \
+            or config.get('sieve', {}).get('run', False):
         templ = re.sub('{out_full_GT}', '3', templ)
     else:
         templ = re.sub('{out_full_GT}', '', templ)
@@ -274,10 +270,10 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
             learn_tree=False, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
-        paup_corr=('no', '')
+        paup_corr=('yes', '')
     else:
         samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP, minGQ)
-        paup_corr=('yes', 'exclude constant;')
+        paup_corr=('no', 'exclude constant;')
 
 
     mat_str = ''
@@ -360,6 +356,15 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
     else:
         file_stream = open(vcf_file, 'r')
 
+    full_gt_file = vcf_file.replace('vcf_dir', 'full_genotypes_dir') \
+        .replace('vcf', 'full_gen')
+    if os.path.exists(full_gt_file):
+        get_bg = True
+        mut_i = []
+    else:
+        get_bg = False
+        
+
     if GT:
         missing = '3'
     else:
@@ -382,6 +387,9 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
             if not 'PASS' in line_cols[6]:
                 continue
 
+            if get_bg:
+                mut_i.append(int(line_cols[1]))
+
             ref = line_cols[3]
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
@@ -396,6 +404,8 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                     samples[s_i] += missing
                     continue
                 s_rec_details = s_rec.split(':')
+
+                # if s_i == 8: import pdb; pdb.set_trace()
 
                 if len(FORMAT_col) == len(s_rec_details):
                     s_rec_GQ_col = GQ_col
@@ -448,6 +458,24 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                         samples[s_i] += '1'
                     else:
                         samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
+
+    if get_bg:
+        true_GT = tail(open(full_gt_file, 'r'), 1).strip().split(' ')[2:]
+        cnts = {}
+        for i, j in enumerate(true_GT):
+            if len(mut_i) > 0 and i == mut_i[0] -1:
+                mut_i.pop(0)
+            else:
+                try:
+                    cnts[j] += 1
+                except KeyError:
+                    cnts[j] = 1
+
+        bg_out_dir = full_gt_file.replace('full_gen.', 'background.')
+        with open(bg_out_dir, 'w') as bg_out:
+            bg_out.write(' ' \
+                .join([str(cnts[i]) for i in ['AA', 'CC', 'GG', 'TT']]))
+
     return samples, sample_names
 
 
@@ -914,6 +942,61 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
         raise RuntimeError('SCITE Error')
 
 
+def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
+            out_file):
+    with open(template_file, 'r') as f:
+        templ = f.read()
+
+    run = re.search('tree.(\d+)_', tree_file).group(1)
+    bg_file = os.path.join(os.path.sep.join(tree_file.split(os.path.sep)[:-2]),
+        'full_genotypes_dir', 'background.{}'.format(run))
+    with open(bg_file, 'r') as f_bg:
+        bg_bases = f_bg.read().strip()
+
+    background_str = '<data id="alignment" spec="FilteredAlignment" filter="-" ' \
+        'data="@original-alignment" constantSiteWeights="{}"/>'.format(bg_bases)
+    templ = re.sub('{background}', background_str, templ)
+
+
+    with open(tree_file, 'r') as f_tree:
+        newick = f_tree.read().strip()
+
+        with open(samples_file, 'r') as f_smpl:
+            for s_i, s_raw in enumerate(f_smpl.read().strip().split('\n')):
+                s_name, _ = s_raw.split('\t')
+                newick = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1), s_name, newick)
+        # Replace names
+        newick += ';'
+
+    tree_node = '<stateNode spec="beast.util.TreeParser" id="randomTree" ' \
+        'IsLabelledNewick="true" adjustTipHeights="false" taxa="@alignment" ' \
+        'newick="{}"/>'.format(newick)
+    templ = re.sub('{tree}', tree_node, templ)
+
+
+    templ = re.sub('{steps}', str(steps), templ)
+
+    if model == 'clock':
+        model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
+                                                                        
+    <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
+                                                
+</branchRateModel>
+"""
+    else:
+        model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
+                                                                        
+    <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
+                                                
+</branchRateModel>
+"""
+    templ = re.sub('{model}', model_node, templ)
+
+    with open(out_file, 'w') as f_out:
+        f_out.write(templ)
+    import pdb; pdb.set_trace()
+
+
 def generate_mrbayes_plots(in_file, out_file, regress=False):
     import numpy as np
     import pandas as pd
@@ -1066,8 +1149,6 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    # calc_GT_likelihood([0, 18, 0, 0], eps=1e-02, delta=0.2, gamma=1e-02)
-
     args = parse_args()
     if not args.output:
         args.output = os.path.dirname(args.input[0])
@@ -1113,3 +1194,7 @@ if __name__ == '__main__':
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
+
+
+
+# '0|0:41:0,0,0,41:-89.07,-89.03,-89.03,-1.82,-89.07,-89.03,-1.82,-89.07,-1.82,0.00:0.00,-1.82,-89.07,-1.82,0.00,-89.07,-1.82,0.00,0.00,-89.07:T/T:T|T:?|T:T|T'

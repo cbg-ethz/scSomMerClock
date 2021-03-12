@@ -313,22 +313,35 @@ rule run_sieve_data_collector:
             'best_index', 'readCounts.tsv'),
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
-            'sieve_{model}_updated.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_template_updated.xml')
     params:
         beast = config['sieve']['beast_bin'],
-        templates = config['sieve']['templates']
+        xml = config['sieve']['xml']
     shell:
         '{params.beast}/applauncher DataCollectorLauncher -prefix '
-        '{out_dir}/sieve_dir/data.{wildcards.run}.{wildcards.model}/ '
-        '-cell {input.samples} -sciphi -data {input.read_counts} '
-        '-template {params.templates}/sieve_{wildcards.model}.xml'
+        '{out_dir}/sieve_dir/xml.{wildcards.run}/ -cell {input.samples} -sciphi '
+        '-data {input.read_counts} -template {params.xml}'
+
+
+rule get_sieve_final_xml:
+    input:
+        xml = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_template_updated.xml'),
+        tree = os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
+    params:
+        steps = config['sieve']['steps']    
+    run:
+        get_sieve_xml(input.xml, input.tree, input.samples, wildcards.model,
+            params.steps, output[0])
 
 
 rule run_NS_converter:
     input:
-        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
-            'sieve_{model}_updated.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
     output:
         os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
             'sieve_{model}_NS.xml')

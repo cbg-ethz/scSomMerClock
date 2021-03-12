@@ -16,14 +16,14 @@ cellcoal:
     binary_alphabet: False
   scWGA:
     errors: True
-    ADO_rate: 0.2
-    doublet_rate: [0.02, 0.01]
-    ampl_error: [0.01, 1e-8, 0]
+    ADO_rate: 0.1
+    doublet_rate: [0.01, 0.005]
+    ampl_error: [0.005, 1e-8, 0]
   NGS:
     seq_cov: 20
     errors: True
-    seq_overdis: 5
-    seq_error: 0.01
+    seq_overdis: 2.5
+    seq_error: 0.005
   output:
     tree: True
     full_GT: False
@@ -54,11 +54,13 @@ scite:
   exe: ../../infSCITE/infSCITE
   steps: 10000
 
+
 sieve:
   run: False
   sciphi_exe: ../../SCIPhI/build/sciphi
   beast_bin: ../../beast/bin
   xml: templates/sieve_template.xml
   steps: 100000
+
 
 scheduler: slurm
