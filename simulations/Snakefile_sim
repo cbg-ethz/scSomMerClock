@@ -200,8 +200,9 @@ rule run_scite:
     params:
         steps = config['scite'].get('steps', 1E6),
         exe = config.get('scite', {}).get('exe', ''),
-    run:
-        run_scite_subprocess(params.exe, params.steps, input[0])
+    shell:
+        'python utils.py {input} -f scite -e {params.exe} -s {params.steps}'
+        
 
 
 # ------------------------------- CELLPHY --------------------------------------
