@@ -112,9 +112,6 @@ def get_nex_input(wildcards):
         vcf_in_file = 'vcf.{wildcards.run}'.format(wildcards=wildcards)
     in_files['vcf'] = os.path.join(out_dir, 'vcf_dir', vcf_in_file)
 
-    if config['cellcoal'].get('output', {}).get('tree', False):
-        in_files['tree'] = os.path.join(out_dir, 'trees_dir',
-            'trees.{wildcards.run}'.format(wildcards=wildcards))
     if config.get('scite', {}).get('run', False):
         in_files['tree'] = os.path.join(out_dir, 'scite_dir',
             'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
@@ -143,6 +140,11 @@ rule vcf_to_nex:
         min_DP = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
         min_GQ = config['cellcoal'].get('SNP_filter', {}).get('quality', 1),
     run:
+        if not 'tree' in input.keys() \
+                and config['cellcoal'].get('output', {}).get('tree', False):
+            input.tree = os.path.join(out_dir, 'trees_dir',
+                'trees.{wildcards.run}'.format(wildcards=wildcards))
+
         vcf_to_nex(input.vcf, output, wildcards.steps,
             ss_flag=params.ss, tree_file=input.get('tree', None),
             learn_tree=params.learn_tree, full_GT=params.full_GT,

@@ -294,13 +294,13 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
                     s_name, tree_newick)
             tree_newick += ';'
             tree_name = 'treeSCITE'
-
-        elif 'tree_dir' in tree_file:
+        elif 'trees_dir' in tree_file:
             tree_newick = tree_newick.replace('cell', 'tumcell')
             tree_newick = tree_newick.replace('outgtumcell', 'healthycell')
             tree_name = 'treeCellCoal'
         elif 'cellphy_dir' in tree_file:
             tree_name = 'treeCellPhy'
+
         fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
 
 
@@ -329,7 +329,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
         else:
             brlen_prior = 'unconstrained:exp(10.0)'
             clock_str='no'
-            if tree_file and 'tree_dir' in tree_file:
+            if tree_file and 'trees_dir' in tree_file:
                 tree_newick_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
                     tree_newick[1:])
                 tree_str = 'tree {} = [&U] {}'\
