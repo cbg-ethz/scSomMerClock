@@ -1203,7 +1203,7 @@ if __name__ == '__main__':
             out_file = args.output
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
     elif args.format == 'scite':
-        run_scite_subprocess(args.exe, args.steps, args.input[0])
+        run_scite_subprocess(args.exe, args.steps[0], args.input[0])
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
 
