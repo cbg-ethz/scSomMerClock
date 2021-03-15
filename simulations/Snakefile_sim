@@ -195,6 +195,8 @@ rule run_scite:
         os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb=4096
+    envmodules:
+        'numpy/1.18.1-python-3.7.7'
     params:
         steps = config['scite'].get('steps', 1E6),
         exe = config.get('scite', {}).get('exe', ''),
