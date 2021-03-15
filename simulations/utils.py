@@ -1128,7 +1128,8 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=str,
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str,  default='nxs',
-        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps', 'pval'],
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps',
+            'pval', 'scite'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -1151,7 +1152,8 @@ def parse_args():
             'Default = 1.')
     parser.add_argument('-s', '--steps', nargs='+', type=int,
         help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
-
+    parser.add_argument('-e', '--exe', type=str, default='',
+        help='Path to exe to run in subprocess. Default = None.')
     args = parser.parse_args()
     return args
 
@@ -1200,6 +1202,8 @@ if __name__ == '__main__':
         else:
             out_file = args.output
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
+    elif args.format == 'scite':
+        run_scite_subprocess(args.exe, args.steps, args.input[0])
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
 
