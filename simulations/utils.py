@@ -62,7 +62,10 @@ VCF_TEMPLATE = """##fileformat=VCFv4.1
 
 
 def get_out_dir(config):
-    model = 'clock{}'.format(config['cellcoal']['model'].get('branch_rate_var', 0))
+    if config['cellcoal']['model'].get('branch_rate_var', 0):
+        model = 'clock{}'.format(config['cellcoal']['model']['branch_rate_var'])
+    else:
+        model = 'clock0'
 
     if config['cellcoal']['scWGA'].get('errors', False):
         sim_scWGA = 'WGA{}-{}-{}'.format(
