@@ -106,14 +106,31 @@ rule get_true_GT:
         haplotypes_to_vcf(input[0], output[0])
 
 
-if config.get('monovar', {}).get('run', False):
-    vcf_in_file = 'vcf.{run}.monovar.vcf'
-else:
-    vcf_in_file = 'vcf.{run}'
+def get_nex_input(wildcards):
+    in_files = {}
+    if config.get('monovar', {}).get('run', False):
+        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf' \
+            .format(wildcards=wildcards)
+    else:
+        vcf_in_file = 'vcf.{wildcards.run}'.format(wildcards=wildcards)
+    in_files['vcf'] = os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+
+    if config['cellcoal'].get('output', {}).get('tree', False):
+        in_files['tree'] = os.path.join(out_dir, 'trees_dir',
+            'trees.{wildcards.run}'.format(wildcards=wildcards))
+    if config.get('scite', {}).get('run', False):
+        in_files['tree'] = os.path.join(out_dir, 'scite_dir',
+            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
+    if config.get('cellphy', {}).get('run', False):
+        in_files['tree'] = os.path.join(out_dir, 'cellphy_dir',
+            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
+                .format(wildcards=wildcards))
+
+    return in_files
+
 
 rule vcf_to_nex:
-    input:
-        os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+    input: unpack(get_nex_input)
     output:
         expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
             model=MODELS)
@@ -128,9 +145,10 @@ rule vcf_to_nex:
         min_DP = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
         min_GQ = config['cellcoal'].get('SNP_filter', {}).get('quality', 1),
     run:
-        vcf_to_nex(input[0], output, wildcards.steps,
-            ss_flag=params.ss, tree=params.tree, learn_tree=params.learn_tree,
-            full_GT=params.full_GT, minDP=params.min_DP, minGQ=params.min_GQ)
+        vcf_to_nex(input.vcf, output, wildcards.steps,
+            ss_flag=params.ss, tree_file=input.get('tree', None),
+            learn_tree=params.learn_tree, full_GT=params.full_GT,
+            minDP=params.min_DP, minGQ=params.min_GQ)
 
 
 # ------------------------------- MONOVAR --------------------------------------
@@ -167,6 +185,39 @@ rule run_monovar:
     shell:
         'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
         '-m {threads}'
+
+
+# -------------------------------- SCITE ---------------------------------------
+rule run_scite:
+    input:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
+    resources:
+        mem_mb=4096
+    params:
+        steps = config['scite'].get('steps', 1E6),
+        exe = config.get('scite', {}).get('exe', ''),
+    run:
+        run_scite_subprocess(params.exe, params.steps, input[0])
+
+
+# ------------------------------- CELLPHY --------------------------------------
+rule run_cellphy:
+    input:
+        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
+    resources:
+        mem_mb=1024
+    threads: 4
+    params:
+        exe = config.get('cellphy', {}).get('exe', ''),
+        cmd = config.get('cellphy', {}).get('command', 'FAST'),
+    shell:
+        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -y -z '
+        '-p {out_dir}/cellphy_dir/cellphy_tree.{wildcards.run} {input} '
+        '> /dev/null'
 
 
 # ------------------------------- MRBAYES --------------------------------------
@@ -266,21 +317,6 @@ rule merge_paup_results:
     shell:
         'python utils.py {input} -f LRT -o {output} -nc {params.no_cells} && '
         'tail -n 1 {output}'
-
-
-# -------------------------------- SCITE ---------------------------------------
-rule run_scite:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
-    output:
-        os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
-    resources:
-        mem_mb=4048
-    params:
-        steps = config['scite'].get('steps', 1E6),
-        exe = config['scite']['exe'],
-    run:
-        run_scite_subprocess(params.exe, params.steps, input[0])
 
 
 # -------------------------------- SIEVE ---------------------------------------

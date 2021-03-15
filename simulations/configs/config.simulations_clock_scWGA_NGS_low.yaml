@@ -52,8 +52,12 @@ monovar:
 scite:
   run: False
   exe: ../../infSCITE/infSCITE
-  steps: 10000
+  steps: 100000
 
+cellphy:
+  run: True
+  exe: ../../cellphy/cellphy.sh
+  command: FAST
 
 sieve:
   run: False

@@ -259,7 +259,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples='', out_sample_types=''):
                 else '{}\tCN'.format(i) for i in sample_names])
         )
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
             learn_tree=False, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
@@ -279,19 +279,27 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
     else:
         alg = 'mcmc'
 
-    if tree:
-        run_nr = os.path.basename(vcf_file).split('.')[-1]
-        tree_file = os.sep.join(vcf_file.split(os.sep)[:-2] \
-            + ['trees_dir', 'trees.{}'.format(run_nr)])
-        with open(tree_file, 'r') as f_tree:
-            tree_nexus = f_tree.read().strip()
-        tree_nexus = tree_nexus.replace('cell', 'tumcell')
-        tree_nexus = tree_nexus.replace('outgtumcell', 'healthycell')
-
-        tree_name = 'treeCellCoal'
-        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
-    else:
+    if tree_file == None:
         fixed_tree = ''
+    else:
+        with open(tree_file, 'r') as f_tree:
+            tree_newick = f_tree.read().strip()
+
+        if 'scite_dir' in tree_file:
+            for s_i, s_name in enumerate(sample_names):
+                tree_newick = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1),
+                    s_name, tree_newick)
+            tree_newick += ';'
+            tree_name = 'treeSCITE'
+
+        elif 'tree_dir' in tree_file:
+            tree_newick = tree_newick.replace('cell', 'tumcell')
+            tree_newick = tree_newick.replace('outgtumcell', 'healthycell')
+            tree_name = 'treeCellCoal'
+        elif 'cellphy_dir' in tree_file:
+            tree_name = 'treeCellPhy'
+        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
+
 
     if learn_tree:
         paup_tree_raw = 'Lset clock=no;\n' \
@@ -311,18 +319,22 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=False,
         if model == 'clock':
             brlen_prior = 'clock:uniform'
             clock_str='yes'
-            if tree:
-                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_nexus)
+            if tree_file:
+                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
             else:
                 tree_str = ''
         else:
             brlen_prior = 'unconstrained:exp(10.0)'
             clock_str='no'
-            if tree:
-                tree_nexus_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
-                    tree_nexus[1:])
+            if tree_file and 'tree_dir' in tree_file:
+                tree_newick_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
+                    tree_newick[1:])
                 tree_str = 'tree {} = [&U] {}'\
-                    .format(tree_name, tree_nexus_unrooted)
+                    .format(tree_name, tree_newick_unrooted)
+            elif tree_file \
+                    and ('scite_dir' in tree_file or 'cellphy_dir' in tree_file):
+                tree_str = 'tree {} = [&U] {}'\
+                    .format(tree_name, tree_newick)
             else:
                 tree_str = ''
 
