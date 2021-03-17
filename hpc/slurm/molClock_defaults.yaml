@@ -85,7 +85,7 @@ run_sciphi:
 
 
 vcf_to_nex:
-  time: 5
+  time: 10
 
 
 run_mrbayes:
@@ -97,7 +97,7 @@ run_mrbayes_hpc:
 
 
 run_PAUP:
-  time: 5
+  time: 20
 
 
 merge_mrbayes_results:

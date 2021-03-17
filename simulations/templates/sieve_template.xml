@@ -48,12 +48,8 @@
                                     
             
             <!-- tree -->                    
-            <tree id="tree" name="stateNode" nodetype="beast.evolution.tree.ScsNode" spec="beast.evolution.tree.ScsTree">
-                                                
-                <taxonset id="taxonSet" scsAlignment="@alignment" spec="ScsTaxonSet"/>
-            </tree>
-                                    
-            
+            {tree}
+                                               
             <!-- coalescent tree parameters -->
             <parameter id="ePopSize" lower="1.0E-5" name="stateNode" spec="parameter.RealParameter" upper="1.0E3">1.0</parameter>
                                     
@@ -78,8 +74,12 @@
             
             <!-- site-wise rate variation -->
             <parameter id="gammaShape" lower="0.0" name="stateNode" spec="parameter.RealParameter">1.0</parameter>
-                                
-        
+                    
+            <!-- Relaxed clock rate -->
+            <stateNode id="rateCategories" spec="parameter.IntegerParameter" dimension="{branch_no}">1</stateNode>
+
+            <parameter id="ucldStdev" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.1</parameter>
+
         </state>
                         
         
@@ -92,11 +92,9 @@
                 <parameter id="randomPopSize" name="popSize" spec="parameter.RealParameter">1.0</parameter>
             </populationModel>
         </init> -->
-                        
-        {tree}
 
-        <!-- posterior -->
-                        
+
+        <!-- posterior -->                        
         
         <distribution id="posterior" spec="util.CompoundDistribution">
                                     
@@ -230,6 +228,10 @@
                 </prior>
                                             
             
+                <!-- Relaxed clock priors -->
+                {priors}
+
+
             </distribution>
                                     
             
@@ -248,11 +250,7 @@
 
                     </siteModel>
                                                             
-                    <branchRateModel id="strictClock" spec="beast.evolution.branchratemodel.StrictClockModel">
-                                                                        
-                        <parameter estimate="false" id="clockRate" name="clock.rate" spec="parameter.RealParameter">1.0</parameter>
-                                                                    
-                    </branchRateModel>
+                    {model}
                                                             
                     <errorModel adoRate="@adoRate" singleADO="true" allelicSeqCov="30" allelicSeqCovRawVar="10" id="scsErrorModel" seqErr="@seqErrorRate" shapeCtrl1="@shapeCtrl1" shapeCtrl2="@shapeCtrl2" spec="ScsErrorModelFiniteMuDM" zeroCovStrategy="false"/>                                                     
                 </distribution>
@@ -277,13 +275,13 @@
         
         <!-- tree operators -->
 
-        <!-- <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.5" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
+        <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.5" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
                         
         <operator id="CoalescentExponentialTreeRootScaler" optimise="true" rootOnly="true" scaleFactor="0.5" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
                         
         <operator id="CoalescentExponentialUniformOperator" spec="ScsUniform" tree="@tree" weight="30.0"/>
                         
-        <operator id="CoalescentExponentialSubtreeSlide" optimise="true" spec="ScsSubtreeSlide" tree="@tree" weight="15.0"/>
+       <!--  <operator id="CoalescentExponentialSubtreeSlide" optimise="true" spec="ScsSubtreeSlide" tree="@tree" weight="15.0"/>
                         
         <operator id="CoalescentExponentialNarrow" spec="ScsExchange" tree="@tree" weight="15.0"/>
                         
@@ -321,6 +319,10 @@
         <!-- site-wise rate variation operator -->
         <operator id="gammaShapeScaler" optimise="true" parameter="@gammaShape" scaleFactor="0.5" spec="ScaleOperator" weight="1.0"/>
 
+        <!-- CLock operators  -->
+        
+        {relaxed_clock_op}
+        
 
         <!-- logger -->                   
         <logger fileName="sieve_template.log" id="traceLog" logEvery="500" model="@posterior" sanitiseHeaders="true" sort="smart" spec="Logger">
@@ -341,6 +343,8 @@
             <log idref="shapeCtrl2"/>
             <log idref="adoRate"/>
             <log idref="gammaShape"/>
+            {relaxed_clock_log}
+
         </logger>
  
 
@@ -355,7 +359,8 @@
 
         <logger fileName="sieve_template.trees" id="treeLog" logEvery="500" mode="tree" spec="Logger">
                                       
-            <log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree"/>
+            {br_rate_log}
+            
         </logger>
 
 

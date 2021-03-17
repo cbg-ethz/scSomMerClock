@@ -88,7 +88,7 @@ rule run_cellcoal:
         exe = config['cellcoal']['exe'],
     shell:
         'mkdir -p {out_dir} && {params.exe} -F{input} > {out_dir}/log && '
-        'mv {input.cellcoal} {out_dir}/config_cellcoal &&'
+        'mv {input.cellcoal} {out_dir}/config_cellcoal && '
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
 
@@ -117,9 +117,12 @@ def get_nex_input(wildcards):
             'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
     if config.get('cellphy', {}).get('run', False):
         in_files['tree'] = os.path.join(out_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
-                .format(wildcards=wildcards))
+                'cellphy_tree.{wildcards.run}.raxml.bestTree' \
+                    .format(wildcards=wildcards))
 
+        in_files['tree_rooted'] = os.path.join(out_dir, 'cellphy_dir',
+                'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
+                    .format(wildcards=wildcards))
 
     return in_files
 
@@ -147,6 +150,7 @@ rule vcf_to_nex:
 
         vcf_to_nex(input.vcf, output, wildcards.steps,
             ss_flag=params.ss, tree_file=input.get('tree', None),
+            tree_rooted_file=input.get('tree_rooted', None),
             learn_tree=params.learn_tree, full_GT=params.full_GT,
             minDP=params.min_DP, minGQ=params.min_GQ)
 
@@ -188,13 +192,21 @@ rule run_monovar:
 
 
 # -------------------------------- SCITE ---------------------------------------
+def get_tree_inference_input(wildcards):
+    if config.get('monovar', {}).get('run', False):
+        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf' \
+            .format(wildcards=wildcards)
+    else:
+        vcf_in_file = 'vcf.{wildcards.run}'.format(wildcards=wildcards)
+    return os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+
+
 rule run_scite:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    input: get_tree_inference_input
     output:
         os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
-        mem_mb=4096
+        mem_mb = 4096
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
@@ -207,8 +219,7 @@ rule run_scite:
 
 # ------------------------------- CELLPHY --------------------------------------
 rule run_cellphy:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    input: get_tree_inference_input
     output:
         os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
     resources:
@@ -224,6 +235,23 @@ rule run_cellphy:
         '> /dev/null'
 
 
+rule root_cellphy_tree:
+    input: os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
+    output:
+        os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree.rooted')
+    resources:
+        mem_mb=1024
+    params:
+        paup_exe = config.get('paup', {}).get('exe', 'paup')
+    shell:
+        'echo "getTrees file=cellphy_tree.{wildcards.run}.raxml.bestTree;\n'
+        'DerootTrees;\noutgroup healthycell;\nRootTrees rootMethod=outgroup '
+        'outroot=monophyl;\nsaveTrees format=Newick root=yes '
+        'file=cellphy_tree.{wildcards.run}.raxml.bestTree.rooted;\nquit;" > '
+        '{output}.paup && {params.paup_exe} -n {output}.paup'
+        
+
+
 # ------------------------------- MRBAYES --------------------------------------
 
 if not scheduler:
@@ -231,22 +259,22 @@ if not scheduler:
         input:
             os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
+            os.path.join(out_dir, 'mrbayes_dir', 'mrbayes.{run}.{steps}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe']
         resources:
             mem_mb = 16384
         shell:
-            'cd {out_dir} && '
+            'cd {out_dir} && mkdir -p mrbayes_dir && '
             '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
+            '> mrbayes_dir/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
+            'rm -f nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
 else:
     rule run_mrbayes_hpc:
         input:
             os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat')
+            os.path.join(out_dir, 'mrbayes_dir', 'mrbayes.{run}.{steps}.{model}.lstat')
         conda:
             'envs/mrbayes.yaml'
         envmodules:
@@ -258,15 +286,16 @@ else:
             mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
             runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
         shell:
-            'cd {out_dir} && '
+            'cd {out_dir} && mkdir -p mrbayes_dir && '
             'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'mv nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.* nxs_dir'
+            '> mrbayes_dir/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
+            'rm -f nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
 
 
 rule merge_mrbayes_results:
     input:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}.lstat'),
+        expand(os.path.join(out_dir, 'mrbayes_dir',
+                'mrbayes.{run}.{steps}.{model}.lstat'),
             run=RUNS, steps=config['mrbayes']['ngen'], model=MODELS)
     output:
         os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv')
@@ -284,11 +313,11 @@ rule run_PAUP:
     input:
         os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}')
     output:
-        os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}.PAUP.score')
+        os.path.join(out_dir, 'paup_dir', 'paup.{run}.0.{model}.PAUP.score')
     params:
         paup_exe = config.get('paup', {}).get('exe', 'paup')
     shell:
-        '{params.paup_exe} -n {input} > {input}.PAUP.log'
+        '{params.paup_exe} -n {input} > {out_dir}/paup_dir/paup.{wildcards.run}.log'
 
 
 def get_paup_input(wildcards):
@@ -300,8 +329,8 @@ def get_paup_input(wildcards):
     in_files = []
     for model in models:
         for run in RUNS:
-            in_files.append(os.path.join(out_dir, 'nxs_dir',
-                'nxs.{}.0.{}.PAUP.score'.format(run, model)))
+            in_files.append(os.path.join(out_dir, 'paup_dir',
+                'paup.{}.0.{}.PAUP.score'.format(run, model)))
     return in_files
 
 
@@ -364,11 +393,23 @@ rule run_sieve_data_collector:
         '-data {input.read_counts} -template {params.xml}'
 
 
+def get_nex_input(wildcards):
+    if config.get('scite', {}).get('run', False):
+        return os.path.join(out_dir, 'scite_dir',
+            'scite_tree.{run}_ml0.newick'.format(wildcards=wildcards))
+    if config.get('cellphy', {}).get('run', False):
+        return os.path.join(out_dir, 'cellphy_dir',
+            'cellphy_tree.{wildcards.run}.raxml.bestTree'.format(wildcards=wildcards))
+    else:
+        return os.path.join(out_dir, 'vcf_dir',
+            'vcf.{wildcards.run}'.format(wildcards=wildcards))
+
+
 rule get_sieve_final_xml:
     input:
         xml = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml'),
-        tree = os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick'),
+        tree = get_nex_input,
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')

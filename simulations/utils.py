@@ -35,7 +35,7 @@ begin mrbayes;
     prset brlenspr={brlen_prior};
     {fixed_tree}
     {alg} ngen={ngen};
-    sump outputname={out_file};
+    sump outputname={mrbayes_out};
 end;
 
 begin PAUP;
@@ -46,6 +46,7 @@ begin PAUP;
     LSet nst=1 base=equal rates=gamma shape=est condvar={paup_corr};
 
     {paup_tree}
+    quit;
 end;
     
 """
@@ -73,7 +74,7 @@ def get_out_dir(config):
             config['cellcoal']['scWGA']['doublet_rate'][0],
             config['cellcoal']['scWGA']['ampl_error'][0])
     else:
-        sim_scWGA = 'WGA-0-0-0'
+        sim_scWGA = 'WGA0-0-0'
 
     sim_NGS = 'NGS{}-'.format(config['cellcoal']['NGS']['seq_cov'])
     if config['cellcoal']['NGS'].get('errors', False):
@@ -263,7 +264,7 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples='', out_sample_types=''):
         )
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
-            learn_tree=False, full_GT=False, minDP=1, minGQ=1):
+            learn_tree=False, tree_rooted_file=None, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
         paup_corr=('yes', '')
@@ -283,76 +284,82 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
         alg = 'mcmc'
 
     if tree_file == None:
+        tree_rooted = ''
+        tree_unrooted = ''
         fixed_tree = ''
     else:
         with open(tree_file, 'r') as f_tree:
             tree_newick = f_tree.read().strip()
 
         if 'scite_dir' in tree_file:
+            tree_name = 'treeSCITE'
             for s_i, s_name in enumerate(sample_names):
                 tree_newick = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1),
                     s_name, tree_newick)
             tree_newick += ';'
-            tree_name = 'treeSCITE'
+            tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
+            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name,
+                re.sub('\):\d+.\d+(?=,healthycell)', '', tree_newick[1:]))
         elif 'trees_dir' in tree_file:
-            tree_newick = tree_newick.replace('cell', 'tumcell')
-            tree_newick = tree_newick.replace('outgtumcell', 'healthycell')
             tree_name = 'treeCellCoal'
+            tree_newick = tree_newick.replace('cell', 'tumcell') \
+                .replace('outgtumcell', 'healthycell')
+
+            tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
+            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, 
+                re.sub('\):\d+.\d+(?=,healthycell)', '', tree_newick[1:]))
         elif 'cellphy_dir' in tree_file:
             tree_name = 'treeCellPhy'
+            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, tree_newick)
+
+            with open(tree_rooted_file, 'r') as f_tree_r:
+                tree_rooted = 'tree {} = [&R] {}' \
+                    .format(tree_name, f_tree_r.read().strip())
 
         fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
 
 
     if learn_tree:
         paup_tree_raw = 'Lset clock=no;\n' \
-            '    log file={out_file}.PAUP.score start=yes replace=yes;\n' \
             '    Hsearch;\n' \
-            '    RootTrees rootMethod=outgroup outroot=monophyl;\n' \
-            '    clockChecker tree=all lrt=yes;\n' \
-            '    log stop;' \
-            '    quit;'
+            '    RootTrees rootMethod=outgroup outroot=monophyl;\n'
     else:
-        paup_tree_raw = 'LSet clock={clock_str};\n' \
-            '    lscores 1/ clock={clock_str} scorefile={out_file}.PAUP.score append;\n'\
-            '    quit;'
+        paup_tree_raw = ''
 
     for out_file in out_files:
-        model = out_file.split('.')[-1]
+        nxs_file = os.path.basename(out_file)
+        model = nxs_file.split('.')[-1]
+
+        mrbayes_out = os.path.join('mrbayes_dir', 
+            nxs_file.replace('nxs', 'mrbayes'))
+        paup_out = os.path.join('..', 'paup_dir', 
+            nxs_file.replace('nxs', 'paup'))
+
         if model == 'clock':
             brlen_prior = 'clock:uniform'
             clock_str='yes'
-            if tree_file:
-                tree_str = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
-            else:
-                tree_str = ''
+            tree_str = tree_rooted
         else:
             brlen_prior = 'unconstrained:exp(10.0)'
             clock_str='no'
-            if tree_file and 'trees_dir' in tree_file:
-                tree_newick_unrooted = re.sub('\):\d+.\d+(?=,healthycell)', '',
-                    tree_newick[1:])
-                tree_str = 'tree {} = [&U] {}'\
-                    .format(tree_name, tree_newick_unrooted)
-            elif tree_file \
-                    and ('scite_dir' in tree_file or 'cellphy_dir' in tree_file):
-                tree_str = 'tree {} = [&U] {}'\
-                    .format(tree_name, tree_newick)
-            else:
-                tree_str = ''
+            tree_str = tree_unrooted
 
         if learn_tree:
-            paup_tree = paup_tree_raw.format(out_file=os.path.basename(out_file))
+            paup_tree = paup_tree_raw + \
+                'log file={out_file}.PAUP.score start=yes replace=yes;\n' \
+                '    clockChecker tree=all lrt=yes;\n' \
+                '    log stop;'.format(paup_out)
         else:
-            paup_tree = paup_tree_raw \
-                .format(clock_str=clock_str, out_file=os.path.basename(out_file))
+            paup_tree = paup_tree_raw + \
+                'LSet clock={clock_str};\n' \
+                '    lscores 1/ clock={clock_str} scorefile={out_file}.PAUP.score append;'\
+                .format(clock_str=clock_str, out_file=paup_out)
 
         nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
             rec_no=rec_no, sample_labels=' '.join(sample_names),
             matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
-            out_file=os.path.basename(out_file), alg=alg, ngen=ngen,
-            brlen_prior=brlen_prior, paup_tree=paup_tree, paup_corr=paup_corr[0],
-            paup_const=paup_corr[1])
+            mrbayes_out=mrbayes_out, alg=alg, ngen=ngen, brlen_prior=brlen_prior, 
+            paup_tree=paup_tree, paup_corr=paup_corr[0], paup_const=paup_corr[1])
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
@@ -402,7 +409,13 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
             DP_col = FORMAT_col.index('DP')
-            GQ_col = FORMAT_col.index('PLN')
+
+            try:
+                GQ_col = FORMAT_col.index('PLN')
+                monovar = False
+            except ValueError:
+                GQ_col = FORMAT_col.index('PL')
+                monovar = True
 
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
@@ -413,20 +426,26 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                     continue
                 s_rec_details = s_rec.split(':')
 
-                # if s_i == 8: import pdb; pdb.set_trace()
-
-                if len(FORMAT_col) == len(s_rec_details):
-                    s_rec_GQ_col = GQ_col
+                if monovar:
+                    s_rec_GQ_all = [int(i) for i in s_rec_details[GQ_col].split(',')]
+                    min_s_rec_GQ = min(s_rec_GQ_all)
+                    if min_s_rec_GQ > 0:
+                        s_rec_GQ_all = [i - min_s_rec_GQ for i in s_rec_GQ_all]
                 else:
-                    s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
-                s_rec_GQ_all = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
-                    .split(',')]
+                    if len(FORMAT_col) == len(s_rec_details):
+                        s_rec_GQ_col = GQ_col
+                    else:
+                        s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
+                    s_rec_GQ_all = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
+                        .split(',')]
                 s_rec_GQ = sorted(s_rec_GQ_all)[1]
 
+                
                 if s_rec_GQ >= minGQ:
                     GQ_skip_flag = False
                 else:
                     GQ_skip_flag = True
+
                     GT_max = s_rec_GQ_all.index(0)
                     # 00,01,11,02,12,22,03,13,23,33
                     if GT_max != 0 \
@@ -906,7 +925,7 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
             '{}'.format(os.path.dirname(exe))
         )
 
-    run_no = vcf_file.split('.')[-1]
+    run_no = re.search('\.(\d\d\d\d)\.', vcf_file)[1]
     out_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-2] + ['scite_dir'])
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -955,20 +974,24 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
     with open(template_file, 'r') as f:
         templ = f.read()
 
-    run = re.search('tree.(\d+)_', tree_file).group(1)
-    bg_file = os.path.join(os.path.sep.join(tree_file.split(os.path.sep)[:-2]),
-        'full_genotypes_dir', 'background.{}'.format(run))
-    with open(bg_file, 'r') as f_bg:
-        bg_bases = f_bg.read().strip()
+    tree_file = tree_file.replace('vcf_dir', 'trees_dir').replace('vcf.', 'trees.')
+    run = re.search('trees.(\d+)', tree_file).group(1)
 
-    background_str = '<data id="alignment" spec="FilteredAlignment" filter="-" ' \
-        'data="@original-alignment" constantSiteWeights="{}"/>'.format(bg_bases)
+    # bg_file = os.path.join(os.path.sep.join(tree_file.split(os.path.sep)[:-2]),
+    #     'full_genotypes_dir', 'background.{}'.format(run))
+
+    # with open(bg_file, 'r') as f_bg:
+    #     bg_bases = f_bg.read().strip()
+
+    # background_str = '<data id="alignment" spec="FilteredAlignment" filter="-" ' \
+    #     'data="@original-alignment" constantSiteWeights="{}"/>'.format(bg_bases)
+    background_str = ''
     templ = re.sub('{background}', background_str, templ)
-
 
     with open(tree_file, 'r') as f_tree:
         newick = f_tree.read().strip()
 
+        sample_no = 0
         with open(samples_file, 'r') as f_smpl:
             for s_i, s_raw in enumerate(f_smpl.read().strip().split('\n')):
                 s_name, _ = s_raw.split('\t')
@@ -976,29 +999,71 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
         # Replace names
         newick += ';'
 
-    tree_node = '<stateNode spec="beast.util.TreeParser" id="randomTree" ' \
-        'IsLabelledNewick="true" adjustTipHeights="false" taxa="@alignment" ' \
-        'newick="{}"/>'.format(newick)
+    tree_node = '<tree id="tree" name="stateNode" ' \
+        'nodetype="beast.evolution.tree.ScsNode" ' \
+        'spec="beast.evolution.tree.ScsTree" ' \
+        'treeFileName="{}"/>'.format(tree_file)
+
+    # TODO <NB> Remove curly brackets in XML
+    templ = re.sub('{branch_no}', str(2 * (s_i + 1) - 1), templ)
+
+    # '<stateNode spec="beast.util.TreeParser" id="randomTree" ' \
+    #     'IsLabelledNewick="true" adjustTipHeights="false" taxa="@alignment" ' \
+    #     'newick="{}"/>'.format(newick)
+
     templ = re.sub('{tree}', tree_node, templ)
 
 
     templ = re.sub('{steps}', str(steps), templ)
 
     if model == 'clock':
+        prior_node = ''
         model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
                                                                         
-    <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
-                                                
-</branchRateModel>
+            <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
+                                                        
+        </branchRateModel>
 """
+        op_node = ''
+        log_node = ''
+        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
     else:
-        model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
-                                                                        
-    <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
-                                                
-</branchRateModel>
+        prior_node = """<prior id="ucldStdevPrior" name="distribution" x="@ucldStdev">
+                            <Gamma id="Gamma.0" name="distr">
+                                <parameter estimate="false" id="RealParameter.6" name="alpha" spec="parameter.RealParameter">0.5396</parameter>
+                                <parameter estimate="false" id="RealParameter.7" name="beta" spec="parameter.RealParameter">0.3819</parameter>
+                            </Gamma>
+                        </prior>
+
 """
+        model_node = """<branchRateModel id="RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree">
+                        <LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
+                            <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
+                        </LogNormal>
+                        <parameter id="ucldMean" spec="parameter.RealParameter" estimate="false" name="clock.rate">1.0</parameter>
+                    </branchRateModel>
+"""
+        op_node = """<operator id="ucldStdevScaler" spec="ScaleOperator" parameter="@ucldStdev" scaleFactor="0.5" weight="3.0"/>
+
+        <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="5.0" windowSize="1"/>
+
+        <operator id="CategoriesSwapOperator" spec="SwapOperator" intparameter="@rateCategories" weight="5.0"/>
+
+        <operator id="CategoriesUniform" spec="UniformOperator" parameter="@rateCategories" weight="5.0"/>
+"""
+
+        log_node = """<log idref="ucldStdev"/>
+                        <log id="rate" spec="beast.evolution.branchratemodel.RateStatistic" branchratemodel="@RelaxedClock" tree="@tree"/>
+"""
+        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" branchratemodel="@RelaxedClock"/>'
+
+    templ = re.sub('{priors}', prior_node, templ)
     templ = re.sub('{model}', model_node, templ)
+    templ = re.sub('{relaxed_clock_op}', op_node, templ)
+    templ = re.sub('{relaxed_clock_log}', log_node, templ)
+    templ = re.sub('{br_rate_log}', br_rate_node, templ)
+
+    
 
     with open(out_file, 'w') as f_out:
         f_out.write(templ)
