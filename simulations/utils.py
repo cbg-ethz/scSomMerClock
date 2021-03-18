@@ -424,6 +424,11 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                 except ValueError:
                     samples[s_i] += missing
                     continue
+
+                if gt == '.|.':
+                    samples[s_i] += missing
+                    continue
+
                 s_rec_details = s_rec.split(':')
 
                 if monovar:
@@ -439,7 +444,6 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                     s_rec_GQ_all = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
                         .split(',')]
                 s_rec_GQ = sorted(s_rec_GQ_all)[1]
-
                 
                 if s_rec_GQ >= minGQ:
                     GQ_skip_flag = False

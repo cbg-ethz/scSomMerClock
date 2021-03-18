@@ -248,7 +248,7 @@ rule root_cellphy_tree:
         'DerootTrees;\noutgroup healthycell;\nRootTrees rootMethod=outgroup '
         'outroot=monophyl;\nsaveTrees format=Newick root=yes '
         'file=cellphy_tree.{wildcards.run}.raxml.bestTree.rooted;\nquit;" > '
-        '{output}.paup && {params.paup_exe} -n {output}.paup'
+        '{output}.paup && {params.paup_exe} -n {output}.paup > /dev/null'
         
 
 
