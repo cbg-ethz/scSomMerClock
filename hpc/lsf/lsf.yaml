@@ -62,6 +62,10 @@ get_true_GT:
   - '-W 00:10'
 
 
+postprocess_vcf:
+  - '-W 00:10'
+
+
 vcf_to_nex:
   - '-W 00:10'
 

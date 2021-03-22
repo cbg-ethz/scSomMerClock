@@ -84,6 +84,10 @@ run_sciphi:
   time: 360
 
 
+postprocess_vcf:
+  time: 10
+
+
 vcf_to_nex:
   time: 10
 

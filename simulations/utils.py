@@ -315,12 +315,12 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 tg = s_rec[-1]
 
                 if len(FORMAT_col) == len(s_rec):
-                    pln_col = PLN_col
+                    pln = np.array([-float(i) for i in s_rec[PLN_col].split(',')])
+                    gq = min(99, sorted(pln - pln.min())[1])
+                    pl = s_rec[PLN_col - 1]
                 else:
-                    pln_col = PLN_col - len(FORMAT_col) + len(s_rec)
-                pln = np.array([-float(i) for i in s_rec[pln_col].split(',')])
-                gq = min(99, sorted(pln - pln.min())[1])
-                pl = s_rec[pln_col - 1]
+                    gq = -1
+                    pl = '.'
 
                 genotypes[s_i] = gt
                 if int(dp) < minDP or gq < minGQ:
@@ -342,6 +342,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                         continue
                 else:
                     import pdb; pdb.set_trace()
+                    if not any([i > 1 for i in sorted(diff_count)[:-1]]):
+                        continue
 
             body += '\t'.join(line_cols[:8]) + format_short \
                 + '\t'.join(new_line) + '\n'          
