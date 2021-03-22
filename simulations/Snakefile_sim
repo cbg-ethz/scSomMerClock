@@ -92,6 +92,20 @@ rule run_cellcoal:
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
 
+rule postprocess_vcf:
+    input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
+    envmodules: 'numpy/1.18.1-python-3.7.7'
+    params:
+        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
+        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
+        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
+            .get('singletons', False) else '',
+    shell:
+        'python utils.py {input} -f post -o {output} -gq {params.gq} '
+        '-dp {params.dp} {params.singletons}'
+
+
 rule get_true_GT:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
@@ -106,10 +120,10 @@ rule get_true_GT:
 def get_nex_input(wildcards):
     in_files = {}
     if config.get('monovar', {}).get('run', False):
-        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf' \
+        vcf_in_file = 'vcf.{wildcards.run}.monovar.final' \
             .format(wildcards=wildcards)
     else:
-        vcf_in_file = 'vcf.{wildcards.run}'.format(wildcards=wildcards)
+        vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
     in_files['vcf'] = os.path.join(out_dir, 'vcf_dir', vcf_in_file)
 
     if config.get('scite', {}).get('run', False):
@@ -138,10 +152,7 @@ rule vcf_to_nex:
         ss = config.get('mrbayes', {}).get('ss', False),
         tree = config.get('mrbayes', {}).get('use_tree', False) \
             or config.get('paup', {}).get('run', False),
-        full_GT = config.get('paup', {}).get('full_GT', False),
         learn_tree = config.get('paup', {}).get('learn_tree', False),
-        min_DP = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
-        min_GQ = config['cellcoal'].get('SNP_filter', {}).get('quality', 1),
     run:
         if not 'tree' in input.keys() \
                 and config['cellcoal'].get('output', {}).get('tree', False):
@@ -151,8 +162,7 @@ rule vcf_to_nex:
         vcf_to_nex(input.vcf, output, wildcards.steps,
             ss_flag=params.ss, tree_file=input.get('tree', None),
             tree_rooted_file=input.get('tree_rooted', None),
-            learn_tree=params.learn_tree, full_GT=params.full_GT,
-            minDP=params.min_DP, minGQ=params.min_GQ)
+            learn_tree=params.learn_tree)
 
 
 # ------------------------------- MONOVAR --------------------------------------
@@ -188,7 +198,21 @@ rule run_monovar:
         exe = config.get('monovar', {}).get('exe', '')
     shell:
         'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
-        '-m {threads}'
+        '-m {threads} --CF_flag 0 --min_read_depth 1'
+
+
+rule postprocess_monovar:
+    input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
+    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
+    envmodules: 'numpy/1.18.1-python-3.7.7'
+    params:
+        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
+        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
+        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
+            .get('singletons', False) else '',
+    shell:
+        'python utils.py {input} -f post -o {output} -gq {params.gq} '
+        '-dp {params.dp} {params.singletons}'
 
 
 # -------------------------------- SCITE ---------------------------------------
@@ -218,19 +242,6 @@ rule run_scite:
 
 
 # ------------------------------- CELLPHY --------------------------------------
-
-rule postprocess_vcf:
-    input: get_tree_inference_input
-    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
-    envmodules: 'numpy/1.18.1-python-3.7.7'
-    params:
-        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
-        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
-        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
-            .get('singletons', False) else '',
-    shell:
-        'python utils.py {input} -f post -o {output} -gq {params.gq} '
-        '-dp {params.dp} {params.singletons}'
 
 
 rule run_cellphy:

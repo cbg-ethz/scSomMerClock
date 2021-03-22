@@ -56,17 +56,6 @@ def get_corr_samples(wildcards):
         for i in cell_map[wildcards.cell]]
 
 
-def get_final_vcfs(wildcards):
-    final_files = []
-    if config.get('SCcaller', {}).get('run', False):
-        final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
-    if config.get('monovar', {}).get('run', False):
-        final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
-    if bulk_samples['all']:
-        final_files.append(os.path.join('Calls', 'all.mutect.filtered.vcf.gz'))
-    return final_files
-
-
 def get_all_files(wildcards):
     files = [os.path.join('Calls', 'all.vcf.gz'),
         os.path.join('QC', 'all.filtered.vcf')]
@@ -522,6 +511,17 @@ else:
             '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
             '{params.modules} -i {input.vcf} -rom {input.rom} '
             '-r {params.ref_genome} -o {output[0]}'
+
+
+def get_final_vcfs(wildcards):
+    final_files = []
+    if config.get('SCcaller', {}).get('run', False):
+        final_files.append(os.path.join('Calls', 'all.sccaller.vcf.gz'))
+    if config.get('monovar', {}).get('run', False):
+        final_files.append(os.path.join('Calls', 'all.monovar.vcf.gz'))
+    if bulk_samples['all']:
+        final_files.append(os.path.join('Calls', 'all.mutect.filtered.vcf.gz'))
+    return final_files
 
 
 rule merge_calls:

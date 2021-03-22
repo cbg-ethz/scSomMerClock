@@ -96,19 +96,26 @@ def get_out_dir(config):
         mb_ngen = -1
         sampling = ''
 
-    if not config.get('static', {}).get('out_dir', False):
-        out_dir = os.path.dirname(os.path.relpath(__file__))
-    else:
-        out_dir = config['static']['out_dir']
-
     filters =  '_min{}-{}'.format(
         config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
         config['cellcoal'].get('SNP_filter', {}).get('quality', 1))
     if config['cellcoal'].get('SNP_filter', {}).get('singletons', False):
         filters += '-no1'
 
-    return os.path.join(out_dir, 'res_{}_{}_{}{}_{}{}' \
-        .format(model, sim_scWGA, sim_NGS, filters, sampling, mb_ngen))
+    if config.get('cellphy', {}).get('run', False):
+        tree = 'cellphy'
+    elif config.get('scite', {}).get('run', False):
+        tree = 'scite'
+    else:
+        tree = 'cellcoal'
+
+    if not config.get('static', {}).get('out_dir', False):
+        out_dir = os.path.dirname(os.path.relpath(__file__))
+    else:
+        out_dir = config['static']['out_dir']
+
+    return os.path.join(out_dir, 'res_{}_{}_{}{}_{}{}_{}' \
+        .format(model, sim_scWGA, sim_NGS, filters, sampling, mb_ngen, tree))
 
 
 def get_cellcoal_config(config, template_file, out_dir):
@@ -172,14 +179,7 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', '', templ)
 
-    if config.get('mrbayes', {}).get('use_tree', False) \
-            or (config.get('paup', {}).get('run', False) \
-                and not config.get('paup', {}).get('learn_tree', False)) \
-            or config['cellcoal'].get('output', {}).get('tree', False) \
-            or config.get('sieve', {}).get('run', False):
-        templ = re.sub('{out_tree}', '6', templ)
-    else:
-        templ = re.sub('{out_tree}', '', templ)
+    templ = re.sub('{out_tree}', '6', templ)
 
     if config['cellcoal'].get('output', {}).get('full_GT', False) \
             or config.get('paup', {}).get('full_GT', False) \
@@ -277,59 +277,79 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
     header = ''
     body = ''
 
-    format_short = '\tGT:DP:RC:G10:PL:GQ:TG\t'
-    missing = '.|.:.:.,.,.,.:.:.:.:'
-
+    monovar = False
     with file_stream as f_in:
         for line in f_in:
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers
-                if line.startswith('#CHROM'):
+                if line.startswith('##source') and 'MonoVar' in line:
+                    monovar = True
+                elif line.startswith('#CHROM'):
                     header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">\n'
                     sample_no = len(line.strip().split('\t')[9:])
+                    if monovar:
+                        format_short = '\tGT:AD:DP:GQ:PL\t'
+                        missing = '.|.:.,.:.:.:.'
+                    else:
+                        format_short = '\tGT:DP:RC:G10:PL:GQ:TG\t'
+                        missing = '.|.:.:.,.,.,.:.:.:.:'
+
                 header += line
                 continue
             elif line.strip() == '':
                 break
+            
             # VCF records
             line_cols = line.strip().split('\t')
             # Check if filter passed
-            if not 'PASS' in line_cols[6]:
+            if not 'PASS' in line_cols[6] and not '.' in line_cols[6]:
                 print('Skipping {}:{} (reason: FILTER)'.format(*line_cols[:2]))
                 continue
 
             ref = line_cols[3]
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
-            DP_col = FORMAT_col.index('DP')
-            PLN_col = FORMAT_col.index('PLN')
+            if monovar:
+                if line_cols[6] == '.':
+                    line_cols[6] = 'PASS'
+            else:
+                PLN_col = FORMAT_col.index('PLN')
 
             new_line = np.zeros(sample_no, dtype=object)
             genotypes = np.chararray(sample_no, itemsize=3)
 
             for s_i, s_rec_raw in enumerate(line_cols[9:]):
                 s_rec = s_rec_raw.split(':')
-                gt = s_rec[0]
-                dp = s_rec[1]
-                rc = s_rec[2]
-                g10 = s_rec[3]
-                tg = s_rec[-1]
 
-                if len(FORMAT_col) == len(s_rec):
-                    pln = np.array([-float(i) for i in s_rec[PLN_col].split(',')])
-                    gq = min(99, sorted(pln - pln.min())[1])
-                    pl = s_rec[PLN_col - 1]
+                if monovar:
+                    gq = int(s_rec[3])
+                    dp = s_rec[2]
+                    tg = ''
                 else:
-                    gq = -1
-                    pl = '.'
-
-                genotypes[s_i] = gt
+                    gt = s_rec[0]
+                    dp = s_rec[1]
+                    rc = s_rec[2]
+                    g10 = s_rec[3]
+                    tg = s_rec[-1]
+                    if len(FORMAT_col) == len(s_rec):
+                        pln = np.array([-float(i) \
+                            for i in s_rec[PLN_col].split(',')])
+                        gq = min(99, sorted(pln - pln.min())[1])
+                        pl = ','.join([str(max(int(i), -999)) \
+                            for i in s_rec[PLN_col - 1].split(',')])
+                    else:
+                        gq = -1
+                        pl = '.'
+                
                 if int(dp) < minDP or gq < minGQ:
                     new_line[s_i] = missing + tg
                 else:
-                    new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
-                        .format(gt, dp, rc, g10, pl, gq, tg)
+                    if monovar:
+                        new_line[s_i] = s_rec_raw
+                    else:
+                        new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
+                            .format(gt, dp, rc, g10, pl, gq, tg)
 
             if s_filter:
                 diff_gt, diff_count = np.unique(genotypes[:-1], return_counts=True)
@@ -354,14 +374,13 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
 
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
-            learn_tree=False, tree_rooted_file=None, full_GT=False, minDP=1, minGQ=1):
+            learn_tree=False, tree_rooted_file=None, full_GT=False):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
         paup_corr=('yes', '')
     else:
-        samples, sample_names = get_sample_dict_from_vcf(vcf_file, minDP, minGQ)
+        samples, sample_names = get_sample_dict_from_vcf(vcf_file)
         paup_corr=('no', 'exclude constant;')
-
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -455,7 +474,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
             f_out.write(nex_str)
    
 
-def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
+def get_sample_dict_from_vcf(vcf_file, GT=False):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -468,7 +487,6 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
         mut_i = []
     else:
         get_bg = False
-        
 
     if GT:
         missing = '3'
@@ -498,7 +516,6 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
             ref = line_cols[3]
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
-            DP_col = FORMAT_col.index('DP')
 
             try:
                 GQ_col = FORMAT_col.index('PLN')
@@ -515,55 +532,7 @@ def get_sample_dict_from_vcf(vcf_file, minDP=1, minGQ=1, GT=False):
                     samples[s_i] += missing
                     continue
 
-                if gt == '.|.':
-                    samples[s_i] += missing
-                    continue
-
-                s_rec_details = s_rec.split(':')
-
-                if monovar:
-                    s_rec_GQ_all = [int(i) for i in s_rec_details[GQ_col].split(',')]
-                    min_s_rec_GQ = min(s_rec_GQ_all)
-                    if min_s_rec_GQ > 0:
-                        s_rec_GQ_all = [i - min_s_rec_GQ for i in s_rec_GQ_all]
-                else:
-                    if len(FORMAT_col) == len(s_rec_details):
-                        s_rec_GQ_col = GQ_col
-                    else:
-                        s_rec_GQ_col = GQ_col - len(FORMAT_col) + len(s_rec_details)
-                    s_rec_GQ_all = [-float(i) for i in s_rec_details[s_rec_GQ_col] \
-                        .split(',')]
-                s_rec_GQ = sorted(s_rec_GQ_all)[1]
-                
-                if s_rec_GQ >= minGQ:
-                    GQ_skip_flag = False
-                else:
-                    GQ_skip_flag = True
-
-                    GT_max = s_rec_GQ_all.index(0)
-                    # 00,01,11,02,12,22,03,13,23,33
-                    if GT_max != 0 \
-                            and s_rec_GQ_all[0] - max(s_rec_GQ_all[1:]) >= minGQ:
-                        GQ_skip_flag = False
-
-                if int(s_rec_details[DP_col]) < minDP or GQ_skip_flag:
-                    samples[s_i] += missing
-                    continue
-
-                if len(gt) < 3:
-                    true_all1, true_all2 = s_rec[-3:].split('|')
-                    if true_all1 == ref:
-                        s_rec_ref = '0'
-                    else:
-                        s_rec_ref = str(alts.index(true_all1) + 1)
-
-                    if true_all2 == ref:
-                        s_rec_alt = '0'
-                    else:
-                        s_rec_alt = str(alts.index(true_all2) + 1)
-                    
-                else:
-                    s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
+                s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
 
                 # Missing
                 if s_rec_ref == '.':
@@ -1342,8 +1311,7 @@ if __name__ == '__main__':
             for i in ['clock', 'noClock']]
         vcf_to_nex(args.input[0], out_files, args.ngen,
             ss_flag=args.stepping_stone, tree=args.use_tree,
-            learn_tree=args.learn_tree, full_GT=args.full_GT, minDP=args.minDP,
-            minGQ=args.minGQ)
+            learn_tree=args.learn_tree, full_GT=args.full_GT)
           
     elif args.format == 'mpileup':
         out_file = os.path.join(args.output, '{}.mpileup'.format(args.input[0]))
