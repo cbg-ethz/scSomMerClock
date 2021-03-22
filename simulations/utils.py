@@ -263,6 +263,93 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples='', out_sample_types=''):
                 else '{}\tCN'.format(i) for i in sample_names])
         )
 
+
+def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
+    import numpy as np
+
+    if vcf_file.endswith('gz'):
+        file_stream = gzip.open(vcf_file, 'rb')
+    else:
+        file_stream = open(vcf_file, 'r')
+
+    header = ''
+    body = ''
+
+    format_short = '\tGT:DP:RC:G10:PL:GQ:TG\t'
+    missing = '.|.:.:.,.,.,.:.:.:.:'
+
+    with file_stream as f_in:
+        for line in f_in:
+            # Skip VCF header lines
+            if line.startswith('#'):
+                # Safe column headers
+                if line.startswith('#CHROM'):
+                    header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">\n'
+                    sample_no = len(line.strip().split('\t')[9:])
+                header += line
+                continue
+            elif line.strip() == '':
+                break
+            # VCF records
+            line_cols = line.strip().split('\t')
+            # Check if filter passed
+            if not 'PASS' in line_cols[6]:
+                print('Skipping {}:{} (reason: FILTER)'.format(*line_cols[:2]))
+                continue
+
+            ref = line_cols[3]
+            alts = line_cols[4].split(',')
+            FORMAT_col = line_cols[8].split(':')
+            DP_col = FORMAT_col.index('DP')
+            PLN_col = FORMAT_col.index('PLN')
+
+            new_line = np.zeros(sample_no, dtype=object)
+            genotypes = np.chararray(sample_no, itemsize=3)
+
+            for s_i, s_rec_raw in enumerate(line_cols[9:]):
+                s_rec = s_rec_raw.split(':')
+                gt = s_rec[0]
+                dp = s_rec[1]
+                rc = s_rec[2]
+                g10 = s_rec[3]
+                tg = s_rec[-1]
+
+                if len(FORMAT_col) == len(s_rec):
+                    pln_col = PLN_col
+                else:
+                    pln_col = PLN_col - len(FORMAT_col) + len(s_rec)
+                pln = np.array([-float(i) for i in s_rec[pln_col].split(',')])
+                gq = min(99, sorted(pln - pln.min())[1])
+                pl = s_rec[pln_col - 1]
+
+                genotypes[s_i] = gt
+                if int(dp) < minDP or gq < minGQ:
+                    new_line[s_i] = missing + tg
+                else:
+                    new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
+                        .format(gt, dp, rc, g10, pl, gq, tg)
+
+            if s_filter:
+                diff_gt, diff_count = np.unique(genotypes[:-1], return_counts=True)
+                # Only one genotype detected
+                if len(diff_gt) == 1:
+                    if diff_gt[0] == b'0|0':
+                        continue
+                # Two different genotypes detected
+                elif len(diff_gt) == 2:
+                    # But one out ofthe two is just detected in one cell
+                    if min(diff_count) == 1:
+                        continue
+                else:
+                    import pdb; pdb.set_trace()
+
+            body += '\t'.join(line_cols[:8]) + format_short \
+                + '\t'.join(new_line) + '\n'          
+
+    with open(out_file, 'w') as f_out:
+        f_out.write('{}{}'.format(header, body))
+
+
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
             learn_tree=False, tree_rooted_file=None, full_GT=False, minDP=1, minGQ=1):
     if full_GT:
@@ -973,13 +1060,32 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
         raise RuntimeError('SCITE Error')
 
 
+def get_sieve_tree(in_file, out_file, cells):
+    with open(in_file, 'r') as f_in:
+        tree = f_in.read().strip()
+
+    if 'scite_dir' in in_file:
+        for i in range(1, cells + 1, 1):
+            tree = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(i),
+                'tumcell{:0>4}'.format(i), tree)
+        tree = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(cells + 1), 
+            'healthycell', tree)
+        tree += ';'
+    elif 'trees_dir' in in_file:
+        tree = tree.replace('cell', 'tumcell') \
+            .replace('outgtumcell', 'healthycell')
+
+    tree_cut = re.sub(',healthycell:\d+.\d+', '', tree[1:-2]) + ';'
+    with open(out_file, 'w') as f_out:
+        f_out.write(tree_cut)
+
+
 def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
             out_file):
     with open(template_file, 'r') as f:
         templ = f.read()
 
-    tree_file = tree_file.replace('vcf_dir', 'trees_dir').replace('vcf.', 'trees.')
-    run = re.search('trees.(\d+)', tree_file).group(1)
+    run = re.search('sieve_tree.(\d+)', tree_file).group(1)
 
     # bg_file = os.path.join(os.path.sep.join(tree_file.split(os.path.sep)[:-2]),
     #     'full_genotypes_dir', 'background.{}'.format(run))
@@ -1024,29 +1130,26 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
         prior_node = ''
         model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
                                                                         
-            <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
-                                                        
-        </branchRateModel>
-"""
+                        <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
+                                                                    
+                    </branchRateModel>"""
+
         op_node = ''
         log_node = ''
         br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
     else:
         prior_node = """<prior id="ucldStdevPrior" name="distribution" x="@ucldStdev">
-                            <Gamma id="Gamma.0" name="distr">
-                                <parameter estimate="false" id="RealParameter.6" name="alpha" spec="parameter.RealParameter">0.5396</parameter>
-                                <parameter estimate="false" id="RealParameter.7" name="beta" spec="parameter.RealParameter">0.3819</parameter>
-                            </Gamma>
-                        </prior>
-
-"""
+                    <Gamma id="Gamma.0" name="distr">
+                        <parameter estimate="false" id="RealParameter.6" name="alpha" spec="parameter.RealParameter">0.5396</parameter>
+                        <parameter estimate="false" id="RealParameter.7" name="beta" spec="parameter.RealParameter">0.3819</parameter>
+                    </Gamma>
+                </prior>"""
         model_node = """<branchRateModel id="RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree">
                         <LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
                             <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
                         </LogNormal>
                         <parameter id="ucldMean" spec="parameter.RealParameter" estimate="false" name="clock.rate">1.0</parameter>
-                    </branchRateModel>
-"""
+                    </branchRateModel>"""
         op_node = """<operator id="ucldStdevScaler" spec="ScaleOperator" parameter="@ucldStdev" scaleFactor="0.5" weight="3.0"/>
 
         <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="5.0" windowSize="1"/>
@@ -1057,7 +1160,7 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
 """
 
         log_node = """<log idref="ucldStdev"/>
-                        <log id="rate" spec="beast.evolution.branchratemodel.RateStatistic" branchratemodel="@RelaxedClock" tree="@tree"/>
+            <log id="rate" spec="beast.evolution.branchratemodel.RateStatistic" branchratemodel="@RelaxedClock" tree="@tree"/>
 """
         br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" branchratemodel="@RelaxedClock"/>'
 
@@ -1067,11 +1170,8 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
     templ = re.sub('{relaxed_clock_log}', log_node, templ)
     templ = re.sub('{br_rate_log}', br_rate_node, templ)
 
-    
-
     with open(out_file, 'w') as f_out:
         f_out.write(templ)
-    import pdb; pdb.set_trace()
 
 
 def generate_mrbayes_plots(in_file, out_file, regress=False):
@@ -1198,7 +1298,7 @@ def parse_args():
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str,  default='nxs',
         choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps',
-            'pval', 'scite'],
+            'pval', 'scite', 'post'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -1216,9 +1316,11 @@ def parse_args():
         help='Use the full genotype instead of only SNPs for inference.')
     parser.add_argument('-dp', '--minDP', type=int, default=1,
         help='Min. reads to include a locus (else missing). Default = 1.')
-    parser.add_argument('-gq', '--minGQ', type=int, default=1,
+    parser.add_argument('-gq', '--minGQ', type=int, default=0,
         help='Min. Genotype Quality to include a locus (else missing). '
             'Default = 1.')
+    parser.add_argument('-fs', '--filter_singletons', action='store_true',
+        help='If set, singleton SNPs are filtered out.')
     parser.add_argument('-s', '--steps', nargs='+', type=int,
         help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
     parser.add_argument('-e', '--exe', type=str, default='',
@@ -1273,6 +1375,9 @@ if __name__ == '__main__':
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
     elif args.format == 'scite':
         run_scite_subprocess(args.exe, args.steps[0], args.input[0])
+    elif args.format == 'post':
+        postprocess_vcf(args.input[0], args.output, minDP=args.minDP,
+            minGQ=args.minGQ, s_filter=args.filter_singletons)
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
 

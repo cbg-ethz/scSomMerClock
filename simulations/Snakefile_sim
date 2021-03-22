@@ -218,8 +218,23 @@ rule run_scite:
 
 
 # ------------------------------- CELLPHY --------------------------------------
-rule run_cellphy:
+
+rule postprocess_vcf:
     input: get_tree_inference_input
+    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
+    envmodules: 'numpy/1.18.1-python-3.7.7'
+    params:
+        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
+        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
+        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
+            .get('singletons', False) else '',
+    shell:
+        'python utils.py {input} -f post -o {output} -gq {params.gq} '
+        '-dp {params.dp} {params.singletons}'
+
+
+rule run_cellphy:
+    input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
     output:
         os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
     resources:
@@ -250,7 +265,6 @@ rule root_cellphy_tree:
         'file=cellphy_tree.{wildcards.run}.raxml.bestTree.rooted;\nquit;" > '
         '{output}.paup && {params.paup_exe} -n {output}.paup > /dev/null'
         
-
 
 # ------------------------------- MRBAYES --------------------------------------
 
@@ -399,17 +413,26 @@ def get_nex_input(wildcards):
             'scite_tree.{run}_ml0.newick'.format(wildcards=wildcards))
     if config.get('cellphy', {}).get('run', False):
         return os.path.join(out_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.raxml.bestTree'.format(wildcards=wildcards))
+            'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
+                .format(wildcards=wildcards))
     else:
-        return os.path.join(out_dir, 'vcf_dir',
-            'vcf.{wildcards.run}'.format(wildcards=wildcards))
+        return os.path.join(out_dir, 'trees_dir',
+            'trees.{wildcards.run}'.format(wildcards=wildcards))
+
+
+rule get_sieve_tree:
+    input: get_nex_input
+    output: os.path.join(out_dir, 'sieve_dir', 'sieve_tree.{run}')   
+    params:
+        cells = config['cellcoal']['model']['no_cells']
+    run: get_sieve_tree(input[0], output[0], params.cells)
 
 
 rule get_sieve_final_xml:
     input:
         xml = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml'),
-        tree = get_nex_input,
+        tree = os.path.join(out_dir, 'sieve_dir', 'sieve_tree.{run}'),
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
@@ -424,32 +447,30 @@ rule run_NS_converter:
     input:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
-            'sieve_{model}_NS.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'NS_sieve_{model}.xml')
     params:
         beast = config['sieve']['beast_bin'],
     shell:
-        '{params.beast}/applauncher MCMC2NS -xml {input} -output {output}'
+        '{params.beast}/applauncher MCMC2NS -xml {input} -output {output} '
+        '-particleCount 1'
 
 
 rule run_sieve:
     input:
-        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
-            'sieve_{model}_NS.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'NS_sieve_{model}.xml')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
-            'sieve_{model}_final')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}_final')
     threads: 2
     params:
         beast = config['sieve']['beast_bin'],
     shell:
-        '{params.beast}/beast -threads {threads} -prefix '
-        '{out_dir}/sieve_dir/sieve.{wildcards.run}.{wildcards.model} {input}'
+        '{params.beast}/beast -threads {threads} -overwrite -prefix '
+        '{out_dir}/sieve_dir/xml.{wildcards.run}/beast.{wildcards.model} {input}'
 
 
 rule merge_sieve_results:
     input:
-        expand(os.path.join(out_dir, 'sieve_dir', 'data.{run}.{model}',
+        expand(os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
                 'sieve_{model}_final'),
             run=RUNS, model=MODELS)
     output:
