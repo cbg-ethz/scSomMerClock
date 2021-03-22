@@ -104,6 +104,8 @@ def get_out_dir(config):
     filters =  '_min{}-{}'.format(
         config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
         config['cellcoal'].get('SNP_filter', {}).get('quality', 1))
+    if config['cellcoal'].get('SNP_filter', {}).get('singletons', False):
+        filters += '-no1'
 
     return os.path.join(out_dir, 'res_{}_{}_{}{}_{}{}' \
         .format(model, sim_scWGA, sim_NGS, filters, sampling, mb_ngen))
@@ -341,7 +343,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                     if min(diff_count) == 1:
                         continue
                 else:
-                    import pdb; pdb.set_trace()
                     if not any([i > 1 for i in sorted(diff_count)[:-1]]):
                         continue
 
