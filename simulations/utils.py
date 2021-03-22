@@ -988,7 +988,7 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
             '{}'.format(os.path.dirname(exe))
         )
 
-    run_no = re.search('\.(\d\d\d\d)\.', vcf_file)[1]
+    run_no = re.search('\d\d\d\d', os.path.basename(vcf_file)).group()
     out_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-2] + ['scite_dir'])
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
