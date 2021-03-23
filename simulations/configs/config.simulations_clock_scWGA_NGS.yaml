@@ -26,38 +26,41 @@ cellcoal:
     seq_error: 0.01
   output:
     tree: True
-    full_GT: False
+    full_GT: True
     true_haplotypes: False
-  SNP_filter:
-    depth: 1
-    quality: 0
-
-mrbayes:
-  run: False
-  exe: ../../MrBayes/src/mb
-  use_tree: True
-  ngen: [2000000]
-  ss: True
-
-paup:
-  run: True
-  full_GT: False
-  learn_tree: False
-  exe: ../../paup4a168_ubuntu64 
 
 monovar:
   run: False
   exe: ../../MonoVar_NB/src/monovar.py
 
-scite:
-  run: False
-  exe: ../../infSCITE/infSCITE
-  steps: 100000
+SNP_filter:
+  depth: 5
+  quality: 0
+  singletons: True
 
-cellphy:
+tree:
+  cellcoal:
+    run: True
+  scite:
+    run: False
+    exe: ../../infSCITE/infSCITE
+    steps: 200000
+  cellphy:
+    run: False
+    exe: ../../cellphy/cellphy.sh
+    command: SEARCH
+
+mrbayes:
+  run: False
+  exe: ../../MrBayes/src/mb
+  use_tree: True
+  ngen: [250000]
+  ss: True
+
+paup:
   run: True
-  exe: ../../cellphy/cellphy.sh
-  command: FAST
+  learn_tree: False
+  exe: ../../paup4a168_ubuntu64 
 
 sieve:
   run: False

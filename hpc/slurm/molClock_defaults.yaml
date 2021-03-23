@@ -67,42 +67,87 @@ mutect1:
 QC_calling_chr:
   time: 360
 
-
-generate_mpileup:
-  time: 360
-
+# ------------------------------- SIMULATIONS ----------------------------------
 
 create_cellcoal_config:
   time: 5
 
-
 run_cellcoal:
-  time: 120
+  time: 30
 
-
-run_sciphi:
-  time: 360
-
+unroot_cellcoal_tree:
+  time: 5
 
 postprocess_vcf:
   time: 10
 
+get_true_GT:
+  time: 10
 
 vcf_to_nex:
   time: 10
 
 
-run_mrbayes:
-  time: 2880
+vcf_to_mpileup:
+  time: 20
 
+run_monovar:
+  time: 30
+
+postprocess_monovar:
+  time: 10
+
+
+run_scite:
+  time: 60
+
+unroot_scite_tree:
+  time: 5
+
+
+run_cellphy:
+  time: 60
+
+root_cellphy_tree:
+  time: 5
+
+
+
+run_mrbayes:
+  time: 960
 
 run_mrbayes_hpc:
-  time: 14400
+  time: 2880
+
+merge_mrbayes_results:
+  time: 15
 
 
 run_PAUP:
-  time: 20
+  time: 15
+
+merge_paup_results:
+  time: 15
 
 
-merge_mrbayes_results:
+
+run_sciphi:
   time: 60
+
+run_sieve_data_collector:
+  time: 5
+
+get_sieve_tree:
+  time: 5
+
+get_sieve_final_xml:
+  time: 5
+
+run_NS_converter:
+  time: 5
+
+run_sieve:
+  time: 120
+
+merge_sieve_results:
+  time: 15

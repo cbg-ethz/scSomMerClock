@@ -7,6 +7,7 @@ from utils import *
 
 MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
+TREES = [i for i,j in config['tree'].items() if j['run']]
 
 scheduler = config.get('scheduler', None)
 
@@ -14,6 +15,7 @@ scheduler = config.get('scheduler', None)
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir = get_out_dir(config)
+filter_dir = get_filter_dir(config)
 
 
 def get_mrbayes_hpc_runtime(steps):
@@ -44,12 +46,17 @@ def get_final_files(wildcards):
     if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
         files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}') 
             for i in RUNS]
-    if config.get('mrbayes', {}).get('run', False):
-        files.append(os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv'))
-    if config.get('paup', {}).get('run', False):
-        files.append(os.path.join(out_dir, 'paup.clock_test_summary.tsv'))
-    if config.get('sieve', {}).get('run', False):
-        files.append(os.path.join(out_dir, 'sieve.clock_test_summary.tsv'))
+
+    for tree in TREES:
+        if config.get('mrbayes', {}).get('run', False):
+            files.append(os.path.join(out_dir, filter_dir,
+                'mrbayes_dir_{}'.format(tree), 'mrbayes.clock_test_summary.tsv'))
+        if config.get('paup', {}).get('run', False):
+            files.append(os.path.join(out_dir, filter_dir,
+                'paup_dir_{}'.format(tree), 'paup.clock_test_summary.tsv'))
+        if config.get('sieve', {}).get('run', False):
+            files.append(os.path.join(out_dir, 'sieve_dir',
+                'sieve_{}.clock_test_summary.tsv'.format(tree)))
 
     return files
 
@@ -82,6 +89,7 @@ rule run_cellcoal:
         snakemake ='snakemake_config.yaml',
     output:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
+        expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
     params:
@@ -92,14 +100,26 @@ rule run_cellcoal:
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
 
+rule unroot_cellcoal_tree:
+    input: os.path.join(out_dir, 'trees_dir', 'trees.{run}')
+    output: os.path.join(out_dir, 'trees_dir', 'trees.{run}.unrooted')
+    resources:
+        mem_mb = 1024
+    params:
+        paup_exe = config.get('paup', {}).get('exe', 'paup')
+    run:
+        change_newick_tree_root(input[0], output[0], params.paup_exe,
+            root=False, outg='outgcell')
+
+
 rule postprocess_vcf:
     input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
-    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
+    output: os.path.join(out_dir, filter_dir, 'vcf_dir', 'vcf.{run}.final')
     envmodules: 'numpy/1.18.1-python-3.7.7'
     params:
-        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
-        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
-        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
+        dp = config.get('SNP_filter', {}).get('depth', 1),
+        gq = config.get('SNP_filter', {}).get('quality', 0),
+        singletons = '-fs' if config.get('SNP_filter', {}) \
             .get('singletons', False) else '',
     shell:
         'python utils.py {input} -f post -o {output} -gq {params.gq} '
@@ -124,44 +144,44 @@ def get_nex_input(wildcards):
             .format(wildcards=wildcards)
     else:
         vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
-    in_files['vcf'] = os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+    in_files['vcf'] = os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
 
-    if config.get('scite', {}).get('run', False):
-        in_files['tree'] = os.path.join(out_dir, 'scite_dir',
+    if wildcards.tree == 'cellphy':
+        in_files['tree_rooted'] = os.path.join(out_dir, filter_dir,
+            'cellphy_dir', 'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
+                .format(wildcards=wildcards))
+        in_files['tree_unrooted'] = os.path.join(out_dir, filter_dir,
+            'cellphy_dir', 'cellphy_tree.{wildcards.run}.raxml.bestTree' \
+                .format(wildcards=wildcards))
+    elif wildcards.tree == 'scite':
+        in_files['tree_rooted'] = os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
-    if config.get('cellphy', {}).get('run', False):
-        in_files['tree'] = os.path.join(out_dir, 'cellphy_dir',
-                'cellphy_tree.{wildcards.run}.raxml.bestTree' \
-                    .format(wildcards=wildcards))
-
-        in_files['tree_rooted'] = os.path.join(out_dir, 'cellphy_dir',
-                'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
-                    .format(wildcards=wildcards))
-
+        in_files['tree_unrooted'] = os.path.join(out_dir, filter_dir,
+            'scite_dir', 'scite_tree.{wildcards.run}_ml0.newick.unrooted' \
+                .format(wildcards=wildcards))
+    else:
+        in_files['tree_rooted'] = os.path.join(out_dir, 'trees_dir',
+            'trees.{wildcards.run}'.format(wildcards=wildcards))
+        in_files['tree_unrooted'] = os.path.join(out_dir, 'trees_dir',
+            'trees.{wildcards.run}.unrooted'.format(wildcards=wildcards))
+        
     return in_files
 
 
 rule vcf_to_nex:
     input: unpack(get_nex_input)
     output:
-        expand(os.path.join(out_dir, 'nxs_dir', 'nxs.{{run}}.{{steps}}.{model}'),
+        expand(os.path.join(out_dir, filter_dir, 'nxs_dir_{{tree}}',
+                'nxs.{{run}}.{{steps}}.{model}'),
             model=MODELS)
     resources:
         mem_mb = 1024
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
-        tree = config.get('mrbayes', {}).get('use_tree', False) \
-            or config.get('paup', {}).get('run', False),
         learn_tree = config.get('paup', {}).get('learn_tree', False),
     run:
-        if not 'tree' in input.keys() \
-                and config['cellcoal'].get('output', {}).get('tree', False):
-            input.tree = os.path.join(out_dir, 'trees_dir',
-                'trees.{wildcards.run}'.format(wildcards=wildcards))
-
         vcf_to_nex(input.vcf, output, wildcards.steps,
-            ss_flag=params.ss, tree_file=input.get('tree', None),
-            tree_rooted_file=input.get('tree_rooted', None),
+            ss_flag=params.ss, trees=(input.tree_rooted, input.tree_unrooted),
             learn_tree=params.learn_tree)
 
 
@@ -203,12 +223,12 @@ rule run_monovar:
 
 rule postprocess_monovar:
     input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
-    output: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
+    output: os.path.join(out_dir, filter_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
     envmodules: 'numpy/1.18.1-python-3.7.7'
     params:
-        dp = config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
-        gq = config['cellcoal'].get('SNP_filter', {}).get('quality', 0),
-        singletons = '-fs' if config['cellcoal'].get('SNP_filter', {}) \
+        dp = config.get('SNP_filter', {}).get('depth', 1),
+        gq = config.get('SNP_filter', {}).get('quality', 0),
+        singletons = '-fs' if config.get('SNP_filter', {}) \
             .get('singletons', False) else '',
     shell:
         'python utils.py {input} -f post -o {output} -gq {params.gq} '
@@ -216,65 +236,82 @@ rule postprocess_monovar:
 
 
 # -------------------------------- SCITE ---------------------------------------
+
 def get_tree_inference_input(wildcards):
     if config.get('monovar', {}).get('run', False):
-        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf' \
+        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf.final' \
             .format(wildcards=wildcards)
     else:
-        vcf_in_file = 'vcf.{wildcards.run}'.format(wildcards=wildcards)
-    return os.path.join(out_dir, 'vcf_dir', vcf_in_file)
+        vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
+    return os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
 
 
 rule run_scite:
     input: get_tree_inference_input
     output:
-        os.path.join(out_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 4096
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
-        steps = config['scite'].get('steps', 1E6),
-        exe = config.get('scite', {}).get('exe', ''),
+        steps = config['tree']['scite'].get('steps', 1E6),
+        exe = config['tree']['scite'].get('exe', './infSCITE'),
     shell:
-        'python utils.py {input} -f scite -e {params.exe} -s {params.steps}'
-        
+        'python utils.py {input} -f scite -e {params.exe} -s {params.steps} && '
+        'echo ";" >> {output}'
+      
 
+rule unroot_scite_tree:
+    input:
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}_ml0.newick')
+    output:
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}_ml0.newick.unrooted')
+    resources:
+        mem_mb = 1024
+    params:
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    run:
+        change_newick_tree_root(input[0], output[0], params.paup_exe,
+            root=False, outg=config['cellcoal']['model']['no_cells'] + 1)
 
 # ------------------------------- CELLPHY --------------------------------------
 
 
 rule run_cellphy:
-    input: os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.final')
+    input: get_tree_inference_input
     output:
-        os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
+        os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{run}.raxml.bestTree')
     resources:
-        mem_mb=1024
-    threads: 1 if config.get('cellphy', {}).get('command', 'FAST') == 'FAST' \
+        mem_mb = 1024
+    threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
-        exe = config.get('cellphy', {}).get('exe', ''),
-        cmd = config.get('cellphy', {}).get('command', 'FAST'),
+        exe = config['tree']['cellphy'].get('exe', './cellphy.sh'),
+        cmd = config['tree']['cellphy'].get('command', 'FAST'),
     shell:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -y -z '
-        '-p {out_dir}/cellphy_dir/cellphy_tree.{wildcards.run} {input} '
-        '> /dev/null'
+        '-p {out_dir}/{filter_dir}/cellphy_dir/cellphy_tree.{wildcards.run} '
+        '{input} > /dev/null'
 
 
 rule root_cellphy_tree:
-    input: os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree')
+    input:
+        os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{run}.raxml.bestTree')
     output:
-        os.path.join(out_dir, 'cellphy_dir', 'cellphy_tree.{run}.raxml.bestTree.rooted')
+        os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{run}.raxml.bestTree.rooted')
     resources:
-        mem_mb=1024
+        mem_mb = 1024
     params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup')
-    shell:
-        'echo "getTrees file=cellphy_tree.{wildcards.run}.raxml.bestTree;\n'
-        'DerootTrees;\noutgroup healthycell;\nRootTrees rootMethod=outgroup '
-        'outroot=monophyl;\nsaveTrees format=Newick root=yes '
-        'file=cellphy_tree.{wildcards.run}.raxml.bestTree.rooted;\nquit;" > '
-        '{output}.paup && {params.paup_exe} -n {output}.paup > /dev/null'
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    run:
+        change_newick_tree_root(input[0], output[0], params.paup_exe, root=True)
         
 
 # ------------------------------- MRBAYES --------------------------------------
@@ -282,24 +319,28 @@ rule root_cellphy_tree:
 if not scheduler:
     rule run_mrbayes:
         input:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
+            os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
+                'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'mrbayes_dir', 'mrbayes.{run}.{steps}.{model}.lstat')
+            os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+                'mrbayes.{run}.{steps}.{model}.lstat')
         params:
             mb_exe = config['mrbayes']['exe']
         resources:
             mem_mb = 16384
         shell:
-            'cd {out_dir} && mkdir -p mrbayes_dir && '
-            '{params.mb_exe} nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> mrbayes_dir/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'rm -f nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
+            'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
+            '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+            '> mrbayes_dir_{wildcards.tree}/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
+            'rm -f nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
 else:
     rule run_mrbayes_hpc:
         input:
-            os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.{steps}.{model}')
+            os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
+                'nxs.{run}.{steps}.{model}')
         output:
-            os.path.join(out_dir, 'mrbayes_dir', 'mrbayes.{run}.{steps}.{model}.lstat')
+            os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+                'mrbayes.{run}.{steps}.{model}.lstat')
         conda:
             'envs/mrbayes.yaml'
         envmodules:
@@ -311,19 +352,20 @@ else:
             mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
             runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
         shell:
-            'cd {out_dir} && mkdir -p mrbayes_dir && '
-            'mpirun mb nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> mrbayes_dir/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'rm -f nxs_dir/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
+            'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
+            'mpirun mb nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+            '> mrbayes_dir_{wildcards.tree}/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
+            'rm -f nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
 
 
 rule merge_mrbayes_results:
     input:
-        expand(os.path.join(out_dir, 'mrbayes_dir',
+        expand(os.path.join(out_dir, filter_dir, 'mrbayes_dir_{{tree}}',
                 'mrbayes.{run}.{steps}.{model}.lstat'),
             run=RUNS, steps=config['mrbayes']['ngen'], model=MODELS)
     output:
-        os.path.join(out_dir, 'mrbayes.clock_test_summary.tsv')
+        os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+            'mrbayes.clock_test_summary.tsv')
     resources:
         mem_mb=2048
     params:
@@ -336,13 +378,17 @@ rule merge_mrbayes_results:
 
 rule run_PAUP:
     input:
-        os.path.join(out_dir, 'nxs_dir', 'nxs.{run}.0.{model}')
+        os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}', 
+            'nxs.{run}.0.{model}')
     output:
-        os.path.join(out_dir, 'paup_dir', 'paup.{run}.0.{model}.PAUP.score')
+        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
+            'paup.{run}.0.{model}.PAUP.score')
     params:
         paup_exe = config.get('paup', {}).get('exe', 'paup')
     shell:
-        '{params.paup_exe} -n {input} > {out_dir}/paup_dir/paup.{wildcards.run}.log'
+        '{params.paup_exe} -n {input} > '
+        '{out_dir}/{filter_dir}/paup_dir_{wildcards.tree}/'
+        'paup.{wildcards.run}.{wildcards.model}.log'
 
 
 def get_paup_input(wildcards):
@@ -354,22 +400,23 @@ def get_paup_input(wildcards):
     in_files = []
     for model in models:
         for run in RUNS:
-            in_files.append(os.path.join(out_dir, 'paup_dir',
+            in_files.append(os.path.join(out_dir, filter_dir,
+                'paup_dir_{wildcards.tree}'.format(wildcards=wildcards),
                 'paup.{}.0.{}.PAUP.score'.format(run, model)))
     return in_files
 
 
 rule merge_paup_results:
-    input:
-        get_paup_input
+    input: get_paup_input
     output:
-        os.path.join(out_dir, 'paup.clock_test_summary.tsv')
+        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
+            'paup.clock_test_summary.tsv')
     conda:
         'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
     resources:
-        mem_mb=2048
+        mem_mb = 2048
     params:
         no_cells = config['cellcoal']['model']['no_cells'],
     shell:
@@ -419,11 +466,11 @@ rule run_sieve_data_collector:
 
 
 def get_nex_input(wildcards):
-    if config.get('scite', {}).get('run', False):
-        return os.path.join(out_dir, 'scite_dir',
+    if wildcards.tree == 'scite':
+        return os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}_ml0.newick'.format(wildcards=wildcards))
-    if config.get('cellphy', {}).get('run', False):
-        return os.path.join(out_dir, 'cellphy_dir',
+    elif wildcards.tree == 'cellphy':
+        return os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
                 .format(wildcards=wildcards))
     else:
@@ -433,7 +480,8 @@ def get_nex_input(wildcards):
 
 rule get_sieve_tree:
     input: get_nex_input
-    output: os.path.join(out_dir, 'sieve_dir', 'sieve_tree.{run}')   
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}')   
     params:
         cells = config['cellcoal']['model']['no_cells']
     run: get_sieve_tree(input[0], output[0], params.cells)
@@ -443,10 +491,11 @@ rule get_sieve_final_xml:
     input:
         xml = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml'),
-        tree = os.path.join(out_dir, 'sieve_dir', 'sieve_tree.{run}'),
+        tree = os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}'),
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_{model}_{tree}.xml')
     params:
         steps = config['sieve']['steps']    
     run:
@@ -456,9 +505,11 @@ rule get_sieve_final_xml:
 
 rule run_NS_converter:
     input:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_{model}_{tree}.xml')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'NS_sieve_{model}.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'NS_sieve_{model}_{tree}.xml')
     params:
         beast = config['sieve']['beast_bin'],
     shell:
@@ -468,25 +519,29 @@ rule run_NS_converter:
 
 rule run_sieve:
     input:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'NS_sieve_{model}.xml')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'NS_sieve_{model}_{tree}.xml')
     output:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}', 'sieve_{model}_final')
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_{model}_{tree}_final')
     threads: 2
     params:
         beast = config['sieve']['beast_bin'],
     shell:
         '{params.beast}/beast -threads {threads} -overwrite -prefix '
-        '{out_dir}/sieve_dir/xml.{wildcards.run}/beast.{wildcards.model} {input}'
+        '{out_dir}/sieve_dir/xml.{wildcards.run}/beast.{wildcards.model}.{tree} '
+        '{input}'
 
 
 rule merge_sieve_results:
     input:
         expand(os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
-                'sieve_{model}_final'),
+                'sieve_{model}_{{tree}}_final'),
             run=RUNS, model=MODELS)
     output:
-        os.path.join(out_dir, 'sieve.clock_test_summary.tsv')
+        os.path.join(out_dir, 'sieve_dir',
+            'sieve_{tree}.clock_test_summary.tsv')
     resources:
-        mem_mb=2048
+        mem_mb = 2048
     shell:
         'python utils.py {input} -f sieve -o {output}'

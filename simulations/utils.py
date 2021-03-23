@@ -83,39 +83,21 @@ def get_out_dir(config):
     else:
         sim_NGS += '0-0'
 
-    if config.get('mrbayes', {}).get('run', False):
-        mb_ngen = '-'.join(['{:.0E}'.format(i) for i in config['mrbayes']['ngen']])
-        if config['mrbayes'].get('ss', False):
-            sampling = 'ss'
-        else:
-            sampling = 'mcmc'
-    elif config.get('paup', {}).get('run', False):
-        mb_ngen = 1
-        sampling = 'ML'
-    else:
-        mb_ngen = -1
-        sampling = ''
-
-    filters =  '_min{}-{}'.format(
-        config['cellcoal'].get('SNP_filter', {}).get('depth', 1),
-        config['cellcoal'].get('SNP_filter', {}).get('quality', 1))
-    if config['cellcoal'].get('SNP_filter', {}).get('singletons', False):
-        filters += '-no1'
-
-    if config.get('cellphy', {}).get('run', False):
-        tree = 'cellphy'
-    elif config.get('scite', {}).get('run', False):
-        tree = 'scite'
-    else:
-        tree = 'cellcoal'
-
     if not config.get('static', {}).get('out_dir', False):
         out_dir = os.path.dirname(os.path.relpath(__file__))
     else:
         out_dir = config['static']['out_dir']
 
-    return os.path.join(out_dir, 'res_{}_{}_{}{}_{}{}_{}' \
-        .format(model, sim_scWGA, sim_NGS, filters, sampling, mb_ngen, tree))
+    return os.path.join(out_dir, 'res_{}_{}_{}'.format(model, sim_scWGA, sim_NGS))
+
+
+def get_filter_dir(config):
+    filters =  'minDP{}-minGQ{}'.format(
+        config.get('SNP_filter', {}).get('depth', 1),
+        config.get('SNP_filter', {}).get('quality', 0))
+    if config.get('SNP_filter', {}).get('singletons', False):
+        filters += '-noSingletons'
+    return filters
 
 
 def get_cellcoal_config(config, template_file, out_dir):
@@ -373,8 +355,62 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
         f_out.write('{}{}'.format(header, body))
 
 
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
-            learn_tree=False, tree_rooted_file=None, full_GT=False):
+def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
+            outg='healthycell'):
+
+    in_file_name = os.path.basename(in_file)
+    out_file_name = os.path.basename(out_file)
+    run_no = re.search('\d{4}', in_file_name).group()
+    res_dir = os.path.dirname(in_file)
+
+    if root:
+        root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
+        root = 'yes'
+        paup_file = os.path.join(res_dir, 'paup_rooting.{}'.format(run_no))
+    else:
+        root_cmd = 'DerootTrees;\noutgroup {}'.format(outg)
+        root = 'no'
+        paup_file = os.path.join(res_dir, 'paup_unrooting.{}'.format(run_no))
+    paup_cmd = 'getTrees file={i};\n' \
+        'outgroup {g};\n' \
+        '{c};\n' \
+        'saveTrees format=Newick root={r} file={o};\n' \
+        'quit;'.format(i=in_file_name, g=outg, c=root_cmd, r=root, o=out_file_name)
+
+   
+    with open(paup_file, 'w') as f_paup:
+        f_paup.write(paup_cmd)
+
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file, '>', '/dev/null'])
+    paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = paup.communicate()
+    paup.wait()
+
+    if stderr:
+        for i in str(stdout).split('\\n'):
+            print(i)
+        raise RuntimeError('PAUP error im command: {}'.format(shell_cmd))
+
+
+def get_tree(tree_file, sample_names=[]):
+    with open(tree_file, 'r') as f_tree:
+        tree = f_tree.read().strip()
+
+    if 'scite_dir' in tree_file:
+        for s_i, s_name in enumerate(sample_names):
+            pat = '(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1)
+            tree = re.sub(pat, s_name, tree)
+        tree += ';'
+    elif 'trees_dir' in tree_file:
+        tree = tree.replace('cell', 'tumcell') \
+            .replace('outgtumcell', 'healthycell')
+    
+    return tree
+
+
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, trees=None,
+            learn_tree=False, full_GT=False):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
         paup_corr=('yes', '')
@@ -392,41 +428,24 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
     else:
         alg = 'mcmc'
 
-    if tree_file == None:
+    if trees == None:
         tree_rooted = ''
         tree_unrooted = ''
         fixed_tree = ''
     else:
-        with open(tree_file, 'r') as f_tree:
-            tree_newick = f_tree.read().strip()
-
-        if 'scite_dir' in tree_file:
+        if 'scite_dir' in trees[0]:
             tree_name = 'treeSCITE'
-            for s_i, s_name in enumerate(sample_names):
-                tree_newick = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1),
-                    s_name, tree_newick)
-            tree_newick += ';'
-            tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
-            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name,
-                re.sub('\):\d+.\d+(?=,healthycell)', '', tree_newick[1:]))
-        elif 'trees_dir' in tree_file:
+        elif 'trees_dir' in trees[0]:
             tree_name = 'treeCellCoal'
-            tree_newick = tree_newick.replace('cell', 'tumcell') \
-                .replace('outgtumcell', 'healthycell')
-
-            tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_newick)
-            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, 
-                re.sub('\):\d+.\d+(?=,healthycell)', '', tree_newick[1:]))
-        elif 'cellphy_dir' in tree_file:
+        elif 'cellphy_dir' in trees[0]:
             tree_name = 'treeCellPhy'
-            tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, tree_newick)
 
-            with open(tree_rooted_file, 'r') as f_tree_r:
-                tree_rooted = 'tree {} = [&R] {}' \
-                    .format(tree_name, f_tree_r.read().strip())
+        tree_rooted = 'tree {} = [&R] {}' \
+            .format(tree_name, get_tree(trees[0], sample_names))
+        tree_unrooted = 'tree {} = [&U] {}' \
+            .format(tree_name, get_tree(trees[1], sample_names))
 
-        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name)
-
+        fixed_tree = 'prset topologypr=fixed({});'.format(tree_name) 
 
     if learn_tree:
         paup_tree_raw = 'Lset clock=no;\n' \
@@ -437,11 +456,13 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree_file=None,
 
     for out_file in out_files:
         nxs_file = os.path.basename(out_file)
-        model = nxs_file.split('.')[-1]
 
-        mrbayes_out = os.path.join('mrbayes_dir', 
+        model = nxs_file.split('.')[-1]
+        tree_alg = tree_name[4:].lower()
+
+        mrbayes_out = os.path.join('mrbayes_dir_{}'.format(tree_alg), 
             nxs_file.replace('nxs', 'mrbayes'))
-        paup_out = os.path.join('..', 'paup_dir', 
+        paup_out = os.path.join('..', 'paup_dir_{}'.format(tree_alg), 
             nxs_file.replace('nxs', 'paup'))
 
         if model == 'clock':

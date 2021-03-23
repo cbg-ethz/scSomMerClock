@@ -50,6 +50,7 @@ monovar:
 QC_calling_chr:
   - '-W 01:00'
 
+# ------------------------------- SIMULATIONS ----------------------------------
 
 create_cellcoal_config:
   - '-W 00:05'
@@ -57,26 +58,79 @@ create_cellcoal_config:
 run_cellcoal:
   - '-W 00:30'
 
-
-get_true_GT:
-  - '-W 00:10'
-
+unroot_cellcoal_tree:
+  - '-W 00:05'
 
 postprocess_vcf:
   - '-W 00:10'
 
+get_true_GT:
+  - '-W 00:10'
 
 vcf_to_nex:
   - '-W 00:10'
 
 
+vcf_to_mpileup:
+  - '-W 00:20'
+
+run_monovar:
+  - '-W 00:30'
+
+postprocess_monovar:
+  - '-W 00:10'
+
+
+run_scite:
+  - '-W 01:00'
+
+unroot_scite_tree:
+  - '-W 05:00'
+
+
+run_cellphy:
+  - '-W 01:00'
+
+root_cellphy_tree:
+  - '-W 05:00'
+
+
+
 run_mrbayes:
   - '-W 16:00'
-
 
 run_mrbayes_hpc:
   - '-W 48:00'
 
-
 merge_mrbayes_results:
+  - '-W 00:15'
+
+
+run_PAUP:
+  - '-W 00:15'
+
+merge_paup_results:
+  - '-W 00:15'
+
+
+
+run_sciphi:
+  - '-W 01:00'
+
+run_sieve_data_collector:
+  - '-W 00:05'
+
+get_sieve_tree:
+  - '-W 00:05'
+
+get_sieve_final_xml:
+  - '-W 00:05'
+
+run_NS_converter:
+  - '-W 00:05'
+
+run_sieve:
+  - '-W 02:00'
+
+merge_sieve_results:
   - '-W 00:15'
