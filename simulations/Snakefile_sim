@@ -11,7 +11,6 @@ TREES = [i for i,j in config['tree'].items() if j['run']]
 
 scheduler = config.get('scheduler', None)
 
-
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir, filter_dir = get_out_dir(config)
@@ -235,8 +234,7 @@ rule run_scite:
         steps = config['tree']['scite'].get('steps', 1E6),
         exe = config['tree']['scite'].get('exe', './infSCITE'),
     shell:
-        'python utils.py {input} -f scite -e {params.exe} -s {params.steps} && '
-        ' sed -i "s/\\n/\;/g" {output}'
+        'python utils.py {input} -f scite -e {params.exe} -s {params.steps} '
 
 
 rule root_scite_tree:
@@ -271,7 +269,6 @@ rule unroot_scite_tree:
             root=False, outg=config['cellcoal']['model']['no_cells'] + 1)
 
 # ------------------------------- CELLPHY --------------------------------------
-
 
 rule run_cellphy:
     input: get_tree_inference_input
@@ -385,6 +382,7 @@ rule run_PAUP:
     params:
         paup_exe = config.get('paup', {}).get('exe', 'paup')
     shell:
+        'mkdir -p {out_dir}/{filter_dir}/paup_dir_{wildcards.tree} && '
         '{params.paup_exe} -n {input} > '
         '{out_dir}/{filter_dir}/paup_dir_{wildcards.tree}/'
         'paup.{wildcards.run}.{wildcards.model}.log'
@@ -405,8 +403,18 @@ def get_paup_input(wildcards):
     return in_files
 
 
-rule merge_paup_results:
+rule prepare_paup_merging:
     input: get_paup_input
+    output:
+        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}', 'masterfile.txt')
+    run:
+        with open(output[0], 'w') as f_out:
+            for in_file in input:
+                f_out.write(in_file + '\n')
+
+
+rule merge_paup_results:
+    input: os.path.join(out_dir, filter_dir, 'paup_dir_{tree}', 'masterfile.txt')
     output:
         os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
             'paup.clock_test_summary.tsv')

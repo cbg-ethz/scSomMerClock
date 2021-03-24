@@ -268,13 +268,16 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 if line.startswith('##source') and 'MonoVar' in line:
                     monovar = True
                 elif line.startswith('#CHROM'):
-                    header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">\n'
+                    header += '##FILTER=<ID=singleton,Description="SNP ' \
+                        'is singleton">\n'
                     sample_no = len(line.strip().split('\t')[9:])
                     if monovar:
-                        format_short = '\tGT:AD:DP:GQ:PL\t'
+                        format_short = 'GT:AD:DP:GQ:PL'
                         missing = '.|.:.,.:.:.:.'
                     else:
-                        format_short = '\tGT:DP:RC:G10:PL:GQ:TG\t'
+                        header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
+                            'Description="Genotype Quality">\n'
+                        format_short = 'GT:DP:RC:G10:PL:GQ:TG'
                         missing = '.|.:.:.,.,.,.:.:.:.:'
 
                 header += line
@@ -284,10 +287,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
             
             # VCF records
             line_cols = line.strip().split('\t')
-            # Check if filter passed
-            if not 'PASS' in line_cols[6] and not '.' in line_cols[6]:
-                print('Skipping {}:{} (reason: FILTER)'.format(*line_cols[:2]))
-                continue
 
             ref = line_cols[3]
             alts = line_cols[4].split(',')
@@ -333,23 +332,25 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                         new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
                             .format(gt, dp, rc, g10, pl, gq, tg)
 
+            filter_str = line_cols[6]
             if s_filter:
                 diff_gt, diff_count = np.unique(genotypes[:-1], return_counts=True)
                 # Only one genotype detected
                 if len(diff_gt) == 1:
                     if diff_gt[0] == b'0|0':
-                        continue
+                        filter_str = 'singelton'
                 # Two different genotypes detected
                 elif len(diff_gt) == 2:
-                    # But one out ofthe two is just detected in one cell
+                    # But one out of the two is just detected in one cell
                     if min(diff_count) == 1:
-                        continue
+                        filter_str = 'singelton'
                 else:
                     if not any([i > 1 for i in sorted(diff_count)[:-1]]):
-                        continue
+                        filter_str = 'singelton'
 
-            body += '\t'.join(line_cols[:8]) + format_short \
-                + '\t'.join(new_line) + '\n'          
+            body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
+                    .format(filter_str, line_cols[7], format_short) \
+                + '\t'.join(new_line) + '\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write('{}{}'.format(header, body))
@@ -961,8 +962,11 @@ def get_marginal_ll_str(h0, h1):
 
 
 
-def get_LRT(in_files, out_file, cell_no, alpha=0.05):
+def get_LRT(masterfile, out_file, cell_no, alpha=0.05):
     from scipy.stats.distributions import chi2
+
+    with open(masterfile, 'r') as f_master:
+        in_files = f_master.read().strip().split('\n')
 
     scores = {}
     for in_file in in_files:
@@ -1368,7 +1372,7 @@ if __name__ == '__main__':
     elif args.format == 'LRT':
         if args.no_cells < 1:
             raise IOError('For LRT, the number of cells must be specified!')
-        get_LRT(args.input, args.output, args.no_cells + 1)
+        get_LRT(args.input[0], args.output, args.no_cells + 1)
     elif args.format == 'bayes':
         if args.output == os.path.dirname(args.input[0]):
             out_file = os.path.join(args.output, 'clock_test_summary.tsv')
