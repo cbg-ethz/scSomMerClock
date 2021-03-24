@@ -88,16 +88,16 @@ def get_out_dir(config):
     else:
         out_dir = config['static']['out_dir']
 
-    return os.path.join(out_dir, 'res_{}_{}_{}'.format(model, sim_scWGA, sim_NGS))
+    sim_dir = os.path.join(out_dir, 'res_{}_{}_{}' \
+        .format(model, sim_scWGA, sim_NGS))
 
-
-def get_filter_dir(config):
-    filters =  'minDP{}-minGQ{}'.format(
+    filter_dir =  'minDP{}-minGQ{}'.format(
         config.get('SNP_filter', {}).get('depth', 1),
         config.get('SNP_filter', {}).get('quality', 0))
     if config.get('SNP_filter', {}).get('singletons', False):
-        filters += '-noSingletons'
-    return filters
+        filter_dir += '-noSingletons'
+
+    return sim_dir, filter_dir
 
 
 def get_cellcoal_config(config, template_file, out_dir):
@@ -771,7 +771,6 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             runtime_start = log_tail.index('Analysis completed in')
             runtime_end = log_tail[runtime_start:].index('seconds') + runtime_start
             runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
-        
         if ss:
             if not log_tail:
                 raise IOError('Log file with SS score not found: {}' \
@@ -789,11 +788,17 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             ss_mean = None
             ss_diff = None
 
+        # HH:MM:SS
         if len(runtime) == 3:
             runtime = 60 * 60 * int(runtime[0]) + 60 * int(runtime[1]) \
                 + int(runtime[2])
-        else:
+        # MM:SS
+        elif len(runtime) == 2:
             runtime = 60 * int(runtime[0]) + int(runtime[1])
+        # SS
+        else:
+            runtime = int(runtime[0])
+            
 
         if not steps in scores:
             scores[steps] = {run: {'clock': [-1] * 4, 'noClock': [-1] * 4}}

@@ -14,31 +14,7 @@ scheduler = config.get('scheduler', None)
 
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
-out_dir = get_out_dir(config)
-filter_dir = get_filter_dir(config)
-
-
-def get_mrbayes_hpc_runtime(steps):
-    steps_int = int(steps)
-    if steps_int <= 1E6:
-        runtime = '04:00:00'
-    elif steps_int <= 5E6:
-        runtime = '08:00:00'
-    elif steps_int <= 10E6:
-        runtime = '24:00:00'
-    elif steps_int <= 20E6:
-        runtime = '48:00:00'
-    elif steps_int <= 60E6:
-        runtime = '64:00:00'
-    elif steps_int <= 80E6:
-        runtime = '80:00:00'
-    else:
-        runtime = '96:00:00'
-        
-    if scheduler == 'lsf':
-        return runtime[:-3]
-    else:
-        return runtime
+out_dir, filter_dir = get_out_dir(config)
 
 
 def get_final_files(wildcards):
@@ -316,46 +292,53 @@ rule root_cellphy_tree:
 
 # ------------------------------- MRBAYES --------------------------------------
 
-if not scheduler:
-    rule run_mrbayes:
-        input:
-            os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
-                'nxs.{run}.{steps}.{model}')
-        output:
-            os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
-                'mrbayes.{run}.{steps}.{model}.lstat')
-        params:
-            mb_exe = config['mrbayes']['exe']
-        resources:
-            mem_mb = 16384
-        shell:
-            'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
-            '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> mrbayes_dir_{wildcards.tree}/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'rm -f nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
-else:
-    rule run_mrbayes_hpc:
-        input:
-            os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
-                'nxs.{run}.{steps}.{model}')
-        output:
-            os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
-                'mrbayes.{run}.{steps}.{model}.lstat')
-        conda:
-            'envs/mrbayes.yaml'
-        envmodules:
-            'gcc/6.4.0',
-            'openmpi/2.1.1',
-            'mrbayes/3.2.7'
-        threads: 4
-        resources:
-            mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
-            runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps),
-        shell:
-            'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
-            'mpirun mb nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
-            '> mrbayes_dir_{wildcards.tree}/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
-            'rm -f nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
+def get_mrbayes_hpc_runtime(steps):
+    steps_int = int(steps)
+    if steps_int <= 1E6:
+        runtime = '04:00:00'
+    elif steps_int <= 5E6:
+        runtime = '08:00:00'
+    elif steps_int <= 10E6:
+        runtime = '24:00:00'
+    elif steps_int <= 20E6:
+        runtime = '48:00:00'
+    elif steps_int <= 60E6:
+        runtime = '64:00:00'
+    elif steps_int <= 80E6:
+        runtime = '80:00:00'
+    else:
+        runtime = '96:00:00'
+        
+    if scheduler == 'lsf':
+        return runtime[:-3]
+    else:
+        return runtime
+        
+
+rule run_mrbayes:
+    input:
+        os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
+            'nxs.{run}.{steps}.{model}')
+    output:
+        os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+            'mrbayes.{run}.{steps}.{model}.lstat')
+    conda:
+        'envs/mrbayes.yaml'
+    envmodules:
+        'gcc/6.4.0',
+        'openmpi/2.1.1',
+        'mrbayes/3.2.7'
+    threads: 4
+    resources:
+        mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
+        runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps)
+    params:
+        mb_exe = config['mrbayes']['exe'] if not scheduler else 'mpirun mb',
+    shell:
+        'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
+        '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model} '
+        '> mrbayes_dir_{wildcards.tree}/mrbayes.{wildcards.run}.{wildcards.steps}.{wildcards.model}.log && '
+        'rm -f nxs_dir_{wildcards.tree}/nxs.{wildcards.run}.{wildcards.steps}.{wildcards.model}.*'
 
 
 rule merge_mrbayes_results:
@@ -529,8 +512,8 @@ rule run_sieve:
         beast = config['sieve']['beast_bin'],
     shell:
         '{params.beast}/beast -threads {threads} -overwrite -prefix '
-        '{out_dir}/sieve_dir/xml.{wildcards.run}/beast.{wildcards.model}.{tree} '
-        '{input}'
+        '{out_dir}/sieve_dir/xml.{wildcards.run}/'
+        'beast.{wildcards.model}.{wildcards.tree} {input}'
 
 
 rule merge_sieve_results:
