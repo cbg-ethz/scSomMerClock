@@ -131,9 +131,9 @@ def get_nex_input(wildcards):
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
         in_files['tree_rooted'] = os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
+            'scite_tree.{wildcards.run}.rooted'.format(wildcards=wildcards))
         in_files['tree_unrooted'] = os.path.join(out_dir, filter_dir,
-            'scite_dir', 'scite_tree.{wildcards.run}_ml0.newick.unrooted' \
+            'scite_dir', 'scite_tree.{wildcards.run}.unrooted' \
                 .format(wildcards=wildcards))
     else:
         in_files['tree_rooted'] = os.path.join(out_dir, 'trees_dir',
@@ -236,8 +236,24 @@ rule run_scite:
         exe = config['tree']['scite'].get('exe', './infSCITE'),
     shell:
         'python utils.py {input} -f scite -e {params.exe} -s {params.steps} && '
-        'echo ";" >> {output}'
-      
+        ' sed -i "s/\\n/\;/g" {output}'
+
+
+rule root_scite_tree:
+    input:
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}_ml0.newick')
+    output:
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}.rooted')
+    resources:
+        mem_mb = 1024
+    params:
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    run:
+        change_newick_tree_root(input[0], output[0], params.paup_exe,
+            root=True, outg=config['cellcoal']['model']['no_cells'] + 1)
+
 
 rule unroot_scite_tree:
     input:
@@ -245,7 +261,7 @@ rule unroot_scite_tree:
             'scite_tree.{run}_ml0.newick')
     output:
         os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}_ml0.newick.unrooted')
+            'scite_tree.{run}.unrooted')
     resources:
         mem_mb = 1024
     params:

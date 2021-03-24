@@ -363,6 +363,12 @@ def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
     run_no = re.search('\d{4}', in_file_name).group()
     res_dir = os.path.dirname(in_file)
 
+    if 'scite' in in_file_name:
+        with open(in_file, 'r') as f_scite:
+            tree = f_scite.read().strip()
+        if not tree.endswith(';'):
+            with open(in_file, 'w') as f_scite_new:
+                f_scite_new.write(tree + ';')
     if root:
         root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
         root = 'yes'
@@ -401,7 +407,6 @@ def get_tree(tree_file, sample_names=[]):
         for s_i, s_name in enumerate(sample_names):
             pat = '(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1)
             tree = re.sub(pat, s_name, tree)
-        tree += ';'
     elif 'trees_dir' in tree_file:
         tree = tree.replace('cell', 'tumcell') \
             .replace('outgtumcell', 'healthycell')
