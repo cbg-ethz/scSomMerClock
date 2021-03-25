@@ -107,8 +107,13 @@ def convert_job_properties(job_properties, resource_mapping={}):
     for k, v in resource_mapping.items():
         options.update({k: resources[i] for i in v if i in resources})
 
+    if "time" in options:
+        options["time"] = "{:02d}:{:02d}:00" \
+            .format(int(options["time"]) // 60, int(options["time"]) % 60)
+
     if "threads" in job_properties:
         options["cpus-per-task"] = job_properties["threads"]
+        
     return options
 
 

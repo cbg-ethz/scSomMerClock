@@ -1386,7 +1386,3 @@ if __name__ == '__main__':
             minGQ=args.minGQ, s_filter=args.filter_singletons)
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
-
-
-
-# '0|0:41:0,0,0,41:-89.07,-89.03,-89.03,-1.82,-89.07,-89.03,-1.82,-89.07,-1.82,0.00:0.00,-1.82,-89.07,-1.82,0.00,-89.07,-1.82,0.00,0.00,-89.07:T/T:T|T:?|T:T|T'
