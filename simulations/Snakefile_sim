@@ -45,7 +45,6 @@ rule create_cellcoal_config:
     output:
         cellcoal = 'cellcoal_parameters',
         snakemake ='snakemake_config.yaml',
-    group: 'cellcoal'
     params:
         template = config['cellcoal'] \
             .get('parameter', 'cellcoal_parameters.template'),
@@ -66,7 +65,6 @@ rule run_cellcoal:
     output:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
-    group: 'cellcoal'
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
     params:
@@ -82,7 +80,6 @@ rule unroot_cellcoal_tree:
         os.path.join(out_dir, 'trees_dir', 'trees.{run}')
     output:
         temp(os.path.join(out_dir, 'trees_dir', 'trees.{run}.unrooted'))
-    group: 'cellcoal'
     resources:
         mem_mb = 1024
     params:
