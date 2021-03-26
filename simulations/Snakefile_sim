@@ -10,7 +10,6 @@ RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
 
 scheduler = config.get('scheduler', None)
-scheduler = None
 
 if isinstance(config['mrbayes']['ngen'], (int, float)):
     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
