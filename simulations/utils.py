@@ -338,15 +338,15 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 # Only one genotype detected
                 if len(diff_gt) == 1:
                     if diff_gt[0] == b'0|0':
-                        filter_str = 'singelton'
+                        filter_str = 'singleton'
                 # Two different genotypes detected
                 elif len(diff_gt) == 2:
                     # But one out of the two is just detected in one cell
                     if min(diff_count) == 1:
-                        filter_str = 'singelton'
+                        filter_str = 'singleton'
                 else:
                     if not any([i > 1 for i in sorted(diff_count)[:-1]]):
-                        filter_str = 'singelton'
+                        filter_str = 'singleton'
 
             body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
                     .format(filter_str, line_cols[7], format_short) \
@@ -398,6 +398,8 @@ def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
         for i in str(stdout).split('\\n'):
             print(i)
         raise RuntimeError('PAUP error im command: {}'.format(shell_cmd))
+    os.remove(paup_file)
+
 
 
 def get_tree(tree_file, sample_names=[]):
@@ -777,6 +779,7 @@ def get_Bayes_factor(in_files, out_file, ss=False):
             runtime_start = log_tail.index('Analysis completed in')
             runtime_end = log_tail[runtime_start:].index('seconds') + runtime_start
             runtime = re.findall('\d+', log_tail[runtime_start: runtime_end])
+
         if ss:
             if not log_tail:
                 raise IOError('Log file with SS score not found: {}' \
@@ -1013,7 +1016,7 @@ def get_LRT(masterfile, out_file, cell_no, alpha=0.05):
             f'H0:{avg[3]};H1:{avg[4]}\n')
 
 
-def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
+def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, verbose=False):
     import numpy as np
 
     # RUN SiCloneFit
@@ -1051,7 +1054,7 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, silent=False):
         '-max_treelist_size 1']
     )
 
-    if not silent:
+    if verbose:
         print('output directory:\n{}'.format(out_dir))
         print('\nShell command:\n{}\n'.format(cmmd))
 
