@@ -235,7 +235,6 @@ rule run_scite:
     output:
         os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}_ml0.newick')
-    group: 'scite'
     resources:
         mem_mb = 4096
     envmodules:
@@ -255,7 +254,6 @@ rule root_scite_tree:
     output:
         temp(os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}.rooted'))
-    group: 'scite'
     resources:
         mem_mb = 1024
     params:
@@ -272,7 +270,6 @@ rule unroot_scite_tree:
     output:
         temp(os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}.unrooted'))
-    group: 'scite'
     resources:
         mem_mb = 1024
     params:
@@ -289,7 +286,6 @@ rule run_cellphy:
     output:
         os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{run}.raxml.bestTree')
-    group: 'cellphy'
     resources:
         mem_mb = 1024
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
@@ -313,7 +309,6 @@ rule root_cellphy_tree:
     output:
         temp(os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{run}.raxml.bestTree.rooted'))
-    group: 'cellphy'
     resources:
         mem_mb = 1024
     params:
@@ -428,7 +423,6 @@ rule prepare_paup_merging:
         get_paup_input
     output:
         os.path.join(out_dir, filter_dir, 'paup_dir_{tree}', 'masterfile.txt')
-    group: 'paup_merging'
     run:
         with open(output[0], 'w') as f_out:
             for in_file in input:
@@ -441,7 +435,6 @@ rule merge_paup_results:
     output:
         os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
             'paup.clock_test_summary.tsv')
-    group: 'paup_merging'
     conda: 'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
@@ -486,7 +479,6 @@ rule run_sieve_data_collector:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml')
-    group: 'sieve'
     params:
         beast = config['sieve']['beast_bin'],
         xml = config['sieve']['xml']
@@ -514,7 +506,6 @@ rule get_sieve_tree:
         get_nex_input
     output:
         os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}')   
-    group: 'sieve'
     params:
         cells = config['cellcoal']['model']['no_cells']
     run:
@@ -530,7 +521,6 @@ rule get_sieve_final_xml:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}.xml')
-    group: 'sieve'
     params:
         steps = config['sieve']['steps']    
     run:
@@ -545,7 +535,6 @@ rule run_NS_converter:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
-    group: 'sieve'
     params:
         beast = config['sieve']['beast_bin'],
     shell:
@@ -560,7 +549,6 @@ rule run_sieve:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}_final')
-    group: 'sieve'
     threads: 2
     params:
         beast = config['sieve']['beast_bin'],
