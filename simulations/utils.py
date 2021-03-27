@@ -368,8 +368,8 @@ def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
         with open(in_file, 'r') as f_scite:
             tree = f_scite.read().strip()
         if not tree.endswith(';'):
-            with open(in_file, 'w') as f_scite_new:
-                f_scite_new.write(tree + ';')
+            with open(in_file, 'a') as f_scite_new:
+                f_scite_new.write(';')
     if root:
         root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
         root = 'yes'
