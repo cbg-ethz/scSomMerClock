@@ -367,9 +367,14 @@ def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
     if 'scite' in in_file_name:
         with open(in_file, 'r') as f_scite:
             tree = f_scite.read().strip()
-        if not tree.endswith(';'):
+        sem_count = tree.count(';')
+        if sem_count == 0:
             with open(in_file, 'a') as f_scite_new:
                 f_scite_new.write(';')
+        elif sem_count > 1:
+            with open(in_file, 'a') as f_scite_new:
+                out_str = tree.replace(';', '').strip() + ';'
+                f_scite_new.write(out_str)
     if root:
         root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
         root = 'yes'
