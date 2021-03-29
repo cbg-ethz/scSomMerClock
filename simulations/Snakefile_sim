@@ -79,7 +79,7 @@ rule unroot_cellcoal_tree:
     input: 
         os.path.join(out_dir, 'trees_dir', 'trees.{run}')
     output:
-        temp(os.path.join(out_dir, 'trees_dir', 'trees.{run}.unrooted'))
+        os.path.join(out_dir, 'trees_dir', 'trees.{run}.unrooted')
     resources:
         mem_mb = 1024
     params:
@@ -252,8 +252,8 @@ rule root_scite_tree:
         os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}_ml0.newick')
     output:
-        temp(os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}.rooted'))
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}.rooted')
     resources:
         mem_mb = 1024
     params:
@@ -268,8 +268,8 @@ rule unroot_scite_tree:
         os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}_ml0.newick')
     output:
-        temp(os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}.unrooted'))
+        os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{run}.unrooted')
     resources:
         mem_mb = 1024
     params:
@@ -307,8 +307,8 @@ rule root_cellphy_tree:
         os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{run}.raxml.bestTree')
     output:
-        temp(os.path.join(out_dir, filter_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.raxml.bestTree.rooted'))
+        os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{run}.raxml.bestTree.rooted')
     resources:
         mem_mb = 1024
     params:
