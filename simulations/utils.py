@@ -30,7 +30,10 @@ end;
 
 begin mrbayes;
     set autoclose=yes nowarnings=yes;
-    lset nst=1 rates=gamma;
+    lset nst=6 rates=invgamma;
+    [lset ngammacat=2;]
+    lset rates=propinv;
+    prset pinvarpr=fixed(0);
     outgroup healthycell;
     prset brlenspr={brlen_prior};
     {fixed_tree}
