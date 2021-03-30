@@ -406,6 +406,7 @@ def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
         for i in str(stdout).split('\\n'):
             print(i)
         raise RuntimeError('PAUP error im command: {}'.format(shell_cmd))
+    
     os.remove(paup_file)
 
 
@@ -1076,6 +1077,7 @@ def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, verbose=False):
         for i in str(stdout).split('\\n'):
             print(i)
         raise RuntimeError('SCITE Error')
+    os.remove(data_file)
 
 
 def get_sieve_tree(in_file, out_file, cells):

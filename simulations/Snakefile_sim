@@ -299,7 +299,8 @@ rule run_cellphy:
     shell:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -y -z '
         '-p {params.prefix} {input} > /dev/null && '
-        'rm {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree'
+        'rm {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree '
+        '{params.prefix}.raxml.mlTrees'
 
 
 rule root_cellphy_tree:
