@@ -366,7 +366,8 @@ rule run_mrbayes:
         'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
         '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{params.model_str} > '
         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.log && '
-        'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.*'
+        'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.* '
+        'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.pstat'
 
 
 rule merge_mrbayes_results:
