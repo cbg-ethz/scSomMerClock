@@ -85,14 +85,14 @@ run_scite:
   - '-W 01:00'
 
 unroot_scite_tree:
-  - '-W 05:00'
+  - '-W 00:05'
 
 
 run_cellphy:
   - '-W 01:00'
 
 root_cellphy_tree:
-  - '-W 05:00'
+  - '-W 00:05'
 
 
 
