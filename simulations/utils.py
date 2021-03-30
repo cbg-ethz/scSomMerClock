@@ -799,9 +799,14 @@ def get_Bayes_factor(in_files, out_file, ss=False):
                     log_tail[ss_start:ss_start + ss_end].strip().split('\n') \
                 if i.strip() and not i.strip().startswith('-')]
 
-            ss_mean = float(ss_raw[-1].split(' ')[-1])
-            ss_diff = abs(float(ss_raw[-2].split(' ')[-1]) \
-                - float(ss_raw[-3].split(' ')[-1]))
+            ss_mean = float(re.search('Mean: +(-\d+.\d+)',
+                log_tail[ss_start:ss_start + ss_end]).group(1))
+
+            ss_chain1 = float(re.search('1 +(-\d+.\d+)',
+                log_tail[ss_start:ss_start + ss_end]).group(1))
+            ss_chain2 = float(re.search('2 +(-\d+.\d+)',
+                log_tail[ss_start:ss_start + ss_end]).group(1))
+            ss_diff = abs(ss_chain1 - ss_chain2)
         else:
             ss_mean = None
             ss_diff = None
