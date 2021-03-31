@@ -75,20 +75,6 @@ rule run_cellcoal:
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
 
-rule unroot_cellcoal_tree:
-    input: 
-        os.path.join(out_dir, 'trees_dir', 'trees.{run}')
-    output:
-        os.path.join(out_dir, 'trees_dir', 'trees.{run}.unrooted')
-    resources:
-        mem_mb = 1024
-    params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup')
-    run:
-        change_newick_tree_root(input[0], output[0], params.paup_exe,
-            root=False, outg='outgcell')
-
-
 rule postprocess_vcf:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
@@ -118,34 +104,25 @@ rule get_true_GT:
 
 
 def get_nex_input(wildcards):
-    in_files = {}
     if config.get('monovar', {}).get('run', False):
         vcf_in_file = 'vcf.{wildcards.run}.monovar.final' \
             .format(wildcards=wildcards)
     else:
         vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
-    in_files['vcf'] = os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
+    vcf = os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
 
     if wildcards.tree == 'cellphy':
-        in_files['tree_rooted'] = os.path.join(out_dir, filter_dir,
-            'cellphy_dir', 'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
-                .format(wildcards=wildcards))
-        in_files['tree_unrooted'] = os.path.join(out_dir, filter_dir,
-            'cellphy_dir', 'cellphy_tree.{wildcards.run}.raxml.bestTree' \
+        tree = os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
-        in_files['tree_rooted'] = os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{wildcards.run}.rooted'.format(wildcards=wildcards))
-        in_files['tree_unrooted'] = os.path.join(out_dir, filter_dir,
-            'scite_dir', 'scite_tree.{wildcards.run}.unrooted' \
-                .format(wildcards=wildcards))
+        tree = os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
     else:
-        in_files['tree_rooted'] = os.path.join(out_dir, 'trees_dir',
-            'trees.{wildcards.run}'.format(wildcards=wildcards))
-        in_files['tree_unrooted'] = os.path.join(out_dir, 'trees_dir',
-            'trees.{wildcards.run}.unrooted'.format(wildcards=wildcards))
+        tree = os.path.join(out_dir, 'trees_dir', 'trees.{wildcards.run}' \
+            .format(wildcards=wildcards))
         
-    return in_files
+    return {'tree': tree, 'vcf': vcf}
 
 
 rule vcf_to_nex:
@@ -159,11 +136,10 @@ rule vcf_to_nex:
         mem_mb = 1024
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
-        learn_tree = config.get('paup', {}).get('learn_tree', False),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
     run:
-        vcf_to_nex(input.vcf, output, wildcards.steps,
-            ss_flag=params.ss, trees=(input.tree_rooted, input.tree_unrooted),
-            learn_tree=params.learn_tree)
+        vcf_to_nex(input.vcf, output, wildcards.steps, ss_flag=params.ss,
+            tree=input.tree, paup_exe=params.paup_exe)
 
 
 # ------------------------------- MONOVAR --------------------------------------
@@ -247,37 +223,6 @@ rule run_scite:
         'rm {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv'
 
 
-rule root_scite_tree:
-    input:
-        os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}_ml0.newick')
-    output:
-        os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}.rooted')
-    resources:
-        mem_mb = 1024
-    params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    run:
-        change_newick_tree_root(input[0], output[0], params.paup_exe,
-            root=True, outg=config['cellcoal']['model']['no_cells'] + 1)
-
-
-rule unroot_scite_tree:
-    input:
-        os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}_ml0.newick')
-    output:
-        os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}.unrooted')
-    resources:
-        mem_mb = 1024
-    params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    run:
-        change_newick_tree_root(input[0], output[0], params.paup_exe,
-            root=False, outg=config['cellcoal']['model']['no_cells'] + 1)
-
 # ------------------------------- CELLPHY --------------------------------------
 
 rule run_cellphy:
@@ -301,21 +246,6 @@ rule run_cellphy:
         '-p {params.prefix} {input} > /dev/null && '
         'rm {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree '
         '{params.prefix}.raxml.mlTrees'
-
-
-rule root_cellphy_tree:
-    input:
-        os.path.join(out_dir, filter_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.raxml.bestTree')
-    output:
-        os.path.join(out_dir, filter_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.raxml.bestTree.rooted')
-    resources:
-        mem_mb = 1024
-    params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    run:
-        change_newick_tree_root(input[0], output[0], params.paup_exe, root=True)
         
 
 # ------------------------------- MRBAYES --------------------------------------

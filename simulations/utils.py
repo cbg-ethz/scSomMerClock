@@ -359,75 +359,77 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
         f_out.write('{}{}'.format(header, body))
 
 
-def change_newick_tree_root(in_file, out_file, paup_exe, root=True,
-            outg='healthycell'):
+def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
+        sample_names=[]):
+    import tempfile
 
-    in_file_name = os.path.basename(in_file)
-    out_file_name = os.path.basename(out_file)
-    run_no = re.search('\d{4}', in_file_name).group()
-    res_dir = os.path.dirname(in_file)
+    paup_file = tempfile.NamedTemporaryFile(delete=False)
+    out_file = tempfile.NamedTemporaryFile(delete=False)
+    temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
 
-    if 'scite' in in_file_name:
-        with open(in_file, 'r') as f_scite:
-            tree = f_scite.read().strip()
+    with open(in_file, 'r') as f_tree:
+        tree = f_tree.read().strip()
+
+    if 'scite_dir' in in_file:
+        # Add missing semicolon
         sem_count = tree.count(';')
         if sem_count == 0:
-            with open(in_file, 'a') as f_scite_new:
-                f_scite_new.write(';')
+            tree += ';'
         elif sem_count > 1:
-            with open(in_file, 'w') as f_scite_new:
-                out_str = tree.split(';')[0].strip() + ';'
-                f_scite_new.write(out_str)
+            tree = tree.split(';')[0].strip() + ';'
+
+        nodes = [int(i) for i in re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree)]
+        for i, s_i in enumerate(sorted(nodes)):
+            pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)    
+            try:
+                repl = sample_names[i]
+            except IndexError:
+                repl = ''
+            tree = re.sub(pat, repl, tree)
+    elif 'trees_dir' in in_file:
+        tree = tree.replace('cell', 'tumcell') \
+            .replace('outgtumcell', 'healthycell')
+    
+    temp_tree_file.write(str.encode(tree))
+    temp_tree_file.close()
+
     if root:
         root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
         root = 'yes'
-        paup_file = os.path.join(res_dir, 'paup_rooting.{}'.format(run_no))
     else:
         root_cmd = 'DerootTrees;\noutgroup {}'.format(outg)
         root = 'no'
-        paup_file = os.path.join(res_dir, 'paup_unrooting.{}'.format(run_no))
+        
     paup_cmd = 'getTrees file={i};\n' \
         'outgroup {g};\n' \
         '{c};\n' \
         'saveTrees format=Newick root={r} file={o};\n' \
-        'quit;'.format(i=in_file_name, g=outg, c=root_cmd, r=root, o=out_file_name)
+        'quit;'.format(i=temp_tree_file.name, g=outg, c=root_cmd, r=root,
+            o=out_file.name)
 
-   
-    with open(paup_file, 'w') as f_paup:
-        f_paup.write(paup_cmd)
+    paup_file.write(str.encode(paup_cmd))
+    paup_file.close()
 
-    shell_cmd = ' '.join([paup_exe, '-n', paup_file, '>', '/dev/null'])
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name]) #, '>', '/dev/null'])
     paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     stdout, stderr = paup.communicate()
     paup.wait()
 
-    if stderr:
-        for i in str(stdout).split('\\n'):
-            print(i)
-        raise RuntimeError('PAUP error im command: {}'.format(shell_cmd))
+    assert stderr == b'', str(stdout)
     
-    os.remove(paup_file)
+    with open(out_file.name, 'r') as f_tree:
+        tree_new = f_tree.read().strip()
+    out_file.close()
+
+    assert tree != '', 'Could not read tree from {}'.format(in_file)
+    assert tree_new != '', 'Failed to root/unroot tree with PAUP'
+
+    return tree, tree_new
 
 
-
-def get_tree(tree_file, sample_names=[]):
-    with open(tree_file, 'r') as f_tree:
-        tree = f_tree.read().strip()
-
-    if 'scite_dir' in tree_file:
-        for s_i, s_name in enumerate(sample_names):
-            pat = '(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1)
-            tree = re.sub(pat, s_name, tree)
-    elif 'trees_dir' in tree_file:
-        tree = tree.replace('cell', 'tumcell') \
-            .replace('outgtumcell', 'healthycell')
-    
-    return tree
-
-
-def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, trees=None,
-            learn_tree=False, full_GT=False):
+def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
+            paup_exe=None, learn_tree=False, full_GT=False):
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
         paup_corr=('yes', '')
@@ -445,23 +447,26 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, trees=None,
     else:
         alg = 'mcmc'
 
-    if trees == None:
+    if tree == None:
         tree_rooted = ''
         tree_unrooted = ''
         fixed_tree = ''
     else:
-        if 'scite_dir' in trees[0]:
+        if 'scite_dir' in tree:
+            tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
+                tree, paup_exe, root=False, sample_names=sample_names)
             tree_name = 'treeSCITE'
-        elif 'trees_dir' in trees[0]:
+        elif 'trees_dir' in tree:
+            tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
+                tree, paup_exe, root=False)
             tree_name = 'treeCellCoal'
-        elif 'cellphy_dir' in trees[0]:
+        elif 'cellphy_dir' in tree:
+            tree_str_unrooted, tree_str_rooted = change_newick_tree_root(
+                tree, paup_exe, root=True)
             tree_name = 'treeCellPhy'
 
-        tree_rooted = 'tree {} = [&R] {}' \
-            .format(tree_name, get_tree(trees[0], sample_names))
-        tree_unrooted = 'tree {} = [&U] {}' \
-            .format(tree_name, get_tree(trees[1], sample_names))
-
+        tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_str_rooted)
+        tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, tree_str_unrooted)
         fixed_tree = 'prset topologypr=fixed({});'.format(tree_name) 
 
     if learn_tree:
