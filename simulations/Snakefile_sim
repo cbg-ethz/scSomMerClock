@@ -109,6 +109,7 @@ def get_nex_input(wildcards):
             .format(wildcards=wildcards)
     else:
         vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
+
     vcf = os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
 
     if wildcards.tree == 'cellphy':
@@ -220,7 +221,7 @@ rule run_scite:
         exe = config['tree']['scite'].get('exe', './infSCITE'),
     shell:
         'python utils.py {input} -f scite -e {params.exe} -s {params.steps} && '
-        'rm {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv'
+        'rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv'
 
 
 # ------------------------------- CELLPHY --------------------------------------
@@ -244,7 +245,7 @@ rule run_cellphy:
     shell:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -y -z '
         '-p {params.prefix} {input} > /dev/null && '
-        'rm {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree '
+        'rm -f {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree '
         '{params.prefix}.raxml.mlTrees'
         
 
