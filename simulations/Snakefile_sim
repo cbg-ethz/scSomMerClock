@@ -295,7 +295,7 @@ rule run_mrbayes:
         mb_exe = config['mrbayes']['exe'] if not scheduler else 'mpirun mb',
     shell:
         'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
-        '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{params.model_str} > '
+        '{params.mb_exe} nxs_dir_{wildcards.etree}/nxs.{params.model_str} > '
         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.log && '
         'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.* '
         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.pstat'

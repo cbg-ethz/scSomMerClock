@@ -46,7 +46,7 @@ begin PAUP;
     Set criterion=like;
     Outgroup healthycell;
     {paup_const}
-    LSet nst=1 base=equal rates=gamma shape=est condvar={paup_corr};
+    LSet nst=1 rates=gamma shape=est ncat=4 condvar={paup_corr};
 
     {paup_tree}
     quit;
@@ -386,9 +386,11 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
             except IndexError:
                 repl = ''
             tree = re.sub(pat, repl, tree)
-    elif 'trees_dir' in in_file:
-        tree = tree.replace('cell', 'tumcell') \
-            .replace('outgtumcell', 'healthycell')
+    else:
+        tree = re.sub(':0.\d+', '', tree)
+        if 'trees_dir' in in_file:
+            tree = tree.replace('cell', 'tumcell') \
+                .replace('outgtumcell', 'healthycell')
     
     temp_tree_file.write(str.encode(tree))
     temp_tree_file.close()
@@ -410,7 +412,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
     paup_file.write(str.encode(paup_cmd))
     paup_file.close()
 
-    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name]) #, '>', '/dev/null'])
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name, '>', '/dev/null'])
     paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     stdout, stderr = paup.communicate()
@@ -430,12 +432,13 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
             paup_exe=None, learn_tree=False, full_GT=False):
+
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
-        paup_corr=('yes', '')
+        paup_corr = ('no', '')
     else:
         samples, sample_names = get_sample_dict_from_vcf(vcf_file)
-        paup_corr=('no', 'exclude constant;')
+        paup_corr = ('no', 'exclude constant;')
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
@@ -492,7 +495,7 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
             clock_str='yes'
             tree_str = tree_rooted
         else:
-            brlen_prior = 'unconstrained:exp(10.0)'
+            brlen_prior = 'unconstrained:exp(1.0)'
             clock_str='no'
             tree_str = tree_unrooted
 
@@ -623,8 +626,10 @@ def get_sample_dict_from_FG(vcf_file):
             ref_base = line.strip().split('\t')[3]
             ref[pos] = ref_base
 
-    FG_file = vcf_file.replace('vcf_dir', 'full_genotypes_dir') \
-        .replace('vcf', 'full_gen')
+    run_no = re.search('\.(\d+)\.', os.path.basename(vcf_file)).group(1)
+    base_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-3])
+    FG_file = os.path.join(base_dir, 'full_genotypes_dir',
+        'full_gen.{}'.format(run_no))
 
     with open(FG_file, 'r') as f_in:
         samples = {}
