@@ -130,9 +130,8 @@ rule vcf_to_nex:
     input:
         unpack(get_nex_input)
     output:
-        expand(os.path.join(out_dir, filter_dir, 'nxs_dir_{{tree}}',
-                'nxs.{{run}}.{{steps}}.{model}'),
-            model=MODELS)
+        temp(expand(os.path.join(out_dir, filter_dir, 'nxs_dir_{{tree}}',
+            'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
     resources:
         mem_mb = 1024
     params:
