@@ -33,6 +33,10 @@ def get_final_files(wildcards):
             files.append(os.path.join(out_dir, 'sieve_dir',
                 'sieve_{}.clock_test_summary.tsv'.format(tree)))
 
+    if config.get('poisson', {}).get('run', False):
+        files.append(os.path.join(out_dir, filter_dir,
+            'poisson.clock_test_summary.tsv'))
+
     return files
 
 
@@ -377,6 +381,33 @@ rule merge_paup_results:
     shell:
         'python utils.py {input} -f LRT -o {output} -nc {params.no_cells} && '
         'tail -n 1 {output}'
+
+
+
+# ------------------------------- POISSON --------------------------------------
+
+
+def get_poisson_input(wildcards):
+    if config.get('monovar', {}).get('run', False):
+        return [os.path.join(out_dir, filter_dir, 'vcf_dir', 
+                'vcf.{}.monovar.final'.format(i)) for i in RUNS]
+    else:
+        return [os.path.join(out_dir, filter_dir, 'vcf_dir', 
+            'vcf.{}.final'.format(i)) for i in RUNS]
+
+
+rule run_poisson_test:
+    input:
+        get_poisson_input
+    output:
+        os.path.join(out_dir, filter_dir, 'poisson.clock_test_summary.tsv')
+    conda: 'envs/monovar.yaml'
+    envmodules:
+        'scipy/1.4.1-python-3.7.7',
+    resources:
+        mem_mb = 2048
+    shell:
+        'python utils.py {input} -f poisson -o {output} && tail -n 1 {output}'
 
 
 # -------------------------------- SIEVE ---------------------------------------

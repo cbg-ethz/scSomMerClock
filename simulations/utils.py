@@ -1040,6 +1040,82 @@ def get_LRT(masterfile, out_file, cell_no, alpha=0.05):
             f'H0:{avg[3]};H1:{avg[4]}\n')
 
 
+def get_muts_per_cell(vcf_file):
+    if vcf_file.endswith('gz'):
+        file_stream = gzip.open(vcf_file, 'rb')
+    else:
+        file_stream = open(vcf_file, 'r')
+
+    with file_stream as f_in:
+        for line in f_in:
+            # Skip VCF header lines
+            if line.startswith('#'):
+                # Safe column headers
+                if line.startswith('#CHROM'):
+                    sample_names = line.strip().split('\t')[9:]
+                    samples = [0 for i in range(len(sample_names))]
+                continue
+            elif line.strip() == '':
+                continue
+            # VCF records
+            line_cols = line.strip().split('\t')
+            bases = [line_cols[3]] + line_cols[4].split(',')
+            for s_i, s_rec in enumerate(line_cols[9:]):
+                try:
+                    gt = s_rec[:s_rec.index(':')]
+                # Missing in Monovar output format
+                except ValueError:
+                    continue
+
+                s_rec_ref, s_rec_alt = re.split('[/\|]', gt)[:2]
+                if s_rec_ref == '.' or s_rec_alt == '.':
+                    continue
+
+                if s_rec_alt != '0' or s_rec_ref != '0':
+                    samples[s_i] += 1
+                    
+                # gt_pred = '{}|{}' \
+                #     .format(bases[int(s_rec_ref)], bases[int(s_rec_alt)])
+                # gt_true = s_rec[-3:]
+                # if gt_pred != gt_true and gt_pred != gt_true[::-1]:
+                #     print('True GT: {}; inferred GT: {}'.format(gt_true, gt_pred))
+
+    return samples
+
+
+def test_poisson(in_files, out_file, alpha=0.05):
+    from scipy.stats.distributions import chi2
+    import numpy as np
+
+    avg = [[], [], 0, 0]
+    out_str = ''
+    for in_file in in_files:
+        run = re.search('\d\d\d\d', os.path.basename(in_file)).group()
+        new_muts = np.array(get_muts_per_cell(in_file))
+
+        mean_muts = mean(new_muts)
+
+        LR = 2 * np.sum(new_muts * np.log(new_muts / new_muts.mean()))
+        avg[0].append(LR)
+        p_val = chi2.sf(LR, len(new_muts) - 1)
+        avg[1].append(p_val)
+        if p_val < alpha:
+            hyp = 'H1'
+            avg[2] += 1
+        else:
+            hyp = 'H0'
+            avg[3] += 1
+
+        out_str += f'{run}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}\n'
+
+    with open(out_file, 'w') as f_out:
+        f_out.write('run\t-2logLR\tp-value\thypothesis\n')
+        f_out.write(out_str)
+
+        f_out.write(f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):.2E}\t'
+            f'H0:{avg[3]};H1:{avg[2]}\n')
+
+
 def run_scite_subprocess(exe, steps, vcf_file, fd=0.001, ad=0.2, verbose=False):
     import numpy as np
 
@@ -1332,8 +1408,8 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=str,
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str,  default='nxs',
-        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'plot', 'steps',
-            'pval', 'scite', 'post'],
+        choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'poisson', 'plot',
+        'steps', 'pval', 'scite', 'post'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -1407,6 +1483,12 @@ if __name__ == '__main__':
         else:
             out_file = args.output
         get_Bayes_factor(args.input, out_file, args.stepping_stone)
+    elif args.format == 'poisson':
+        if args.output == os.path.dirname(args.input[0]):
+            out_file = os.path.join(args.output, 'poisson.clock_test_summary.tsv')
+        else:
+            out_file = args.output
+        test_poisson(args.input, out_file)
     elif args.format == 'scite':
         run_scite_subprocess(args.exe, args.steps[0], args.input[0])
     elif args.format == 'post':
