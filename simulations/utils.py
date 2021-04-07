@@ -251,114 +251,6 @@ def vcf_to_pileup(vcf_file, out_pileup, out_samples='', out_sample_types=''):
         )
 
 
-def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
-    import numpy as np
-
-    if vcf_file.endswith('gz'):
-        file_stream = gzip.open(vcf_file, 'rb')
-    else:
-        file_stream = open(vcf_file, 'r')
-
-    header = ''
-    body = ''
-
-    monovar = False
-    with file_stream as f_in:
-        for line in f_in:
-            # Skip VCF header lines
-            if line.startswith('#'):
-                # Safe column headers
-                if line.startswith('##source') and 'MonoVar' in line:
-                    monovar = True
-                elif line.startswith('#CHROM'):
-                    header += '##FILTER=<ID=singleton,Description="SNP ' \
-                        'is singleton">\n'
-                    sample_no = len(line.strip().split('\t')[9:])
-                    if monovar:
-                        format_short = 'GT:AD:DP:GQ:PL'
-                        missing = '.|.:.,.:.:.:.'
-                    else:
-                        header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
-                            'Description="Genotype Quality">\n'
-                        format_short = 'GT:DP:RC:G10:PL:GQ:TG'
-                        missing = '.|.:.:.,.,.,.:.:.:.:'
-
-                header += line
-                continue
-            elif line.strip() == '':
-                break
-            
-            # VCF records
-            line_cols = line.strip().split('\t')
-
-            ref = line_cols[3]
-            alts = line_cols[4].split(',')
-            FORMAT_col = line_cols[8].split(':')
-            if monovar:
-                if line_cols[6] == '.':
-                    line_cols[6] = 'PASS'
-            else:
-                PLN_col = FORMAT_col.index('PLN')
-
-            new_line = np.zeros(sample_no, dtype=object)
-            genotypes = np.chararray(sample_no, itemsize=3)
-
-            for s_i, s_rec_raw in enumerate(line_cols[9:]):
-                s_rec = s_rec_raw.split(':')
-
-                if monovar:
-                    gq = int(s_rec[3])
-                    dp = s_rec[2]
-                    tg = ''
-                else:
-                    gt = s_rec[0]
-                    dp = s_rec[1]
-                    rc = s_rec[2]
-                    g10 = s_rec[3]
-                    tg = s_rec[-1]
-                    if len(FORMAT_col) == len(s_rec):
-                        pln = np.array([-float(i) \
-                            for i in s_rec[PLN_col].split(',')])
-                        gq = min(99, sorted(pln - pln.min())[1])
-                        pl = ','.join([str(max(int(i), -999)) \
-                            for i in s_rec[PLN_col - 1].split(',')])
-                    else:
-                        gq = -1
-                        pl = '.'
-                
-                if int(dp) < minDP or gq < minGQ:
-                    new_line[s_i] = missing + tg
-                else:
-                    if monovar:
-                        new_line[s_i] = s_rec_raw
-                    else:
-                        new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
-                            .format(gt, dp, rc, g10, pl, gq, tg)
-
-            filter_str = line_cols[6]
-            if s_filter:
-                diff_gt, diff_count = np.unique(genotypes[:-1], return_counts=True)
-                # Only one genotype detected
-                if len(diff_gt) == 1:
-                    if diff_gt[0] == b'0|0':
-                        filter_str = 'singleton'
-                # Two different genotypes detected
-                elif len(diff_gt) == 2:
-                    # But one out of the two is just detected in one cell
-                    if min(diff_count) == 1:
-                        filter_str = 'singleton'
-                else:
-                    if not any([i > 1 for i in sorted(diff_count)[:-1]]):
-                        filter_str = 'singleton'
-
-            body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
-                    .format(filter_str, line_cols[7], format_short) \
-                + '\t'.join(new_line) + '\n'
-
-    with open(out_file, 'w') as f_out:
-        f_out.write('{}{}'.format(header, body))
-
-
 def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
         sample_names=[]):
     import tempfile
@@ -988,58 +880,6 @@ def get_marginal_ll_str(h0, h1):
     return out_str, logB_01, evidence_flag
 
 
-
-def get_LRT(masterfile, out_file, cell_no, alpha=0.05):
-    from scipy.stats.distributions import chi2
-
-    with open(masterfile, 'r') as f_master:
-        in_files = f_master.read().strip().split('\n')
-
-    scores = {}
-    for in_file in in_files:
-        _, run, _, model, _, _ = os.path.basename(in_file).split('.')
-        with open(in_file, 'r') as f_score:
-            score_raw = f_score.read().strip().split('\n')
-        try:
-            score = -float(score_raw[-1].split('\t')[1])
-        except (ValueError, IndexError):
-            print(f'Cannot read: {in_file}')
-            continue
-
-        if not run in scores:
-            scores[run] ={'clock': -1, 'noClock': -1}
-        scores[run][model] = score
-
-    out_str = ''
-    avg = [[], [], [], 0, 0]
-    for run, run_info in sorted(scores.items()):
-        h0 = run_info['clock']
-        h1 = run_info['noClock']
-        if h0 == -1 or h1 == -1:
-            continue
-
-        LR = -2 * (h0 - h1)
-        p_val = chi2.sf(LR, cell_no - 2)
-        if p_val < alpha:
-            hyp = 'H1'
-            avg[4] += 1
-        else:
-            hyp = 'H0'
-            avg[3] += 1
-
-        avg[0].append(h0)
-        avg[1].append(h1)
-        avg[2].append(p_val)
-
-        out_str += f'{run}\t{h0:.1f}\t{h1:.1f}\t{p_val:.2E}\t{hyp}\n'
-
-    with open(out_file, 'w') as f_out:
-        f_out.write('run\tH0:clock\tH1:noClock\tp-value\thypothesis\n')
-        f_out.write(out_str)
-        f_out.write(f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t'
-            f'H0:{avg[3]};H1:{avg[4]}\n')
-
-
 def get_muts_per_cell(vcf_file):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
@@ -1091,13 +931,14 @@ def test_poisson(in_files, out_file, alpha=0.05):
     out_str = ''
     for in_file in in_files:
         run = re.search('\d\d\d\d', os.path.basename(in_file)).group()
-        new_muts = np.array(get_muts_per_cell(in_file))
+        muts = np.array(get_muts_per_cell(in_file))
 
-        mean_muts = mean(new_muts)
+        mean_muts = muts.mean()
 
-        LR = 2 * np.sum(new_muts * np.log(new_muts / new_muts.mean()))
+        LR = 2 * np.sum(muts * np.log(muts / mean_muts))
+        # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
         avg[0].append(LR)
-        p_val = chi2.sf(LR, len(new_muts) - 1)
+        p_val = chi2.sf(LR, len(muts) - 1)
         avg[1].append(p_val)
         if p_val < alpha:
             hyp = 'H1'
@@ -1365,18 +1206,24 @@ def generate_mrbayes_plots(in_file, out_file, regress=False):
     plt.close()
 
 
-def generate_pval_plot(in_file, out_file):
+def generate_pval_plot(in_file, out_file, p_val_filter=1):
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
 
-    df = pd.read_csv(in_file, sep='\t')    
+    df = pd.read_csv(in_file, sep='\t', engine='python', skipfooter=1)
     fig, ax = plt.subplots(figsize=(16, 12))
 
-    ax.hist(df['p-value'], bins=100, range=(0, 1))
-    ax.set_ylabel(f'counts (n={df.shape[0]})', fontsize=LABEL_FONTSIZE)
+    p_vals = df[df['p-value'] <= p_val_filter]['p-value']
+    if p_val_filter < 1:
+        print('Removed p-values: {} / {}' \
+            .format(df.shape[0] - p_vals.size, df.shape[0]))
+    # p_vals = df['p-value']
+
+    ax.hist(p_vals, bins=100, range=(0, 1))
+    ax.set_ylabel(f'counts (n={p_vals.size})', fontsize=LABEL_FONTSIZE)
     ax.set_xlabel('p-values', fontsize=LABEL_FONTSIZE)
-    
+    ax.set_xlim([-0.01, 1.01])
     fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92,
         hspace=0.5)
     if out_file:
@@ -1409,7 +1256,7 @@ def parse_args():
         help='Absolute or relative path(s) to input file(s)')
     parser.add_argument('-f', '--format', type=str,  default='nxs',
         choices=['nxs', 'mpileup', 'ref', 'bayes', 'LRT', 'poisson', 'plot',
-        'steps', 'pval', 'scite', 'post'],
+        'steps', 'pval', 'scite'],
         help='Output format to convert to. Default = "nxs".')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory/file. Default = <INPUT_DIR>.')
@@ -1473,10 +1320,6 @@ if __name__ == '__main__':
         haplotypes_to_vcf(args.input[0], out_file)
     elif args.format == 'steps':
         convert_steps(args.input, args.steps)
-    elif args.format == 'LRT':
-        if args.no_cells < 1:
-            raise IOError('For LRT, the number of cells must be specified!')
-        get_LRT(args.input[0], args.output, args.no_cells + 1)
     elif args.format == 'bayes':
         if args.output == os.path.dirname(args.input[0]):
             out_file = os.path.join(args.output, 'clock_test_summary.tsv')
@@ -1491,8 +1334,5 @@ if __name__ == '__main__':
         test_poisson(args.input, out_file)
     elif args.format == 'scite':
         run_scite_subprocess(args.exe, args.steps[0], args.input[0])
-    elif args.format == 'post':
-        postprocess_vcf(args.input[0], args.output, minDP=args.minDP,
-            minGQ=args.minGQ, s_filter=args.filter_singletons)
     else:
         raise IOError('Unknown format type: {}'.format(args.format))

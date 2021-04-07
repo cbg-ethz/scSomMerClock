@@ -5,9 +5,12 @@ import sys
 import yaml
 from utils import *
 
+SCRIPT_DIR = 'scripts'
+
 MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
+
 
 scheduler = config.get('scheduler', None)
 
@@ -89,11 +92,9 @@ rule postprocess_vcf:
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
-        singletons = '-fs' if config.get('SNP_filter', {}) \
-            .get('singletons', False) else '',
-    shell:
-        'python utils.py {input} -f post -o {output} -gq {params.gq} '
-        '-dp {params.dp} {params.singletons}'
+        singletons = config.get('SNP_filter', {}).get('singletons', False),
+    script:
+        f'{SCRIPT_DIR}/postprocess_vcf.py'
 
 
 rule get_true_GT:
@@ -327,8 +328,8 @@ rule run_PAUP:
         os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}', 
             'nxs.{run}.0.{model}')
     output:
-        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
-            'paup.{run}.0.{model}.PAUP.score')
+        temp(os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
+            'paup.{run}.0.{model}.PAUP.score'))
     params:
         prefix = lambda wildcards: os.sep.join([out_dir, filter_dir,
             'paup_dir_{wildcards.tree}'.format(wildcards=wildcards)]), 
@@ -336,7 +337,8 @@ rule run_PAUP:
     shell:
         'mkdir -p {params.prefix} && '
         '{params.paup_exe} -n {input} > '
-        '{params.prefix}/paup.{wildcards.run}.{wildcards.model}.log'
+        '{params.prefix}/paup.{wildcards.run}.{wildcards.model}.log && '
+        'rm {params.prefix}/paup.{wildcards.run}.{wildcards.model}.log'
 
 
 def get_paup_input(wildcards):
@@ -354,20 +356,9 @@ def get_paup_input(wildcards):
     return in_files
 
 
-rule prepare_paup_merging:
-    input:
-        get_paup_input
-    output:
-        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}', 'masterfile.txt')
-    run:
-        with open(output[0], 'w') as f_out:
-            for in_file in input:
-                f_out.write(in_file + '\n')
-
-
 rule merge_paup_results:
     input:
-        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}', 'masterfile.txt')
+        get_paup_input
     output:
         os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
             'paup.clock_test_summary.tsv')
@@ -377,11 +368,9 @@ rule merge_paup_results:
     resources:
         mem_mb = 2048
     params:
-        no_cells = config['cellcoal']['model']['no_cells'],
-    shell:
-        'python utils.py {input} -f LRT -o {output} -nc {params.no_cells} && '
-        'tail -n 1 {output}'
-
+        no_cells = config['cellcoal']['model']['no_cells'] + 1,
+    script:
+        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
 
 
 # ------------------------------- POISSON --------------------------------------
@@ -406,8 +395,8 @@ rule run_poisson_test:
         'scipy/1.4.1-python-3.7.7',
     resources:
         mem_mb = 2048
-    shell:
-        'python utils.py {input} -f poisson -o {output} && tail -n 1 {output}'
+    script:
+        f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
 
 # -------------------------------- SIEVE ---------------------------------------
