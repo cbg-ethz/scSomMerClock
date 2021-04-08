@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import sys
-import yaml
-from utils import *
+from scripts.utils import get_out_dir
 
 SCRIPT_DIR = 'scripts'
 
 MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
-
 
 scheduler = config.get('scheduler', None)
 
@@ -55,14 +52,11 @@ rule create_cellcoal_config:
     params:
         template = config['cellcoal'] \
             .get('parameter', 'cellcoal_parameters.template'),
+        out_dir = out_dir,
     resources:
         mem_mb = 1024
-    run:
-        cc_config = get_cellcoal_config(config, params.template, out_dir)
-        with open(output.cellcoal, 'w') as f:
-            f.write(cc_config)
-        with open(output.snakemake, 'w') as f_yaml:
-            yaml.dump(config, f_yaml)
+    script:
+        f'{SCRIPT_DIR}/get_cellcoal_config.py'
 
 
 rule run_cellcoal:
@@ -104,8 +98,8 @@ rule get_true_GT:
         os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
     resources:
         mem_mb = 4096
-    run:
-        haplotypes_to_vcf(input[0], output[0])
+    script:
+        f'{SCRIPT_DIR}/convert_haplotype_to_vcf.py'
 
 
 def get_nex_input(wildcards):
@@ -142,9 +136,8 @@ rule vcf_to_nex:
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    run:
-        vcf_to_nex(input.vcf, output, wildcards.steps, ss_flag=params.ss,
-            tree=input.tree, paup_exe=params.paup_exe)
+    script:
+        f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
 
 
 # ------------------------------- MONOVAR --------------------------------------
@@ -158,8 +151,8 @@ rule vcf_to_mpileup:
         s_types = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
     resources:
         mem_mb = 4096
-    run:
-        vcf_to_pileup(input[0], output.pileup, output.samples)
+    script:
+        f'{SCRIPT_DIR}/convert_vcf_to_pileup.py'
 
 
 rule run_monovar:
@@ -192,11 +185,9 @@ rule postprocess_monovar:
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
-        singletons = '-fs' if config.get('SNP_filter', {}) \
-            .get('singletons', False) else '',
-    shell:
-        'python utils.py {input} -f post -o {output} -gq {params.gq} '
-        '-dp {params.dp} {params.singletons}'
+        singletons = config.get('SNP_filter', {}).get('singletons', False),
+    script:
+        f'{SCRIPT_DIR}/postprocess_vcf.py'
 
 
 # -------------------------------- SCITE ---------------------------------------
@@ -223,9 +214,8 @@ rule run_scite:
     params:
         steps = config['tree']['scite'].get('steps', 1E6),
         exe = config['tree']['scite'].get('exe', './infSCITE'),
-    shell:
-        'python utils.py {input} -f scite -e {params.exe} -s {params.steps} && '
-        'rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv'
+    script:
+        f'{SCRIPT_DIR}/run_scite.py'
 
 
 # ------------------------------- CELLPHY --------------------------------------
@@ -299,7 +289,7 @@ rule run_mrbayes:
         mb_exe = config['mrbayes']['exe'] if not scheduler else 'mpirun mb',
     shell:
         'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
-        '{params.mb_exe} nxs_dir_{wildcards.etree}/nxs.{params.model_str} > '
+        '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{params.model_str} > '
         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.log && '
         'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.* '
         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.pstat'
@@ -317,8 +307,8 @@ rule merge_mrbayes_results:
         mem_mb=2048
     params:
         ss = '-ss' if config.get('mrbayes', {}).get('ss', False) else '',
-    shell:
-        'python utils.py {input} -f bayes -o {output} {params.ss}'
+    script:
+        f'{SCRIPT_DIR}/get_MrBayes_BF.py'
 
 
 # -------------------------------- PAUP ----------------------------------------
@@ -375,7 +365,6 @@ rule merge_paup_results:
 
 # ------------------------------- POISSON --------------------------------------
 
-
 def get_poisson_input(wildcards):
     if config.get('monovar', {}).get('run', False):
         return [os.path.join(out_dir, filter_dir, 'vcf_dir', 
@@ -390,7 +379,8 @@ rule run_poisson_test:
         get_poisson_input
     output:
         os.path.join(out_dir, filter_dir, 'poisson.clock_test_summary.tsv')
-    conda: 'envs/monovar.yaml'
+    conda:
+        'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
     resources:
@@ -443,10 +433,10 @@ rule run_sieve_data_collector:
 def get_nex_input(wildcards):
     if wildcards.tree == 'scite':
         return os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}_ml0.newick'.format(wildcards=wildcards))
+            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
     elif wildcards.tree == 'cellphy':
         return os.path.join(out_dir, filter_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.raxml.bestTree.rooted' \
+            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
                 .format(wildcards=wildcards))
     else:
         return os.path.join(out_dir, 'trees_dir',
@@ -459,9 +449,10 @@ rule get_sieve_tree:
     output:
         os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}')   
     params:
-        cells = config['cellcoal']['model']['no_cells']
-    run:
-        get_sieve_tree(input[0], output[0], params.cells)
+        cells = config['cellcoal']['model']['no_cells'],
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    script:
+        f'{SCRIPT_DIR}/get_sieve_tree.py'
 
 
 rule get_sieve_final_xml:
@@ -475,9 +466,8 @@ rule get_sieve_final_xml:
             'sieve_{model}_{tree}.xml')
     params:
         steps = config['sieve']['steps']    
-    run:
-        get_sieve_xml(input.xml, input.tree, input.samples, wildcards.model,
-            params.steps, output[0])
+    script:
+        f'{SCRIPT_DIR}/get_sieve_xml.py'
 
 
 rule run_NS_converter:
