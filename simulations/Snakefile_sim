@@ -479,9 +479,10 @@ rule run_NS_converter:
             'NS_sieve_{model}_{tree}.xml')
     params:
         beast = config['sieve']['beast_bin'],
+        particles = config['sieve'].get('particleCount', 5)
     shell:
         '{params.beast}/applauncher MCMC2NS -xml {input} -output {output} '
-        '-particleCount 1'
+        '-particleCount {params.particles}'
 
 
 rule run_sieve:
@@ -491,7 +492,12 @@ rule run_sieve:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}_final')
-    threads: 2
+    threads: 4
+    envmodules:
+        'jdk/8u181',
+    resources:
+        mem_mb = 2048,
+        runtime = 240,
     params:
         beast = config['sieve']['beast_bin'],
     shell:

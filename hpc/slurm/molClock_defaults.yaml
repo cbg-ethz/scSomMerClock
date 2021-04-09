@@ -106,7 +106,7 @@ unroot_scite_tree:
 
 
 run_cellphy:
-  time: 60
+  time: 90
 
 root_cellphy_tree:
   time: 5

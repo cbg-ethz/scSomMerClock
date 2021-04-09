@@ -2,7 +2,7 @@
 <beast beautistatus="" beautitemplate="Standard" namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.evolution.errormodel:beast.evolution.likelihood" required="" version="2.6">
             
     
-    <data ascertained="none" dataType="full supports-coverage" id="alignment" spec="beast.evolution.alignment.ScsAlignment">
+    <data ascertained="none" dataType="full supports-coverage" id="alignment" spec="beast.evolution.alignment.ScsAlignment" bgInfoSanityCheck="true">
         
     </data>
             
@@ -51,9 +51,9 @@
             {tree}
                                                
             <!-- coalescent tree parameters -->
-            <parameter id="ePopSize" lower="1.0E-5" name="stateNode" spec="parameter.RealParameter" upper="1.0E3">1.0</parameter>
+            <parameter id="ePopSize" name="stateNode" spec="parameter.RealParameter">0.3</parameter>
                                     
-            <parameter id="growthRate" lower="0.0" name="stateNode" spec="parameter.RealParameter">1.0E-5</parameter>
+            <parameter id="growthRate" name="stateNode" spec="parameter.RealParameter">1.0E-5</parameter>
                                     
             
             <!-- evolutionary model parameters -->
@@ -76,9 +76,10 @@
             <parameter id="gammaShape" lower="0.0" name="stateNode" spec="parameter.RealParameter">1.0</parameter>
                     
             <!-- Relaxed clock rate -->
-            <stateNode id="rateCategories" spec="parameter.IntegerParameter" dimension="{branch_no}">1</stateNode>
-
+            
             <parameter id="ucldStdev" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.1</parameter>
+
+            <parameter id="rateCategories" spec="parameter.IntegerParameter" dimension="{branch_no}" name="stateNode">1</parameter>
 
         </state>
                         
@@ -119,13 +120,15 @@
                 
                 <prior id="ePopSizePrior" name="distribution" x="@ePopSize">
                                                             
-                    <LogNormal id="ePopSizeDist" meanInRealSpace="false" name="distr">
+                    <!-- <LogNormal id="ePopSizeDist" meanInRealSpace="false" name="distr">
                                                                         
                         <parameter estimate="false" id="ePopSizeDistRealParameter.1" name="M" spec="parameter.RealParameter">1.0E-3</parameter>
                                                                         
                         <parameter estimate="false" id="ePopSizeDistRealParameter.2" name="S" spec="parameter.RealParameter">3.53</parameter>
                                                                     
-                    </LogNormal>
+                    </LogNormal> -->
+
+                    <OneOnX id="ePopSizeDist" name="distr"/>
 
                 </prior>
                                                 
@@ -134,17 +137,16 @@
                                                             
                     <LaplaceDistribution id="growthRateDist" name="distr">
                                                                         
-                        <parameter estimate="false" id="growthRateDistRealParameter.1" name="mu" spec="parameter.RealParameter">0.0</parameter>
+                        <parameter id="growthRateDistRealParameter.1" spec="parameter.RealParameter" estimate="false" name="mu">0.001</parameter>
                                                                         
-                        <parameter estimate="false" id="growthRateDistRealParameter.2" name="scale" spec="parameter.RealParameter">2.246424480969801</parameter>
+                        <parameter id="growthRateDistRealParameter.2" spec="parameter.RealParameter" estimate="false" name="scale">30.701135</parameter>
 
                     </LaplaceDistribution>
 
                 </prior>
                                                 
-                
-                <!-- evolutionary model prior -->
-                                                
+
+                <!-- evolutionary model prior -->            
                 
                 <!--prior id="deletionRatePrior" name="distribution" x="@deletionRate">
                                         
@@ -169,10 +171,9 @@
                     </LogNormal>
                                     
                 </prior-->
-                                                
+                                             
                 
-                <!-- error model prior -->
-                                                
+                <!-- error model prior -->                              
                 
                 <prior id="seqErrorRatePrior" name="distribution" x="@seqErrorRate">
                     
@@ -228,7 +229,7 @@
                 </prior>
                                             
             
-                <!-- Relaxed clock priors -->
+                <!-- Branch rate model prior -->
                 {priors}
 
 
@@ -275,9 +276,9 @@
         
         <!-- tree operators -->
 
-        <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.05" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
+        <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
                         
-        <operator id="CoalescentExponentialTreeRootScaler" optimise="true" rootOnly="true" scaleFactor="0.05" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
+        <operator id="CoalescentExponentialTreeRootScaler" optimise="true" rootOnly="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
                         
         <operator id="CoalescentExponentialUniformOperator" spec="ScsUniform" tree="@tree" weight="30.0"/>
                         
@@ -291,6 +292,7 @@
                         
     
         <!-- coalescent process parameters operators -->
+
         <operator id="ePopSizeScaler" optimise="true" parameter="@ePopSize" scaleFactor="0.75" spec="ScaleOperator" weight="3.0"/>
                         
         
@@ -298,12 +300,14 @@
                         
         
         <!-- evolutionary model parameters operators -->
+
         <!--operator id="deletionRateScaler" parameter="@deletionRate" scaleFactor="0.5" spec="ScaleOperator" weight="0.1" optimise="true"/>
                 
         <operator id="insertionRateScaler" parameter="@insertionRate" scaleFactor="0.5" spec="ScaleOperator" weight="0.1"/-->
                         
         
         <!-- error model operators -->
+
         <operator id="seqErrorRateScaler" optimise="true" parameter="@seqErrorRate" scaleFactor="0.5" spec="ScaleOperator" weight="3.0"/>
                         
         
@@ -317,6 +321,7 @@
                         
         
         <!-- site-wise rate variation operator -->
+
         <operator id="gammaShapeScaler" optimise="true" parameter="@gammaShape" scaleFactor="0.5" spec="ScaleOperator" weight="1.0"/>
 
         <!-- CLock operators  -->
@@ -333,7 +338,8 @@
             <log idref="prior"/>
             <log idref="treeLikelihood"/>
             <!-- <log idref="backgroundLikelihood"/> -->
-            <log id="treeHeight" spec="beast.evolution.tree.TreeHeightLogger" tree="@tree"/>
+            <log id="treeHeight" spec="beast.evolution.tree.TreeStatLogger" tree="@tree" logLength="false"/>
+            <log idref="coalescentExponential"/>
             <log idref="ePopSize"/>
             <log idref="growthRate"/>
             <!--log idref="deletionRate"/>            
@@ -369,6 +375,7 @@
             <log id="ScsCoverageRawVarianceLogger" spec="beast.evolution.errormodel.ScsCoverageRawVarianceLogger" treeLikelihood="@treeLikelihood"/>
         </logger>
 
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
 
     </run>
         

@@ -63,30 +63,30 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
         br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
     else:
         prior_node = """<prior id="ucldStdevPrior" name="distribution" x="@ucldStdev">
-                    <Gamma id="Gamma.0" name="distr">
-                        <parameter estimate="false" id="RealParameter.6" name="alpha" spec="parameter.RealParameter">0.5396</parameter>
-                        <parameter estimate="false" id="RealParameter.7" name="beta" spec="parameter.RealParameter">0.3819</parameter>
+                    <Gamma id="ucldStdevDist" name="distr">
+                        <parameter estimate="false" id="ucldStdevDistRealParameter.1" name="alpha" spec="parameter.RealParameter">0.5396</parameter>
+                        <parameter estimate="false" id="ucldStdevDistRealParameter.2" name="beta" spec="parameter.RealParameter">0.3819</parameter>
                     </Gamma>
                 </prior>"""
         model_node = """<branchRateModel id="RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree">
                         <LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
-                            <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
+                            <parameter id="LogNormalDistributionModelRealParameter" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
                         </LogNormal>
                         <parameter id="ucldMean" spec="parameter.RealParameter" estimate="false" name="clock.rate">1.0</parameter>
                     </branchRateModel>"""
         op_node = """<operator id="ucldStdevScaler" spec="ScaleOperator" parameter="@ucldStdev" scaleFactor="0.5" weight="3.0"/>
 
-        <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="5.0" windowSize="1"/>
+        <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="10.0" windowSize="1"/>
 
-        <operator id="CategoriesSwapOperator" spec="SwapOperator" intparameter="@rateCategories" weight="5.0"/>
+        <operator id="CategoriesSwapOperator" spec="SwapOperator" intparameter="@rateCategories" weight="10.0"/>
 
-        <operator id="CategoriesUniform" spec="UniformOperator" parameter="@rateCategories" weight="5.0"/>
+        <operator id="CategoriesUniform" spec="UniformOperator" parameter="@rateCategories" weight="10.0"/>
 """
 
         log_node = """<log idref="ucldStdev"/>
             <log id="rate" spec="beast.evolution.branchratemodel.RateStatistic" branchratemodel="@RelaxedClock" tree="@tree"/>
 """
-        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" branchratemodel="@RelaxedClock"/>'
+        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" substitutions="true" branchratemodel="@RelaxedClock" tree="@tree"/>'
 
     templ = re.sub('{priors}', prior_node, templ)
     templ = re.sub('{model}', model_node, templ)
