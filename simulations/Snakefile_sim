@@ -421,6 +421,8 @@ rule run_sieve_data_collector:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml')
+    envmodules:
+        'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         xml = config['sieve']['xml']
@@ -477,6 +479,8 @@ rule run_NS_converter:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
+    envmodules:
+        'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         particles = config['sieve'].get('particleCount', 5)
