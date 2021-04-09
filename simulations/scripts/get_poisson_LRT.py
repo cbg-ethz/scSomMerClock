@@ -6,12 +6,13 @@ import numpy as np
 from scipy.stats.distributions import chi2
 
 
-def get_muts_per_cell(vcf_file):
+def get_muts_per_cell(vcf_file, exclude):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
         file_stream = open(vcf_file, 'r')
 
+    exclude_i = []
     with file_stream as f_in:
         for line in f_in:
             # Skip VCF header lines
@@ -20,6 +21,16 @@ def get_muts_per_cell(vcf_file):
                 if line.startswith('#CHROM'):
                     sample_names = line.strip().split('\t')[9:]
                     samples = [0 for i in range(len(sample_names))]
+
+                    for s_exclude in exclude:
+                        try:
+                            exclude_i.append(sample_names.index(s_exclude))
+                        except:
+                            pass
+                    if len(exclude_i) == 0:
+                        print('\nWARNING: exclude samples {} not in vcf!\n' \
+                            .format(','.join(exclude)))
+
                 continue
             elif line.strip() == '':
                 continue
@@ -47,15 +58,19 @@ def get_muts_per_cell(vcf_file):
                 # if gt_pred != gt_true and gt_pred != gt_true[::-1]:
                 #     print('True GT: {}; inferred GT: {}'.format(gt_true, gt_pred))
 
+    # Remove excluded samples
+    for i in exclude_i:
+        samples.pop(i)
+
     return samples
 
 
-def test_poisson(in_files, out_file, alpha=0.05):
+def test_poisson(in_files, out_file, exclude=[], alpha=0.05):
     avg = [[], [], 0, 0]
     out_str = ''
     for in_file in in_files:
         run = os.path.basename(in_file).split('.')[1]
-        muts = np.array(get_muts_per_cell(in_file))
+        muts = np.array(get_muts_per_cell(in_file, exclude))
 
         mean_muts = muts.mean()
 
@@ -88,14 +103,17 @@ def parse_args():
     parser.add_argument('-o', '--output', type=str, help='Output file.')
     parser.add_argument('-a', '--alpha', type=float, default=0.05,
         help='Significance threshold. Default = 0.05.')
+    parser.add_argument('-e', '--exclude', type=str, nargs='+', default=[],
+        help='Sampels to exclude from LRT test,')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        test_poisson(snakemake.input, snakemake.output[0])
+        test_poisson(snakemake.input, snakemake.output[0],
+            snakemake.params.exclude)
     else:
         import argparse
         args = parse_args()
-        test_poisson(args.input, args.output, args.alpha)
+        test_poisson(args.input, args.output, args.exclude, args.alpha)

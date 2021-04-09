@@ -385,6 +385,8 @@ rule run_poisson_test:
         'scipy/1.4.1-python-3.7.7',
     resources:
         mem_mb = 2048
+    params:
+        exclude = config['poisson'].get('exclude', [])
     script:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
@@ -399,7 +401,7 @@ rule run_sciphi:
         os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
             'readCounts.tsv')
     resources:
-        mem_mb=4048
+        mem_mb = 4048
     envmodules:
         'gcccore/6.4.0',
         'boost/1.73.0-python-3.7.7',
