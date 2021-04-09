@@ -427,9 +427,9 @@ rule run_sieve_data_collector:
         beast = config['sieve']['beast_bin'],
         xml = config['sieve']['xml']
     shell:
-        '{params.beast}/applauncher DataCollectorLauncher -prefix '
-        '{out_dir}/sieve_dir/xml.{wildcards.run}/ -cell {input.samples} -sciphi '
-        '-data {input.read_counts} -template {params.xml}'
+        'unset DISPLAY && {params.beast}/applauncher DataCollectorLauncher '
+        '-prefix {out_dir}/sieve_dir/xml.{wildcards.run}/ -cell {input.samples} '
+        '-sciphi -data {input.read_counts} -template {params.xml}'
 
 
 def get_nex_input(wildcards):
@@ -485,8 +485,8 @@ rule run_NS_converter:
         beast = config['sieve']['beast_bin'],
         particles = config['sieve'].get('particleCount', 5)
     shell:
-        '{params.beast}/applauncher MCMC2NS -xml {input} -output {output} '
-        '-particleCount {params.particles}'
+        'unset DISPLAY && {params.beast}/applauncher MCMC2NS -xml {input} '
+        '-output {output} -particleCount {params.particles}'
 
 
 rule run_sieve:

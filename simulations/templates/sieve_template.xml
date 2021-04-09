@@ -276,9 +276,9 @@
         
         <!-- tree operators -->
 
-        <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
+<!--         <operator id="CoalescentExponentialTreeScaler" optimise="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
                         
-        <operator id="CoalescentExponentialTreeRootScaler" optimise="true" rootOnly="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/>
+        <operator id="CoalescentExponentialTreeRootScaler" optimise="true" rootOnly="true" scaleFactor="0.01" spec="ScsTreeScaleOperator" tree="@tree" weight="3.0"/> -->
                         
         <operator id="CoalescentExponentialUniformOperator" spec="ScsUniform" tree="@tree" weight="30.0"/>
                         
