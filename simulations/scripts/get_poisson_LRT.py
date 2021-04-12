@@ -62,7 +62,7 @@ def get_muts_per_cell(vcf_file, exclude):
                 #     print('True GT: {}; inferred GT: {}'.format(gt_true, gt_pred))
 
     # Remove excluded samples
-    for i in exclude_i:
+    for i in sorted(exclude_i, reverse=True):
         samples.pop(i)
 
     return samples
