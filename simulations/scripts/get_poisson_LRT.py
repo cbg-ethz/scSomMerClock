@@ -69,7 +69,7 @@ def get_muts_per_cell(vcf_file, exclude):
 
 
 def test_poisson(in_files, out_file, exclude='', alpha=0.05):
-    avg = [[], [], 0, 0]
+    avg = [[], [], [], 0, 0]
     out_str = ''
     for in_file in in_files:
         run = os.path.basename(in_file).split('.')[1]
@@ -80,8 +80,10 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
         LR = 2 * np.sum(muts * np.log(muts / mean_muts))
         # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
         avg[0].append(LR)
-        p_val = chi2.sf(LR, len(muts) - 1)
-        avg[1].append(p_val)
+        dof = len(muts) - 1
+        avg[1].append(LR)
+        p_val = chi2.sf(LR, dof)
+        avg[2].append(p_val)
         if p_val < alpha:
             hyp = 'H1'
             avg[2] += 1
@@ -89,10 +91,10 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
             hyp = 'H0'
             avg[3] += 1
 
-        out_str += f'{run}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}\n'
+        out_str += f'{run}\t{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
 
-    avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):.2E}\t' \
-            f'H0:{avg[3]};H1:{avg[2]}\n'
+    avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>3.1f}\t' \
+            f'{mean(avg[1]):.2E}\tH0:{avg[3]};H1:{avg[2]}\n'
     with open(out_file, 'w') as f_out:
         f_out.write('run\t-2logLR\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)
