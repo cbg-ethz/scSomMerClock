@@ -81,7 +81,7 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
         # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
         avg[0].append(LR)
         dof = len(muts) - 1
-        avg[1].append(LR)
+        avg[1].append(dof)
         p_val = chi2.sf(LR, dof)
         avg[2].append(p_val)
         if p_val < alpha:
@@ -96,7 +96,7 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
     avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>3.1f}\t' \
             f'{mean(avg[2]):.2E}\tH0:{avg[4]};H1:{avg[3]}\n'
     with open(out_file, 'w') as f_out:
-        f_out.write('run\t-2logLR\tp-value\thypothesis\n')
+        f_out.write('run\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)
 
     print(avg_line)
