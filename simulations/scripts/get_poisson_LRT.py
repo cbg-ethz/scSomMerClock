@@ -86,10 +86,10 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
         avg[2].append(p_val)
         if p_val < alpha:
             hyp = 'H1'
-            avg[2] += 1
+            avg[3] += 1
         else:
             hyp = 'H0'
-            avg[3] += 1
+            avg[4] += 1
 
         out_str += f'{run}\t{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
 
