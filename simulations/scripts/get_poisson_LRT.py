@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 from statistics import mean, stdev
 import numpy as np
 from scipy.stats.distributions import chi2
@@ -22,18 +23,20 @@ def get_muts_per_cell(vcf_file, exclude):
                     sample_names = line.strip().split('\t')[9:]
                     samples = [0 for i in range(len(sample_names))]
 
-                    for s_exclude in exclude:
-                        try:
-                            exclude_i.append(sample_names.index(s_exclude))
-                        except:
-                            pass
-                    if len(exclude_i) == 0:
-                        print('\nWARNING: exclude samples {} not in vcf!\n' \
-                            .format(','.join(exclude)))
-
+                    if exclude != '':
+                        print('Exluded:')
+                        for s_i, sample in enumerate(sample_names):
+                            if re.fullmatch(exclude, sample):
+                                exclude_i.append(s_i)
+                                print('\t{}'.format(sample))
+                        if len(exclude_i) == 0:
+                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
+                                .format(exclude))
                 continue
+
             elif line.strip() == '':
                 continue
+
             # VCF records
             line_cols = line.strip().split('\t')
             bases = [line_cols[3]] + line_cols[4].split(',')
@@ -65,7 +68,7 @@ def get_muts_per_cell(vcf_file, exclude):
     return samples
 
 
-def test_poisson(in_files, out_file, exclude=[], alpha=0.05):
+def test_poisson(in_files, out_file, exclude='', alpha=0.05):
     avg = [[], [], 0, 0]
     out_str = ''
     for in_file in in_files:
@@ -103,8 +106,8 @@ def parse_args():
     parser.add_argument('-o', '--output', type=str, help='Output file.')
     parser.add_argument('-a', '--alpha', type=float, default=0.05,
         help='Significance threshold. Default = 0.05.')
-    parser.add_argument('-e', '--exclude', type=str, nargs='+', default=[],
-        help='Sampels to exclude from LRT test,')
+    parser.add_argument('-e', '--exclude', type=str, default='',
+        help='Regex pattern for samples to exclude from LRT test,')
     args = parser.parse_args()
     return args
 
