@@ -22,7 +22,6 @@ def get_muts_per_cell(vcf_file, exclude, include):
                 if line.startswith('#CHROM'):
                     sample_names = line.strip().split('\t')[9:]
                     samples = [0 for i in range(len(sample_names))]
-
                     if exclude != '':
                         print('Exluded:')
                         for s_i, sample in enumerate(sample_names):
@@ -74,7 +73,9 @@ def get_muts_per_cell(vcf_file, exclude, include):
     # Remove excluded samples
     for i in sorted(exclude_i, reverse=True):
         samples.pop(i)
-
+    # Sanity check: remove sample without any call
+    samples = [i for i in samples if i]
+    
     return samples
 
 
