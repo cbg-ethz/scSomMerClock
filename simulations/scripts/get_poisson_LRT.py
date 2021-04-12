@@ -7,7 +7,7 @@ import numpy as np
 from scipy.stats.distributions import chi2
 
 
-def get_muts_per_cell(vcf_file, exclude):
+def get_muts_per_cell(vcf_file, exclude, include):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -32,6 +32,16 @@ def get_muts_per_cell(vcf_file, exclude):
                         if len(exclude_i) == 0:
                             print('\nWARNING: no samples with pattern {} in vcf!\n' \
                                 .format(exclude))
+                    if include != '':
+                        print('Include:')
+                        for s_i, sample in enumerate(sample_names):
+                            if not re.fullmatch(include, sample):
+                                exclude_i.append(s_i)
+                            else:
+                                print('\t{}'.format(sample))
+                        if len(exclude_i) == 0:
+                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
+                                .format(include))
                 continue
 
             elif line.strip() == '':
@@ -68,12 +78,12 @@ def get_muts_per_cell(vcf_file, exclude):
     return samples
 
 
-def test_poisson(in_files, out_file, exclude='', alpha=0.05):
+def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
     avg = [[], [], [], 0, 0]
     out_str = ''
     for in_file in in_files:
         run = os.path.basename(in_file).split('.')[1]
-        muts = np.array(get_muts_per_cell(in_file, exclude))
+        muts = np.array(get_muts_per_cell(in_file, exclude, include))
 
         mean_muts = muts.mean()
 
@@ -110,6 +120,8 @@ def parse_args():
         help='Significance threshold. Default = 0.05.')
     parser.add_argument('-e', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
+    parser.add_argument('-i', '--include', type=str, default='',
+        help='Regex pattern for samples to include from LRT test,')
     args = parser.parse_args()
     return args
 
@@ -121,4 +133,5 @@ if __name__ == '__main__':
     else:
         import argparse
         args = parse_args()
-        test_poisson(args.input, args.output, args.exclude, args.alpha)
+        test_poisson(args.input, args.output, args.exclude, args.include,
+            args.alpha)
