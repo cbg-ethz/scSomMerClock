@@ -94,7 +94,7 @@ def test_poisson(in_files, out_file, exclude='', alpha=0.05):
         out_str += f'{run}\t{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
 
     avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>3.1f}\t' \
-            f'{mean(avg[1]):.2E}\tH0:{avg[3]};H1:{avg[2]}\n'
+            f'{mean(avg[2]):.2E}\tH0:{avg[4]};H1:{avg[3]}\n'
     with open(out_file, 'w') as f_out:
         f_out.write('run\t-2logLR\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)
