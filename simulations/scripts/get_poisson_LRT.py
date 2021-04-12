@@ -37,7 +37,8 @@ def get_muts_per_cell(vcf_file, exclude, include):
                             if not re.fullmatch(include, sample):
                                 exclude_i.append(s_i)
                             else:
-                                print('\t{}'.format(sample))
+                                if not re.fullmatch(exclude, sample):
+                                    print('\t{}'.format(sample))
                         if len(exclude_i) == 0:
                             print('\nWARNING: no samples with pattern {} in vcf!\n' \
                                 .format(include))
@@ -73,8 +74,8 @@ def get_muts_per_cell(vcf_file, exclude, include):
     # Remove excluded samples
     for i in sorted(exclude_i, reverse=True):
         samples.pop(i)
-    # Sanity check: remove sample without any call
-    samples = [i for i in samples if i]
+    # Sanity check: remove sample without any call, but bad for normals
+    
     
     return samples
 
