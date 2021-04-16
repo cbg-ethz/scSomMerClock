@@ -74,8 +74,11 @@ def get_muts_per_cell(vcf_file, exclude, include):
     # Remove excluded samples
     for i in sorted(exclude_i, reverse=True):
         samples.pop(i)
-    # Sanity check: remove sample without any call, but bad for normals
-    
+    # Sanity check: remove sample without name
+    try:
+        samples.pop(sample_names.index(''))
+    except (ValueError, KeyError):
+        pass
     
     return samples
 
@@ -131,7 +134,7 @@ def parse_args():
 if __name__ == '__main__':
     if 'snakemake' in globals():
         test_poisson(snakemake.input, snakemake.output[0],
-            snakemake.params.exclude)
+            snakemake.params.exclude, snakemake.params.include)
     else:
         import argparse
         args = parse_args()

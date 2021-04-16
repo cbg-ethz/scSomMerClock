@@ -42,37 +42,6 @@ end;
 """
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(prog='QC_coverage',
-        usage='python3 QC_coverage.py <DATA> [options]',
-        description='*** Generate Lorenz curve and Gini coefficient. ***')
-    parser.add_argument('input', type=str,  nargs='*',
-        help='Absolute or relative path(s) to input VCF file')
-    parser.add_argument('-t', '--task', type=str, choices=['summarize', 'merge'],
-        default='summarize', help='Scripts task, options are: 1. summarizing the '
-        'calls in a vcf file, 2. merging the previouslz generated summaries. '
-        'Default = summarize')
-    parser.add_argument('-o', '--output', type=str, default='',
-        help='Path to the output directory. Default = <INPUT_DIR>.')
-    parser.add_argument('-bn', '--bulk_normal', nargs='*', type=str, default=[''],
-        help='Column name of bulk normal. Default = None.')
-    parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
-        help='Column name of bulk tumor. Default = None.')
-    parser.add_argument('-ks', '--keep_sex', action='store_true',
-        help='If flag is set, keep the sex chromosomes in the all file.')
-    parser.add_argument('-q', '--quality', type=int, default=20,
-        help='Minimum quality threshold. Default = 20.')
-    parser.add_argument('-r', '--read_depth', type=int, default=10,
-        help='Minimum read depth at loci. Default = 10.')
-    parser.add_argument('-p', '--prefix', type=str, default='',
-        help='Prefix for chromosome, e.g. "chr". Default = "".')
-    parser.add_argument('-s', '--gt_sep', type=str, default=',',
-        help='Separator for genotype matrix. Default = ",".')
-
-    args = parser.parse_args()
-    return args
-
-
 def get_summary_df(args):
     vcf_in = VariantFile(args.input)
     in_file = os.path.basename(args.input)
@@ -604,6 +573,38 @@ def merge_summaries(args):
     save_summary(counts, out_QC)
 
     return counts
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog='QC_coverage',
+        usage='python3 QC_coverage.py <DATA> [options]',
+        description='*** Generate Lorenz curve and Gini coefficient. ***')
+    parser.add_argument('input', type=str,  nargs='*',
+        help='Absolute or relative path(s) to input VCF file')
+    parser.add_argument('-t', '--task', type=str, choices=['summarize', 'merge'],
+        default='summarize', help='Scripts task, options are: 1. summarizing the '
+        'calls in a vcf file, 2. merging the previously generated summaries. '
+        'Default = summarize')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Path to the output directory. Default = <INPUT_DIR>.')
+    parser.add_argument('-bn', '--bulk_normal', nargs='*', type=str, default=[''],
+        help='Column name of bulk normal. Default = None.')
+    parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
+        help='Column name of bulk tumor. Default = None.')
+    parser.add_argument('-ks', '--keep_sex', action='store_true',
+        help='If flag is set, keep the sex chromosomes in the all file.')
+    parser.add_argument('-q', '--quality', type=int, default=20,
+        help='Minimum quality threshold. Default = 20.')
+    parser.add_argument('-r', '--read_depth', type=int, default=10,
+        help='Minimum read depth at loci. Default = 10.')
+    parser.add_argument('-p', '--prefix', type=str, default='',
+        help='Prefix for chromosome, e.g. "chr". Default = "".')
+    parser.add_argument('-s', '--gt_sep', type=str, default=',',
+        help='Separator for genotype matrix. Default = ",".')
+
+    args = parser.parse_args()
+    return args
 
 
 def main(args):

@@ -64,7 +64,7 @@ def tail(f, lines=1, _buffer=4098):
     return '\n'.join(lines_found[-lines:])
 
 
-def get_sample_dict_from_vcf(vcf_file, GT=False):
+def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -83,6 +83,7 @@ def get_sample_dict_from_vcf(vcf_file, GT=False):
     else:
         missing = '?' 
 
+    exclude_i = []
     with file_stream as f_in:
         for line in f_in:
             # Skip VCF header lines
@@ -91,6 +92,27 @@ def get_sample_dict_from_vcf(vcf_file, GT=False):
                 if line.startswith('#CHROM'):
                     sample_names = line.strip().split('\t')[9:]
                     samples = {int(i): '' for i in range(len(sample_names))}
+                    if exclude != '':
+                        print('Exluded:')
+                        for s_i, sample in enumerate(sample_names):
+                            if re.fullmatch(exclude, sample):
+                                exclude_i.append(s_i)
+                                print('\t{}'.format(sample))
+                        if len(exclude_i) == 0:
+                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
+                                .format(exclude))
+                    if include != '':
+                        print('Include:')
+                        for s_i, sample in enumerate(sample_names):
+                            if not re.fullmatch(include, sample):
+                                exclude_i.append(s_i)
+                            else:
+                                if not re.fullmatch(exclude, sample):
+                                    print('\t{}'.format(sample))
+                        if len(exclude_i) == 0:
+                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
+                                .format(include))
+
                 continue
             elif line.strip() == '':
                 continue
@@ -156,10 +178,20 @@ def get_sample_dict_from_vcf(vcf_file, GT=False):
             bg_out.write(' ' \
                 .join([str(cnts[i]) for i in ['AA', 'CC', 'GG', 'TT']]))
 
-    return samples, sample_names
+    # Remove excluded samples
+    for i in sorted(exclude_i, reverse=True):
+        samples.pop(i)
+    # Sanity check: remove sample without name
+    try:
+        samples.pop(sample_names.index(''))
+    except (ValueError, KeyError):
+        pass
 
 
-def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
+    return samples, [i.replace('-', '_') for i in sample_names]
+
+
+def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
         sample_names=[]):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
@@ -193,24 +225,29 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
     temp_tree_file.write(str.encode(tree))
     temp_tree_file.close()
 
+    if outg == '' or not outg in tree:
+        outg_cmd = ''
+    else:
+        outg_cmd = 'outgroup {};\n'.format(outg)
+
     if root:
         root_cmd = 'DerootTrees;\nRootTrees rootMethod=outgroup outroot=monophyl'
         root = 'yes'
     else:
-        root_cmd = 'DerootTrees;\noutgroup {}'.format(outg)
+        root_cmd = 'DerootTrees;\n{}'.format(outg_cmd)
         root = 'no'
         
     paup_cmd = 'getTrees file={i};\n' \
-        'outgroup {g};\n' \
+        '{g}' \
         '{c};\n' \
         'saveTrees format=Newick root={r} file={o};\n' \
-        'quit;'.format(i=temp_tree_file.name, g=outg, c=root_cmd, r=root,
+        'quit;'.format(i=temp_tree_file.name, g=outg_cmd, c=root_cmd, r=root,
             o=out_file.name)
 
     paup_file.write(str.encode(paup_cmd))
     paup_file.close()
 
-    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name, '>', '/dev/null'])
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
     paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     stdout, stderr = paup.communicate()

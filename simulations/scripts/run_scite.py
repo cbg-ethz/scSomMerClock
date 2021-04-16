@@ -8,7 +8,8 @@ import numpy as np
 from utils import get_sample_dict_from_vcf
 
 
-def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, verbose=False):
+def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
+        exclude='', verbose=False):
     # RUN SiCloneFit
     if not os.path.exists(exe):
         raise RuntimeError(
@@ -16,18 +17,23 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, verbose=False):
             '{}'.format(os.path.dirname(exe))
         )
 
-    run_no = re.search('\d\d\d\d', os.path.basename(vcf_file)).group()
+    try:
+        run_no = '.' + re.search('\d\d\d\d', os.path.basename(vcf_file)).group()
+    except AttributeError:
+        run_no = ''
     out_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-2] + ['scite_dir'])
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    data_raw, cells = get_sample_dict_from_vcf(vcf_file, GT=True)
+    data_raw, _ = get_sample_dict_from_vcf(vcf_file,
+        GT=True, include=include, exclude=exclude)
     data_list = []
     for cell_data in data_raw.values():
         data_list.append([int(i) for i in cell_data])
     data = np.array(data_list).T
+    import pdb; pdb.set_trace()
 
-    data_file = os.path.join(out_dir, 'SCITE.{}.csv'.format(run_no))
+    data_file = os.path.join(out_dir, 'SCITE{}.csv'.format(run_no))
     np.savetxt(data_file, data.astype(int), delimiter=' ', newline='\n', fmt='%d')
     no_muts, no_cells = data.shape
 
@@ -36,7 +42,7 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, verbose=False):
         with open(mut_file, 'w') as f_mut:
             f_mut.write('\n'.join(['m{}'.format(i) for i in range(no_muts)]))
 
-    out_files = os.path.join(out_dir, 'scite_tree.{}'.format(run_no))
+    out_files = os.path.join(out_dir, 'scite_tree{}'.format(run_no))
     cmmd = ' '.join(
         [exe, '-i', data_file, '-transpose', '-r 1', '-n', str(no_muts),
         '-m', str(no_cells), '-l', str(steps), '-fd', str(fd), '-ad', str(ad),
@@ -65,7 +71,6 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, verbose=False):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input vcf file')
-    parser.add_argument('-o', '--output', type=str, help='Output file.')
     parser.add_argument('-s', '--steps', type=int, help='Number of mcmc steps.')
     parser.add_argument('-e', '--exe', type=str, help='Path to scite exe.')
     parser.add_argument('--FP', type=float, default=0.001,
@@ -73,6 +78,10 @@ def parse_args():
     parser.add_argument('--FN', type=float, default=0.2,
         help='False negative rate. Default=0.2')
     parser.add_argument('--verbose', action='store_true', help='Print to stdout')
+    parser.add_argument('-ex', '--exclude', type=str, default='',
+        help='Regex pattern for samples to exclude from LRT test,')
+    parser.add_argument('-in', '--include', type=str, default='',
+        help='Regex pattern for samples to include from LRT test,')
     args = parser.parse_args()
     return args
 
@@ -84,4 +93,4 @@ if __name__ == '__main__':
     else:
         args = parse_args()
         run_scite_subprocess(args.input, args.exe, args.steps, args.FP, args.FN,
-            args.verbose)
+            args.include, args.exclude, args.verbose)

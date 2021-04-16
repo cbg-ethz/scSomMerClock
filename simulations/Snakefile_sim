@@ -136,6 +136,8 @@ rule vcf_to_nex:
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
+        exclude = config['poisson'].get('exclude', ''),
+        include = config['poisson'].get('include', ''),
     script:
         f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
 
@@ -386,7 +388,8 @@ rule run_poisson_test:
     resources:
         mem_mb = 2048
     params:
-        exclude = config['poisson'].get('exclude', '')
+        exclude = config['poisson'].get('exclude', ''),
+        include = config['poisson'].get('include', ''),
     script:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 

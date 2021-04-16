@@ -6,13 +6,14 @@ import os
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
+SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
+MODELS = ['clock', 'noClock']
 workdir: DATA_DIR
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
 CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
-
 
 cell_map = {}
 with open(config['specific']['cellnames'], 'r') as f:
@@ -58,7 +59,7 @@ def get_corr_samples(wildcards):
 
 def get_all_files(wildcards):
     files = [os.path.join('Calls', 'all.vcf.gz'),
-        os.path.join('QC', 'all.filtered.vcf')]
+        'PAUP_LRT_test.tsv', 'poisson_dispersion_test.all.tsv']
     
     if config['static'].get('QC_seq', False):
         files.append(os.path.join('QC', 'QC_sequencing.tsv'))
@@ -66,19 +67,9 @@ def get_all_files(wildcards):
     return files
 
 
-if config.get('ethan', {}).get('run', False):
-    with open(os.path.join(DATA_DIR, config['ethan']['cells']), 'r') as f_in:
-        x = f_in.read().strip().split('\n')
-
-    ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
-
-    rule all:
-        input:
-            os.path.join('SciPhi', 'SciPhi_merged.tsv')
-else:
-    rule all:
-        input:
-            get_all_files
+rule all:
+    input:
+        get_all_files
             
 
 rule adapter_cutting:
@@ -86,17 +77,17 @@ rule adapter_cutting:
         os.path.join('Raw_Data', '{sample}_1.fastq.gz')
     output:
         temp(os.path.join('Processing', '{sample}.trimmed_1.fastq.gz'))
+    envmodules:
+        'pigz',
+        'cutadapt/1.18-python-3.7.0',
     threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
-        base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('cutadapt', ['cutadapt'])]),
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
-        WGA_lib = config['specific']['WGA_library']
+        WGA_lib = config['specific']['WGA_library'],
     shell:
-        '{params.base_dir}/scripts/01_fastqc.sh {params.modules} '
+        f'{SCRIPT_DIR}/01_fastqc.sh '
         '-s {wildcards.sample} -l {params.WGA_lib} {params.pair_end}'
 
 
@@ -549,7 +540,8 @@ rule QC_calling_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        temp(os.path.join('QC', 'all.{chr}.filtered.vcf'))
+        temp(os.path.join('QC', 'all.{chr}.filtered.vcf')),
+
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
@@ -573,14 +565,93 @@ rule QC_calling_all:
         expand(os.path.join('QC', 'all.{chr}.filtered.vcf'), chr=CHROM)
     output:
         os.path.join('QC',  'all.filtered.vcf')
+    envmodules:  
+        'pysam/0.16.0.1-python-3.7.7',
+        'pandas/1.0.1-python-3.7.7',
+    script:
+        f'{SCRIPT_DIR}/merge_summary_vcfs.py'
+
+
+# ------------------------------------------------------------------------------
+# ------------------------------ Clock testing ---------------------------------
+# ------------------------------------------------------------------------------
+
+# -------------------------- POISSON DISPERSION --------------------------------
+
+rule run_poisson_test:
+    input:
+        os.path.join('QC',  'all.filtered.vcf')
+    output:
+        'poisson_dispersion_test.all.tsv'
+    envmodules:  
+        'scipy/1.4.1-python-3.7.7',
+    resources:
+        mem_mb = 2048
     params:
-        base_dir = BASE_DIR,
-        modules = ' '.join(config['modules'] \
-                .get('QC_calling', ['pysam', 'pandas'])),
+        exclude = config['specific'].get('sc_normal', '')
+    script:
+        f'simulations/{SCRIPT_DIR}/get_poisson_LRT.py'
+
+
+# ------------------------------- PAUP LRT -------------------------------------
+
+
+rule run_scite:
+    input:
+        os.path.join('QC', 'all.filtered.vcf')
+    output:
+        os.path.join('QC', 'scite_tree_ml0.newick')
+    resources:
+        mem_mb = 4096
+    envmodules:
+        'numpy/1.18.1-python-3.7.7'
+    params:
+        steps = config.get('scite', {}).get('steps', 1E6),
+        exe = config.get('scite', {}).get('exe', './infSCITE'),
+    script:
+        f'simulations/{SCRIPT_DIR}/run_scite.py'
+
+
+rule vcf_to_nex:
+    input:
+        vcf = os.path.join('QC',  'all.filtered.vcf'),
+        tree = os.path.join('QC', 'scite_tree_ml0.newick'),
+    output:
+        expand(os.path.join('QC', 'all.nxs.{model}'), model=MODELS)
+    resources:
+        mem_mb = 1024
+    params:
+        ss = config.get('mrbayes', {}).get('ss', False),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    script:
+        f'simulations/{SCRIPT_DIR}/convert_vcf_to_nexus.py'
+
+
+rule run_PAUP:
+    input:
+        os.path.join('QC', 'all.nxs.{model}')
+    output:
+        os.path.join('QC', 'all.paup.{model}.PAUP.score')
+    params:
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
     shell:
-        'module load {params.modules} && '
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -t merge '
-        '-o QC'
+        '{params.paup_exe} -n {input} > QC/paup.{wildcards.model}.log'
+
+
+rule merge_paup_results:
+    input:
+        expand(os.path.join('QC', 'all.paup.{model}.PAUP.score'), model=MODELS)
+    output:
+        'PAUP_LRT_test.tsv'
+    conda: 'envs/monovar.yaml'
+    envmodules:
+        'scipy/1.4.1-python-3.7.7',
+    resources:
+        mem_mb = 2048
+    params:
+        no_cells = config['cellcoal']['model']['no_cells'] + 1,
+    script:
+        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
 
 
 # ------------------------------------------------------------------------------
@@ -607,83 +678,6 @@ rule ADO_calculation:
         '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
         '-o {output}'
 
-
-# ------------------------------------------------------------------------------
-# --------------------------- SCIPHI PREPROCESSING -----------------------------
-# ------------------------------------------------------------------------------
-if config.get('ethan', {}).get('run', False):
-
-    rule generate_bamfiles:
-        input:
-            expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
-                cell=ss_samples_ethan)
-        output:
-            os.path.join('SciPhi', '{chr}.bamspath.txt')
-        run:
-            with open(output[0], 'w') as f:
-                for bam_file in input:
-                    f.write(f'{bam_file}\n')
-
-
-    rule generate_mpileup:
-        input:
-            os.path.join('SciPhi', '{chr}.bamspath.txt')
-        output:
-            os.path.join('SciPhi', 'ss.{chr}.mpileup')
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            base_dir = BASE_DIR,
-            ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
-            modules = ' '.join(config['modules'] \
-                    .get('SciPhi', ['samtools']))
-        shell:
-            'module load {params.modules} && mkdir -p SciPhi &&'
-            'samtools mpileup \ '
-            '   --region {wildcards.chr} \ '
-            '   --no-BAQ \ '
-            '   --min-BQ 13 \ '
-            '   --max-depth 10000 \ '
-            '   --fasta-ref {params.ref} \ '
-            '   --min-MQ 40 \ '
-            '   --bam-list {input} > {output}'
-
-
-    rule run_sciphi:
-        input:
-            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-        output:
-            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
-                'readCounts.tsv')
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            base_dir = BASE_DIR,
-            modules = ' '.join(config['modules'] \
-                    .get('SciPhi', ['gcccore, boost, seqan, dlib, zlib'])),
-            sciphi = config['ethan']['sciphi'],
-            names = os.path.join(DATA_DIR, config['ethan']['cells'])
-        shell:
-            'module load {params.modules} && '
-            '{params.sciphi} --cwm 2 --slt on --af on --in {params.names} '
-            '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
-
-
-    rule concatenate_sciphi:
-        input:
-            expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
-                    'readCounts.tsv'),
-                chr=CHROM)
-        output:
-            os.path.join('SciPhi', 'SciPhi_merged.tsv')
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            base_dir = BASE_DIR,
-            modules = ' '.join(config['modules'] \
-                    .get('QC_calling', ['pysam', 'pandas']))
-        shell:
-            'python {params.base_dir}/scripts/merge_sciphi.py {input}'
 
 # ------------------------------------------------------------------------------
 # ------------------------------ SEQUENCING QC ---------------------------------

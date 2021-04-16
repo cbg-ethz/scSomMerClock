@@ -38,7 +38,7 @@ end;
 begin PAUP;
     Set autoclose=yes warnreset=no warntree=no warntsave=No;
     Set criterion=like;
-    Outgroup healthycell;
+    {outg_cmd}
     {paup_const}
     LSet nst=1 rates=gamma shape=est ncat=4 condvar={paup_corr};
 
@@ -93,19 +93,22 @@ def get_sample_dict_from_FG(vcf_file):
 
 
 def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
-            paup_exe=None, learn_tree=False, full_GT=False):
+            paup_exe=None, learn_tree=False, full_GT=False, GT=False, exclude='',
+            include='', outg='healthycell'):
 
     if full_GT:
         samples, sample_names = get_sample_dict_from_FG(vcf_file)
         paup_corr = ('no', '')
     else:
-        samples, sample_names = get_sample_dict_from_vcf(vcf_file)
+        samples, sample_names = get_sample_dict_from_vcf(vcf_file,
+            GT=GT, include=include, exclude=exclude)
         paup_corr = ('no', 'exclude constant;')
 
     mat_str = ''
     for sample_idx, genotypes in samples.items():
         mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
-    rec_no = len(samples[0])
+    sample_names = [j for i, j in enumerate(sample_names) if i in samples]
+    rec_no = len(genotypes)
 
     if ss_flag:
         alg = 'ss'
@@ -119,15 +122,16 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
     else:
         if 'scite_dir' in tree:
             tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
-                tree, paup_exe, root=False, sample_names=sample_names)
+                tree, paup_exe, root=False, sample_names=sample_names,
+                outg=outg)
             tree_name = 'treeSCITE'
         elif 'trees_dir' in tree:
             tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
-                tree, paup_exe, root=False)
+                tree, paup_exe, root=False, outg=outg)
             tree_name = 'treeCellCoal'
         elif 'cellphy_dir' in tree:
             tree_str_unrooted, tree_str_rooted = change_newick_tree_root(
-                tree, paup_exe, root=True)
+                tree, paup_exe, root=True, outg=outg)
             tree_name = 'treeCellPhy'
 
         tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_str_rooted)
@@ -141,16 +145,23 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
     else:
         paup_tree_raw = ''
 
+    if outg in tree_str_rooted:
+        outg_cmd = 'Outgroup ;'.format(outg)
+    else:
+        outg_cmd = ''
+
+
     for out_file in out_files:
-        nxs_file = os.path.basename(out_file)
+        nxs_dir, nxs_file = os.path.split(out_file)
 
         model = nxs_file.split('.')[-1]
         tree_alg = tree_name[4:].lower()
 
         mrbayes_out = os.path.join('mrbayes_dir_{}'.format(tree_alg), 
             nxs_file.replace('nxs', 'mrbayes'))
-        paup_out = os.path.join('..', 'paup_dir_{}'.format(tree_alg), 
-            nxs_file.replace('nxs', 'paup'))
+        paup_dir = os.path.join('..', 'paup_dir_{}'.format(tree_alg))
+        paup_out = os.path.join(paup_dir, nxs_file.replace('nxs', 'paup'))
+        os.makedirs(os.path.join(nxs_dir, paup_dir), exist_ok=True)
 
         if model == 'clock':
             brlen_prior = 'clock:uniform'
@@ -176,7 +187,8 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
             rec_no=rec_no, sample_labels=' '.join(sample_names),
             matrix=mat_str.strip('\n'), tree_str=tree_str, fixed_tree=fixed_tree,
             mrbayes_out=mrbayes_out, alg=alg, ngen=ngen, brlen_prior=brlen_prior, 
-            paup_tree=paup_tree, paup_corr=paup_corr[0], paup_const=paup_corr[1])
+            paup_tree=paup_tree, outg_cmd=outg_cmd, paup_corr=paup_corr[0],
+            paup_const=paup_corr[1])
 
         with open(out_file, 'w') as f_out:
             f_out.write(nex_str)
@@ -185,33 +197,43 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input file')
+    parser.add_argument('-t', '--tree', type=str, default='',
+        help='Newick tree file')
     parser.add_argument('-o', '--output', type=str, help='Output directory.')
     parser.add_argument('-n', '--ngen', type=int, default=1e6,
-        help='Number of MCMC steps in NEXUS MrBayes block. Default = 1e6.')
+        help='Number of MCMC/SS steps in NEXUS MrBayes block. Default = 1e6.')
     parser.add_argument('-ss', '--stepping_stone', action='store_true',
         help='Use stepping stone sampling instead of MCMC.')
-    parser.add_argument('-t', '--use_tree', action='store_true',
-        help='Add the true cellcoal tree to the nexus file.')
     parser.add_argument('-lt', '--learn_tree', action='store_true',
         help='Learn the tree under no constraints model.')
     parser.add_argument('-fg', '--full_GT', action='store_true',
         help='Use the full genotype instead of only SNPs for inference.')
-    parser.add_argument('-s', '--steps', nargs='+', type=int,
-        help='Adjust the number of mcmc/ss steps for all runs given nxs dir.')
     parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
+    parser.add_argument('-ex', '--exclude', type=str, default='',
+        help='Regex pattern for samples to exclude from LRT test,')
+    parser.add_argument('-in', '--include', type=str, default='',
+        help='Regex pattern for samples to include from LRT test,')
+    parser.add_argument('--outg', type=str, default='healthycell',
+        help='Outgroup for PAUP block')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        vcf_to_nex(snakemake.input.vcf, snakemake.output,
-            snakemake.wildcards.steps, ss_flag=snakemake.params.ss,
-            tree=snakemake.input.tree, paup_exe=snakemake.params.paup_exe)
+        try:
+            ngen = snakemake.wildcards.ngen
+        except KeyError:
+            ngen = 1e6
+        vcf_to_nex(snakemake.input.vcf, snakemake.output, ngen,
+            ss_flag=snakemake.params.ss, tree=snakemake.input.tree,
+            paup_exe=snakemake.params.paup_exe, exclude=snakemake.params.exclude,
+            include=snakemake.params.include)
     else:
         args = parse_args()
         out_files = [os.path.join(args.output, 'nxs.{}.{}'.format(args.ngen, i))
             for i in ['clock', 'noClock']]
         vcf_to_nex(args.input, out_files, args.ngen,
-            ss_flag=args.stepping_stone, tree=args.use_tree,
-            learn_tree=args.learn_tree, full_GT=args.full_GT, paup_exe=args.exe)
+            ss_flag=args.stepping_stone, tree=args.tree,
+            learn_tree=args.learn_tree, full_GT=args.full_GT, paup_exe=args.exe,
+            exclude=args.exclude, include=args.include, outg=args.outg)
