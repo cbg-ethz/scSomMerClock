@@ -396,39 +396,48 @@ rule run_poisson_test:
 
 # -------------------------------- SIEVE ---------------------------------------
 
-def get_sciphi_modules():
-    if scheduler == 'lsf':
-        return 'gcc/6.3.0', 'boost/1.73.0', 'seqan/2.4.0', 'zlib/1.2.11', \
-            'openmpi/4.0.2'
-    else:
-        return 'gcccore/6.4.0', 'boost/1.73.0-python-3.7.7', 'seqan/2.4.0', \
-            'dlib/19.16', 'zlib/1.2.11'
 
-
-rule run_sciphi:
-    input:
-        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
-    output:
-        os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
-            'readCounts.tsv')
-    resources:
-        mem_mb = 4048
-    envmodules:
-        'gcc/6.3.0',
-        'boost/1.73.0',
-        'seqan/2.4.0',
-        'zlib/1.2.11',
-        'openmpi/4.0.2',
-        # 'gcccore/6.4.0',
-        # 'boost/1.73.0-python-3.7.7',
-        # 'seqan/2.4.0',
-        # 'zlib/1.2.11'
-    params:
-        sciphi = config['sieve']['sciphi_exe'],
-    shell:
-        '{params.sciphi} --cwm 2 --slt on --af on --in {input.samples} '
-        '-o {out_dir}/sieve_dir/sciphi.{wildcards.run} {input.pileup}'
+if scheduler == 'lsf':
+    rule run_sciphi:
+        input:
+            pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
+            samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+        output:
+            os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
+                'readCounts.tsv')
+        resources:
+            mem_mb = 4048
+        envmodules:
+            'gcc/6.3.0',
+            'boost/1.73.0',
+            'seqan/2.4.0',
+            'zlib/1.2.11',
+            'openmpi/4.0.2',
+        params:
+            sciphi = config['sieve']['sciphi_exe'],
+        shell:
+            '{params.sciphi} --cwm 2 --slt on --af on --in {input.samples} '
+            '-o {out_dir}/sieve_dir/sciphi.{wildcards.run} {input.pileup}'
+else:
+    rule run_sciphi:
+        input:
+            pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
+            samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+        output:
+            os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
+                'readCounts.tsv')
+        resources:
+            mem_mb = 4048
+        envmodules:
+            'gcccore/6.4.0',
+            'boost/1.73.0-python-3.7.7',
+            'seqan/2.4.0',
+            'zlib/1.2.11'
+        params:
+            sciphi = config['sieve']['sciphi_exe'],
+        shell:
+            '{params.sciphi} --cwm 2 --slt on --af on --in {input.samples} '
+            '-o {out_dir}/sieve_dir/sciphi.{wildcards.run} {input.pileup}'
 
 
 rule run_sieve_data_collector:
@@ -440,7 +449,7 @@ rule run_sieve_data_collector:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml')
     envmodules:
-        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
+        'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         xml = config['sieve']['xml']
@@ -498,7 +507,7 @@ rule run_NS_converter:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
     envmodules:
-        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
+        'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         particles = config['sieve'].get('particleCount', 5)
@@ -516,7 +525,7 @@ rule run_sieve:
             'sieve_{model}_{tree}_final')
     threads: 12
     envmodules:
-        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
+        'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     resources:
         mem_mb = 1024 if scheduler == 'lsf' else 12 * 1024,
         runtime = 240,
@@ -538,5 +547,5 @@ rule merge_sieve_results:
             'sieve_{tree}.clock_test_summary.tsv')
     resources:
         mem_mb = 2048
-    shell:
-        'python utils.py {input} -f sieve -o {output}'
+    script:
+        f'{SCRIPT_DIR}/merge_sieve_results.py'
