@@ -253,7 +253,7 @@
                                                             
                     
 
-                    <branchRateModel {model} >
+                    <branchRateModel id={model}>
                         {model_params}
                     </branchRateModel>
                                                             
