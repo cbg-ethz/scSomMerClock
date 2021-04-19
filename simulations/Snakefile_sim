@@ -136,8 +136,8 @@ rule vcf_to_nex:
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
-        exclude = config['poisson'].get('exclude', ''),
-        include = config['poisson'].get('include', ''),
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
     script:
         f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
 
@@ -388,8 +388,8 @@ rule run_poisson_test:
     resources:
         mem_mb = 2048
     params:
-        exclude = config['poisson'].get('exclude', ''),
-        include = config['poisson'].get('include', ''),
+        exclude = config('poisson', {}).get('exclude', ''),
+        include = config('poisson', {}).get('include', ''),
     script:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
@@ -398,7 +398,8 @@ rule run_poisson_test:
 
 def get_sciphi_modules():
     if scheduler == 'lsf':
-        return 'gcc/6.3.0', 'boost/1.73.0', 'seqan/2.4.0', 'zlib', 'openmpi/4.0.2'
+        return 'gcc/6.3.0', 'boost/1.73.0', 'seqan/2.4.0', 'zlib/1.2.11', \
+            'openmpi/4.0.2'
     else:
         return 'gcccore/6.4.0', 'boost/1.73.0-python-3.7.7', 'seqan/2.4.0', \
             'dlib/19.16', 'zlib/1.2.11'
