@@ -396,6 +396,14 @@ rule run_poisson_test:
 
 # -------------------------------- SIEVE ---------------------------------------
 
+def get_sciphi_modules():
+    if scheduler == 'lsf':
+        return 'gcc/6.3.0', 'boost/1.73.0', 'seqan/2.4.0', 'zlib', 'openmpi/4.0.2'
+    else:
+        return 'gcccore/6.4.0', 'boost/1.73.0-python-3.7.7', 'seqan/2.4.0', \
+            'dlib/19.16', 'zlib/1.2.11'
+
+
 rule run_sciphi:
     input:
         pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
@@ -405,12 +413,9 @@ rule run_sciphi:
             'readCounts.tsv')
     resources:
         mem_mb = 4048
+    conda: 'envs/sciphi.yaml'
     envmodules:
-        'gcccore/6.4.0',
-        'boost/1.73.0-python-3.7.7',
-        'seqan/2.4.0',
-        'dlib/19.16',
-        'zlib/1.2.11'
+        get_sciphi_modules 
     params:
         sciphi = config['sieve']['sciphi_exe'],
     shell:
@@ -426,6 +431,7 @@ rule run_sieve_data_collector:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml')
+    conda: 'envs/beast2.yaml'
     envmodules:
         'jdk/8u181',
     params:
@@ -484,6 +490,7 @@ rule run_NS_converter:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
+    conda: 'envs/beast2.yaml'
     envmodules:
         'jdk/8u181',
     params:
@@ -501,11 +508,12 @@ rule run_sieve:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}_final')
-    threads: 4
+    threads: 12
+    conda: 'envs/beast2.yaml'
     envmodules:
         'jdk/8u181',
     resources:
-        mem_mb = 2048,
+        mem_mb = 1024 if scheduler == 'lsf' else 12 * 1024,
         runtime = 240,
     params:
         beast = config['sieve']['beast_bin'],
