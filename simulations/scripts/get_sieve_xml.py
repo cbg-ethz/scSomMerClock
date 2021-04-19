@@ -52,12 +52,8 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
 
     if model == 'clock':
         prior_node = ''
-        model_node = """<branchRateModel id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'>
-                                                                        
-                        <parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>
-                                                                    
-                    </branchRateModel>"""
-
+        model_node = "id='strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'"
+        param_node = "<parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>"
         op_node = ''
         log_node = ''
         br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
@@ -68,12 +64,11 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
                         <parameter estimate="false" id="ucldStdevDistRealParameter.2" name="beta" spec="parameter.RealParameter">0.3819</parameter>
                     </Gamma>
                 </prior>"""
-        model_node = """<branchRateModel id="RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree">
-                        <LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
+        model_node = "id='RelaxedClock' spec='beast.evolution.branchratemodel.UCRelaxedClockModel' rateCategories='@rateCategories' tree='@tree'"
+        param_node = """<LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
                             <parameter id="LogNormalDistributionModelRealParameter" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
                         </LogNormal>
-                        <parameter id="ucldMean" spec="parameter.RealParameter" estimate="false" name="clock.rate">1.0</parameter>
-                    </branchRateModel>"""
+                        <parameter id="ucldMean" spec="parameter.RealParameter" estimate="false" name="clock.rate">1.0</parameter>"""
         op_node = """<operator id="ucldStdevScaler" spec="ScaleOperator" parameter="@ucldStdev" scaleFactor="0.5" weight="3.0"/>
 
         <operator id="CategoriesRandomWalk" spec="IntRandomWalkOperator" parameter="@rateCategories" weight="10.0" windowSize="1"/>
@@ -90,6 +85,7 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
 
     templ = re.sub('{priors}', prior_node, templ)
     templ = re.sub('{model}', model_node, templ)
+    templ = re.sub('{model_params}', param_node, templ)
     templ = re.sub('{relaxed_clock_op}', op_node, templ)
     templ = re.sub('{relaxed_clock_log}', log_node, templ)
     templ = re.sub('{br_rate_log}', br_rate_node, templ)

@@ -251,7 +251,11 @@
 
                     </siteModel>
                                                             
-                    {model}
+                    
+
+                    <branchRateModel {model} >
+                        {model_params}
+                    </branchRateModel>
                                                             
                     <errorModel adoRate="@adoRate" singleADO="true" allelicSeqCov="30" allelicSeqCovRawVar="10" id="scsErrorModel" seqErr="@seqErrorRate" shapeCtrl1="@shapeCtrl1" shapeCtrl2="@shapeCtrl2" spec="ScsErrorModelFiniteMuDM" zeroCovStrategy="false"/>                                                     
                 </distribution>
