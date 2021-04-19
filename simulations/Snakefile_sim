@@ -414,7 +414,6 @@ rule run_sciphi:
             'readCounts.tsv')
     resources:
         mem_mb = 4048
-    conda: 'envs/sciphi.yaml'
     envmodules:
         get_sciphi_modules 
     params:
