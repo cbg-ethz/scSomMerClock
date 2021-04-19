@@ -388,8 +388,8 @@ rule run_poisson_test:
     resources:
         mem_mb = 2048
     params:
-        exclude = config('poisson', {}).get('exclude', ''),
-        include = config('poisson', {}).get('include', ''),
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
     script:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
