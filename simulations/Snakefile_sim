@@ -431,7 +431,6 @@ rule run_sieve_data_collector:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_template_updated.xml')
-    conda: 'envs/beast2.yaml'
     envmodules:
         'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
     params:
