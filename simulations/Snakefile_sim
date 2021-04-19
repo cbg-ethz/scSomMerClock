@@ -433,7 +433,7 @@ rule run_sieve_data_collector:
             'sieve_template_updated.xml')
     conda: 'envs/beast2.yaml'
     envmodules:
-        'jdk/8u181',
+        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         xml = config['sieve']['xml']
@@ -490,9 +490,8 @@ rule run_NS_converter:
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
-    conda: 'envs/beast2.yaml'
     envmodules:
-        'jdk/8u181',
+        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
         particles = config['sieve'].get('particleCount', 5)
@@ -511,7 +510,7 @@ rule run_sieve:
     threads: 12
     conda: 'envs/beast2.yaml'
     envmodules:
-        'jdk/8u181',
+        'jdk/8u141-b15' if scheduler == 'lsf' else 'jdk/8u181',
     resources:
         mem_mb = 1024 if scheduler == 'lsf' else 12 * 1024,
         runtime = 240,
