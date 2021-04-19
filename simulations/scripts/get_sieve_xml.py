@@ -52,7 +52,7 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
 
     if model == 'clock':
         prior_node = ''
-        model_node = "'strictClock' spec='beast.evolution.branchratemodel.StrictClockModel'"
+        model_node = 'strictClock" spec="beast.evolution.branchratemodel.StrictClockModel'
         param_node = "<parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>"
         op_node = ''
         log_node = ''
@@ -64,7 +64,7 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
                         <parameter estimate="false" id="ucldStdevDistRealParameter.2" name="beta" spec="parameter.RealParameter">0.3819</parameter>
                     </Gamma>
                 </prior>"""
-        model_node = "'RelaxedClock' spec='beast.evolution.branchratemodel.UCRelaxedClockModel' rateCategories='@rateCategories' tree='@tree'"
+        model_node = 'RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree'
         param_node = """<LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
                             <parameter id="LogNormalDistributionModelRealParameter" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
                         </LogNormal>
