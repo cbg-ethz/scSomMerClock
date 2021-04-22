@@ -49,15 +49,10 @@ rule generate_mpileup:
     params:
         ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        'mkdir -p SciPhi &&'
-        'samtools mpileup \ '
-        '   --region {wildcards.chr} \ '
-        '   --no-BAQ \ '
-        '   --min-BQ 13 \ '
-        '   --max-depth 10000 \ '
-        '   --fasta-ref {params.ref} \ '
-        '   --min-MQ 40 \ '
-        '   --bam-list {input} > {output}'
+        'mkdir -p SciPhi && '
+        'samtools mpileup --region {wildcards.chr} --no-BAQ --min-BQ 13 '
+        '--max-depth 10000 --fasta-ref {params.ref} --min-MQ 40 '
+        '--bam-list {input} > {output}'
 
 
     rule run_sciphi:
