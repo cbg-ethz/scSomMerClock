@@ -66,7 +66,7 @@ rule run_sciphi:
     input:
         pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
     output:
-        
+        get_sciphi_output
     envmodules:
         'gcccore/6.4.0',
         'boost/1.73.0-python-3.7.7',
@@ -89,7 +89,8 @@ rule run_sciphi:
 
 def get_all_sciphi_output(wildcards):
     if config['ethan'].get('full', False):
-        return [os.path.join('SciPhi', 'preprocessed.{}.vcf'.format(i)) for i in CHROM]
+        return [os.path.join('SciPhi', 'preprocessed.{}.vcf'.format(i)) \
+            for i in CHROM]
     else:
         return [os.path.join('SciPhi', 'preprocessed.{}'.format(i), 'best_index',
             'readCounts.tsv') for i in CHROM]
