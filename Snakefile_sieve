@@ -20,9 +20,15 @@ with open(os.path.join(DATA_DIR, config['ethan']['cells']), 'r') as f_in:
 
 ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
 
-rule all:
-    input:
-        os.path.join('SciPhi', 'SciPhi_merged.tsv')
+
+if config['ethan'].get('full', False):
+    rule all:
+        input:
+            os.path.join('SciPhi', 'SciPhi_merged.vcf')
+else:
+    rule all:
+        input:
+            os.path.join('SciPhi', 'SciPhi_merged.tsv')
 
 
 rule generate_bamfiles:
@@ -55,52 +61,52 @@ rule generate_mpileup:
         '--bam-list {input} > {output}'
 
 
-if config['ethan'].get('full', False):
-    rule run_sciphi:
-        input:
-            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-        output:
-            os.path.join('SciPhi', 'preprocessed.{chr}.vcf')     
-        envmodules:
-            'gcccore/6.4.0',
-            'boost/1.73.0-python-3.7.7',
-            'seqan/2.4.0',
-            'dlib/19.16',
-            'zlib/1.2.11',
-            'samtools',
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            sciphi = config['ethan']['sciphi'],
-            names = os.path.join(DATA_DIR, config['ethan']['cells']),
-            steps = config['ethan'].get('steps', 1000000),
-        shell:
-            '{params.sciphi} --slt off --af off --lz 1 -l {params.steps} '
-            '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
-            '{input.pileup}'
-else:
-    rule run_sciphi:
-        input:
-            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-        output:
-            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
-                'readCounts.tsv')
-        envmodules:
-            'gcccore/6.4.0',
-            'boost/1.73.0-python-3.7.7',
-            'seqan/2.4.0',
-            'dlib/19.16',
-            'zlib/1.2.11',
-            'samtools',
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            sciphi = config['ethan']['sciphi'],
-            names = os.path.join(DATA_DIR, config['ethan']['cells']),
-        shell:
-            '{params.sciphi} --slt on --af on --lz 1 '
-            '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
-            '{input.pileup}'
+rule run_sciphi_long:
+    input:
+        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+    output:
+        os.path.join('SciPhi', 'preprocessed.{chr}.vcf')     
+    envmodules:
+        'gcccore/6.4.0',
+        'boost/1.73.0-python-3.7.7',
+        'seqan/2.4.0',
+        'dlib/19.16',
+        'zlib/1.2.11',
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        sciphi = config['ethan']['sciphi'],
+        names = os.path.join(DATA_DIR, config['ethan']['cells']),
+        steps = config['ethan'].get('steps', 1000000),
+    shell:
+        '{params.sciphi} --slt off --af off --lz 1 -l {params.steps} '
+        '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
+        '{input.pileup}'
+
+
+rule run_sciphi_short:
+    input:
+        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+    output:
+        os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+            'readCounts.tsv')
+    envmodules:
+        'gcccore/6.4.0',
+        'boost/1.73.0-python-3.7.7',
+        'seqan/2.4.0',
+        'dlib/19.16',
+        'zlib/1.2.11',
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        sciphi = config['ethan']['sciphi'],
+        names = os.path.join(DATA_DIR, config['ethan']['cells']),
+    shell:
+        '{params.sciphi} --slt on --af on --lz 1 '
+        '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
+        '{input.pileup}'
 
 
 def get_all_sciphi_output(wildcards):
@@ -111,17 +117,28 @@ def get_all_sciphi_output(wildcards):
         return [os.path.join('SciPhi', 'preprocessed.{}'.format(i), 'best_index',
             'readCounts.tsv') for i in CHROM]
 
-rule concatenate_sciphi:
+rule concatenate_sciphi_long:
     input:
-        get_all_sciphi_output
+        expand(os.path.join('SciPhi', 'preprocessed.{chr}.vcf'), chr=CHROM)
+    output:
+        os.path.join('SciPhi', 'SciPhi_merged.vcf')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 2048
+    params:
+        full_run = True
+    script:
+        f'{SCRIPT_DIR}/merge_sciphi.py'
+
+
+rule concatenate_sciphi_short:
+    input:
+        expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+            'readCounts.tsv'), chr=CHROM)
     output:
         os.path.join('SciPhi', 'SciPhi_merged.tsv')
-    envmodules:
-        'pysam/0.16.0.1-python-3.7.7',
-        'pandas/1.0.1-python-3.7.7',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 2048
     params:
-        full_run = config['ethan'].get('full', False)
+        full_run = False
     script:
         f'{SCRIPT_DIR}/merge_sciphi.py'
