@@ -4,45 +4,32 @@ import os
 
 
 def merge_standard(in_files, out_file):
-    bg = [{}, {}, {}]
-    for i, in_file in enumerate(in_files):
-        with open(in_file , 'r') as f:
-            file_raw = f.read().strip().split('\n')
+    # file_endings = ['_mut2Sample.tsv', '.probs', '.gv', '.params.txt', '.vcf']
 
-        if i == 0:
-            sample_str = '\n'.join(file_raw[:2])
-            par_str = '\n'.join(file_raw[2:8])
-            mut_str = file_raw[8]
-
-        for mut_line in file_raw[9:]:
-            if mut_line == '=background=':
-                break
-            else:
-                mut_str += '\n' + mut_line
-
-        for bg_i, bg_line in enumerate(file_raw[-3:]):
-            bg_raw = bg_line.split('\t')
-
-            for bg_j in range(len(bg_raw) // 2):
-                try:
-                    bg[bg_i][bg_raw[2 * bg_j]] += int(bg_raw[2 * bg_j + 1])
-                except KeyError:
-                    bg[bg_i][bg_raw[2 * bg_j]] = int(bg_raw[2 * bg_j + 1])
-
-    bg_str = '=background='
-    for bg_line_out in bg:
-        bg_str_new = '\t'.join(['{}\t{}'.format(*i) for i in bg_line_out.items()])
-        bg_str += '\n' + bg_str_new
-
+    header = ''
+    body = ''
+    sorted_files = sorted(
+        [(i.split('.')[-2].replace('X', '23').replace('Y', '24'), i) \
+                for i in in_files],
+        key=lambda x: x[0])
+    for i, (chrom, chrom_file) in enumerate(sorted_files):
+        with open(chrom_file , 'r') as f:
+            for line in f:
+                if line.startswith('#'):
+                    if i == 0:
+                        header += line
+                    continue
+                body += line
+   
     if not out_file:
         out_dir = os.path.sep.join(in_files[0].split(os.path.sep)[:-3])
-        out_file = os.path.join(out_dir, 'SciPhi_merged.tsv')
+        base_name = '.'.join(os.path.basename(in_files[0]).split('.')[:-2])
+        out_file = os.path.join(out_dir, '{}.all.vcf'.format(base_name))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-    out_str = '{}\n{}\n{}\n{}'.format(sample_str, par_str, mut_str, bg_str)
     with open(out_file, 'w') as f_out:
-        f_out.write(out_str)
+        f_out.write('{}{}'.format(header, body))
 
 
 def merge_readCounts(in_files, out_file):

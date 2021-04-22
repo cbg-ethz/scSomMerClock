@@ -32,6 +32,10 @@ def get_final_files(wildcards):
         if config.get('sieve', {}).get('run', False):
             files.append(os.path.join(out_dir, 'sieve_dir',
                 'sieve_{}.clock_test_summary.tsv'.format(tree)))
+        if config.get('poisson', {}).get('run', False):
+            files.append(os.path.join(out_dir, filter_dir,
+                'poisson_dir_{}'.format(tree),
+                'poisson_tree.clock_test_summary.tsv'))
 
     if config.get('poisson', {}).get('run', False):
         files.append(os.path.join(out_dir, filter_dir,
@@ -394,6 +398,60 @@ rule run_poisson_test:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
 
+def get_poisson_tree_input(wildcards):
+
+
+    if wildcards.tree == 'cellphy':
+        tree = os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
+                .format(wildcards=wildcards))
+    elif wildcards.tree == 'scite':
+        tree = os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
+    else:
+        tree = os.path.join(out_dir, 'trees_dir', 'trees.{wildcards.run}' \
+            .format(wildcards=wildcards))
+    return tree
+
+
+rule run_poisson_tree_test:
+    input:
+        unpack(get_nex_input)
+    output:
+        os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
+            'poisson.{run}.LRT.txt')
+    conda:
+        ''
+    envmodules:
+        '',
+    resources:
+        mem_mb = 2048
+    params:
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    script:
+        f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
+
+
+rule merge_poisson_tree_test:
+    input:
+        expand(os.path.join(out_dir, filter_dir, 'poisson_dir_{{tree}}',
+            'poisson.{run}.LRT.txt'), run=RUNS)
+    output:
+        os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
+            'poisson_tree.clock_test_summary.tsv')
+    conda:
+        ''
+    envmodules:
+        '',
+    resources:
+        mem_mb = 2048
+    params:
+    script:
+        f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
+
+
 # -------------------------------- SIEVE ---------------------------------------
 
 
@@ -471,7 +529,6 @@ rule get_sieve_final_xml:
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt'),
         snps = os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
                 'readCounts.tsv'),
-
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}_raw.xml')
