@@ -55,42 +55,42 @@ rule generate_mpileup:
         '--bam-list {input} > {output}'
 
 
-    rule run_sciphi:
-        input:
-            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-        output:
-            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
-                'readCounts.tsv')
-        envmodules:
-            'gcccore/6.4.0',
-            'boost/1.73.0-python-3.7.7',
-            'seqan/2.4.0',
-            'dlib/19.16',
-            'zlib/1.2.11',
-            'samtools',
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            sciphi = config['ethan']['sciphi'],
-            names = os.path.join(DATA_DIR, config['ethan']['cells']),
-        shell:
-            '{params.sciphi} --cwm 2 --slt on --af on --in {params.names} '
-            '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
+rule run_sciphi:
+    input:
+        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+    output:
+        os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+            'readCounts.tsv')
+    envmodules:
+        'gcccore/6.4.0',
+        'boost/1.73.0-python-3.7.7',
+        'seqan/2.4.0',
+        'dlib/19.16',
+        'zlib/1.2.11',
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        sciphi = config['ethan']['sciphi'],
+        names = os.path.join(DATA_DIR, config['ethan']['cells']),
+    shell:
+        '{params.sciphi} --cwm 2 --slt on --af on --in {params.names} '
+        '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
-    rule concatenate_sciphi:
-        input:
-            expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
-                    'readCounts.tsv'),
-                chr=CHROM)
-        output:
-            os.path.join('SciPhi', 'SciPhi_merged.tsv')
-        envmodules:
-            'pysam/0.16.0.1-python-3.7.7',
-            'pandas/1.0.1-python-3.7.7',
-        resources:
-            mem_mb = lambda wildcards, attempt: attempt * 16384
-        params:
-            base_dir = BASE_DIR,
-        shell:
-            'python {params.base_dir}/scripts/merge_sciphi.py {input}'
+rule concatenate_sciphi:
+    input:
+        expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
+                'readCounts.tsv'),
+            chr=CHROM)
+    output:
+        os.path.join('SciPhi', 'SciPhi_merged.tsv')
+    envmodules:
+        'pysam/0.16.0.1-python-3.7.7',
+        'pandas/1.0.1-python-3.7.7',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        base_dir = BASE_DIR,
+    shell:
+        'python {params.base_dir}/scripts/merge_sciphi.py {input}'
