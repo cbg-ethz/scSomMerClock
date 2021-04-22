@@ -80,9 +80,8 @@ rule run_sciphi_long:
         names = os.path.join(DATA_DIR, config['ethan']['cells']),
         steps = config['ethan'].get('steps', 1000000),
     shell:
-        '{params.sciphi} --slt off --af off --lz 1 -l {params.steps} '
-        '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
-        '{input.pileup}'
+        '{params.sciphi} --lz 1 -l {params.steps} --in {params.names}'
+        ' -o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
 
 
 rule run_sciphi_short:
