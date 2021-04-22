@@ -76,7 +76,7 @@ rule run_sciphi:
         mode = 'off' if config['ethan'].get('full', False) else 'on',
         steps = config['ethan'].get('steps', 1000000),
     shell:
-        '{params.sciphi} --slt {params.mode} --af {params.mode} --lz 1'
+        '{params.sciphi} --slt {params.mode} --af {params.mode} --lz 1 '
         '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
         '{input.pileup}'
 
