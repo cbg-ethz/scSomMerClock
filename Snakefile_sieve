@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+
+import os
+
+
+BASE_DIR = workflow.basedir
+DATA_DIR = config['specific']['data_path']
+RES_PATH = config['static']['resources_path']
+SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
+workdir: DATA_DIR
+
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
+
+
+with open(os.path.join(DATA_DIR, config['ethan']['cells']), 'r') as f_in:
+    x = f_in.read().strip().split('\n')
+
+ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
+
+rule all:
+    input:
+        os.path.join('SciPhi', 'SciPhi_merged.tsv')
+
+
+rule generate_bamfiles:
+    input:
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
+            cell=ss_samples_ethan)
+    output:
+        os.path.join('SciPhi', '{chr}.bamspath.txt')
+    run:
+        with open(output[0], 'w') as f:
+            for bam_file in input:
+                f.write(f'{bam_file}\n')
+
+
+rule generate_mpileup:
+    input:
+        os.path.join('SciPhi', '{chr}.bamspath.txt')
+    output:
+        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+    envmodules:
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
+    shell:
+        'mkdir -p SciPhi &&'
+        'samtools mpileup \ '
+        '   --region {wildcards.chr} \ '
+        '   --no-BAQ \ '
+        '   --min-BQ 13 \ '
+        '   --max-depth 10000 \ '
+        '   --fasta-ref {params.ref} \ '
+        '   --min-MQ 40 \ '
+        '   --bam-list {input} > {output}'
+
+
+    rule run_sciphi:
+        input:
+            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        output:
+            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+                'readCounts.tsv')
+        envmodules:
+            'gcccore/6.4.0',
+            'boost/1.73.0-python-3.7.7',
+            'seqan/2.4.0',
+            'dlib/19.16',
+            'zlib/1.2.11',
+            'samtools',
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
+        params:
+            sciphi = config['ethan']['sciphi'],
+            names = os.path.join(DATA_DIR, config['ethan']['cells']),
+        shell:
+            '{params.sciphi} --cwm 2 --slt on --af on --in {params.names} '
+            '-o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
+
+
+    rule concatenate_sciphi:
+        input:
+            expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index', 
+                    'readCounts.tsv'),
+                chr=CHROM)
+        output:
+            os.path.join('SciPhi', 'SciPhi_merged.tsv')
+        envmodules:
+            'pysam/0.16.0.1-python-3.7.7',
+            'pandas/1.0.1-python-3.7.7',
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
+        params:
+            base_dir = BASE_DIR,
+        shell:
+            'python {params.base_dir}/scripts/merge_sciphi.py {input}'

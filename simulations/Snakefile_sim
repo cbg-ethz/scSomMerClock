@@ -440,25 +440,6 @@ else:
             '-o {out_dir}/sieve_dir/sciphi.{wildcards.run} {input.pileup}'
 
 
-rule run_sieve_data_collector:
-    input:
-        read_counts = os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}',
-            'best_index', 'readCounts.tsv'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
-    output:
-        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
-            'sieve_template_updated.xml')
-    envmodules:
-        'jdk/8u141-b15', #  cesga: 'jdk/8u181',
-    params:
-        beast = config['sieve']['beast_bin'],
-        xml = config['sieve']['xml']
-    shell:
-        'unset DISPLAY && {params.beast}/applauncher DataCollectorLauncher '
-        '-prefix {out_dir}/sieve_dir/xml.{wildcards.run}/ -cell {input.samples} '
-        '-sciphi -data {input.read_counts} -template {params.xml}'
-
-
 def get_nex_input(wildcards):
     if wildcards.tree == 'scite':
         return os.path.join(out_dir, filter_dir, 'scite_dir',
@@ -486,23 +467,47 @@ rule get_sieve_tree:
 
 rule get_sieve_final_xml:
     input:
-        xml = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
-            'sieve_template_updated.xml'),
         tree = os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt'),
+        snps = os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}', 'best_index',
+                'readCounts.tsv'),
+
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
-            'sieve_{model}_{tree}.xml')
+            'sieve_{model}_{tree}_raw.xml')
     params:
-        steps = config['sieve']['steps']    
+        steps = config['sieve']['steps'],
+        xml = config['sieve']['xml'],
     script:
         f'{SCRIPT_DIR}/get_sieve_xml.py'
+
+
+
+rule run_sieve_data_collector:
+    input:
+        read_counts = os.path.join(out_dir, 'sieve_dir', 'sciphi.{run}',
+            'best_index', 'readCounts.tsv'),
+        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt'),
+        template = os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_{model}_{tree}_raw.xml')
+    output:
+        os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
+            'sieve_{model}_{tree}_raw_updated.xml')
+    envmodules:
+        'jdk/8u141-b15', #  cesga: 'jdk/8u181',
+    params:
+        beast = config['sieve']['beast_bin'],
+    shell:
+        'unset DISPLAY && {params.beast}/applauncher DataCollectorLauncher '
+        '-prefix {out_dir}/sieve_dir/xml.{wildcards.run}/ -cell {input.samples} '
+        '-sciphi -data {input.read_counts} -template {input.template}'
+
 
 
 rule run_NS_converter:
     input:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
-            'sieve_{model}_{tree}.xml')
+            'sieve_{model}_{tree}_raw_updated.xml')
     output:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
