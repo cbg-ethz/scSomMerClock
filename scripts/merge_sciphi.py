@@ -117,7 +117,7 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        if full_run:
+        if snakemake.full_run:
             merge_standard(snakemake.input, snakemake.output)
         else:
             merge_readCounts(snakemake.input, snakemake.output)
