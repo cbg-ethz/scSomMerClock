@@ -74,7 +74,7 @@ rule run_sciphi:
         sciphi = config['ethan']['sciphi'],
         names = os.path.join(DATA_DIR, config['ethan']['cells']),
         mode = 'off' if config['ethan'].get('full', False) else 'on',
-        steps = config['ethan'].get('sciphi', {}).get('steps', 1000000),
+        steps = config['ethan'].get('steps', 1000000),
     shell:
         '{params.sciphi} --slt {params.mode} --af {params.mode} --lz 1'
         '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
