@@ -117,10 +117,10 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        if snakemake.params.read_count:
-            merge_readCounts(snakemake.input, snakemake.output)
-        else:
+        if full_run:
             merge_standard(snakemake.input, snakemake.output)
+        else:
+            merge_readCounts(snakemake.input, snakemake.output)
     else:
         import argparse
         args = parse_args()
