@@ -55,36 +55,52 @@ rule generate_mpileup:
         '--bam-list {input} > {output}'
 
 
-def get_sciphi_output(wildcards):
-    if config['ethan'].get('full', False):
-        return os.path.join('SciPhi', 'preprocessed.{chr}.vcf')
-    else:
-        return os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
-            'readCounts.tsv')
-
-rule run_sciphi:
-    input:
-        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-    output:
-        get_sciphi_output
-    envmodules:
-        'gcccore/6.4.0',
-        'boost/1.73.0-python-3.7.7',
-        'seqan/2.4.0',
-        'dlib/19.16',
-        'zlib/1.2.11',
-        'samtools',
-    resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
-    params:
-        sciphi = config['ethan']['sciphi'],
-        names = os.path.join(DATA_DIR, config['ethan']['cells']),
-        mode = 'off' if config['ethan'].get('full', False) else 'on',
-        steps = config['ethan'].get('steps', 1000000),
-    shell:
-        '{params.sciphi} --slt {params.mode} --af {params.mode} --lz 1 '
-        '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
-        '{input.pileup}'
+if config['ethan'].get('full', False):
+    rule run_sciphi:
+        input:
+            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        output:
+            os.path.join('SciPhi', 'preprocessed.{chr}.vcf')     
+        envmodules:
+            'gcccore/6.4.0',
+            'boost/1.73.0-python-3.7.7',
+            'seqan/2.4.0',
+            'dlib/19.16',
+            'zlib/1.2.11',
+            'samtools',
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
+        params:
+            sciphi = config['ethan']['sciphi'],
+            names = os.path.join(DATA_DIR, config['ethan']['cells']),
+            steps = config['ethan'].get('steps', 1000000),
+        shell:
+            '{params.sciphi} --slt off --af off --lz 1 -l {params.steps} '
+            '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
+            '{input.pileup}'
+else:
+    rule run_sciphi:
+        input:
+            pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        output:
+            os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+                'readCounts.tsv')
+        envmodules:
+            'gcccore/6.4.0',
+            'boost/1.73.0-python-3.7.7',
+            'seqan/2.4.0',
+            'dlib/19.16',
+            'zlib/1.2.11',
+            'samtools',
+        resources:
+            mem_mb = lambda wildcards, attempt: attempt * 16384
+        params:
+            sciphi = config['ethan']['sciphi'],
+            names = os.path.join(DATA_DIR, config['ethan']['cells']),
+        shell:
+            '{params.sciphi} --slt on --af on --lz 1 '
+            '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
+            '{input.pileup}'
 
 
 def get_all_sciphi_output(wildcards):
