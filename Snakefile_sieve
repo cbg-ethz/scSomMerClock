@@ -94,6 +94,6 @@ rule concatenate_sciphi:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
-        read_count = config['ethan'].get('sciphi', {}).get('full', False)
+        read_count = config['ethan'].get('full', False)
     script:
         f'{SCRIPT_DIR}/merge_sciphi.py'
