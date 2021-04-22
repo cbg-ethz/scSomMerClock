@@ -1,25 +1,11 @@
 #!/usr/bin/env python3
 
-import argparse
 import os
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(prog='merge_sciphi',
-        description='*** Merge SciPhi candidate sites identified per chromosome. ***')
-    parser.add_argument('input', type=str,  nargs='*',
-        help='Absolute or relative path(s) to input tsv files')
-    parser.add_argument('-m', '--mode', type=int, default=0,
-        help='SCIPHI output: 0 for Readcount, 1 for standard. Default = 0.')
-    parser.add_argument('-o', '--output', type=str, default='',
-        help='Path to the output directory. Default = <INPUT_DIR>.')
-    args = parser.parse_args()
-    return args
-
-
-def merge_standard(args):
+def merge_standard(in_files, out_file):
     bg = [{}, {}, {}]
-    for i, in_file in enumerate(args.input):
+    for i, in_file in enumerate(in_files):
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
 
@@ -48,10 +34,18 @@ def merge_standard(args):
         bg_str_new = '\t'.join(['{}\t{}'.format(*i) for i in bg_line_out.items()])
         bg_str += '\n' + bg_str_new
 
-    return sample_str, par_str, mut_str, bg_str
+    if not out_file:
+        out_dir = os.path.sep.join(in_files[0].split(os.path.sep)[:-3])
+        out_file = os.path.join(out_dir, 'SciPhi_merged.tsv')
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
+    out_str = '{}\n{}\n{}\n{}'.format(sample_str, par_str, mut_str, bg_str)
+    with open(out_file, 'w') as f_out:
+        f_out.write(out_str)
 
 
-def merge_readCounts(args):
+def merge_readCounts(in_files, out_file):
     bg = [{}, {}, {}, {}, {}]
     
     cand_sites = 0
@@ -67,7 +61,7 @@ def merge_readCounts(args):
                 return 24
 
     for i, in_file in enumerate(sorted(
-            args.input, key=lambda x: set_chr(x.split('/')[-3].split('.')[-1]))):
+            in_files, key=lambda x: set_chr(x.split('/')[-3].split('.')[-1]))):
     
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
@@ -110,27 +104,41 @@ def merge_readCounts(args):
     par_str = '=numCandidateMutatedSites=\n{}\n=numBackgroundSites=\n{}' \
         .format(cand_sites, bg_sites)
 
-    return sample_str, par_str, mut_str, bg_str
-
-
-def main(args):
-    if not args.output:
-        args.output = os.path.sep.join(args.input[0].split(os.path.sep)[:-3])
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
-
-    if args.mode == 0:
-        sample_str, par_str, mut_str, bg_str = merge_readCounts(args)
-    else:
-        sample_str, par_str, mut_str, bg_str = merge_standard(args)
-
+    if not out_file:
+        out_dir = os.path.sep.join(in_files[0].split(os.path.sep)[:-3])
+        out_file = os.path.join(out_dir, 'SciPhi_merged.tsv')
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
 
     out_str = '{}\n{}\n{}\n{}'.format(sample_str, par_str, mut_str, bg_str)
-    out_file = os.path.join(args.output, 'SciPhi_merged.tsv')
     with open(out_file, 'w') as f_out:
         f_out.write(out_str)
     
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input', type=str,  nargs='*',
+        help='Path to input tsv files')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Output file. Default = <INPUT_DIR>/SciPhi_merged.tsv.')
+    parser.add_argument('-rc', '--read_count', action='store_true',
+        help='Merge read counts instead of standard SciPhi output.')
+    
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == '__main__':
-    args = parse_args()
-    main(args)
+    if 'snakemake' in globals():
+        if snakemake.params.read_count:
+            merge_readCounts(snakemake.input, snakemake.output)
+        else:
+            merge_standard(snakemake.input, snakemake.output)
+    else:
+        import argparse
+        args = parse_args()
+
+        if args.read_count:
+            merge_readCounts(args.input, args.output)
+        else:
+            merge_standard(args.input, args.output)
