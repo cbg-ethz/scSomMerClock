@@ -55,7 +55,8 @@ rule generate_mpileup:
     params:
         ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
         regions = '' if not config['ethan'].get('target_only', False) else 
-            f'-l {os.path.join(RES_PATH, config['specific']['WES_target'])}',
+            '-l {}/{}'.format(config['static']['resources_path'],
+                config['specific']['WES_target']),
     shell:
         'mkdir -p SciPhi && '
         'samtools mpileup --region {wildcards.chr} --no-BAQ --min-BQ 13 '
