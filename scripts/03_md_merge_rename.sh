@@ -1,14 +1,9 @@
 #!/bin/sh
 
-module purge
-
 bams_in=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -s | --sample )     shift
                             cellname=$1
                             ;;
@@ -28,6 +23,3 @@ java -Xmx${MEM_GB}g -jar $EBROOTPICARD/picard.jar MarkDuplicates \
     CREATE_INDEX=true \
     VALIDATION_STRINGENCY=LENIENT \
     M=Processing/Duplicates_${cellname}.txt
-
-
-

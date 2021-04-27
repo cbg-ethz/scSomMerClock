@@ -447,9 +447,9 @@ rule merge_poisson_tree_test:
         '',
     resources:
         mem_mb = 2048
-    params:
+
     script:
-        f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
+        f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
 
 
 # -------------------------------- SIEVE ---------------------------------------

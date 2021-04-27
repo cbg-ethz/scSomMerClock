@@ -1,14 +1,9 @@
 #!/bin/sh
 
-module purge
-
 pair_end=true
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -s | --sample )     shift
                             sample=$1
                             ;;
@@ -22,8 +17,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$sample" ]] && { echo "Error: Sample not set"; exit 1; }
-[[ -z "$WGA_LIBRARY" ]] && { echo "Error: WGA library not set"; exit 1; }
+set -Eeuxo pipefail
 
 if [ "${pair_end}" = true ]
 then

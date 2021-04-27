@@ -1,15 +1,10 @@
 #!/bin/sh
 
-module purge
-
 sample_bams=""
 min_depth=10
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)          shift
-                                module load $1
-                                ;;
         -o | --out)             shift
                                 out_file=$1
                                 ;;
@@ -22,8 +17,6 @@ while [ "$1" != "" ]; do
 done
 
 set -Eeuxo pipefail
-
-[[ -z "$out_file" ]] && { echo "Error: Output file not set"; exit 1; }
 
 filter_str="N_PASS(FORMAT/AD[*:0] + FORMAT/AD[*:1] >= ${min_depth}) > 0"
 cores=$(nproc)

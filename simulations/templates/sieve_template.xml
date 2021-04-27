@@ -2,11 +2,8 @@
 <beast beautistatus="" beautitemplate="Standard" namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.evolution.errormodel:beast.evolution.likelihood" required="" version="2.6">
             
     
-    <data ascertained="none" dataType="full supports-coverage" id="alignment" spec="beast.evolution.alignment.ScsAlignment" bgInfoSanityCheck="true">
-        
+    <data ascertained="felsenstein" dataType="full supports-coverage" id="alignment" spec="beast.evolution.alignment.ScsAlignment" bgInfoSanityCheck="false" bgSitesNum="{bgSites}">
     </data>
-            
-    {background}
     
     <map name="Uniform">beast.math.distributions.Uniform</map>
             
@@ -253,7 +250,7 @@
                                                             
                     
 
-                    <branchRateModel id="{model}">
+                    <branchRateModel {model}>
                         {model_params}
                     </branchRateModel>
                                                             

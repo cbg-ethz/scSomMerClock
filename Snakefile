@@ -52,10 +52,6 @@ if config['specific'].get('bulk_samples', False):
 ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
 ss_samples.sort()
 
-def get_corr_samples(wildcards):
-    return [os.path.join('Processing', f'{i}.sorted.bam') \
-        for i in cell_map[wildcards.cell]]
-
 
 def get_all_files(wildcards):
     files = [os.path.join('Calls', 'all.vcf.gz'),
@@ -96,20 +92,20 @@ rule alignment1:
         os.path.join('Processing', '{sample}.trimmed_1.fastq.gz')
     output:
         temp(os.path.join('Processing', '{sample}.sam'))
+    envmodules:
+        'gcc/6.4.0',
+        'bwa/0.7.17',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     threads: 8
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bwa', ['bwa'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/02.1_bwa.sh {params.modules} '
-        '-s {wildcards.sample} -r {params.ref_genome} -l {params.WGA_lib} '
-        '{params.pair_end}'
+        '{params.base_dir}/scripts/02.1_bwa.sh -s {wildcards.sample} '
+        '-r {params.ref_genome} -l {params.WGA_lib} {params.pair_end}'
 
 
 rule alignment2:
@@ -117,31 +113,35 @@ rule alignment2:
         os.path.join('Processing', '{sample}.sam')
     output:
         temp(os.path.join('Processing', '{sample}.sorted.bam'))
+    envmodules:
+        'picard/2.18.14',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('picard', ['picard'])])
     shell:
-        '{params.base_dir}/scripts/02.2_bwa.sh {params.modules} '
-        '-s {wildcards.sample}'
+        '{params.base_dir}/scripts/02.2_bwa.sh -s {wildcards.sample}'
+
+
+def get_dedup_samples(wildcards):
+    return [os.path.join('Processing', f'{i}.sorted.bam') \
+        for i in cell_map[wildcards.cell]]
 
 
 rule remove_duplicates:
     input:
-        get_corr_samples
+        get_dedup_samples
     output:
         os.path.join('Processing', '{cell}.dedup.bam')
+    envmodules:
+        'picard/2.18.14',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 32768
+        mem_mb = lambda wildcards, attempt: attempt * 32768,
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('picard', ['picard'])])
     shell:
         '{params.base_dir}/scripts/03_md_merge_rename.sh {input} '
-        '{params.modules} -s {wildcards.cell}'
+        '-s {wildcards.cell}'
 
 
 rule sanity_check_bam:
@@ -150,12 +150,10 @@ rule sanity_check_bam:
             cell=cell_map.keys())
     output:
         'bad_bams.fofn'
-    params:
-        samtools = config['modules'].get('samtools', ['samtools'])
+    envmodules:
+        'samtools'
     shell:  
-        'module load {params.samtools};'
-        'samtools quickcheck -v {input} > {output[0]};'
-        'xargs rm < bad_bams.fofn'
+        'samtools quickcheck -v {input} > {output}; xargs rm < bad_bams.fofn'
 
 
 rule indel_realignment0:
@@ -179,13 +177,13 @@ rule indel_realignment1:
             cell=cell_map.keys())
     output:
         os.path.join('Realignment', '{chr}.intervals')
+    envmodules:
+        'gatk/3.7-0-gcfedb67',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     threads: 4
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
@@ -193,7 +191,7 @@ rule indel_realignment1:
             '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
         '{params.base_dir}/scripts/05.1_indel_realign.sh {input} '
-        '{params.modules} -c {params.pref}{wildcards.chr} -o {output} '
+        '-c {params.pref}{wildcards.chr} -o {output} '
         '-r {params.ref_genome} -i1 {params.indels1} {params.indels2}'
 
 
@@ -206,12 +204,12 @@ rule indel_realignment2:
     output:
         temp(expand(os.path.join('Processing', '{cell}.real.{{chr}}.bam'),
             cell=cell_map.keys()))
+    envmodules:
+        'gatk/3.7-0-gcfedb67',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk3', ['gatk/3'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
@@ -230,11 +228,10 @@ rule base_recal:
             chr=CHROM)
     output:
         temp(os.path.join('Processing', '{cell}.real.bam'))
-    params:
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('samtools', ['samtools'])]),
+    envmodules:
+        'samtools',
     shell:
-        'module load samtools && samtools merge {output} {input}'
+        'samtools merge {output} {input}'
 
 
 rule base_recal1:
@@ -367,20 +364,22 @@ rule monovar1:
         os.path.join('Processing', '{chr}.bamspath.txt')
     output:
         temp(os.path.join('Calls', '{chr}.monovar.vcf'))
+    envmodules:
+        'samtools',
+        'pysam/0.15.4-python-2.7.17',
+        'numpy/1.16.6-python-2.7.17',
+        'scipy/1.1.0-python-2.7.15',
     threads: 3
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('monovar', ['monovar', 'samtools'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
-        monovar = config['monovar']['exe']
+        monovar = config['monovar']['exe'],
     shell:
-        '{params.base_dir}/scripts/07.1_monovar.sh {params.modules} '
-        '-c {wildcards.chr} -r {params.ref_genome} -p {params.pref} '
-        '-e {params.monovar}'
+        '{params.base_dir}/scripts/07.1_monovar.sh -c {wildcards.chr} '
+        '-r {params.ref_genome} -p {params.pref} -e {params.monovar}'
 
 
 rule monovar2:
@@ -389,14 +388,14 @@ rule monovar2:
             chr=CHROM)
     output:
         os.path.join('Calls', 'all.monovar.vcf.gz')
+    envmodules:
+        'bcftools',
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
         min_depth = config['filters'].get('depth', 10),
     shell:
-        '{params.base_dir}/scripts/07.2_monovar.sh {input} {params.modules} '
-        '-o {output[0]} -md {params.min_depth}'
+        '{params.base_dir}/scripts/07.2_monovar.sh {input} -o {output}'
+        '-md {params.min_depth}'
 
 
 rule mutect1:

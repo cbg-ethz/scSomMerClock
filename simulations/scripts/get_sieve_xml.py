@@ -4,34 +4,13 @@ import os
 import re
 
 
-def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
+def get_sieve_xml(template_file, tree_file, samples_file, model, steps, base_no,
             out_file):
-    with open(template_file, 'r') as f:
-        templ = f.read()
+    with open(template_file, 'r') as f_temp:
+        templ = f_temp.read()
 
-    run = re.search('\.(\d+)', tree_file).group(1)
-
-    # bg_file = os.path.join(os.path.sep.join(tree_file.split(os.path.sep)[:-2]),
-    #     'full_genotypes_dir', 'background.{}'.format(run))
-
-    # with open(bg_file, 'r') as f_bg:
-    #     bg_bases = f_bg.read().strip()
-
-    # background_str = '<data id="alignment" spec="FilteredAlignment" filter="-" ' \
-    #     'data="@original-alignment" constantSiteWeights="{}"/>'.format(bg_bases)
-    background_str = ''
-    templ = re.sub('{background}', background_str, templ)
-
-    with open(tree_file, 'r') as f_tree:
-        newick = f_tree.read().strip()
-
-        sample_no = 0
-        with open(samples_file, 'r') as f_smpl:
-            for s_i, s_raw in enumerate(f_smpl.read().strip().split('\n')):
-                s_name, _ = s_raw.split('\t')
-                newick = re.sub('(?<=[\(\),]){}(?=[,\)\)])'.format(s_i + 1), s_name, newick)
-        # Replace names
-        newick += ';'
+    with open(samples_file, 'r') as f_samp:
+        samples = f_samp.read().split('\n')
 
     tree_node = '<tree id="tree" name="stateNode" ' \
         'nodetype="beast.evolution.tree.ScsNode" ' \
@@ -39,24 +18,21 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
         'treeFileName="{}"/>'.format(tree_file)
 
     # TODO <NB> Remove curly brackets in XML
-    templ = re.sub('{branch_no}', str(2 * (s_i + 1) - 1), templ)
-
-    # '<stateNode spec="beast.util.TreeParser" id="randomTree" ' \
-    #     'IsLabelledNewick="true" adjustTipHeights="false" taxa="@alignment" ' \
-    #     'newick="{}"/>'.format(newick)
-
+    templ = re.sub('{branch_no}', str(2 * (len(samples) -1) - 1), templ)
     templ = re.sub('{tree}', tree_node, templ)
-
-
+    templ = re.sub('{bgSites}', str(base_no), templ)
     templ = re.sub('{steps}', str(steps), templ)
 
     if model == 'clock':
         prior_node = ''
-        model_node = 'strictClock" spec="beast.evolution.branchratemodel.StrictClockModel'
-        param_node = "<parameter estimate='false' id='clockRate' name='clock.rate' spec='parameter.RealParameter'>1.0</parameter>"
+        model_node = 'id="strictClock" ' \
+            'spec="beast.evolution.branchratemodel.StrictClockModel"'
+        param_node = '<parameter estimate="false" id="clockRate" ' \
+            'name="clock.rate" spec="parameter.RealParameter">1.0</parameter>'
         op_node = ''
         log_node = ''
-        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
+        br_rate_node = '<log id="TreeWithMetaDataLogger" '\
+            'spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@tree" />'
     else:
         prior_node = """<prior id="ucldStdevPrior" name="distribution" x="@ucldStdev">
                     <Gamma id="ucldStdevDist" name="distr">
@@ -64,7 +40,7 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
                         <parameter estimate="false" id="ucldStdevDistRealParameter.2" name="beta" spec="parameter.RealParameter">0.3819</parameter>
                     </Gamma>
                 </prior>"""
-        model_node = 'RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree'
+        model_node = 'id="RelaxedClock" spec="beast.evolution.branchratemodel.UCRelaxedClockModel" rateCategories="@rateCategories" tree="@tree"'
         param_node = """<LogNormal id="LogNormalDistributionModel" S="@ucldStdev" meanInRealSpace="true" name="distr">
                             <parameter id="LogNormalDistributionModelRealParameter" spec="parameter.RealParameter" estimate="false" lower="0.0" name="M" upper="1.0">1.0</parameter>
                         </LogNormal>
@@ -81,7 +57,9 @@ def get_sieve_xml(template_file, tree_file, samples_file, model, steps,
         log_node = """<log idref="ucldStdev"/>
             <log id="rate" spec="beast.evolution.branchratemodel.RateStatistic" branchratemodel="@RelaxedClock" tree="@tree"/>
 """
-        br_rate_node = '<log id="TreeWithMetaDataLogger" spec="beast.evolution.tree.TreeWithMetaDataLogger" substitutions="true" branchratemodel="@RelaxedClock" tree="@tree"/>'
+        br_rate_node = '<log id="TreeWithMetaDataLogger" ' \
+            'spec="beast.evolution.tree.TreeWithMetaDataLogger" ' \
+            'substitutions="true" branchratemodel="@RelaxedClock" tree="@tree"/>'
 
     templ = re.sub('{priors}', prior_node, templ)
     templ = re.sub('{model}', model_node, templ)
@@ -103,6 +81,8 @@ def parse_args():
         choices=['clock', 'noClock'], help='Model to chose.')
     parser.add_argument('-n', '--steps', type=int, default=1E6,
         help='MCMC step number.')
+    parser.add_argument('-b', '--background_sites', type=int, default=-1,
+        help='Number of total sequences/simulated bases.')
     parser.add_argument('-o', '--output', type=str, help='Output file.')
     args = parser.parse_args()
     return args
@@ -110,11 +90,20 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        get_sieve_xml(snakemake.input.xml, snakemake.input.tree,
+        bg = False
+        with open(snakemake.input.snps, 'r') as f:
+            for line in f:
+                if bg:
+                    base_no = int(line)
+                    break
+                if line == '=numBackgroundSites=\n':
+                    bg = True
+
+        get_sieve_xml(snakemake.params.xml, snakemake.input.tree,
             snakemake.input.samples, snakemake.wildcards.model,
-            snakemake.params.steps, snakemake.output[0])
+            snakemake.params.steps, base_no, snakemake.output[0])
     else:
         import argparse
         args = parse_args()
         get_sieve_xml(args.input, args.tree, args.samples, args.model,
-            args.steps, args.output)
+            args.steps, args.background_sites, args.output)

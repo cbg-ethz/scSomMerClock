@@ -1,14 +1,9 @@
 #!/bin/sh
 
-module purge
-
 pair_end=true
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -s | --sample )     shift
                             sample=$1
                             ;;

@@ -5,13 +5,21 @@ import re
 from io import StringIO
 
 import numpy as np
+# np.seterr(all='raise')
 import pandas as pd
 from scipy.stats.distributions import chi2
+import scipy.special
+from scipy.optimize import minimize
+from scipy.stats import poisson
+
 
 from utils import change_newick_tree_root
 
+import statsmodels.api as sm
 from newick import read, loads
 from Bio import Phylo
+
+EPSILON = 1E-12
 
 
 def get_mut_matrix(vcf_file, exclude_pat, include_pat):
@@ -84,6 +92,11 @@ def get_mut_matrix(vcf_file, exclude_pat, include_pat):
     return muts[include]
 
 
+def write_tree(tree, out_file='example.newick'):
+    tree.ladderize(reverse=False)
+    Phylo.write(tree, out_file, 'newick')
+
+
 def get_tree_dict(tree_file, muts, paup_exe):
     if 'cellphy_dir' in tree_file:
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True)
@@ -97,92 +110,95 @@ def get_tree_dict(tree_file, muts, paup_exe):
     # With BioPython package
     tree = Phylo.read(StringIO(tree_str), 'newick')
 
-    excl_leafs = []
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
-        cols_flag = leaf_node.name == muts.columns
-
-        if any(cols_flag):
-            leaf_s = muts.loc[:, cols_flag].squeeze()
-            others_s = muts.loc[:, ~cols_flag].sum(axis=1)
-            no_muts = ((leaf_s == 1) & (others_s == 0)).sum()
-            leaf_node.branch_length = no_muts
-        else:
-            excl_leafs.append(leaf_node.name)
-
-    # Remove excluded leaf nodes
-    for excl_leaf in excl_leafs:
-        tree.collapse(excl_leaf)
+        leaf_muts = muts[leaf_node.name]
+        others_muts = muts.drop(leaf_node.name, axis=1).sum(axis=1)
+        no_muts = ((leaf_muts == 1) & (others_muts == 0)).sum()
+        leaf_node.branch_length = no_muts
         
     # Add number of mutations to internal nodes
     for int_node in tree.get_nonterminals():
         leaf_desc = [i.name for i in int_node.get_terminals()]
-        cols_flag = muts.columns.isin(leaf_desc)
         leaf_no = len(leaf_desc)
         
-        int_s = muts.loc[:, cols_flag].sum(axis=1)
-        others_s = muts.loc[:, ~cols_flag].sum(axis=1)
+        int_muts = muts[leaf_desc].sum(axis=1)
+        others_muts = muts.drop(leaf_desc, axis=1).sum(axis=1)
 
-        no_muts = ((int_s == leaf_no) & (others_s == 0)).sum()
+        no_muts = ((int_muts == leaf_no) & (others_muts == 0)).sum()
         int_node.branch_length = no_muts
-        int_node.name = '+'.join(muts.columns[cols_flag])
+        int_node.name = '+'.join(leaf_desc)
 
-    tree.ladderize(reverse=False)
-    Phylo.write(tree, "example.newick", "newick")
+    return tree
 
+
+def get_model_data(tree, muts):
     total_muts = muts.shape[0]
     cell_no = tree.count_terminals()
     br_no = 2 * cell_no - 2
     br_indi_no = cell_no - 1
 
-    tree_mat = np.zeros((br_no, br_indi_no))
-    y = []
+    X = np.zeros((br_no, br_indi_no), dtype=bool)
+    Y = np.zeros(br_no, dtype=int)
     br_cells = {}
-
-    n_idx = 0 # node index
-    l_idx = 1 # lambda index
     
-    sorted_br = sorted(
-        [(tree.distance(i), i) for i in tree.find_clades(terminal=False)],
-        key=lambda x: x[0], reverse=True
-    )
+    br_dist = []
+    for int_node in tree.find_clades(terminal=False):
+        dist = tree.distance(int_node)
+        no_desc = int_node.name.count('+')
+        br_id = dist + (1 - no_desc / 1000)
+        br_dist.append((br_id, int_node))
+    sorted_br = sorted(br_dist, key=lambda x: x[0], reverse=True)
 
+    # Iterate over internal nodes
     for l_idx, (mut_no, int_node) in enumerate(sorted_br, 1):
-        for child in int_node.clades:
-            y.append(child.branch_length)
-            br_cells[child] = n_idx
-            tree_mat[n_idx, :l_idx] = 1
-            if not child.is_terminal():
-                tree_mat[n_idx] -= tree_mat[br_cells[child.clades[0]]]
-                if not all(tree_mat[br_cells[child.clades[0]]] == tree_mat[br_cells[child.clades[1]]]):
-                    import pdb; pdb.set_trace()
-            n_idx += 1
-        
-    import pdb; pdb.set_trace()
+        # Iterate over the two child nodes of each internal node
+        for c_idx, child in enumerate(int_node.clades):
+            # Get and store node index
+            node_idx = (l_idx - 1) * 2 + c_idx
+            br_cells[child] = node_idx
+            # Set node properties
+            Y[node_idx] = child.branch_length
+            X[node_idx, 0:l_idx] = True
+            # Subtract lambdas of child nodes
+            for grand_child in child.clades:
+                X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
+         
+    labels = [i[0].name for i in sorted(br_cells.items(), key=lambda x: x[1])]
+    return Y, X.astype(int), labels
 
 
+def opt_log_poisson(k, l):
+    # P(x=k) = l^k * e^(-l) / k!
+    # log(P(x=k)) = k * log(l) - l [- log(k!)]
+    
+    y = x * np.log(l) - l
+    return np.sum(y)
 
-    tree_mat = np.zeros((br_no, br_indi_no))
-    level = 0
-    idx = 0
-    curr_level_nodes = tree.descendants
-    next_lvl_nodes = []
-    while level < br_indi_no:
-        for curr_node in curr_level_nodes:
-            if curr_node.is_leaf:
-                br_cells.append(curr_node.name)
-                tree_mat[idx, level:] = 1
-                idx += 1
-            else:
-                next_lvl_nodes = curr_node.descendants
-                node_samples = '+'.join(
-                    sorted([i.name for i in curr_node.get_leaves()]))
-                br_cells.append(node_samples)
-                tree_mat[idx, level] = 1
-                idx += 1
-        curr_level_nodes = next_lvl_nodes
-        level += 1
+
+def log_poisson(x, k, T):
+    return -np.nansum(poisson.logpmf(k, np.dot(T, x)))
+    # l_tree = np.dot(T, x) + EPSILON
+    # return -np.sum(k * np.log(l_tree) - l_tree) # - np.log(scipy.special.factorial(k))
+    
+
+def log_zero_infl_poisson(x, k, T):
+    pi = x[-1]
+
+    zero_flag = np.where(k == 0, 1, 0).astype(bool)
+    l_tree = np.dot(T, x[:-1]) + EPSILON
+
+    try:
+        zero_ll = np.log(pi + (1 - pi) * np.exp(-l_tree[zero_flag]))
+    except FloatingPointError:
         import pdb; pdb.set_trace()
+
+    try:
+        ll = np.log(1 - pi) + k[~zero_flag] * np.log(l_tree[~zero_flag]) - l_tree[~zero_flag]
+    except FloatingPointError:
+        import pdb; pdb.set_trace()
+
+    return -np.sum(zero_ll) - np.sum(ll)
 
 
 def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
@@ -191,24 +207,67 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     run = os.path.basename(vcf_file).split('.')[1]
     muts = get_mut_matrix(vcf_file, exclude, include)
     tree = get_tree_dict(tree_file, muts, paup_exe)
-    import pdb; pdb.set_trace()
-    mean_muts = muts.mean()
+    Y, X, labels = get_model_data(tree, muts)
 
+    lambda_min = 0.01
+    lambda_max = Y.max()
 
-    LR = 2 * np.sum(muts * np.log(muts / mean_muts))
+    ## Dummy data
+
+    # lambd = np.array([25, 50, 100, 150])
+    # lambd = np.random.exponential(np.mean(Y) * 2, size=X.shape[1]).round()
+    # Y = np.zeros(X.shape[0])
+    # for i, cell in enumerate(X.astype(bool)):
+    #     Y[i] = np.sum(np.random.poisson(lambd[cell.astype(bool)]))
+
+    no_pars_unconst = Y.size
+
+    log_poisson(Y, Y, np.identity(no_pars_unconst))
+    bounds_unconst = [(lambda_min, lambda_max)] * no_pars_unconst
+
+    Y = np.append(Y, np.mean(Y == 0))
+    bounds_unconst.append((1e-6, 1 - 1e-6))
+
+    opt_unconst = minimize(log_zero_infl_poisson, Y, args=(Y[:-1], np.identity(no_pars_unconst)),
+            bounds=bounds_unconst)
+    opt_unconst2 = minimize(log_poisson, Y[:-1], args=(Y[:-1], np.identity(no_pars_unconst)),
+            bounds=bounds_unconst[:-1])
+
+    no_pars_clock = X.shape[1]
+    bounds_clock = [(lambda_min, lambda_max)] * no_pars_clock
+
+    bounds_clock.append((1e-6, 1 - 1e-6))
+    # Get starting position: mutation count on corresponding branches
+    init_clock = np.zeros(no_pars_clock)
+    for i in np.argwhere(X.sum(axis=1) == 1).flatten():
+        l_i = np.argwhere(X[i] == 1)[0]
+        init_clock[l_i] = Y[i]
+    # If branch is not associated with single count, set it to mean 
+    init_clock[np.argwhere(init_clock == 0)] = np.mean(Y)
+
+    init_clock = np.append(init_clock, np.mean(Y == 0))
+    
+    opt_clock = minimize(log_zero_infl_poisson, init_clock, args=(Y[:-1], X), bounds=bounds_clock)
+    opt_clock2 = minimize(log_poisson, init_clock[:-1], args=(Y[:-1], X), bounds=bounds_clock[:-1])
+
+    LR = 2 * (opt_clock.fun - opt_unconst.fun)
     # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
-    dof = len(muts) - 1
+    dof = no_pars_unconst - no_pars_clock
     p_val = chi2.sf(LR, dof)
+
     if p_val < alpha:
         hyp = 'H1'
     else:
         hyp = 'H0'
 
-    out_str = f'{run}\t{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
+    import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
-        f_out.write('run\t-2logLR\tdof\tp-value\thypothesis\n')
-        f_out.write(out_str)
+        f_out.write(
+            'run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n' \
+            f'{run}\t{opt_clock.fun:0>5.2f}\t{opt_unconst.fun:0>5.2f}\t' \
+            f'{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
+        )
 
 
 def parse_args():

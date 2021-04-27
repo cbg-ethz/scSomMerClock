@@ -54,10 +54,12 @@ rule generate_mpileup:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
         ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        regions = f'-l {os.path.join(RES_PATH, config['specific']['WES_target'])}' \
+            if config['ethan'].get('target_only', False) else ''
     shell:
         'mkdir -p SciPhi && '
         'samtools mpileup --region {wildcards.chr} --no-BAQ --min-BQ 13 '
-        '--max-depth 10000 --fasta-ref {params.ref} --min-MQ 40 '
+        '--max-depth 10000 --fasta-ref {params.ref} --min-MQ 40 {params.regions}'
         '--bam-list {input} > {output}'
 
 

@@ -192,7 +192,7 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
 
 
 def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
-        sample_names=[]):
+        sample_names=[], br_length=False):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
@@ -209,15 +209,26 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
             tree = tree.split(';')[0].strip() + ';'
 
         nodes = [int(i) for i in re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree)]
+        cells = len(sample_names)
+
         for i, s_i in enumerate(sorted(nodes)):
-            pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)    
-            try:
+            if i < cells:
+                pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
                 repl = sample_names[i]
-            except IndexError:
+                if br_length:
+                    repl = '{}:0.1'.format(sample_names[i])
+                else:
+                    repl = str(sample_names[i])
+            elif i == cells:
+                pat = '(?<=[\(\),]){},?(?=[\)\(;)])'.format(s_i)
+                repl = ''
+            else:
+                pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
                 repl = ''
             tree = re.sub(pat, repl, tree)
     else:
-        tree = re.sub(':0.\d+', '', tree)
+        if not br_length:
+            tree = re.sub(':0.\d+', '', tree)
         if 'trees_dir' in in_file:
             tree = tree.replace('cell', 'tumcell') \
                 .replace('outgtumcell', 'healthycell')
@@ -236,13 +247,17 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     else:
         root_cmd = 'DerootTrees;\n{}'.format(outg_cmd)
         root = 'no'
+    if br_length:
+        save_brLens = 'user'
+    else:
+        save_brLens = 'no'
         
     paup_cmd = 'getTrees file={i};\n' \
         '{g}' \
         '{c};\n' \
-        'saveTrees format=Newick root={r} file={o};\n' \
+        'saveTrees format=Newick root={r} brLens={b} file={o};\n' \
         'quit;'.format(i=temp_tree_file.name, g=outg_cmd, c=root_cmd, r=root,
-            o=out_file.name)
+            b=save_brLens, o=out_file.name)
 
     paup_file.write(str.encode(paup_cmd))
     paup_file.close()

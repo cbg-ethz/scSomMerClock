@@ -84,7 +84,7 @@ def get_muts_per_cell(vcf_file, exclude, include):
 
 
 def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
-    avg = [[], [], [], 0, 0]
+    avg = [[], [], [], [], 0, 0]
     out_str = ''
     for in_file in in_files:
         run = os.path.basename(in_file).split('.')[1]
@@ -92,26 +92,30 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
 
         mean_muts = muts.mean()
 
-        LR = 2 * np.sum(muts * np.log(muts / mean_muts))
+        ll_clock = -np.sum(muts * np.log(mean_muts) - mean_muts)
+        ll_uncon = -np.sum(muts * np.log(muts) - muts)
+        LR = 2 * (ll_clock - ll_uncon)
         # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
-        avg[0].append(LR)
         dof = len(muts) - 1
-        avg[1].append(dof)
         p_val = chi2.sf(LR, dof)
-        avg[2].append(p_val)
+
+        for i, j in [(0, ll_clock), (1, ll_uncon), (2, LR), (3, p_val),]:
+            avg[i].append(j)
+
         if p_val < alpha:
             hyp = 'H1'
-            avg[3] += 1
+            avg[5] += 1
         else:
             hyp = 'H0'
             avg[4] += 1
 
-        out_str += f'{run}\t{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
+        out_str += f'{run}\t{ll_clock:0>5.2f}\t{ll_uncon:0>5.2f}\t{LR:0>5.2f}\t' \
+            f'{dof}\t{p_val:.2E}\t{hyp}\n'
 
-    avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>3.1f}\t' \
-            f'{mean(avg[2]):.2E}\tH0:{avg[4]};H1:{avg[3]}\n'
+    avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
+            f'{mean(avg[2]):0>5.2f}\t\t{mean(avg[3]):0>2.5f}\tH0:{avg[4]};H1:{avg[5]}\n'
     with open(out_file, 'w') as f_out:
-        f_out.write('run\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)
 
     print(avg_line)
@@ -133,6 +137,10 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
+        if snakemake.params.exclude == None:
+            snakemake.params.exclude = ''
+        if snakemake.params.include == None:
+            snakemake.params.include = ''
         test_poisson(snakemake.input, snakemake.output[0],
             snakemake.params.exclude, snakemake.params.include)
     else:
