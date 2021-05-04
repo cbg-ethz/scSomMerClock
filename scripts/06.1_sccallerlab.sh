@@ -1,5 +1,4 @@
 #!/bin/sh
-module purge
 
 minBaseQual=13
 minDepth=10
@@ -7,9 +6,6 @@ bulk_normal=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -c | --chr)         shift
                             chr=$1
                             ;;

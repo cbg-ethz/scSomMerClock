@@ -1,14 +1,9 @@
 #!/bin/sh
 
-module purge
-
 tumor_in=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -gAD | --gnomAD )   shift
                             gnomAD=$1
                             ;;

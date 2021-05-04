@@ -1,13 +1,8 @@
 #!/bin/sh
 
-module purge
-
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         --seq)              shift
                             SEQ=$1
                             ;;
@@ -27,11 +22,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-[[ -z "$in_file" ]] && { echo "Error: Input .bam file not set"; exit 1; }
-[[ -z "$out_file" ]] && { echo "Error: Output .bed not set"; exit 1; }
-[[ -z "$SEQ" ]] && { echo "Error: Sequencing platform not set"; exit 1; }
-[[ -z "$WES_REF" && ${SEQ} == "WES" ]] && { echo "Error: Exome target file not set"; exit 1; }
-[[ -z "$genome" && ${SEQ} == "WES" ]] && { echo "Error: Exome target file not set"; exit 1; }
+set -Eeuxo pipefail
 
 if [[ ${SEQ} == "WGA" ]]
 then

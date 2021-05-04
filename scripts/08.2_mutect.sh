@@ -1,14 +1,9 @@
 #!/bin/sh
 
-module purge
-
 sample_bams=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -o | --out)         shift
                             out_file=$1
                             ;;

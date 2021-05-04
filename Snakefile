@@ -96,7 +96,7 @@ rule alignment1:
         'gcc/6.4.0',
         'bwa/0.7.17',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
     threads: 8
     params:
         base_dir = BASE_DIR,
@@ -224,8 +224,7 @@ rule indel_realignment2:
 
 rule base_recal:
     input:
-        expand(os.path.join('Processing', '{{cell}}.real.{chr}.bam'),
-            chr=CHROM)
+        expand(os.path.join('Processing', '{{cell}}.real.{chr}.bam'), chr=CHROM)
     output:
         temp(os.path.join('Processing', '{cell}.real.bam'))
     envmodules:
@@ -239,19 +238,18 @@ rule base_recal1:
         os.path.join('Processing', '{cell}.real.bam')
     output:
         os.path.join('Processing', '{cell}.recal.table')
+    envmodules:
+        'gatk/4.0.10.0'
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk4', ['gatk/4'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
-        indels1 = os.path.join(RES_PATH, config['static']['indel_db1'])
+        indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
     shell:
-        '{params.base_dir}/scripts/04.1_base_recal.sh {params.modules} '
-        '-i {input} -o {output} -r {params.ref_genome} -d {params.dbsnp} '
-        '-id {params.indels1}'
+        '{params.base_dir}/scripts/04.1_base_recal.sh -i {input} -o {output} '
+        '-r {params.ref_genome} -d {params.dbsnp} -id {params.indels1}'
 
 
 rule base_recal2:
@@ -260,16 +258,16 @@ rule base_recal2:
         table = os.path.join('Processing', '{cell}.recal.table')
     output:
         os.path.join('Processing', '{cell}.recal.bam')
+    envmodules:
+        'gatk/4.0.10.0'
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('gatk4', ['gatk/4'])]),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        '{params.base_dir}/scripts/04.2_base_recal.sh {params.modules} '
-        '-i {input.bam} -t {input.table} -o {output} -r {params.ref_genome}'
+        '{params.base_dir}/scripts/04.2_base_recal.sh -i {input.bam} '
+        '-t {input.table} -o {output} -r {params.ref_genome}'
 
 
 rule base_recal3:
@@ -278,12 +276,11 @@ rule base_recal3:
     output:
         expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
             chr=CHROM)
+    envmodules:
+        'samtools'
     params:
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('samtools', ['samtools'])]),
-        chrom=CHROM
+        chrom = CHROM,
     shell:
-        'module purge && module load samtools && '
         'for chr in {params.chrom}; do '
         'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}.recal.${{chr}}.bam; '
         'samtools index Processing/{wildcards.cell}.recal.${{chr}}.bam; '
@@ -299,23 +296,23 @@ rule SCcaller1:
         os.path.join('Processing', '{cell}.recal.{chr}.bam')
     output:
         temp(os.path.join('Calls', '{cell}.{chr}.sccaller.vcf'))
+    envmodules:
+        'pysam/0.15.4-python-2.7.17',
+        'numpy/1.16.6-python-2.7.17',
     threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('SCcaller', ['pysam', 'numpy'])]),
         bulk = config['specific'].get('bulk_normal', ''),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         min_depth = config['filters'].get('depth', 10),
         sccaller = config['SCcaller']['exe']
     shell:
-        '{params.base_dir}/scripts/06.1_sccallerlab.sh {params.modules} '
-        '-s {wildcards.cell} -c {wildcards.chr} -b {params.bulk} '
-        '-r {params.ref_genome} -d {params.dbsnp} -e {params.sccaller} '
-        '-md {params.min_depth}'
+        '{params.base_dir}/scripts/06.1_sccallerlab.sh -s {wildcards.cell} '
+        '-c {wildcards.chr} -b {params.bulk} -r {params.ref_genome} '
+        '-d {params.dbsnp} -e {params.sccaller} -md {params.min_depth}'
 
 
 rule SCcaller2:
@@ -324,13 +321,12 @@ rule SCcaller2:
             chr=CHROM)
     output:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')
+    envmodules:
+        'bcftools',
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/06.2_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '{params.base_dir}/scripts/06.2_sccallerlab.sh {input} -o {output[0]}'
 
 
 rule SCcaller3:
@@ -338,13 +334,12 @@ rule SCcaller3:
         expand(os.path.join('Calls', '{cell}.sccaller.vcf.gz'), cell=ss_samples)
     output:
         os.path.join('Calls', 'all.sccaller.vcf.gz')
+    envmodules:
+        'bcftools',
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/06.3_sccallerlab.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '{params.base_dir}/scripts/06.3_sccallerlab.sh {input} -o {output[0]}'
 
 
 rule monovar0:
@@ -405,22 +400,23 @@ rule mutect1:
     output:
         os.path.join('Calls', '{chr}.mutect.vcf'),
         os.path.join('Calls', '{chr}.f1r2.mutect.tar.gz')
+    envmodules:
+        'picard/2.18.14',
+        'gatk/4.1.1.0',
     threads: 4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('mutect1', ['gatk/4.1', 'picard'])]),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
         normal = f'-n {config["specific"]["bulk_normal"]}'
             if config['specific'].get('bulk_normal', False) else ''
     shell:
-        '{params.base_dir}/scripts/08.1_mutect.sh {input} {params.modules} '
-        '-c {wildcards.chr} -r {params.ref_genome} -g {params.germ_res} '
-        '-p {params.pon} {params.normal}'
+        '{params.base_dir}/scripts/08.1_mutect.sh {input} -c {wildcards.chr} '
+        '-r {params.ref_genome} -g {params.germ_res} -p {params.pon} '
+        '{params.normal}'
 
 
 rule mutect2:
@@ -428,15 +424,14 @@ rule mutect2:
         expand(os.path.join('Calls', '{chr}.mutect.vcf'), chr=CHROM)
     output:
         os.path.join('Calls', 'all.mutect.vcf.gz')
+    envmodules:
+        'bcftools',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])])
     shell:
-        '{params.base_dir}/scripts/08.2_mutect.sh {input} {params.modules} '
-        '-o {output[0]}'
+        '{params.base_dir}/scripts/08.2_mutect.sh {input} -o {output}'
 
 
 if config.get('mutect', {}).get('filter', '') == 'simple':
@@ -445,17 +440,17 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
             os.path.join('Calls', 'all.mutect.vcf.gz'),
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        envmodules:
+            'gatk/4.1.1.0',
         threads: 2
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
-            modules = ' '.join([f'-m {i}' for i in \
-                config['modules'].get('gatk41', ['gatk/4.1'])]),
             ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         shell:
-            '{params.base_dir}/scripts/08.4_mutect_simple.sh {params.modules} '
-            '-i {input} -r {params.ref_genome} -o {output[0]}'
+            '{params.base_dir}/scripts/08.4_mutect_simple.sh -i {input} '
+            '-r {params.ref_genome} -o {output}'
 
 else:
     rule mutect3:
@@ -470,17 +465,17 @@ else:
             expand(os.path.join('Calls', '{cell}.contamination.table'), 
                 cell=bulk_samples['tumor']),
             os.path.join('Calls', 'read-orientation-model.tar.gz')
+        envmodules:
+            'gatk/4.1.1.0',
         threads: 2
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
             base_dir = BASE_DIR,
-            modules = ' '.join([f'-m {i}' for i in \
-                config['modules'].get('gatk41', ['gatk/4.1'])]),
-            gnomAD = os.path.join(RES_PATH, config['static']['gnomAD'])
+            gnomAD = os.path.join(RES_PATH, config['static']['gnomAD']),
         shell:
             '{params.base_dir}/scripts/08.3_mutect.sh {input.tumor} '
-            '{params.modules} -n {input.normal} -gAD {params.gnomAD}'
+            '-n {input.normal} -gAD {params.gnomAD}'
 
 
     rule mutect4:
@@ -491,16 +486,15 @@ else:
             rom = os.path.join('Calls', 'read-orientation-model.tar.gz')
         output:
             os.path.join('Calls', 'all.mutect.filtered.vcf.gz')
+        envmodules:
+            'gatk/4.1.1.0',
         threads: 2
         params:
             base_dir = BASE_DIR,
-            modules = ' '.join([f'-m {i}' for i in \
-                config['modules'].get('gatk41', ['gatk/4.1'])]),
-            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
+            ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         shell:
             '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
-            '{params.modules} -i {input.vcf} -rom {input.rom} '
-            '-r {params.ref_genome} -o {output[0]}'
+            '-i {input.vcf} -rom {input.rom} -r {params.ref_genome} -o {output}'
 
 
 def get_final_vcfs(wildcards):
@@ -520,14 +514,13 @@ rule merge_calls:
     output:
         all_vcf = os.path.join('Calls', 'all.vcf.gz'),
         chr_vcf = expand(os.path.join('Calls', 'all.{chr}.vcf.gz'), chr=CHROM)
+    envmodules:
+        'bcftools',
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bcftools', ['bcftools'])]),
         out_dir = 'Calls',
     shell:
-        '{params.base_dir}/scripts/09_merge_vcfs.sh {input} {params.modules} '
-        '-o {params.out_dir}'
+        '{params.base_dir}/scripts/09_merge_vcfs.sh {input} -o {params.out_dir}'
 
 
 # ------------------------------------------------------------------------------
@@ -540,20 +533,19 @@ rule QC_calling_chr:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
         temp(os.path.join('QC', 'all.{chr}.filtered.vcf')),
-
+    envmodules:
+        'pysam/0.16.0.1-python-3.8.1', 
+        'pandas/1.0.0-python-3.8.1',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join(config['modules'] \
-            .get('QC_calling', ['pysam', 'pandas'])),
         bulk_normal = config['specific'].get('bulk_normal', ''),
         bulk_tumor = ' '.join([' '.join(i) for i in bulk_samples['tumor']]),
         filter_DP = config.get('filters', {}).get('depth', 10),
         filter_QUAL = config.get('filters', {}).get('QUAL', 20),
         pref = '-p chr' if config['static']['WGA_ref'].startswith('hg19') else '',
     shell:
-        'module load {params.modules} && '
         'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o QC '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
         '-q {params.filter_QUAL} -r {params.filter_DP} {params.pref}'
@@ -665,14 +657,14 @@ rule ADO_calculation:
             chr=CHROM, cell=ss_samples)
     output:
         os.path.join('QC',  'ADO_rates.txt')
+    envmodules:
+        'pysam/0.16.0.1-python-3.8.1',
+        'pandas/1.0.0-python-3.8.1',
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join(config['modules'] \
-                .get('QC_calling', ['pysam', 'pandas'])),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref'])
+        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        'module load {params.modules} && '
         'python {params.base_dir}/scripts/ADO_calculation.py {input} '
         '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
         '-o {output}'
@@ -688,19 +680,18 @@ rule create_bed:
         os.path.join('Processing', '{cell}.dedup.bam')
     output:
         os.path.join('Processing', '{cell}.genome.tsv')
+    envmodules:
+        'bedtools/2.28.0'
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join([f'-m {i}' for i in \
-            config['modules'].get('bedtools', ['bedtools'])]),
         seq = config['specific']['SEQ'],
         target = os.path.join(RES_PATH, 
             config['specific'].get('WES_target', '-1')),
         genome = os.path.join(RES_PATH, 
             config['specific'].get('WES_target_genome', '-1'))
     shell:
-        '{params.base_dir}/scripts/QC_cov.sh {params.modules} '
-        '-i {input} -o {output} --seq {params.seq} -e {params.target} '
-        '-g {params.genome}'
+        '{params.base_dir}/scripts/QC_cov.sh -i {input} -o {output} '
+        '--seq {params.seq} -e {params.target} -g {params.genome}'
 
 
 rule QC_sequencing:
@@ -708,10 +699,10 @@ rule QC_sequencing:
         expand(os.path.join('Processing', '{cell}.genome.tsv'), cell=ss_samples)
     output:
         'QC_sequencing.tsv'
+    envmodules:
+        'pandas/1.0.1-python-3.7.7',
+        'matplotlib/3.1.3-python-3.7.7'
     params:
         base_dir = BASE_DIR,
-        modules = ' '.join( \
-                config['modules'].get('QC_seq', ['pandas', 'matplotlib']))
     shell:
-        'module load {params.modules} && '
         'python {params.base_dir}/scripts/QC_coverage.py {input} -o "./"'

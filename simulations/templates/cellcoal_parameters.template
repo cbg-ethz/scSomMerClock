@@ -18,7 +18,7 @@
 [MUTATION MODEL]
     [alphabet binary:0 DNA:1] b{alphabet}
     [germline SNP rate] {germline_rate}
-    [somatic mutation rate] [u1e-5]
+    [somatic mutation rate] u1e-6
     [CN_LOH rate] [H1e-5]
     [deletion rate] [d1e-6]
     [fixed number of mutations - ISM] {no_muts}

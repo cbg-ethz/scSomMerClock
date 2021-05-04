@@ -36,10 +36,14 @@ def get_final_files(wildcards):
             files.append(os.path.join(out_dir, filter_dir,
                 'poisson_dir_{}'.format(tree),
                 'poisson_tree.clock_test_summary.tsv'))
+            files.append(os.path.join(out_dir, filter_dir,
+                'poisson_dir_{}'.format(tree), 'brlength_dist.tsv'))
 
     if config.get('poisson', {}).get('run', False):
         files.append(os.path.join(out_dir, filter_dir,
             'poisson.clock_test_summary.tsv'))
+
+
 
     return files
 
@@ -398,9 +402,50 @@ rule run_poisson_test:
         f'{SCRIPT_DIR}/get_poisson_LRT.py'
 
 
+
+def get_mut_dist_input(wildcards):
+    if config.get('monovar', {}).get('run', False):
+        vcfs = [os.path.join(out_dir, filter_dir, 'vcf_dir', 
+                'vcf.{}.monovar.final'.format(i)) for i in RUNS]
+    else:
+        vcfs = [os.path.join(out_dir, filter_dir, 'vcf_dir', 
+            'vcf.{}.final'.format(i)) for i in RUNS]
+
+    if wildcards.tree == 'cellphy':
+        trees = [os.path.join(out_dir, filter_dir, 'cellphy_dir',
+            'cellphy_tree.{}.raxml.bestTree'.format(i)) for i in RUNS]
+    elif wildcards.tree == 'scite':
+        trees = [os.path.join(out_dir, filter_dir, 'scite_dir',
+            'scite_tree.{}_ml0.newick'.format(i)) for i in RUNS]
+    else:
+        trees = [os.path.join(out_dir, 'trees_dir', 'trees.{}'.format(i)) \
+            for i in RUNS]
+
+    return {'vcf': vcfs, 'tree': trees}
+
+
+
+rule get_mutation_dist:
+    input:
+        unpack(get_mut_dist_input)
+    output:
+        os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
+            'brlength_dist.tsv')
+    conda:
+        ''
+    envmodules:
+        '',
+    resources:
+        mem_mb = 2048
+    params:
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    script:
+        f'{SCRIPT_DIR}/get_mut_distribution.py'
+
+
 def get_poisson_tree_input(wildcards):
-
-
     if wildcards.tree == 'cellphy':
         tree = os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{wildcards.run}.raxml.bestTree' \
@@ -523,7 +568,7 @@ rule get_sieve_tree:
         f'{SCRIPT_DIR}/get_sieve_tree.py'
 
 
-rule get_sieve_final_xml:
+rule get_sieve_final_qxml:
     input:
         tree = os.path.join(out_dir, 'sieve_dir', 'sieve_tree_{tree}.{run}'),
         samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt'),

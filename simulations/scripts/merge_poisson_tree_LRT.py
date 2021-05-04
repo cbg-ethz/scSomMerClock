@@ -1,38 +1,48 @@
 #!/usr/bin/env python3
 
 import os
-from statistics import mean, stdev
+import re
+import pandas as pd
 
 
 def merge_LRT(in_files, out_file):
     out_str = ''
-    avg = [[], [], [], [], 0, 0]
+    df = pd.DataFrame()
+
+    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+
     for i, in_file in enumerate(in_files):
-        with open(in_file, 'r') as f_score:
-            score_raw = f_score.read().strip().split('\n')
+        new_df = pd.read_csv(in_file, sep='\t')
+        df = df.append(new_df, ignore_index=True)
+    
+    means = df.mean(axis=0)
+    total = df.shape[0]
+    if clock:
+        try:
+            H_poisson = f'{df["hypothesis_poisson"].value_counts()["H0"]}/{total}'
+        except KeyError:
+            H_poisson = f'0/{total}'
+        try:
+            H_binom = f'{df["hypothesis_nbinom"].value_counts()["H0"]}/{total}'
+        except KeyError:
+            H_binom = f'0/{total}'
+    else:
+        try:
+            H_poisson = f'{df["hypothesis_poisson"].value_counts()["H1"]}/{total}'
+        except KeyError:
+            H_poisson = f'0/{total}'
+        try:
+            H_binom = f'{df["hypothesis_nbinom"].value_counts()["H1"]}/{total}'
+        except KeyError:
+            H_binom = f'0/{total}'
+    
+    avg_row = [-1] + means.iloc[1:6].tolist() + [H_poisson] \
+        + means.iloc[6:].tolist() + [H_binom]
+    df.loc[total] = avg_row
 
-        # Copy header line
-        if i == 0:
-            out_str += score_raw[0] + '\n'
-        out_str += score_raw[1] + '\n'
+    df.to_csv(out_file, sep='\t', index=False)
 
-        details = score_raw[1].split('\t')
-        for i, j in [(0, 1), (1, 2), (2, 3), (3, 5),]:
-            avg[i].append(float(details[j]))
-
-        if details[-1] == 'H0':
-            avg[4] += 1
-        else:
-            avg[5] += 1
-
-    avg_line = f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t\t' \
-        f'{mean(avg[3])}\tH0:{avg[4]};H1:{avg[5]}\n'
-
-    with open(out_file, 'w') as f_out:
-        f_out.write(out_str + avg_line)
-
-    print(avg_line)
-    import pdb; pdb.set_trace()
+    print(df.loc[total])
 
 
 def parse_args():

@@ -1,13 +1,8 @@
 #!/bin/sh
 
-module purge
-
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -r | --ref )        shift
                             REF=$1
                             ;;

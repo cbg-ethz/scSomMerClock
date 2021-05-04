@@ -1,16 +1,11 @@
 #!/bin/sh
 
-module purge
-
 sample_bams=""
 mutect_calls=""
 out_dir='.'
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -o | --out)         shift
                             out_dir=$(echo $1 | sed 's/\///g')
                             ;;

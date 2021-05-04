@@ -1,15 +1,10 @@
 #!/bin/sh
 
-module purge
-
 bams_in=""
 normal_in=""
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
-        -m | --module)      shift
-                            module load $1
-                            ;;
         -c | --chr)         shift
                             chr=$1
                             ;;

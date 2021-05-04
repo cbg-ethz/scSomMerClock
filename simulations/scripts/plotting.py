@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from scipy.stats import linregress, gamma
+from scipy.stats import linregress, gamma, nbinom
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -86,27 +86,74 @@ def generate_mrbayes_plots(in_file, out_file, regress=False):
     plt.close()
 
 
-def generate_pval_plot(in_file, out_file, p_val_filter=1):
-    df = pd.read_csv(in_file, sep='\t', engine='python', skipfooter=1)
+def simulate_poisson_dispersion(c=30, n=10000):
+    from scipy.stats import poisson
+    from scipy.stats.distributions import chi2
+
+    # mu = np.clip(np.random.normal(300, 200, size=n), 1e-6, np.inf)
+    mu = np.clip(np.random.exponential(100, size=n), 1e-6, np.inf)
+
+    X = poisson.rvs(mu, size=(c, n)).T
+    X_mean = X.mean(axis=1, keepdims=True)
+
+    ll_clock = -np.sum(X * np.log(X_mean) - X_mean, axis=1)
+    ll_uncon = -np.sum(X * np.log(X) - X, axis=1)
+    LR = 2 * (ll_clock - ll_uncon)
+    p_vals = chi2.sf(LR, c - 1)
+
+    return p_vals
+
+
+def _plot_pvals(p_vals, bin_no=100):
     fig, ax = plt.subplots(figsize=(16, 12))
-
-    p_vals = df[df['p-value'] <= p_val_filter]['p-value']
-    if p_val_filter < 1:
-        print('Removed p-values: {} / {}' \
-            .format(df.shape[0] - p_vals.size, df.shape[0]))
-    # p_vals = df['p-value']
-
-    ax.hist(p_vals, bins=100, range=(0, 1))
+    ax.hist(p_vals, bins=bin_no, range=(0, 1))
+    ax.axhline(p_vals.size / bin_no, ls='--', c='red')
     ax.set_ylabel(f'counts (n={p_vals.size})', fontsize=LABEL_FONTSIZE)
     ax.set_xlabel('p-values', fontsize=LABEL_FONTSIZE)
     ax.set_xlim([-0.01, 1.01])
-    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92,
-        hspace=0.5)
-    if out_file:
-        fig.savefig(out_file, dpi=300)
-    else:
-        plt.show()
-    plt.close()
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
+    return fig
+
+
+def _plot_muts(muts, bin_no=100):
+    mu = np.mean(muts)
+    half_stdev = np.sqrt(np.var(muts)) / 2
+
+    fig, ax = plt.subplots(figsize=(16, 12))
+    ax.hist(muts, bins=bin_no, range=(-1, max(muts) + 10 ))
+    ax.axvline(mu, ls='-', c='black')
+    ax.axvline(mu - half_stdev, ls='--', c='black')
+    ax.axvline(mu + half_stdev, ls='--', c='black')
+    ax.set_xlim([-1, max(muts) + 10])
+    ax.set_ylabel(f'Count (n={len(muts)})', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('Branch length [# Mutations]', fontsize=LABEL_FONTSIZE)
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
+    return fig
+
+
+def generate_pval_plot(in_file, out_file, p_val_filter=1, bin_no=100):
+    df = pd.read_csv(in_file, sep='\t', engine='python', skipfooter=1)
+
+    for col in ['', '_poisson', '_nbinom']:
+        try:
+            p_vals = df[df[f'p-value{col}'] <= p_val_filter][f'p-value{col}']
+        except KeyError:
+            continue
+        # p_vals = simulate_poisson_dispersion()
+
+        if p_val_filter < 1:
+            print('Removed p-values: {} / {}' \
+                .format(df.shape[0] - p_vals.size, df.shape[0]))
+
+        fig = _plot_pvals(p_vals, bin_no)
+        fig.suptitle(f'Model: {col.lstrip("_").capitalize()}',
+            fontsize=LABEL_FONTSIZE * 1.5)
+
+        if out_file:
+            fig.savefig(out_file, dpi=300)
+        else:
+            plt.show()
+        plt.close()
 
 
 def generate_gamma_plot(alphas, out_file):
@@ -142,13 +189,45 @@ def generate_gamma_plot(alphas, out_file):
     plt.close()
 
 
+def generate_nbinom_plot(n, p, out_file):
+    x = np.arange(nbinom.ppf(0.001, n, p), nbinom.ppf(0.999, n, p))
+    y = nbinom.pmf(x, n, p)
+
+    mu, var = nbinom.stats(n, p, moments='mv')
+    half_stdev = np.sqrt(var/2)
+
+    fig, ax = plt.subplots(figsize=(16, 12))
+    ax.plot(x, y, label=f'r={n:.2f},p={p:.2f}')
+
+    ax.axvline(mu, ls='-', c='black')
+    ax.axvline(mu - half_stdev, ls='--', c='black')
+    ax.axvline(mu + half_stdev, ls='--', c='black')
+
+    ax.set_ylabel(r'NB(k; r, p)', fontsize=LABEL_FONTSIZE)
+    ax.set_ylim([0, y.max() * 1.05])
+    ax.set_xlabel('k', fontsize=LABEL_FONTSIZE)
+    ax.set_xlim([x.min() * 0.95, x.max() * 1.05])
+
+    ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
+    ax.legend(fontsize=TICK_FONTSIZE)
+    ax.set_title('PDF', fontsize=LABEL_FONTSIZE * 1.5)
+
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=str, help='Input file')
     parser.add_argument('-f', '--format', type=str, default='pval',
-        choices=['pval', 'mrbayes', 'gamma'], help='What type of plot to generate')
+        choices=['pval', 'mrbayes', 'gamma', 'nbinom'], help='What type of plot to generate')
     parser.add_argument('-a', '--alpha', type=float, default=[1], nargs='+',
         help='Alpha parameters of Gamma distribution with mean 1. Default = 1')
+    parser.add_argument('-nbp', '--nbinom_pars', nargs=2, type=float,
+        help='r und p parameters of negative binomial distribution.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
     args = parser.parse_args()
@@ -164,5 +243,7 @@ if __name__ == '__main__':
         generate_pval_plot(args.input, args.output)
     elif args.format == 'gamma':
         generate_gamma_plot(args.alpha, args.output)
+    elif args.format == 'nbinom':
+        generate_nbinom_plot(*args.nbinom_pars, args.output)
     else:
         raise IOError('Unknown format type: {}'.format(args.format))
