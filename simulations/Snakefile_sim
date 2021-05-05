@@ -424,7 +424,6 @@ def get_mut_dist_input(wildcards):
     return {'vcf': vcfs, 'tree': trees}
 
 
-
 rule get_mutation_dist:
     input:
         unpack(get_mut_dist_input)
@@ -434,7 +433,8 @@ rule get_mutation_dist:
     conda:
         ''
     envmodules:
-        '',
+        'pandas/1.0.1-python-3.7.7',
+        'biopython/1.77-python-3.7.7',
     resources:
         mem_mb = 2048
     params:
@@ -468,7 +468,9 @@ rule run_poisson_tree_test:
     conda:
         ''
     envmodules:
-        '',
+        'scipy/1.4.1-python-3.7.7',
+        'pandas/1.0.1-python-3.7.7',
+        'biopython/1.77-python-3.7.7',
     resources:
         mem_mb = 2048
     params:
@@ -489,7 +491,7 @@ rule merge_poisson_tree_test:
     conda:
         ''
     envmodules:
-        '',
+        'pandas/1.0.1-python-3.7.7',
     resources:
         mem_mb = 2048
 

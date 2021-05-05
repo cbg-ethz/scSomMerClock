@@ -2,8 +2,8 @@
 
 import os
 import re
-from statistics import mean, stdev
 import numpy as np
+from statistics import mean, stdev
 from scipy.stats.distributions import chi2
 
 
@@ -96,7 +96,7 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
         ll_uncon = -np.sum(muts * np.log(muts) - muts)
         LR = 2 * (ll_clock - ll_uncon)
         # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
-        dof = len(muts) - 1
+        
         p_val = chi2.sf(LR, dof)
 
         for i, j in [(0, ll_clock), (1, ll_uncon), (2, LR), (3, p_val),]:

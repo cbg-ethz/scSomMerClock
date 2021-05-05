@@ -15,10 +15,7 @@ from scipy.spatial import distance
 
 from utils import change_newick_tree_root
 from plotting import _plot_pvals
-import matplotlib.pyplot as plt
 
-import statsmodels.api as sm
-from newick import read, loads
 from Bio import Phylo
 
 
@@ -353,6 +350,8 @@ def opt_dist(x, k, T, dist_func=distance.minkowski, *args):
 
 
 def show_pvals(p_vals):
+    import matplotlib.pyplot as plt
+
     _plot_pvals(p_vals)
     plt.show()
     plt.close()
@@ -445,7 +444,7 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
 
     run = os.path.basename(vcf_file).split('.')[1]
     muts = get_mut_matrix(vcf_file, exclude, include)
-    tree = get_tree_dict(tree_file, muts, paup_exe, 0)
+    tree = get_tree_dict(tree_file, muts, paup_exe, 5)
 
     # tree = get_ideal_tree(tree_file)
 
