@@ -223,7 +223,7 @@ if __name__ == '__main__':
     if 'snakemake' in globals():
         try:
             ngen = snakemake.wildcards.ngen
-        except KeyError:
+        except AttributeError:
             ngen = 1e6
         vcf_to_nex(snakemake.input.vcf, snakemake.output, ngen,
             ss_flag=snakemake.params.ss, tree=snakemake.input.tree,
