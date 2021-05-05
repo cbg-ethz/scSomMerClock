@@ -31,7 +31,6 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
     for cell_data in data_raw.values():
         data_list.append([int(i) for i in cell_data])
     data = np.array(data_list).T
-    import pdb; pdb.set_trace()
 
     data_file = os.path.join(out_dir, 'SCITE{}.csv'.format(run_no))
     np.savetxt(data_file, data.astype(int), delimiter=' ', newline='\n', fmt='%d')
