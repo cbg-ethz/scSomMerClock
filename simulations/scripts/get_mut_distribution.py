@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 
 from utils import change_newick_tree_root
-from plotting import _plot_muts
 
 from Bio import Phylo
 
@@ -187,6 +186,7 @@ def get_mut_distribution(vcf_files, tree_files, out_file, paup_exe, exclude='', 
         for i, val in enumerate(vals):
             f.write(f'{val}\t{cnts[i]}\n')
 
+    # from plotting import _plot_muts
     # _plot_muts(Ys)
     # plt.show()
 

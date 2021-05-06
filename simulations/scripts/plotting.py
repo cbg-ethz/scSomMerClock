@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from scipy.stats import linregress, gamma, nbinom
-from scipy.stats.distributions import chi2
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,6 +14,9 @@ LABEL_FONTSIZE = 20
 
 
 def generate_mrbayes_plots(in_file, out_file, regress=False):
+    from scipy.stats import linregress
+
+
     def get_ratio(ev_str):
         success, total = ev_str.split('/')
         return float(success) / float(total)
@@ -158,6 +160,7 @@ def generate_pval_plot(in_file, out_file, p_val_filter=1, bin_no=100):
 
 
 def generate_gamma_plot(alphas, out_file):
+    from scipy.stats import gamma
     fig, ax = plt.subplots(figsize=(16, 12))
 
     y_max_t = 0
@@ -191,6 +194,8 @@ def generate_gamma_plot(alphas, out_file):
 
 
 def generate_nbinom_plot(n, p, out_file):
+    from scipy.stats import nbinom
+    
     x = np.arange(nbinom.ppf(0.001, n, p), nbinom.ppf(0.999, n, p))
     y = nbinom.pmf(x, n, p)
 
@@ -238,6 +243,8 @@ def plot_tree_matrix(X, out_file=None):
 
 
 def plot_test_statistic(df, bin_no=100, out_file=None):
+    from scipy.stats.distributions import chi2
+
     fig, ax = plt.subplots(figsize=(12, 16))
 
     models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
