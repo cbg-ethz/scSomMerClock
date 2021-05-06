@@ -266,7 +266,8 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
     elif 'trees_dir' in tree_file:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False)
     elif 'scite_dir' in tree_file:
-        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1] + 1, 1)]
+        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
+            + ['healthycell']
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples)
 
@@ -494,7 +495,6 @@ def get_glm_poisson_LRT(Y, X, alpha=0.05):
         hyp = 'H0'
 
     return f'{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}'
-
 
 
 def get_LRT_nbinom(Y, X_H0, alpha=0.05):
