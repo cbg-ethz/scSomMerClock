@@ -28,6 +28,12 @@ def get_cellcoal_config(config, template_file, out_dir):
     else:
         templ = re.sub('{no_muts}', '', templ)
 
+    if config['cellcoal']['model'].get('mut_rate', None):
+        templ = re.sub('{mut_rate}',
+            'u{}'.format(config['cellcoal']['model']['mut_rate']), templ)
+    else:
+        templ = re.sub('{mut_rate}', 'u1e-6', templ)
+
     if config['cellcoal']['model'].get('branch_rate_var', None):
         templ = re.sub('{branch_rate_var}',
             'i{}'.format(config['cellcoal']['model']['branch_rate_var']), templ)

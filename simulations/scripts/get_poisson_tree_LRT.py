@@ -14,19 +14,36 @@ from scipy.stats import poisson, nbinom
 from scipy.spatial import distance
 
 from utils import change_newick_tree_root
-from plotting import _plot_pvals
+from plotting import _plot_pvals, plot_tree_matrix
 
 from Bio import Phylo
 
 
-LAMBDA_MIN = 1e-6
+import statsmodels.api as sm
+from patsy import dmatrices
+
+import warnings
+from statsmodels.tools.sm_exceptions import DomainWarning
+warnings.simplefilter('ignore', DomainWarning)
+from statsmodels.genmod.families.links import identity
+
+class pos_identity(identity):
+    def __call__(self, p):
+        return np.clip(p, 1e-3, 1e6)
+
+
+LAMBDA_MIN = 1e-3
 LAMBDA_MAX = np.inf
 
 
-def simulate_poisson_tree(X, n=1000, pi_tresh=0.25):
+def simulate_poisson_tree(X, n=1000, pi_tresh=0):
     from tqdm import tqdm
 
+    cols = [f"l{i}" for i in range(X.shape[1])]
+
     par_H0 = X.shape[1]
+    X_H0_l = np.sum(X, axis=1) 
+
     bounds_H0 = np.full((par_H0, 2), (LAMBDA_MIN, np.inf))
 
     mu = np.clip(np.random.normal(100, 100, size=(n, par_H0)), LAMBDA_MIN, np.inf)
@@ -37,20 +54,49 @@ def simulate_poisson_tree(X, n=1000, pi_tresh=0.25):
     mu = np.where(pi, 0, mu)
 
     X_mu = np.swapaxes((np.expand_dims(X, 1) * mu), 0, 1)
-    Y = poisson.rvs(X_mu).sum(axis=2)
+    Y = poisson.rvs(X_mu).sum(axis=2) + 1
     init_H0 = Y.mean(axis=1, keepdims=True) / X.sum(axis=0)
 
     mu_H0 = np.zeros((n, X.shape[0]))
 
+    mu_H0_glm = np.zeros((n, X.shape[0]))
+
     for i in tqdm(range(n)):
-        opt_H0 = minimize(log_poisson, init_H0[i], args=(Y[i], X),
+        init_H0 = np.zeros(par_H0)
+        for j, x_j in enumerate(X.T):
+            # Lambda corresponding to exactly 1 count number
+            rel = (x_j == 1) & (X[:,:j+1].sum(axis=1) == X_H0_l)
+            rel_lgt = np.zeros(rel.sum())
+            for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
+                rel_lgt[k] = max(LAMBDA_MIN, Y[i, rel_idx] \
+                    - init_H0[np.argwhere(X[rel_idx][:j])].sum())
+            init_H0[j] = rel_lgt.mean()
+
+        opt_H0 = minimize(log_poisson, init_H0, args=(Y[i], X),
             bounds=bounds_H0)
         mu_H0[i] = np.dot(X, opt_H0.x)
 
+        df = pd.DataFrame(X, columns=cols)
+        df['Y'] = Y[i]
+        expr = f'Y ~ {" + ".join(cols)} -1'
+        y_glm, X_glm = dmatrices(expr, df, return_type='dataframe')
+        glm = sm.GLM(y_glm, X_glm, family=sm.families.Poisson(pos_identity()))
+        try:
+            res_glm = glm.fit(start_params=init_H0,  maxiter=10000, disp=True)
+        except:
+            import pdb; pdb.set_trace()
+            plot_tree_matrix(X)
+        mu_H0_glm[i] = np.clip(np.dot(X, res_glm.params), LAMBDA_MIN, np.inf)
+
     ll_H0 = np.sum(poisson.logpmf(Y, mu_H0), axis=1)
     ll_H1 = np.sum(poisson.logpmf(Y, Y), axis=1)
+
     LR = -2 * (ll_H0 - ll_H1)
     p_vals = chi2.sf(LR, X.shape[0] - par_H0)
+
+    ll_H0_glm = np.sum(poisson.logpmf(Y, mu_H0_glm), axis=1)
+    LR_glm = -2 * (ll_H0_glm - ll_H1)
+    p_vals_glm = chi2.sf(LR_glm, X.shape[0] - par_H0)
 
     show_pvals(p_vals)
     import pdb; pdb.set_trace()
@@ -58,7 +104,7 @@ def simulate_poisson_tree(X, n=1000, pi_tresh=0.25):
     return p_vals
 
 
-def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0.25):
+def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0):
     from tqdm import tqdm
 
     par_H1, par_H0 = X_H0.shape
@@ -97,8 +143,8 @@ def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0.25):
             rel = (x_j == 1) & (X_H0[:,:j+1].sum(axis=1) == X_H0_l)
             rel_lgt = np.zeros(rel.sum())
             for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
-                rel_lgt[k] = Y[i, rel_idx] \
-                    - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum()
+                rel_lgt[k] = max(0, Y[i, rel_idx] \
+                    - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum())
             init_H0[j] = rel_lgt.mean()
         init_H0[-1] = 0.5
 
@@ -220,18 +266,20 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
     elif 'trees_dir' in tree_file:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False)
     elif 'scite_dir' in tree_file:
-        samples = [f'tumcell{i:0>4d}' for i in range(1, cells + 1, 1)]
+        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1] + 1, 1)]
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples)
 
     # With BioPython package
     tree = Phylo.read(StringIO(tree_str), 'newick')
 
+    used_muts = []
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
         leaf_muts = muts[leaf_node.name]
         others_muts = muts.drop(leaf_node.name, axis=1).sum(axis=1)
         no_muts = ((leaf_muts == 1) & (others_muts == 0)).sum()
+        used_muts.extend(muts[(leaf_muts == 1) & (others_muts == 0)].index.tolist())
         leaf_node.branch_length = no_muts
         
     # Add number of mutations to internal nodes
@@ -243,9 +291,13 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
         others_muts = muts.drop(leaf_desc, axis=1).sum(axis=1)
 
         no_muts = ((int_muts == leaf_no) & (others_muts == 0)).sum()
+        used_muts.extend(muts[(int_muts == leaf_no) & (others_muts == 0)].index.tolist())
         int_node.branch_length = no_muts
         int_node.name = '+'.join(leaf_desc)
 
+    mut_diff = muts.shape[0] - tree.total_branch_length()
+    if mut_diff > 0:
+        print(f'Mutations that couldn\'t be mapped to the tree: {mut_diff}')
     # Collapse nodes with # mutations below threshold 
     write_tree(tree)
     while True:
@@ -260,7 +312,10 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
 
             if sum(br_length) < min_dist or int_node.branch_length < min_dist:
                 try:
+                    print(f'\nCollapsing: {int_node.name}')
+                    print(tree.total_branch_length())
                     parent = tree.collapse(int_node)
+                    print(tree.total_branch_length())
                 except ValueError:
                     pass
                 else:
@@ -372,8 +427,8 @@ def get_LRT_poisson(Y, X_H0, alpha=0.05):
         rel = (x_j == 1) & (X_H0[:,:j+1].sum(axis=1) == X_H0_l)
         rel_lgt = np.zeros(rel.sum())
         for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
-            rel_lgt[k] = Y[rel_idx] \
-                - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum()
+            rel_lgt[k] = max(0, Y[rel_idx] \
+                - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum())
         init_H0[j] = rel_lgt.mean()
     
     opt_H0 = minimize(log_poisson, init_H0, args=(Y, X_H0), bounds=bounds_H0)
@@ -393,6 +448,53 @@ def get_LRT_poisson(Y, X_H0, alpha=0.05):
         hyp = 'H0'
 
     return f'{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}'
+
+
+def _get_init(Y, X, p=None):
+    X_l = np.sum(X, axis=1)
+
+    init = np.zeros(X.shape[1])
+    for j, x_j in enumerate(X.T):
+        # Lambda corresponding to exactly 1 count number
+        rel = (x_j == 1) & (X[:,:j+1].sum(axis=1) == X_l)
+        rel_lgt = np.zeros(rel.sum())
+        for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
+            rel_lgt[k] = max(0, Y[rel_idx] \
+                - init[np.argwhere(X[rel_idx][:j])].sum())
+        init[j] = rel_lgt.mean()
+    if isinstance(p, float) and 0 < p < 1:
+        return np.append(init, [p])
+    else:
+        return init
+
+
+def get_glm_poisson_LRT(Y, X, alpha=0.05):
+    Y_p1 = Y + 1
+    init = _get_init(Y_p1, X)
+    
+    Y_glm = pd.DataFrame(Y_p1) 
+    X_glm = pd.DataFrame(X)
+    glm = sm.GLM(Y_glm, X_glm, family=sm.families.Poisson(pos_identity()))
+    res_glm = glm.fit(start_params=init,  maxiter=10000, disp=True)
+    lambda_H0 = np.clip(np.dot(X, res_glm.params), LAMBDA_MIN, np.inf)
+
+    # ll_H0 = res_glm.llf
+    ll_H0 = np.sum(poisson.logpmf(Y_p1, lambda_H0))
+    ll_H1 = np.sum(poisson.logpmf(Y_p1, Y_p1))
+
+    # LR = res_glm.deviance
+    LR = -2 * (ll_H0 - ll_H1)
+
+    dof = res_glm.df_resid
+    p_val = chi2.sf(LR, dof)
+
+    if p_val < alpha:
+        hyp = 'H1'
+    else:
+        hyp = 'H0'
+
+    return f'{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}'
+
 
 
 def get_LRT_nbinom(Y, X_H0, alpha=0.05):
@@ -444,7 +546,7 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
 
     run = os.path.basename(vcf_file).split('.')[1]
     muts = get_mut_matrix(vcf_file, exclude, include)
-    tree = get_tree_dict(tree_file, muts, paup_exe, 5)
+    tree = get_tree_dict(tree_file, muts, paup_exe, 0)
 
     # tree = get_ideal_tree(tree_file)
 
@@ -452,17 +554,21 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     dof = X_H0.shape[0] - X_H0.shape[1]
 
     # simulate_nbinom_tree(X_H0, 1000, 0.0)
-    # simulate_poisson_tree(X_H0, 1000, 0)
+    # simulate_poisson_tree(X_H0, 1000, 0.25)
 
-    poisson_str = get_LRT_poisson(Y, X_H0, alpha)
-    nbinom_str = get_LRT_nbinom(Y, X_H0, alpha)
+    models = [('poisson', get_LRT_poisson), ('nbinom', get_LRT_nbinom),
+        ('poisson_glm', get_glm_poisson_LRT)]
+    # models = [('poisson_glm', get_glm_poisson_LRT)]
 
     cols = ['H0', 'H1', '-2logLR', 'p-value', 'hypothesis']
-    header_str = 'run\tdof\t' + '\t'.join([f'{i}_poisson' for i in cols]) \
-        + '\t' + '\t'.join([f'{i}_nbinom' for i in cols])
-
+    header_str = 'run\tdof'
+    model_str = f'{run}\t{dof}'
+    for model_name, model_call in models:
+        model_str += '\t' + model_call(Y, X_H0, alpha)
+        header_str += '\t' + '\t'.join([f'{i}_{model_name}' for i in cols])
+    
     with open(out_file, 'w') as f_out:
-        f_out.write(f'{header_str}\n{run}\t{dof}\t{poisson_str}\t{nbinom_str}')
+        f_out.write(f'{header_str}\n{model_str}')
 
 
 def parse_args():

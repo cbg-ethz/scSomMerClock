@@ -7,18 +7,10 @@ from io import StringIO
 import numpy as np
 # np.seterr(all='raise')
 import pandas as pd
-from scipy.stats.distributions import chi2
-import scipy.special
-from scipy.optimize import minimize, Bounds
-from scipy.stats import poisson, nbinom
-from scipy.spatial import distance
 
 from utils import change_newick_tree_root
 from plotting import _plot_muts
-import matplotlib.pyplot as plt
 
-import statsmodels.api as sm
-from newick import read, loads
 from Bio import Phylo
 
 EPSILON = 1E-12
@@ -171,6 +163,8 @@ def get_model_data(tree, muts):
 
 
 def show_pvals(p_vals):
+    import matplotlib.pyplot as plt
+    
     _plot_pvals(p_vals)
     plt.show()
     plt.close()

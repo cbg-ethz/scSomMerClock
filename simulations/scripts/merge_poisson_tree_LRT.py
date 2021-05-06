@@ -3,6 +3,7 @@
 import os
 import re
 import pandas as pd
+from plotting import plot_test_statistic
 
 
 def merge_LRT(in_files, out_file):
@@ -11,33 +12,30 @@ def merge_LRT(in_files, out_file):
 
     clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
 
-    for i, in_file in enumerate(in_files):
+    for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
     
-    means = df.mean(axis=0)
+    # plot_test_statistic(df)
+
     total = df.shape[0]
-    if clock:
-        try:
-            H_poisson = f'{df["hypothesis_poisson"].value_counts()["H0"]}/{total}'
-        except KeyError:
-            H_poisson = f'0/{total}'
-        try:
-            H_binom = f'{df["hypothesis_nbinom"].value_counts()["H0"]}/{total}'
-        except KeyError:
-            H_binom = f'0/{total}'
-    else:
-        try:
-            H_poisson = f'{df["hypothesis_poisson"].value_counts()["H1"]}/{total}'
-        except KeyError:
-            H_poisson = f'0/{total}'
-        try:
-            H_binom = f'{df["hypothesis_nbinom"].value_counts()["H1"]}/{total}'
-        except KeyError:
-            H_binom = f'0/{total}'
-    
-    avg_row = [-1] + means.iloc[1:6].tolist() + [H_poisson] \
-        + means.iloc[6:].tolist() + [H_binom]
+    avg_row = [-1, df.loc[0, 'dof']]
+
+    for model_idx in range((len(df.columns) -2 ) // 5):
+        model_df = df[df.columns[5 * model_idx + 2: 5 * model_idx + 7]]
+        avg_row += model_df.mean(axis=0).tolist()
+
+        if clock:
+            try:
+                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H0"]}/{total}']
+            except KeyError:
+                avg_row += [f'0/{total}']
+        else:
+            try:
+                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{total}']
+            except KeyError:
+                avg_row += [f'0/{total}']
+    import pdb; pdb.set_trace()      
     df.loc[total] = avg_row
 
     df.to_csv(out_file, sep='\t', index=False)

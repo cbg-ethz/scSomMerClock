@@ -2,6 +2,7 @@
 
 import argparse
 from scipy.stats import linregress, gamma, nbinom
+from scipy.stats.distributions import chi2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -216,6 +217,51 @@ def generate_nbinom_plot(n, p, out_file):
         fig.savefig(out_file, dpi=300)
     else:
         plt.show()
+    plt.close()
+
+
+def plot_tree_matrix(X, out_file=None):
+    fig, ax = plt.subplots(figsize=(12, 16))
+    ax.matshow(X, cmap='Reds')
+    ax.set_xlabel('Lambda', fontsize=LABEL_FONTSIZE)
+    ax.set_ylabel('Branch', fontsize=LABEL_FONTSIZE)
+    ax.set_xticks([i for i in range(X.shape[1])])
+    ax.set_xticklabels([str(i) for i in range(X.shape[1])])
+    ax.set_yticks([i for i in range(X.shape[0])])
+    ax.set_yticklabels([str(i) for i in range(X.shape[0])])
+
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_test_statistic(df, bin_no=100, out_file=None):
+    fig, ax = plt.subplots(figsize=(12, 16))
+
+    models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
+    for model in models:
+        vals = df[f'-2logLR_{model}'].tolist()
+        ax.hist(vals, bins=bin_no, density=True, label=model)
+
+    dof = df.loc[0, 'dof']
+    chi2_x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), 1000)
+    chi2_y = chi2.pdf(chi2_x, dof)
+    ax.plot(chi2_x, chi2_y, 'r-', lw=5, alpha=0.8, label=r'$\chi^2$')
+        
+    ax.set_ylabel(f'Density', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('Test statistic', fontsize=LABEL_FONTSIZE)
+    ax.legend(fontsize=TICK_FONTSIZE)
+
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
+
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+
+    # import pdb; pdb.set_trace()
     plt.close()
 
 
