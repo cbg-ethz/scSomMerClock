@@ -219,12 +219,19 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
                     repl = '{}:0.1'.format(sample_names[i])
                 else:
                     repl = str(sample_names[i])
-            elif i == cells:
-                pat = '(?<=[\(\),]){},?(?=[\)\(;)])'.format(s_i)
-                repl = ''
+            # elif i == cells:
+            #     import pdb; pdb.set_trace()
+            #     pat = '(?<=[\(\),]){},?(?=[\)\(;)])'.format(s_i)
+            #     if br_length:
+            #         repl = ':0.1'
+            #     else:
+            #         repl = ''
             else:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
-                repl = ''
+                if br_length:
+                    repl = ':0.1'
+                else:
+                    repl = ''
             tree = re.sub(pat, repl, tree)
     else:
         if not br_length:

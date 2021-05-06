@@ -269,7 +269,7 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
         samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
             + ['healthycell']
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-            sample_names=samples)
+            sample_names=samples, br_length=True)
 
     # With BioPython package
     tree = Phylo.read(StringIO(tree_str), 'newick')
@@ -379,7 +379,10 @@ def get_model_data(tree):
             X[node_idx, 0:l_idx] = True
             # Subtract lambdas of child nodes
             for grand_child in child.clades:
-                X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
+                try:
+                    X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
+                except:
+                    import pdb; pdb.set_trace()
             # Sstore node index
             br_cells[child] = node_idx
             node_idx += 1
