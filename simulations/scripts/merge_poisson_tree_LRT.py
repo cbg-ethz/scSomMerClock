@@ -3,7 +3,6 @@
 import os
 import re
 import pandas as pd
-from plotting import plot_test_statistic
 
 
 def merge_LRT(in_files, out_file):
@@ -16,6 +15,7 @@ def merge_LRT(in_files, out_file):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
     
+    # from plotting import plot_test_statistic
     # plot_test_statistic(df)
 
     total = df.shape[0]
