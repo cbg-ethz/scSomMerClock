@@ -379,10 +379,7 @@ def get_model_data(tree):
             X[node_idx, 0:l_idx] = True
             # Subtract lambdas of child nodes
             for grand_child in child.clades:
-                try:
-                    X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
-                except:
-                    import pdb; pdb.set_trace()
+                X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
             # Sstore node index
             br_cells[child] = node_idx
             node_idx += 1
@@ -446,7 +443,6 @@ def get_LRT_poisson(Y, X, alpha=0.05):
     # opt_H0_dist = minimize(opt_dist, init, args=(Y, X), bounds=bounds_H0)
     # ll_H0_dist = np.sum(poisson.logpmf(Y, np.dot(X, opt_H0_dist.x)))
 
-    import pdb; pdb.set_trace()
     ll_H0 = np.sum(poisson.logpmf(Y, np.dot(X, opt_H0.x)))
     ll_H1 = np.sum(poisson.logpmf(Y, Y))
     LR = -2 * (ll_H0 - ll_H1)
