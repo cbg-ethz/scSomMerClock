@@ -32,7 +32,7 @@ class pos_identity(identity):
         return np.clip(p, 1e-3, 1e6)
 
 
-LAMBDA_MIN = 1e-3
+LAMBDA_MIN = 1e-6
 LAMBDA_MAX = np.inf
 
 
@@ -416,44 +416,6 @@ def show_pvals(p_vals):
     plt.close()
 
 
-def get_LRT_poisson(Y, X_H0, alpha=0.05):
-    no_pars_H1, no_pars_H0 = X_H0.shape
-
-    X_H0_l = np.sum(X_H0, axis=1)
-    X_H1 = np.identity(no_pars_H1)
-
-    bounds_H0 = np.full((no_pars_H0, 2), (LAMBDA_MIN, LAMBDA_MAX))
-    bounds_H1 = np.full((X_H0.shape[0], 2), (LAMBDA_MIN, LAMBDA_MAX))
-
-    init_H0 = np.zeros(no_pars_H0)
-    for j, x_j in enumerate(X_H0.T):
-        # Lambda corresponding to exactly 1 count number
-        rel = (x_j == 1) & (X_H0[:,:j+1].sum(axis=1) == X_H0_l)
-        rel_lgt = np.zeros(rel.sum())
-        for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
-            rel_lgt[k] = max(0, Y[rel_idx] \
-                - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum())
-        init_H0[j] = rel_lgt.mean()
-    
-    opt_H0 = minimize(log_poisson, init_H0, args=(Y, X_H0), bounds=bounds_H0)
-    # opt_H0_dist = minimize(opt_dist, init_H0, args=(Y, X_H0), bounds=bounds_H0)
-    # ll_H0_dist = np.sum(poisson.logpmf(Y, np.dot(X_H0, opt_H0_dist.x)))
-
-    ll_H0 = np.sum(poisson.logpmf(Y, np.dot(X_H0, opt_H0.x)))
-    ll_H1 = np.sum(poisson.logpmf(Y, Y))
-    LR = -2 * (ll_H0 - ll_H1)
-    # LR_dist = -2 * (ll_H0_dist - ll_H1)
-    dof = no_pars_H1 - no_pars_H0
-    p_val = chi2.sf(LR, dof)
-
-    if p_val < alpha:
-        hyp = 'H1'
-    else:
-        hyp = 'H0'
-
-    return f'{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}'
-
-
 def _get_init(Y, X, p=None):
     X_l = np.sum(X, axis=1)
 
@@ -472,15 +434,43 @@ def _get_init(Y, X, p=None):
         return init
 
 
+def get_LRT_poisson(Y, X, alpha=0.05):
+    no_pars_H1, no_pars_H0 = X.shape
+
+    Y_p1 = Y + 1
+    init = _get_init(Y_p1, X)
+
+    bounds_H0 = np.full((no_pars_H0, 2), (LAMBDA_MIN, LAMBDA_MAX))
+    bounds_H1 = np.full((X.shape[0], 2), (LAMBDA_MIN, LAMBDA_MAX))
+    
+    opt_H0 = minimize(log_poisson, init, args=(Y_p1, X))#, bounds=bounds_H0)
+    # opt_H0_dist = minimize(opt_dist, init, args=(Y, X), bounds=bounds_H0)
+    # ll_H0_dist = np.sum(poisson.logpmf(Y, np.dot(X, opt_H0_dist.x)))
+
+    import pdb; pdb.set_trace()
+    ll_H0 = np.sum(poisson.logpmf(Y_p1, np.dot(X, opt_H0.x)))
+    ll_H1 = np.sum(poisson.logpmf(Y_p1, Y_p1))
+    LR = -2 * (ll_H0 - ll_H1)
+    # LR_dist = -2 * (ll_H0_dist - ll_H1)
+    dof = no_pars_H1 - no_pars_H0
+    p_val = chi2.sf(LR, dof)
+
+    if p_val < alpha:
+        hyp = 'H1'
+    else:
+        hyp = 'H0'
+
+    return f'{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{p_val:.2E}\t{hyp}'
+
+
 def get_glm_poisson_LRT(Y, X, alpha=0.05):
     Y_p1 = Y + 1
     init = _get_init(Y_p1, X)
     
-    Y_glm = pd.DataFrame(Y_p1) 
-    X_glm = pd.DataFrame(X)
-    glm = sm.GLM(Y_glm, X_glm, family=sm.families.Poisson(pos_identity()))
+    glm = sm.GLM(pd.DataFrame(Y_p1), pd.DataFrame(X),
+        family=sm.families.Poisson(pos_identity()))
     res_glm = glm.fit(start_params=init,  maxiter=10000, disp=True)
-    lambda_H0 = np.clip(np.dot(X, res_glm.params), LAMBDA_MIN, np.inf)
+    lambda_H0 = np.clip(np.dot(X, res_glm.params), LAMBDA_MIN, LAMBDA_MAX)
 
     # ll_H0 = res_glm.llf
     ll_H0 = np.sum(poisson.logpmf(Y_p1, lambda_H0))
@@ -511,16 +501,7 @@ def get_LRT_nbinom(Y, X_H0, alpha=0.05):
     bounds_H1 = np.append(np.full((X_H0.shape[0], 2), (LAMBDA_MIN, LAMBDA_MAX)),
         [[LAMBDA_MIN, 1 - LAMBDA_MIN]], axis=0)
 
-    init_H0 = np.zeros(no_pars_H0 + 1)
-    for j, x_j in enumerate(X_H0.T):
-        # Lambda corresponding to exactly 1 count number
-        rel = (x_j == 1) & (X_H0[:,:j+1].sum(axis=1) == X_H0_l)
-        rel_lgt = np.zeros(rel.sum())
-        for k, rel_idx in enumerate(np.argwhere(rel).flatten()):
-            rel_lgt[k] = Y[rel_idx] \
-                - init_H0[np.argwhere(X_H0[rel_idx][:j])].sum()
-        init_H0[j] = rel_lgt.mean()
-    init_H0[-1] = 0.5
+    init_H0 = _get_init(Y, X_H0, 0.5)
     init_H1 = np.append(Y, 0.5)
 
     opt_H0 = minimize(log_nbinom, init_H0, args=(Y, X_H0), bounds=bounds_H0,
@@ -561,15 +542,19 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
 
     models = [('poisson', get_LRT_poisson), ('nbinom', get_LRT_nbinom),
         ('poisson_glm', get_glm_poisson_LRT)]
+    models = [('poisson', get_LRT_poisson), ('poisson_glm', get_glm_poisson_LRT)]
     # models = [('poisson_glm', get_glm_poisson_LRT)]
 
     cols = ['H0', 'H1', '-2logLR', 'p-value', 'hypothesis']
     header_str = 'run\tdof'
     model_str = f'{run}\t{dof}'
     for model_name, model_call in models:
-        model_str += '\t' + model_call(Y, X_H0, alpha)
+        new_model_str = model_call(Y, X_H0, alpha)
+        model_str += f'\t{new_model_str}'
         header_str += '\t' + '\t'.join([f'{i}_{model_name}' for i in cols])
-    
+        print(model_name, new_model_str)
+    import pdb; pdb.set_trace()
+
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 

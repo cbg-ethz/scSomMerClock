@@ -35,7 +35,7 @@ def merge_LRT(in_files, out_file):
                 avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{total}']
             except KeyError:
                 avg_row += [f'0/{total}']
-    import pdb; pdb.set_trace()      
+     
     df.loc[total] = avg_row
 
     df.to_csv(out_file, sep='\t', index=False)

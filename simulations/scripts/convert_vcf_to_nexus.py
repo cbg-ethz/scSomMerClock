@@ -225,6 +225,11 @@ if __name__ == '__main__':
             ngen = snakemake.wildcards.ngen
         except AttributeError:
             ngen = 1e6
+        if snakemake.params.exclude == None:
+            snakemake.params.exclude = ''
+        if snakemake.params.include == None:
+            snakemake.params.include = ''
+
         vcf_to_nex(snakemake.input.vcf, snakemake.output, ngen,
             ss_flag=snakemake.params.ss, tree=snakemake.input.tree,
             paup_exe=snakemake.params.paup_exe, exclude=snakemake.params.exclude,

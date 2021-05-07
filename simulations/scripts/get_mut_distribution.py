@@ -96,7 +96,8 @@ def get_tree_dict(tree_file, muts, paup_exe):
     elif 'trees_dir' in tree_file:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False)
     elif 'scite_dir' in tree_file:
-        samples = [f'tumcell{i:0>4d}' for i in range(1, cells + 1, 1)]
+        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
+            + ['healthycell']
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples)
 
