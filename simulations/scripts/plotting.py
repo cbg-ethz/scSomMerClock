@@ -276,7 +276,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=str, help='Input file')
     parser.add_argument('-f', '--format', type=str, default='pval',
-        choices=['pval', 'mrbayes', 'gamma', 'nbinom'], help='What type of plot to generate')
+        choices=['pval', 'mrbayes', 'gamma', 'nbinom', 'test'],
+        help='What type of plot to generate')
     parser.add_argument('-a', '--alpha', type=float, default=[1], nargs='+',
         help='Alpha parameters of Gamma distribution with mean 1. Default = 1')
     parser.add_argument('-nbp', '--nbinom_pars', nargs=2, type=float,
@@ -294,6 +295,8 @@ if __name__ == '__main__':
         generate_mrbayes_plots(args.input,args.output)
     elif args.format == 'pval':
         generate_pval_plot(args.input, args.output)
+    elif args.format == 'test':
+        generate_pval_plot(args.input, out_file=args.output)
     elif args.format == 'gamma':
         generate_gamma_plot(args.alpha, args.output)
     elif args.format == 'nbinom':

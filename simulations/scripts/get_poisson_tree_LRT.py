@@ -437,19 +437,18 @@ def _get_init(Y, X, p=None):
 def get_LRT_poisson(Y, X, alpha=0.05):
     no_pars_H1, no_pars_H0 = X.shape
 
-    Y_p1 = Y + 1
-    init = _get_init(Y_p1, X)
+    init = _get_init(Y, X)
 
     bounds_H0 = np.full((no_pars_H0, 2), (LAMBDA_MIN, LAMBDA_MAX))
     bounds_H1 = np.full((X.shape[0], 2), (LAMBDA_MIN, LAMBDA_MAX))
     
-    opt_H0 = minimize(log_poisson, init, args=(Y_p1, X))#, bounds=bounds_H0)
+    opt_H0 = minimize(log_poisson, init, args=(Y, X))#, bounds=bounds_H0)
     # opt_H0_dist = minimize(opt_dist, init, args=(Y, X), bounds=bounds_H0)
     # ll_H0_dist = np.sum(poisson.logpmf(Y, np.dot(X, opt_H0_dist.x)))
 
     import pdb; pdb.set_trace()
-    ll_H0 = np.sum(poisson.logpmf(Y_p1, np.dot(X, opt_H0.x)))
-    ll_H1 = np.sum(poisson.logpmf(Y_p1, Y_p1))
+    ll_H0 = np.sum(poisson.logpmf(Y, np.dot(X, opt_H0.x)))
+    ll_H1 = np.sum(poisson.logpmf(Y, Y))
     LR = -2 * (ll_H0 - ll_H1)
     # LR_dist = -2 * (ll_H0_dist - ll_H1)
     dof = no_pars_H1 - no_pars_H0
@@ -464,17 +463,16 @@ def get_LRT_poisson(Y, X, alpha=0.05):
 
 
 def get_glm_poisson_LRT(Y, X, alpha=0.05):
-    Y_p1 = Y + 1
-    init = _get_init(Y_p1, X)
+    init = _get_init(Y, X)
     
-    glm = sm.GLM(pd.DataFrame(Y_p1), pd.DataFrame(X),
+    glm = sm.GLM(pd.DataFrame(Y), pd.DataFrame(X),
         family=sm.families.Poisson(pos_identity()))
     res_glm = glm.fit(start_params=init,  maxiter=10000, disp=True)
     lambda_H0 = np.clip(np.dot(X, res_glm.params), LAMBDA_MIN, LAMBDA_MAX)
 
     # ll_H0 = res_glm.llf
-    ll_H0 = np.sum(poisson.logpmf(Y_p1, lambda_H0))
-    ll_H1 = np.sum(poisson.logpmf(Y_p1, Y_p1))
+    ll_H0 = np.sum(poisson.logpmf(Y, lambda_H0))
+    ll_H1 = np.sum(poisson.logpmf(Y, Y))
 
     # LR = res_glm.deviance
     LR = -2 * (ll_H0 - ll_H1)
@@ -537,6 +535,9 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     Y, X_H0 = get_model_data(tree)
     dof = X_H0.shape[0] - X_H0.shape[1]
 
+    # Add 1 pseudocount
+    Y += 1
+    
     # simulate_nbinom_tree(X_H0, 1000, 0.0)
     # simulate_poisson_tree(X_H0, 1000, 0.25)
 
@@ -553,7 +554,6 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
         model_str += f'\t{new_model_str}'
         header_str += '\t' + '\t'.join([f'{i}_{model_name}' for i in cols])
         print(model_name, new_model_str)
-    import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
