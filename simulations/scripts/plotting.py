@@ -242,8 +242,15 @@ def plot_tree_matrix(X, out_file=None):
     plt.close()
 
 
-def plot_test_statistic(df, bin_no=100, out_file=None):
+def plot_test_statistic(in_object, bin_no=100, out_file=None):
     from scipy.stats.distributions import chi2
+
+    if isinstance(in_object, str):
+        df = pd.read_csv(in_object, sep='\t', )
+    elif isinstance(in_object, pd.DataFrame):
+        df = in_object
+    else:
+        raise IOError(f'Unknown input type: {type(in_object)}')
 
     fig, ax = plt.subplots(figsize=(12, 16))
 
@@ -296,7 +303,7 @@ if __name__ == '__main__':
     elif args.format == 'pval':
         generate_pval_plot(args.input, args.output)
     elif args.format == 'test':
-        generate_pval_plot(args.input, out_file=args.output)
+        plot_test_statistic(args.input, out_file=args.output)
     elif args.format == 'gamma':
         generate_gamma_plot(args.alpha, args.output)
     elif args.format == 'nbinom':
