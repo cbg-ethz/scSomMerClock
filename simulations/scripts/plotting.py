@@ -252,11 +252,13 @@ def plot_test_statistic(in_object, bin_no=100, out_file=None):
     else:
         raise IOError(f'Unknown input type: {type(in_object)}')
 
-    fig, ax = plt.subplots(figsize=(12, 16))
+    fig, ax = plt.subplots(figsize=(16, 12))
 
     models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
+    max_x = 0
     for model in models:
         vals = df[f'-2logLR_{model}'].tolist()
+        max_x = max(max_x, max(vals))
         ax.hist(vals, bins=bin_no, density=True, label=model)
 
     dof = df.loc[0, 'dof']
@@ -264,8 +266,11 @@ def plot_test_statistic(in_object, bin_no=100, out_file=None):
     chi2_y = chi2.pdf(chi2_x, dof)
     ax.plot(chi2_x, chi2_y, 'r-', lw=5, alpha=0.8, label=r'$\chi^2$')
         
+    max_x = max(max_x, max(chi2_x))
+
     ax.set_ylabel(f'Density', fontsize=LABEL_FONTSIZE)
     ax.set_xlabel('Test statistic', fontsize=LABEL_FONTSIZE)
+    ax.set_xlim(0, int(max_x * 1.05))
     ax.legend(fontsize=TICK_FONTSIZE)
 
     fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
