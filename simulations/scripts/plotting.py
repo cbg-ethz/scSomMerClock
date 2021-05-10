@@ -259,7 +259,7 @@ def plot_test_statistic(in_object, bin_no=100, out_file=None):
     for model in models:
         vals = df[f'-2logLR_{model}'].tolist()
         max_x = max(max_x, max(vals))
-        ax.hist(vals, bins=bin_no, density=True, label=model)
+        ax.hist(vals, bins=bin_no, density=True, label=model, alpha=0.75)
 
     dof = df.loc[0, 'dof']
     chi2_x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), 1000)

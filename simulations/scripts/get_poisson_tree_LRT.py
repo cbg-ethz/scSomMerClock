@@ -539,7 +539,7 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
 
     models = [('poisson', get_LRT_poisson), ('nbinom', get_LRT_nbinom),
         ('poisson_glm', get_glm_poisson_LRT)]
-    models = [('poisson', get_LRT_poisson), ('poisson_glm', get_glm_poisson_LRT)]
+    # models = [('poisson', get_LRT_poisson), ('poisson_glm', get_glm_poisson_LRT)]
     # models = [('poisson_glm', get_glm_poisson_LRT)]
 
     cols = ['H0', 'H1', '-2logLR', 'p-value', 'hypothesis']
