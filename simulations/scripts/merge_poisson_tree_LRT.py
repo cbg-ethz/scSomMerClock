@@ -42,6 +42,13 @@ def merge_LRT(in_files, out_file):
 
     print(df.loc[total])
 
+    from plotting import plot_test_statistic, _plot_pvals
+    import matplotlib.pyplot as plt
+    plot_test_statistic(df)
+    _plot_pvals(df['p-value_poisson']); plt.show()
+
+    import pdb; pdb.set_trace()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()

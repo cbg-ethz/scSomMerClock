@@ -471,7 +471,8 @@ rule run_poisson_tree_test:
         'biopython/1.77-python-3.7.7',
         'statsmodels/0.11.1-python-3.7.7',
     resources:
-        mem_mb = 2048
+        mem_mb = 1024,
+        runtime = 10,
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
@@ -491,6 +492,7 @@ rule merge_poisson_tree_test:
         ''
     envmodules:
         'pandas/1.0.1-python-3.7.7',
+        
     resources:
         mem_mb = 2048
 
@@ -597,6 +599,8 @@ rule run_sieve_data_collector:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'sieve_{model}_{tree}_raw_updated.xml')
     envmodules:
+        'gcc/6.3.0',
+        'intel/18.0.1',
         'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],

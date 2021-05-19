@@ -242,26 +242,35 @@ def plot_tree_matrix(X, out_file=None):
     plt.close()
 
 
-def plot_test_statistic(in_object, bin_no=100, out_file=None):
+def plot_test_statistic(in_object, bin_no=None, out_file=None, in_dof=None):
     from scipy.stats.distributions import chi2
 
     if isinstance(in_object, str):
-        df = pd.read_csv(in_object, sep='\t', )
+        df = pd.read_csv(in_object, sep='\t')
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
+        dof = df.loc[0, 'dof']
     elif isinstance(in_object, pd.DataFrame):
         df = in_object
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
+        dof = df.loc[0, 'dof']
+    elif isinstance(in_object, np.ndarray):
+        models = ['']
+        df = pd.DataFrame(in_object, columns=['-2logLR_'])
+        dof = in_dof
     else:
         raise IOError(f'Unknown input type: {type(in_object)}')
 
     fig, ax = plt.subplots(figsize=(16, 12))
 
-    models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
+
     max_x = 0
     for model in models:
         vals = df[f'-2logLR_{model}'].tolist()
+        if not bin_no:
+            bin_no = int(np.sqrt(len(vals)))
         max_x = max(max_x, max(vals))
         ax.hist(vals, bins=bin_no, density=True, label=model, alpha=0.75)
 
-    dof = df.loc[0, 'dof']
     chi2_x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), 1000)
     chi2_y = chi2.pdf(chi2_x, dof)
     ax.plot(chi2_x, chi2_y, 'r-', lw=5, alpha=0.8, label=r'$\chi^2$')
