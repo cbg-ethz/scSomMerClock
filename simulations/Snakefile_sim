@@ -619,6 +619,8 @@ rule run_NS_converter:
         os.path.join(out_dir, 'sieve_dir', 'xml.{run}',
             'NS_sieve_{model}_{tree}.xml')
     envmodules:
+        'gcc/6.3.0',
+        'intel/18.0.1',
         'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     params:
         beast = config['sieve']['beast_bin'],
@@ -637,6 +639,8 @@ rule run_sieve:
             'sieve_{model}_{tree}_final')
     threads: 12
     envmodules:
+        'gcc/6.3.0',
+        'intel/18.0.1',
         'jdk/8u141-b15', #  cesga: 'jdk/8u181',
     resources:
         mem_mb = 1024 if scheduler == 'lsf' else 12 * 1024,
