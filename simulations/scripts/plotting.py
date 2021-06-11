@@ -267,7 +267,7 @@ def plot_test_statistic(in_object, bin_no=None, out_file=None, in_dof=None):
     for model in models:
         vals = df[f'-2logLR_{model}'].tolist()
         if not bin_no:
-            bin_no = int(np.sqrt(len(vals)))
+            bin_no = max(15, int(np.sqrt(len(vals))))
         max_x = max(max_x, max(vals))
         ax.hist(vals, bins=bin_no, density=True, label=model, alpha=0.75)
 

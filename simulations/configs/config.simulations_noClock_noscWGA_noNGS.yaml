@@ -34,9 +34,9 @@ monovar:
   exe: ../../MonoVar_NB/src/monovar.py
 
 SNP_filter:
-  depth: 5
+  depth: 0
   quality: 0
-  singletons: True
+  singletons: False
 
 tree:
   cellcoal:
@@ -44,21 +44,21 @@ tree:
   scite:
     run: False
     exe: ../../infSCITE/infSCITE
-    steps: 200000
+    steps: 50000
   cellphy:
     run: False
     exe: ../../cellphy/cellphy.sh
-    command: SEARCH
+    command: Fast
 
 mrbayes:
   run: False
-  exe: ../../MrBayes/src/mb
+  exe: ../../../../MrBayes/src/mb
   use_tree: True
-  ngen: [250000]
+  ngen: [100000]
   ss: True
 
 paup:
-  run: True
+  run: False
   learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
@@ -69,4 +69,7 @@ sieve:
   xml: templates/sieve_template.xml
   steps: 100000
 
-scheduler: slurm
+poisson:
+  run: True
+
+scheduler: 

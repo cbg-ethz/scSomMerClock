@@ -16,24 +16,6 @@ COLORS = cycle([
 ])
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        prog='QC_coverage', usage='python3 QC_coverage.py <DATA> [options]',
-        description='*** Generate Lorenz curve and Gini coefficient. ***'
-    )
-    parser.add_argument(
-        'input', nargs='+', type=str,
-        help='Absolute or relative path(s) to input data in BED format'
-    )
-    parser.add_argument(
-        '-o', '--output', type=str, default='',
-        help='Path to the output directory. Default = <INPUT_DIR>.'
-    )
-    
-    args = parser.parse_args()
-    return args
-
-
 def calc_gini(x, y):
     # Gini coefficient = A / (A / B)
     # B = np.trapz(y, x)
@@ -133,6 +115,25 @@ def plot_read_depth_dist(fig, ax, out_dir, x_max=None):
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.9)
 
     fig.savefig(os.path.join(out_dir, 'ReadDepthDist.pdf'), dpi=300)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog='QC_coverage', usage='python3 QC_coverage.py <DATA> [options]',
+        description='*** Generate Lorenz curve and Gini coefficient. ***'
+    )
+    parser.add_argument(
+        'input', nargs='+', type=str,
+        help='Absolute or relative path(s) to input data in BED format'
+    )
+    parser.add_argument(
+        '-o', '--output', type=str, default='',
+        help='Path to the output directory. Default = <INPUT_DIR>.'
+    )
+    
+    args = parser.parse_args()
+    return args
+
 
 
 if __name__ == '__main__':

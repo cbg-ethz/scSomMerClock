@@ -58,12 +58,12 @@ mrbayes:
   ss: True
 
 paup:
-  run: True
+  run: False
   learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
 sieve:
-  run: False
+  run: True
   sciphi_exe: ../../SCIPhI/build/sciphi
   beast_bin: ../../beast/bin
   xml: templates/sieve_template.xml

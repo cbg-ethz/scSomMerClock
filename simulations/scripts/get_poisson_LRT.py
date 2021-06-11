@@ -109,6 +109,7 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
         else:
             hyp = 'H0'
             avg[4] += 1
+        
 
         out_str += f'{run}\t{ll_clock:0>5.2f}\t{ll_uncon:0>5.2f}\t{LR:0>5.2f}\t' \
             f'{dof}\t{p_val:.2E}\t{hyp}\n'

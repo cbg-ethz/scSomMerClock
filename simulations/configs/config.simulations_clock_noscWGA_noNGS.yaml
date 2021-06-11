@@ -9,8 +9,9 @@ cellcoal:
     no_cells: 30
     no_sites: 10000
     pop_size: 10000
-    no_muts: 1000
-    germline_rate: 0.0005
+    no_muts: 
+    mut_rate: 0.000001
+    germline_rate: 0.0
     branch_rate_var:   # empty for clock, e.g. 1 for non-clock
     outgroup_branch_length: 1
     binary_alphabet: False
@@ -34,9 +35,9 @@ monovar:
   exe: ../../MonoVar_NB/src/monovar.py
 
 SNP_filter:
-  depth: 5
+  depth: 0
   quality: 0
-  singletons: True
+  singletons: False
 
 tree:
   cellcoal:
@@ -44,21 +45,21 @@ tree:
   scite:
     run: False
     exe: ../../infSCITE/infSCITE
-    steps: 200000
+    steps: 10000
   cellphy:
     run: False
     exe: ../../cellphy/cellphy.sh
-    command: SEARCH
+    command: FAST
 
 mrbayes:
   run: False
-  exe: ../../MrBayes/src/mb
+  exe: ../../../../MrBayes/src/mb
   use_tree: True
-  ngen: [250000]
+  ngen: [50000]
   ss: True
 
 paup:
-  run: True
+  run: False
   learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
@@ -67,6 +68,11 @@ sieve:
   sciphi_exe: ../../SCIPhI/build/sciphi
   beast_bin: ../../beast/bin
   xml: templates/sieve_template.xml
-  steps: 100000
+  steps: 10000
+  particleCount: 5
 
-scheduler: slurm
+poisson:
+  run: True
+  exclude:
+
+scheduler: 

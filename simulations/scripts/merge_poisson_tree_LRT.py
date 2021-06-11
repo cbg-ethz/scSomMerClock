@@ -19,10 +19,12 @@ def merge_LRT(in_files, out_file):
     # plot_test_statistic(df)
 
     total = df.shape[0]
-    avg_row = [-1, df.loc[0, 'dof']]
+    avg_row = [-1, df['dof'].mean()]
 
     for model_idx in range((len(df.columns) -2 ) // 5):
         model_df = df[df.columns[5 * model_idx + 2: 5 * model_idx + 7]]
+        model_df = model_df[~model_df[model_df.columns[-2]] \
+            .apply(lambda x: x if isinstance(x, float) else None).isna()]
         avg_row += model_df.mean(axis=0).tolist()
 
         if clock:
@@ -35,19 +37,19 @@ def merge_LRT(in_files, out_file):
                 avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{total}']
             except KeyError:
                 avg_row += [f'0/{total}']
-     
     df.loc[total] = avg_row
 
     df.to_csv(out_file, sep='\t', index=False)
 
+    
     print(df.loc[total])
 
-    from plotting import plot_test_statistic, _plot_pvals
-    import matplotlib.pyplot as plt
-    plot_test_statistic(df)
-    _plot_pvals(df['p-value_poisson']); plt.show()
+    # from plotting import plot_test_statistic, _plot_pvals
+    # import matplotlib.pyplot as plt
+    # plot_test_statistic(df)
+    # _plot_pvals(df.dropna()['p-value_poisson']); plt.show()
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
 
 def parse_args():
