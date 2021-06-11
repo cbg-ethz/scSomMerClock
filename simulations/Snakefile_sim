@@ -469,7 +469,8 @@ rule run_poisson_tree_test:
         ''
     envmodules:
         'biopython/1.77-python-3.7.7',
-        'statsmodels/0.11.1-python-3.7.7',
+        'pandas/1.0.1-python-3.7.7',
+        'scipy/1.4.1-python-3.7.7',
     resources:
         mem_mb = 1024,
         runtime = 10,
@@ -492,7 +493,6 @@ rule merge_poisson_tree_test:
         ''
     envmodules:
         'pandas/1.0.1-python-3.7.7',
-        
     resources:
         mem_mb = 2048
 

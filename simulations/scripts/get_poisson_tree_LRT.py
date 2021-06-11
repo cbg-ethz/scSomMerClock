@@ -19,18 +19,18 @@ from plotting import _plot_pvals, plot_tree_matrix, plot_test_statistic
 
 from Bio import Phylo
 
-import statsmodels.api as sm
-from patsy import dmatrices
-import autograd.numpy as anp
-from autograd.scipy.special import gammaln
-from autograd import grad
+# import statsmodels.api as sm
+# from patsy import dmatrices
+# import autograd.numpy as anp
+# from autograd.scipy.special import gammaln
+# from autograd import grad
 
-import nlopt
+# import nlopt
 
-import warnings
-from statsmodels.tools.sm_exceptions import DomainWarning
-warnings.simplefilter('ignore', DomainWarning)
-from statsmodels.genmod.families.links import identity
+# import warnings
+# from statsmodels.tools.sm_exceptions import DomainWarning
+# warnings.simplefilter('ignore', DomainWarning)
+# from statsmodels.genmod.families.links import identity
 
 
 LAMBDA_MIN = 1e-6
