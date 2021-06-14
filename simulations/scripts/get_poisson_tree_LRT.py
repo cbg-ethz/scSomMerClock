@@ -772,7 +772,18 @@ def get_LRT_poisson_test(Y, X, constr, init):
         print('\nFAILED OPTIMIZATION\n')
         return np.nan, np.nan, np.nan
 
-    dof = constr.shape[1] - constr.shape[0] - 0.5 * np.sum(opt_H0.x <= 1)
+    dof = constr.shape[1] - constr.shape[0]
+    LR = -2 * (ll_H0 - ll_H1)
+
+    on_bound = np.sum(opt_H0.x <= 1)
+    if on_bound > 0:
+        coeffs = scipy.special.binom(on_bound, np.arange(on_bound + 1))
+        pval_coeff = np.zeros(on_bound + 1)
+        for i in range(on_bound+1):
+            pval_coeff[i] = chi2.sf(LR, dof - i)
+        p_val = np.sum(coeffs * pval_coeff) / np.sum(coeffs)
+    else:
+        p_val = chi2.sf(LR, dof)
     # dof = constr.shape[1] - constr.shape[0]
     return ll_H0, ll_H1, dof
 
