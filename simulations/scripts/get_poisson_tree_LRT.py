@@ -785,7 +785,7 @@ def get_LRT_poisson_test(Y, X, constr, init):
     else:
         p_val = chi2.sf(LR, dof)
     # dof = constr.shape[1] - constr.shape[0]
-    return ll_H0, ll_H1, dof
+    return ll_H0, ll_H1, LR, dof, p_val
 
 
 def get_LRT_poisson(Y, X, tree=False):
@@ -920,7 +920,7 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     for model_name, model_call in models:
         # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
 
-        ll_H0, ll_H1, dof = get_LRT_poisson_test(Y, X_H0, constr, init)
+        ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson_test(Y, X_H0, constr, init)
         if np.isnan(ll_H0):
             continue
 
