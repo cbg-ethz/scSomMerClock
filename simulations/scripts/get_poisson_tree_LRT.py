@@ -772,7 +772,7 @@ def get_LRT_poisson_test(Y, X, constr, init):
         print('\nFAILED OPTIMIZATION\n')
         return np.nan, np.nan, np.nan
 
-    dof = constr.shape[1] - constr.shape[0] - 0.5 * np.sum((Y == 1) & (opt_H0.x <= 1))
+    dof = constr.shape[1] - constr.shape[0] - 0.5 * np.sum(opt_H0.x <= 1)
     # dof = constr.shape[1] - constr.shape[0]
     return ll_H0, ll_H1, dof
 
