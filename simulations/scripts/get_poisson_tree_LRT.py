@@ -923,9 +923,6 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
         ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson_test(Y, X_H0, constr, init)
         if np.isnan(ll_H0):
             continue
-
-        LR = -2 * (ll_H0 - ll_H1) / 1
-        p_val = chi2.sf(LR, dof)
         hyp = f'H{int(p_val < alpha)}'
 
         model_str += f'\t{dof}\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t' \
