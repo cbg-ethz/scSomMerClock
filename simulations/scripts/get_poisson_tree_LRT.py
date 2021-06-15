@@ -508,8 +508,6 @@ def get_model0_data(tree, min_dist=0):
 
     assert (constr @ init == 0).all(), 'Constraints not fulfilled for x_0'
 
-    Y += 1
-    # show_tree(tree, dendro=True)
     return Y, X, constr, init
 
 
@@ -746,46 +744,34 @@ def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
 
 def get_LRT_poisson_test(Y, X, constr, init):
     def fun_H0(l, Y):
-        # weight = poisson.pmf(np.floor(l), l)
-        weight = 1
-        return -np.sum(poisson.logpmf(Y, l) * weight)
+        return -np.sum(poisson.logpmf(Y, l))
 
     bounds_H0 = np.full((X.shape[0], 2), (1, Y.sum()))    
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     # const = LinearConstraint(constr, np.full(X.shape[0], LAMBDA_MIN), np.full(X.shape[0], Y.max()),)
 
     opt_H0 = minimize(fun_H0, init, args=(Y,), constraints=const, bounds=bounds_H0,
-        options={'disp': False, 'maxiter': 20000},
-        method='SLSQP')
+        options={'disp': False, 'maxiter': 20000}, method='SLSQP')
 
-    l_H0 = opt_H0.x
-    l_H1 = Y
-    # w_H0 = poisson.pmf(np.floor(l_H0), l_H0)
-    w_H0 = 1
-    # w_H1 = poisson.pmf(Y, l_H1)
-    w_H1 = 1
-
-    ll_H0 = np.nansum(poisson.logpmf(Y, l_H0) * w_H0)
-    ll_H1 = np.sum(poisson.logpmf(Y, l_H1) * w_H1)
-    
     if not opt_H0.success:
         print('\nFAILED OPTIMIZATION\n')
         return np.nan, np.nan, np.nan
 
-    dof = constr.shape[1] - constr.shape[0]
+    ll_H0 = np.sum(poisson.logpmf(Y, opt_H0.x))
+    ll_H1 = np.sum(poisson.logpmf(Y, Y))
+    dof = constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
 
     on_bound = np.sum(opt_H0.x <= 1)
     if on_bound > 0:
-        coeffs = scipy.special.binom(on_bound, np.arange(on_bound + 1))
-        pval_coeff = np.zeros(on_bound + 1)
-        for i in range(on_bound+1):
-            pval_coeff[i] = chi2.sf(LR, dof - i)
-        p_val = np.sum(coeffs * pval_coeff) / np.sum(coeffs)
+        dof_diff = np.arange(on_bound + 1)
+        weights = scipy.special.binom(on_bound, dof_diff)
+        p_vals = chi2.sf(LR, dof - dof_diff)
+        p_val = np.average(p_vals, weights=weights)
     else:
         p_val = chi2.sf(LR, dof)
-    # dof = constr.shape[1] - constr.shape[0]
-    return ll_H0, ll_H1, LR, dof, p_val
+    
+    return ll_H0, ll_H1, LR, dof - on_bound, p_val
 
 
 def get_LRT_poisson(Y, X, tree=False):
@@ -831,21 +817,6 @@ def get_LRT_poisson(Y, X, tree=False):
     #     options={'disp': True, 'maxiter': 10000, 'verbose': 1},
     #     method='trust-constr')
 
-    # if any(opt_H0.x < 0):
-    #     print('Negative lambda')
-    #     print(np.argwhere(opt_H0.x < 0).flatten())
-    #     show_tree(tree, br_lambdas=False)
-    #     for i in tree.find_clades(order='postorder'):
-    #         if i == tree.root:
-    #             continue
-    #         val_str = '\n'
-    #         for j, lambdas in enumerate(i.lambd.split(' ')):
-    #             val_str += get_sign(int(lambdas[1:]))
-    #             val_str += f'{opt_H0.x[int(lambdas[1:])]:.0f} '
-    #         i.lambd = i.lambd + val_str
-    #     show_tree(tree, dendro=True)
-    #     import pdb; pdb.set_trace()
-
     # init_H1 = Y
     # bounds_H1 = np.full((Y.size, 2), (LAMBDA_MIN, LAMBDA_MAX))
     # opt_H1 = minimize(fun_H1, init_H1, jac=grad(fun_H1), args=(Y,),
@@ -889,7 +860,7 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     muts = get_mut_df(vcf_file, exclude, include)
     tree = get_tree_dict(tree_file, muts, paup_exe, 0)
     
-    Y, X_H0, constr, init = get_model0_data(tree)
+    Y, X_H0, constr, init = get_model0_data(tree, 1)
     # Y, X_H0 = get_model1_data(tree)
 
     # n = 1000
@@ -902,8 +873,6 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     # show_pvals(p_vals)
     # import pdb; pdb.set_trace()
 
-    # Add 1 pseudocount
-    # Y += 1
     # simulate_nbinom_tree(X_H0, 1000, 0.0)
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
