@@ -61,10 +61,6 @@ def simulate_poisson_tree(X, n=1000, pi_tresh=0, glm=True):
         ll_H0, ll_H1 = get_LRT_poisson(Y[i], X, return_on_border=True)
         LR[i] = -2 * (ll_H0 - ll_H1)
 
-        if glm:
-            ll_H0_glm, ll_H1_glm = get_LRT_poisson_glm(Y[i], X)
-            LR_glm[i] = -2 * (ll_H0_glm - ll_H1_glm)
-
     p_vals = chi2.sf(LR, dof)
     p_vals_glm = chi2.sf(LR_glm, dof)
     import pdb; pdb.set_trace()
@@ -499,14 +495,15 @@ def get_model0_data(tree, min_dist=0):
                 constr[node_idx // 2, i*2] = -j
         init_val = np.matmul(X[node_idx], init[::2])
         # Make sure init is within bounds
-        if init_val >= 0:
+        if init_val >= max(0, min_dist):
             init[node_idx,] = init_val
         else:
-            init[node_idx-1,] += -init_val + 1
+            init[node_idx-1,] += -init_val + max(1, min_dist)
             init[node_idx,] = np.matmul(X[node_idx], init[::2])
         node_idx += 1
 
     assert (constr @ init == 0).all(), 'Constraints not fulfilled for x_0'
+    assert (init >= min_dist).all(), 'Init value smaller than min. distance'
 
     return Y, X, constr, init
 
@@ -560,37 +557,12 @@ def log_poisson(x, k, T):
     # return -np.nansum(poisson.logpmf(k, l))
 
 
-def log_multinomial(x, k, T):
-    try:
-        return -np.sum(k * np.log(np.matmul(T, x)))
-    except:
-        import pdb; pdb.set_trace()
-    return -multinomial.logpmf(k, k.sum(), np.matmul(T, x))
-
-
-def log_multinomial_H1(x, k):
-    return -multinomial.logpmf(k, k.sum(), x)
-
-
-def log_ZIP(x, k, T):
-    pi = x[-1]
-    mu = x[:-1]
-
-    zero = np.log(pi + (1 - pi) * np.exp(-mu))
-    pos = poisson.logpmf(k, np.matmul(T, mu)) + np.log(1 - pi)
-    import pdb; pdb.set_trace()
-
-
 def log_nbinom(x, k, T):
     return -np.nansum(nbinom.logpmf(k, np.matmul(T, x[:-1]), x[-1]))
 
 
 def log_nbinom_short(x, k, T, p):
     return -np.nansum(nbinom.logpmf(k, np.matmul(T, x), p))
-
-
-def opt_dist(x, k, T, dist_func=distance.minkowski, *args):
-    return dist_func(np.matmul(T, x), k, *args)
 
 
 def show_pvals(p_vals):
@@ -642,81 +614,6 @@ def _get_init_clock(Y, X):
     return np.clip(init, LAMBDA_MIN, LAMBDA_MAX)
 
 
-def get_LRT_exponential(Y, X, tree=False):
-    def fun_H0(x, Y, X):
-        # f(k|l) = l * e^(-l *t * k)
-        # log_f(k|l) ~ log(l) - l * t * k
-        l = x[-1]
-        t_cum = anp.matmul(X, x[:-1])
-        return -np.sum(l * t_cum * Y)
-
-    init_H0 = _get_init(Y, X)
-    init_H0 = np.append(init_H0, [1e-6])
-    bounds_H0 = np.full((X.shape[1] + 1, 2), (LAMBDA_MIN, LAMBDA_MAX))
-    # Get constraints prohibiting negative lambdas
-    opt_H0 = minimize(fun_H0, init_H0, args=(Y, X), bounds=bounds_H0)
-
-    l = opt_H0.x[-1]
-    t = opt_H0.x[:-1]
-    import pdb; pdb.set_trace()
-
-    ll_H0 = np.sum(poisson.logpmf(Y, np.matmul(X, np.clip(opt_H0.x, LAMBDA_MIN, LAMBDA_MAX))))
-    ll_H1 = np.sum(poisson.logpmf(Y, np.clip(Y, LAMBDA_MIN, LAMBDA_MAX)))
-
-    import pdb; pdb.set_trace()
-
-    dof_diff = np.sum(opt_H0.x == LAMBDA_MIN) - np.sum(Y == 0)
-    return ll_H0, ll_H1, dof_diff
-
-
-
-def get_LRT_multinomial(Y, X, tree=False):
-    n = Y.sum()
-
-    init = _get_init(Y, X)
-    init2 = np.clip(init / np.matmul(X, init).sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
-
-    # init = np.random.random(init.shape) + LAMBDA_MIN 
-    # init /= np.matmul(X, init).sum()
-
-    bounds = np.full((X.shape[1], 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
-    def const_one(x, T):
-        return 1 - np.matmul(T, x).sum()
-    cons = ({'type': 'eq', 'fun': const_one, 'args': (X,)})
-
-    from scipy.optimize import check_grad
-    def fun(p, Y, X):
-        return np.sum(Y * np.log(np.matmul(X, p)))
-
-    def grad(p, Y, X):
-        p_cum = np.matmul(X, p)
-        grad = np.zeros(p.size)
-        for i, p_i in enumerate(X.T):
-            grad[i] = np.sum(np.where(p_i, Y, 0) / p_cum)
-        return grad
-    check_grad(fun, grad, init, Y, X)
-
-    opt = minimize(log_multinomial, init, args=(Y, X), bounds=bounds,
-        constraints=cons, options={'maxiter': 100000, 'disp': True})
-    opt2 = minimize(log_multinomial, init2, args=(Y, X), bounds=bounds, 
-        constraints=cons, options={'maxiter': 1000})
-    # opt3 = minimize(log_multinomial, init, args=(Y, X), bounds=bounds, 
-    #     constraints=cons, options={'maxiter': 1000, 'verbose': 3},
-    #     hess=lambda x, y, z: np.zeros((X.shape[1], X.shape[1])), method='trust-constr')
-
-    bounds_H1 = np.full((Y.size, 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
-    cons_H1 = ({'type': 'eq', 'fun': lambda x: 1 - np.sum(x)})
-    init_H1 = np.random.random(Y.size)
-    init_H1 /= init_H1.sum()
-    opt_H1 = minimize(log_multinomial_H1, init_H1, args=(Y,), bounds=bounds_H1, 
-        constraints=cons_H1)
-
-    ll_H0 = multinomial.logpmf(Y, n, np.matmul(X, opt.x))
-    ll_H1 = multinomial.logpmf(Y, n, Y / Y.sum())
-
-    return ll_H0, ll_H1
-
-
 def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
     no_pars_H1, no_pars_H0 = X_H0.shape
 
@@ -742,27 +639,65 @@ def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
     return ll_H0, ll_H1
 
 
-def get_LRT_poisson_test(Y, X, constr, init):
-    def fun_H0(l, Y):
+def get_LRT_poisson(Y, X, constr, init):
+    def fun_poisson(l, Y):
         return -np.sum(poisson.logpmf(Y, l))
 
-    bounds_H0 = np.full((X.shape[0], 2), (1, Y.sum()))    
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     # const = LinearConstraint(constr, np.full(X.shape[0], LAMBDA_MIN), np.full(X.shape[0], Y.max()),)
 
-    opt_H0 = minimize(fun_H0, init, args=(Y,), constraints=const, bounds=bounds_H0,
-        options={'disp': False, 'maxiter': 20000}, method='SLSQP')
+    bounds_poisson = np.full((X.shape[0], 2), (1, Y.sum()))
+    opt_poisson = minimize(fun_poisson, init, args=(Y,), constraints=const,
+        bounds=bounds_poisson, method='SLSQP',
+        options={'disp': False, 'maxiter': 20000})
 
-    if not opt_H0.success:
-        print('\nFAILED OPTIMIZATION\n')
-        return np.nan, np.nan, np.nan
+    if not opt_poisson.success:
+        print('\nFAILED POISSON OPTIMIZATION\n')
+        return np.nan, np.nan, np.nan, np.nan, np.nan,
 
-    ll_H0 = np.sum(poisson.logpmf(Y, opt_H0.x))
+    ll_H0 = np.sum(poisson.logpmf(Y, opt_poisson.x))
     ll_H1 = np.sum(poisson.logpmf(Y, Y))
     dof = constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
 
-    on_bound = np.sum(opt_H0.x <= 1)
+    on_bound = np.sum(opt_poisson.x <= 1)
+    if on_bound > 0:
+        dof_diff = np.arange(on_bound + 1)
+        weights = scipy.special.binom(on_bound, dof_diff)
+        p_vals = chi2.sf(LR, dof - dof_diff)
+        p_val = np.average(p_vals, weights=weights)
+    else:
+        p_val = chi2.sf(LR, dof)
+
+    return ll_H0, ll_H1, LR, dof - on_bound, p_val
+
+
+def get_LRT_multinomial(Y, X, constr, init):
+    def fun_multinomial(l, Y):
+        return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
+
+    const_multi = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
+        {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
+
+    init_multi = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
+    init_multi /= init_multi.sum()
+
+    bounds_multi = np.full((X.shape[0], 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
+    opt_multi = minimize(fun_multinomial, init_multi, args=(Y,),
+        constraints=const_multi, bounds=bounds_multi, method='SLSQP',
+        options={'disp': False, 'maxiter': 20000})
+
+    if not opt_multi.success:
+        print('\nFAILED  MULTINOMIAL OPTIMIZATION\n')
+        import pdb; pdb.set_trace()
+        return np.nan, np.nan, np.nan, np.nan, np.nan,
+
+    ll_H0 = np.sum(multinomial.logpmf(Y, Y.sum(), opt_multi.x))
+    ll_H1 = np.sum(multinomial.logpmf(Y, Y.sum(), Y / Y.sum()))
+    dof = constr.shape[0] - 1
+    LR = -2 * (ll_H0 - ll_H1)
+
+    on_bound = np.sum((opt_multi.x <= LAMBDA_MIN) | (opt_multi.x >= 1 - LAMBDA_MIN))
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
@@ -774,86 +709,7 @@ def get_LRT_poisson_test(Y, X, constr, init):
     return ll_H0, ll_H1, LR, dof - on_bound, p_val
 
 
-def get_LRT_poisson(Y, X, tree=False):
-
-    def fun_H0(l, Y, X):
-        # f(k|l) = l^k * e^(-l) / k! ~ l^k * e^(-l)
-        # log_f(k|l) ~ k * log(l) - l
-        lambdas_cum = np.matmul(X, l)
-        weights = poisson.pmf(np.floor(lambdas_cum), lambdas_cum)
-        
-        # prob_short = -np.sum((Y * np.log(lambdas_cum) - lambdas_cum) * weights)
-        # return prob_short
-
-        prob_long = -np.sum(poisson.logpmf(Y, lambdas_cum) * weights)
-        return prob_long
-
-    init_H0 = _get_init_clock(Y, X)
-    bounds_H0 = np.full((X.shape[1], 2), (LAMBDA_MIN, Y.sum()))
-    # bounds_H0 = np.full((X.shape[1], 2), (-np.inf, LAMBDA_MAX))
-
-    def const_fun(x):
-        return np.matmul(X, x) - np.full(X.shape[0], LAMBDA_MIN)
-
-    const = [{'type': 'ineq', 'fun': const_fun}]
-    
-    opt_H0 = minimize(fun_H0, init_H0, args=(Y, X),
-        constraints=const, bounds=bounds_H0,
-        options={'disp': True, 'maxiter': 20000})
-    
-    # # import pdb; pdb.set_trace()
-    # # n = X.shape[1]
-    # # opt = nlopt.opt(algorithm, n)
-    # # opt.set_min_objective(fun_H0)
-    # # opt.set_lower_bounds(LAMBDA_MIN)
-    # # opt.add_inequality_constraint(const_fun, tol=0)
-
-    # # Constraints for ‘trust-constr’ are defined as a single object
-    # const = LinearConstraint(X, np.full(X.shape[0], LAMBDA_MIN),
-    #     np.full(X.shape[0], LAMBDA_MAX))
-    # opt_H0 = minimize(fun_H0, init_H0, args=(Y, X),
-    #     hess= lambda x, v, z: np.zeros((X.shape[1], X.shape[1])),
-    #     constraints=const, bounds=bounds_H0,
-    #     options={'disp': True, 'maxiter': 10000, 'verbose': 1},
-    #     method='trust-constr')
-
-    # init_H1 = Y
-    # bounds_H1 = np.full((Y.size, 2), (LAMBDA_MIN, LAMBDA_MAX))
-    # opt_H1 = minimize(fun_H1, init_H1, jac=grad(fun_H1), args=(Y,),
-    #     bounds=bounds_H1)
-    # ll_H1 = np.sum(poisson.logpmf(Y, opt_H1.x[:-1]))
-
-    # l_H0_def = np.matmul(X, opt_H0_def.x)
-    # w_H0_def = poisson.pmf(np.floor(l_H0_def), l_H0_def)
-    # ll_H0_def = np.nansum(poisson.logpmf(Y, l_H0_def) * w_H0_def)
-
-    l_H0 = np.matmul(X, opt_H0.x)
-    l_H1 = Y
-    w_H0 = poisson.pmf(np.floor(l_H0), l_H0)
-    w_H1 = poisson.pmf(Y, l_H1)
-
-    ll_H0 = np.nansum(poisson.logpmf(Y, l_H0) * w_H0)
-    ll_H1 = np.sum(poisson.logpmf(Y, l_H1) * w_H1)
-    
-    if not opt_H0.success:
-        print('FAILED OPTIMIZATION')
-        import pdb; pdb.set_trace()
-
-    if np.isnan(ll_H0): import pdb; pdb.set_trace()
-    # no_border = sum(opt_H0.x <= LAMBDA_MIN)
-    # LR = -2 * (ll_H0 - ll_H1)
-
-    # chi2_dof = X.shape[0] - X.shape[1] - no_border
-
-    # if any(np.matmul(X, opt_H0.x) < 0): import pdb; pdb.set_trace()
-    dof = X.shape[0] - 1 * np.sum(Y == 0) - X.shape[1] - 1 * np.sum(opt_H0.x <= LAMBDA_MIN)
-    # dof = X.shape[0] - X.shape[1]
-    return ll_H0, ll_H1, dof
-
-
-
-
-def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
+def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
             alpha=0.05):
 
     run = os.path.basename(vcf_file).split('.')[1]
@@ -876,32 +732,27 @@ def test_poisson(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''
     # simulate_nbinom_tree(X_H0, 1000, 0.0)
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
-    models = [('poisson', get_LRT_poisson), ('multinomial', get_LRT_multinomial),
-        ('nbinom', get_LRT_nbinom)]
-    models = [('poisson', get_LRT_poisson), ('multinomial', get_LRT_multinomial)]
-    models = [('poisson', get_LRT_poisson)]
-    # models = [('exponential', get_LRT_exponential)]
+    models = [('poisson', get_LRT_poisson),
+        ('multinomial', get_LRT_multinomial)]
+    # models = [('poisson', get_LRT_poisson)]
 
-    cols = ['H0', 'H1', '-2logLR', 'p-value', 'hypothesis']
-    header_str = 'run\tdof'
+    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
+    header_str = 'run'
     model_str = f'{run}'
 
     for model_name, model_call in models:
         # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
 
-        ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson_test(Y, X_H0, constr, init)
+        ll_H0, ll_H1, LR, dof, p_val = model_call(Y, X_H0, constr, init)
         if np.isnan(ll_H0):
             continue
         hyp = f'H{int(p_val < alpha)}'
 
-        model_str += f'\t{dof}\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t' \
+        model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
 
-        # print(model_str)
-        # x1, x2 = model_call(Y_id, X_H0_id)
-        # chi2.sf(-2 * (x1 - x2), dof)
-    # import pdb; pdb.set_trace()
+    print(model_str)
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
@@ -929,11 +780,11 @@ if __name__ == '__main__':
             snakemake.params.exclude = ''
         if snakemake.params.include == None:
             snakemake.params.include = ''
-        test_poisson(snakemake.input.vcf, snakemake.input.tree, 
+        test_data(snakemake.input.vcf, snakemake.input.tree, 
             snakemake.output[0], snakemake.params.paup_exe,
             snakemake.params.exclude, snakemake.params.include)
     else:
         import argparse
         args = parse_args()
-        test_poisson(args.vcf, args.tree, args.output, args.exe, args.exclude,
+        test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
             args.include, args.alpha)

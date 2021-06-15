@@ -134,29 +134,34 @@ def _plot_muts(muts, bin_no=100):
     return fig
 
 
-def generate_pval_plot(in_file, out_file, p_val_filter=1, bin_no=100):
-    df = pd.read_csv(in_file, sep='\t', engine='python', skipfooter=1)
+def generate_pval_plot(in_object, out_file=None, bin_no=100):
+    if isinstance(in_object, str):
+        df = pd.read_csv(in_object, sep='\t', engine='python', skipfooter=1)
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[1::6]]
+    elif isinstance(in_object, pd.DataFrame):
+        df = in_object
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[1::6]]
+    else:
+        raise IOError(f'Unknown input type: {type(in_object)}')
 
-    for col in ['', '_poisson', '_nbinom']:
-        try:
-            p_vals = df[df[f'p-value{col}'] <= p_val_filter][f'p-value{col}']
-        except KeyError:
-            continue
-        # p_vals = simulate_poisson_dispersion()
+    fig, ax = plt.subplots(figsize=(16, 12))
+    for model in models:
+        p_vals = df[f'p-value_{model}']
+        ax.hist(p_vals, bins=bin_no, range=(0, 1), label=model, alpha=0.5)
 
-        if p_val_filter < 1:
-            print('Removed p-values: {} / {}' \
-                .format(df.shape[0] - p_vals.size, df.shape[0]))
+    ax.axhline(p_vals.size / bin_no, ls='--', c='red')
+    ax.set_ylabel(f'counts (n={p_vals.size})', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('p-values', fontsize=LABEL_FONTSIZE)
+    ax.set_xlim([-0.01, 1.01])
 
-        fig = _plot_pvals(p_vals, bin_no)
-        fig.suptitle(f'Model: {col.lstrip("_").capitalize()}',
-            fontsize=LABEL_FONTSIZE * 1.5)
-
-        if out_file:
-            fig.savefig(out_file, dpi=300)
-        else:
-            plt.show()
-        plt.close()
+    ax.legend(fontsize=TICK_FONTSIZE)
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
+    
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
 
 
 def generate_gamma_plot(alphas, out_file):
@@ -247,32 +252,30 @@ def plot_test_statistic(in_object, bin_no=None, out_file=None, in_dof=None):
 
     if isinstance(in_object, str):
         df = pd.read_csv(in_object, sep='\t')
-        models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
-        dof = df.loc[0, 'dof']
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[1::6]]
     elif isinstance(in_object, pd.DataFrame):
         df = in_object
-        models = ['_'.join(i.split('_')[1:]) for i in df.columns[2::5]]
-        dof = df.loc[0, 'dof']
+        models = ['_'.join(i.split('_')[1:]) for i in df.columns[1::6]]
     elif isinstance(in_object, np.ndarray):
         models = ['']
         df = pd.DataFrame(in_object, columns=['-2logLR_'])
-        dof = in_dof
+        df['dof'] = in_dof
     else:
         raise IOError(f'Unknown input type: {type(in_object)}')
 
     fig, ax = plt.subplots(figsize=(16, 12))
 
-
     max_x = 0
     for model in models:
         vals = df[f'-2logLR_{model}'].tolist()
+        dof = df.iloc[-1][f'dof_{model}']
         if not bin_no:
             bin_no = max(15, int(np.sqrt(len(vals))))
         max_x = max(max_x, max(vals))
         ax.hist(vals, bins=bin_no, density=True, label=model, alpha=0.75)
 
-    chi2_x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), 1000)
-    chi2_y = chi2.pdf(chi2_x, dof)
+        chi2_x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), 1000)
+        chi2_y = chi2.pdf(chi2_x, dof)
     ax.plot(chi2_x, chi2_y, 'r-', lw=5, alpha=0.8, label=r'$\chi^2$')
         
     max_x = max(max_x, max(chi2_x))
