@@ -42,9 +42,12 @@ def merge_LRT(in_files, out_file):
 
     print(df.loc[total])
 
-    from plotting import plot_test_statistic, generate_pval_plot
-    plot_test_statistic(df)
-    generate_pval_plot(df)
+    try:
+        from plotting import plot_test_statistic, generate_pval_plot
+        plot_test_statistic(df)
+        generate_pval_plot(df)
+    except ModuleNotFoundError:
+        pass
 
 
 def parse_args():

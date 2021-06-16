@@ -640,7 +640,7 @@ def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
     return ll_H0, ll_H1
 
 
-def get_LRT_poisson(Y, X, constr, init, short=False):
+def get_LRT_poisson(Y, X, constr, init, short=True):
 
     if short:
         ll_H1 = np.nansum(Y * np.log(np.where(Y > 0, Y, np.nan)) \
