@@ -394,7 +394,7 @@ def get_model0_data(tree, min_dist=0):
     br_no = br_indi_no + len(internal_nodes)
     
     X = np.zeros((br_no, br_indi_no), dtype=int)
-    Y = np.zeros(br_no, dtype=int)
+    Y = np.zeros(br_no, dtype=float)
     constr = np.zeros((br_indi_no, br_no), dtype=int)
     init = np.zeros(br_no)
 
@@ -443,7 +443,7 @@ def get_model0_data(tree, min_dist=0):
                 terminal.lambd = f'+{l_idx}'
                 if i == 0:
                     lambdas[l_idx] = node_idx
-                    init[node_idx] = Y[node_idx]
+                    init[node_idx] = max(min_dist, Y[node_idx])
                     node_idx += 1
             
         # One internal, one terminal node
@@ -455,7 +455,7 @@ def get_model0_data(tree, min_dist=0):
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
             lambdas[l_idx] = node_idx
-            init[node_idx] = Y[node_idx]
+            init[node_idx] = max(min_dist, Y[node_idx])
             node_idx += 1
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
@@ -475,7 +475,7 @@ def get_model0_data(tree, min_dist=0):
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
             lambdas[l_idx] = node_idx
-            init[node_idx] = Y[node_idx]
+            init[node_idx] = max(min_dist, Y[node_idx])
             node_idx += 1
             # Assign lambda sum to longer
             Y[node_idx] = max(min_dist, longer.mut_no)
@@ -498,12 +498,13 @@ def get_model0_data(tree, min_dist=0):
         if init_val >= max(0, min_dist):
             init[node_idx,] = init_val
         else:
-            init[node_idx-1,] += -init_val + max(1, min_dist)
+            init[node_idx-1,] += -init_val + (1 + min_dist)
             init[node_idx,] = np.matmul(X[node_idx], init[::2])
         node_idx += 1
 
     assert (constr @ init == 0).all(), 'Constraints not fulfilled for x_0'
-    assert (init >= min_dist).all(), 'Init value smaller than min. distance'
+    assert (init >= min_dist).all(), \
+        f'Init value smaller than min. distance: {init.min()}'
 
     return Y, X, constr, init
 
@@ -639,28 +640,62 @@ def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
     return ll_H0, ll_H1
 
 
-def get_LRT_poisson(Y, X, constr, init):
-    def fun_poisson(l, Y):
-        return -np.sum(poisson.logpmf(Y, l))
+def get_LRT_poisson(Y, X, constr, init, short=False):
+
+    if short:
+        ll_H1 = np.nansum(Y * np.log(np.where(Y > 0, Y, np.nan)) \
+            - np.where(Y > 0, Y, np.nan))
+        scale_fac = (ll_H1 // 1000) * 1000
+        def fun_opt(l, Y):
+            return -np.nansum(Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) \
+                / scale_fac
+    else:
+        ll_H1 = np.sum(poisson.logpmf(Y, Y))
+        scale_fac = (-ll_H1 // 10) * 10
+        def fun_opt(l, Y):
+            l[:] = np.clip(l, LAMBDA_MIN, None)
+            return -np.sum(poisson.logpmf(Y, l)) / scale_fac
+
+
+    def fun_jac(l, Y):
+        return -(Y / np.clip(l, LAMBDA_MIN, None) - 1) / scale_fac
+                
+
+    def fun_hess(l, Y):
+        return np.identity(Y.size) * (Y / np.clip(l, LAMBDA_MIN, None)**2) / scale_fac
+
 
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
-    # const = LinearConstraint(constr, np.full(X.shape[0], LAMBDA_MIN), np.full(X.shape[0], Y.max()),)
+    init = np.clip(init, LAMBDA_MIN, None)
+    bounds = np.full((X.shape[0], 2), (LAMBDA_MIN, Y.sum()))
 
-    bounds_poisson = np.full((X.shape[0], 2), (1, Y.sum()))
-    opt_poisson = minimize(fun_poisson, init, args=(Y,), constraints=const,
-        bounds=bounds_poisson, method='SLSQP',
-        options={'disp': False, 'maxiter': 20000})
+    opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+        bounds=bounds, method='trust-constr', jac=fun_jac, hess=fun_hess,
+        options={'disp': False, 'maxiter': 10000, 'barrier_tol': 1e-5})
 
-    if not opt_poisson.success:
+    # opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+    #     bounds=bounds, method='SLSQP', jac=fun_jac,
+    #     options={'disp': False, 'maxiter': 10000,})
+
+    if not opt.success:
         print('\nFAILED POISSON OPTIMIZATION\n')
-        return np.nan, np.nan, np.nan, np.nan, np.nan,
+        opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+            bounds=bounds, method='SLSQP', jac=fun_jac,
+            options={'disp': False, 'maxiter': 10000,})
+        if not opt.success:
+            print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
+            return np.nan, np.nan, np.nan, np.nan, np.nan,
 
-    ll_H0 = np.sum(poisson.logpmf(Y, opt_poisson.x))
-    ll_H1 = np.sum(poisson.logpmf(Y, Y))
-    dof = constr.shape[0]
+    if short:
+        ll_H0 = np.nansum(Y * np.log(opt.x) - opt.x)
+    else:
+        ll_H0 = np.sum(poisson.logpmf(Y, opt.x))
+
+    dof = Y.size - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
+    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(opt_poisson.x <= 1)
+    on_bound = np.sum(opt.x <= LAMBDA_MIN)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
@@ -669,7 +704,9 @@ def get_LRT_poisson(Y, X, constr, init):
     else:
         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof - on_bound, p_val
+    if p_val < LAMBDA_MIN: import pdb; pdb.set_trace()
+
+    return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
 def get_LRT_multinomial(Y, X, constr, init):
@@ -706,7 +743,7 @@ def get_LRT_multinomial(Y, X, constr, init):
     else:
         p_val = chi2.sf(LR, dof)
     
-    return ll_H0, ll_H1, LR, dof - on_bound, p_val
+    return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
@@ -716,7 +753,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     muts = get_mut_df(vcf_file, exclude, include)
     tree = get_tree_dict(tree_file, muts, paup_exe, 0)
     
-    Y, X_H0, constr, init = get_model0_data(tree, 1)
+    Y, X_H0, constr, init = get_model0_data(tree, 0)
     # Y, X_H0 = get_model1_data(tree)
 
     # n = 1000

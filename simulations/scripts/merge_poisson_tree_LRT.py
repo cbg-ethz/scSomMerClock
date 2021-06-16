@@ -40,13 +40,11 @@ def merge_LRT(in_files, out_file):
     df.loc[total] = avg_row
     df.to_csv(out_file, sep='\t', index=False)
 
-    
     print(df.loc[total])
 
-    # from plotting import plot_test_statistic, generate_pval_plot
-    # import matplotlib.pyplot as plt
-    # plot_test_statistic(df)
-    # generate_pval_plot(df)
+    from plotting import plot_test_statistic, generate_pval_plot
+    plot_test_statistic(df)
+    generate_pval_plot(df)
 
 
 def parse_args():
