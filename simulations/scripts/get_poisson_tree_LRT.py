@@ -492,7 +492,7 @@ def get_model0_data(tree, min_dist=0):
 
     assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
         'Constraints not fulfilled for x_0'
-    assert (init >= min_dist).all(), \
+    assert (init >= max(min_dist, 2 * LAMBDA_MIN)).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
     return Y, X, constr, init
