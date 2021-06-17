@@ -804,7 +804,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
     models = [('poisson', get_LRT_poisson),
-        # ('poisson_nlopt', get_LRT_poisson_nlopt),
+        ('poisson_nlopt', get_LRT_poisson_nlopt),
         ('multinomial', get_LRT_multinomial)]
     # models = [('poisson', get_LRT_poisson)]
 
