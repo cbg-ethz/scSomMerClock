@@ -11,19 +11,12 @@ import pandas as pd
 from scipy.stats.distributions import chi2
 import scipy.special
 from scipy.optimize import minimize, Bounds, LinearConstraint
-from scipy.stats import poisson, nbinom, multinomial, expon
-from scipy.spatial import distance
+from scipy.stats import poisson, nbinom, multinomial
 
 from utils import change_newick_tree_root
-from plotting import _plot_pvals, plot_tree_matrix, plot_test_statistic
+
 
 from Bio import Phylo
-
-# import statsmodels.api as sm
-# from patsy import dmatrices
-# import autograd.numpy as anp
-# from autograd.scipy.special import gammaln
-# from autograd import grad
 
 # import nlopt
 
@@ -65,7 +58,8 @@ def simulate_poisson_tree(X, n=1000, pi_tresh=0, glm=True):
     p_vals_glm = chi2.sf(LR_glm, dof)
     import pdb; pdb.set_trace()
 
-    show_pvals(p_vals)
+    from plotting import generate_pval_plot, plot_test_statistic
+    generate_pval_plot(p_vals)
     plot_test_statistic(LR, in_dof=dof)
     import pdb; pdb.set_trace()
 
@@ -142,7 +136,8 @@ def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0):
     LR = -2 * (ll_H0 - ll_H1)
     p_vals = chi2.sf(LR, par_H1 - par_H0)
 
-    show_pvals(p_vals)
+    from plotting import generate_pval_plot, plot_test_statistic
+    generate_pval_plot(p_vals)
     plot_test_statistic(LR, in_dof=15)
     import pdb; pdb.set_trace()
 
@@ -566,14 +561,6 @@ def log_nbinom_short(x, k, T, p):
     return -np.nansum(nbinom.logpmf(k, np.matmul(T, x), p))
 
 
-def show_pvals(p_vals):
-    import matplotlib.pyplot as plt
-
-    _plot_pvals(p_vals)
-    plt.show()
-    plt.close()
-
-
 def _get_init(Y, X, p=None, mu_min=LAMBDA_MIN):
     X_l = np.sum(X, axis=1)
 
@@ -695,7 +682,7 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
     LR = -2 * (ll_H0 - ll_H1)
     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(opt.x <= LAMBDA_MIN)
+    on_bound = np.sum(opt.x <= 2 * LAMBDA_MIN)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
@@ -703,8 +690,6 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
         p_val = np.average(p_vals, weights=weights)
     else:
         p_val = chi2.sf(LR, dof)
-
-    if p_val < LAMBDA_MIN: import pdb; pdb.set_trace()
 
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
@@ -753,8 +738,6 @@ def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
         p_val = np.average(p_vals, weights=weights)
     else:
         p_val = chi2.sf(LR, dof)
-
-    if p_val < LAMBDA_MIN: import pdb; pdb.set_trace()
 
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
@@ -821,7 +804,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
     models = [('poisson', get_LRT_poisson),
-        ('poisson_nlopt', get_LRT_poisson_nlopt),
+        # ('poisson_nlopt', get_LRT_poisson_nlopt),
         ('multinomial', get_LRT_multinomial)]
     # models = [('poisson', get_LRT_poisson)]
 
