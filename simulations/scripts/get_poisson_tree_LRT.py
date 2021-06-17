@@ -741,12 +741,9 @@ def get_LRT_multinomial(Y, X, constr, init):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
 
     init = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
-    assert (init >= LAMBDA_MIN ** 2).all(), \
-        f'Init value smaller than min. distance: {init.min()}'
-
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
-    bounds = np.full((X.shape[0], 2), (LAMBDA_MIN**2, 1 - LAMBDA_MIN**2))
+    bounds = np.full((X.shape[0], 2), (0, 1))
     opt = minimize(fun_multinomial, init, args=(Y,),
         constraints=const, bounds=bounds, method='SLSQP',
         options={'disp': False, 'maxiter': 20000})
@@ -760,7 +757,7 @@ def get_LRT_multinomial(Y, X, constr, init):
     dof = constr.shape[0] - 1
     LR = -2 * (ll_H0 - ll_H1)
 
-    on_bound = np.sum((opt.x <= LAMBDA_MIN**2) | (opt.x >= 1 - LAMBDA_MIN**2))
+    on_bound = np.sum((opt.x <= LAMBDA_MIN) | (opt.x >= 1 - LAMBDA_MIN))
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
