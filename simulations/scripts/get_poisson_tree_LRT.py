@@ -736,7 +736,6 @@ def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-
 def get_LRT_multinomial(Y, X, constr, init):
     def fun_multinomial(l, Y):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
