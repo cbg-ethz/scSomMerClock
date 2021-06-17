@@ -741,7 +741,7 @@ def get_LRT_multinomial(Y, X, constr, init):
     def fun_multinomial(l, Y):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
 
-    init_multi = init / init.sum()
+    init_multi = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
     const_multi = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
     bounds_multi = np.full((X.shape[0], 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
