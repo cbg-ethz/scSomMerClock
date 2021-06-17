@@ -13,17 +13,10 @@ import scipy.special
 from scipy.optimize import minimize, Bounds, LinearConstraint
 from scipy.stats import poisson, nbinom, multinomial
 
-from utils import change_newick_tree_root
-
-
 from Bio import Phylo
+import nlopt
 
-# import nlopt
-
-# import warnings
-# from statsmodels.tools.sm_exceptions import DomainWarning
-# warnings.simplefilter('ignore', DomainWarning)
-# from statsmodels.genmod.families.links import identity
+from utils import change_newick_tree_root
 
 
 LAMBDA_MIN = 1e-6
@@ -90,7 +83,7 @@ def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0):
     Y = np.zeros((n, par_H1))
     p = np.expand_dims(np.random.random(n), 1)
     p = np.clip(np.random.normal(0.5, 0.25), LAMBDA_MIN, 1 - LAMBDA_MIN)
-    
+
     mu_H0 = np.zeros((n, par_H1))
     p_H0 = np.zeros((n, 1))
     mu_H1 = np.zeros((n, par_H1))
@@ -497,7 +490,8 @@ def get_model0_data(tree, min_dist=0):
             init[node_idx,] = np.matmul(X[node_idx], init[::2])
         node_idx += 1
 
-    assert np.allclose(constr @ init, 0), 'Constraints not fulfilled for x_0'
+    assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
+        'Constraints not fulfilled for x_0'
     assert (init >= min_dist).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
@@ -695,7 +689,6 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
 
 
 def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
-    import nlopt
     scale_fac = 100
 
     def f(x, grad):
@@ -760,7 +753,6 @@ def get_LRT_multinomial(Y, X, constr, init):
 
     if not opt_multi.success:
         print('\nFAILED  MULTINOMIAL OPTIMIZATION\n')
-        import pdb; pdb.set_trace()
         return np.nan, np.nan, np.nan, np.nan, np.nan,
 
     ll_H0 = np.sum(multinomial.logpmf(Y, Y.sum(), opt_multi.x))
