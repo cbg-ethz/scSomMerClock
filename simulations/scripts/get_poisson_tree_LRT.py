@@ -742,6 +742,9 @@ def get_LRT_multinomial(Y, X, constr, init):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
 
     init = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
+    assert (init >= LAMBDA_MIN ** 2).all(), \
+        f'Init value smaller than min. distance: {init.min()}'
+
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
     bounds = np.full((X.shape[0], 2), (LAMBDA_MIN**2, 1 - LAMBDA_MIN**2))
