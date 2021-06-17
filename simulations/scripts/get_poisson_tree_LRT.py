@@ -385,6 +385,7 @@ def get_model0_data(tree, min_dist=0):
     Y = np.zeros(br_no, dtype=float)
     constr = np.zeros((br_indi_no, br_no), dtype=int)
     init = np.zeros(br_no)
+    init_p = np.zeros(br_no)
 
     # Get nodes in reverse depth first order
     br_dist = []
@@ -740,11 +741,9 @@ def get_LRT_multinomial(Y, X, constr, init):
     def fun_multinomial(l, Y):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
 
+    init_multi = init / init.sum()
     const_multi = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
-
-    init_multi = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
-
     bounds_multi = np.full((X.shape[0], 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
     opt_multi = minimize(fun_multinomial, init_multi, args=(Y,),
         constraints=const_multi, bounds=bounds_multi, method='SLSQP',
