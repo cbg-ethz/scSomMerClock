@@ -744,7 +744,7 @@ def get_LRT_multinomial(Y, X, constr, init):
     init_multi = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
     const_multi = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
-    bounds_multi = np.full((X.shape[0], 2), (LAMBDA_MIN, 1 - LAMBDA_MIN))
+    bounds_multi = np.full((X.shape[0], 2), (LAMBDA_MIN ** 2, 1 - LAMBDA_MIN**2))
     opt_multi = minimize(fun_multinomial, init_multi, args=(Y,),
         constraints=const_multi, bounds=bounds_multi, method='SLSQP',
         options={'disp': False, 'maxiter': 20000})
