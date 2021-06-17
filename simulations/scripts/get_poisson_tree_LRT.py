@@ -443,7 +443,7 @@ def get_model0_data(tree, min_dist=0):
                 terminal.lambd = f'+{l_idx}'
                 if i == 0:
                     lambdas[l_idx] = node_idx
-                    init[node_idx] = max(min_dist, Y[node_idx])
+                    init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
                     node_idx += 1
             
         # One internal, one terminal node
@@ -455,7 +455,7 @@ def get_model0_data(tree, min_dist=0):
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
             lambdas[l_idx] = node_idx
-            init[node_idx] = max(min_dist, Y[node_idx])
+            init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
             node_idx += 1
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
@@ -475,7 +475,7 @@ def get_model0_data(tree, min_dist=0):
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
             lambdas[l_idx] = node_idx
-            init[node_idx] = max(min_dist, Y[node_idx])
+            init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
             node_idx += 1
             # Assign lambda sum to longer
             Y[node_idx] = max(min_dist, longer.mut_no)
@@ -495,14 +495,14 @@ def get_model0_data(tree, min_dist=0):
                 constr[node_idx // 2, i*2] = -j
         init_val = np.matmul(X[node_idx], init[::2])
         # Make sure init is within bounds
-        if init_val >= max(0, min_dist):
+        if init_val >= max(2 * LAMBDA_MIN, min_dist):
             init[node_idx,] = init_val
         else:
             init[node_idx-1,] += -init_val + (1 + min_dist)
             init[node_idx,] = np.matmul(X[node_idx], init[::2])
         node_idx += 1
 
-    assert (constr @ init == 0).all(), 'Constraints not fulfilled for x_0'
+    assert np.allclose(constr @ init, 0), 'Constraints not fulfilled for x_0'
     assert (init >= min_dist).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
@@ -709,6 +709,57 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
+def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
+    import nlopt
+    scale_fac = 100
+
+    def f(x, grad):
+        if grad.size > 0:
+            grad[:] = -(Y / x - 1) / scale_fac
+        return -np.sum(poisson.logpmf(Y, x)) / scale_fac
+
+    def c(x, grad, c):
+        if grad.size > 0:
+            grad[:] = -c / scale_fac
+        return -np.sum(c * x) / scale_fac
+
+    def c1(result, x, grad):
+        if grad.size > 0:
+           grad[:] = -constr / scale_fac
+           result[:] = -constr @ x  / scale_fac
+
+
+    opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
+    opt.set_min_objective(f)
+    opt.set_xtol_rel(LAMBDA_MIN)
+    opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
+    opt.set_upper_bounds(np.full(Y.size, Y.sum()))
+    opt.add_equality_mconstraint(c1, np.full(constr.shape[0], 2 * LAMBDA_MIN))
+
+    xopt = opt.optimize(init)
+        
+    ll_H1 = np.sum(poisson.logpmf(Y, Y))
+    ll_H0 = np.sum(poisson.logpmf(Y, xopt))
+
+    dof = Y.size - constr.shape[0]
+    LR = -2 * (ll_H0 - ll_H1)
+    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
+
+    on_bound = np.sum(xopt <= 2 * LAMBDA_MIN)
+    if on_bound > 0:
+        dof_diff = np.arange(on_bound + 1)
+        weights = scipy.special.binom(on_bound, dof_diff)
+        p_vals = chi2.sf(LR, dof - dof_diff)
+        p_val = np.average(p_vals, weights=weights)
+    else:
+        p_val = chi2.sf(LR, dof)
+
+    if p_val < LAMBDA_MIN: import pdb; pdb.set_trace()
+
+    return ll_H0, ll_H1, LR, dof + on_bound, p_val
+
+
+
 def get_LRT_multinomial(Y, X, constr, init):
     def fun_multinomial(l, Y):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
@@ -770,6 +821,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
     models = [('poisson', get_LRT_poisson),
+        ('poisson_nlopt', get_LRT_poisson_nlopt),
         ('multinomial', get_LRT_multinomial)]
     # models = [('poisson', get_LRT_poisson)]
 
@@ -788,8 +840,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
-
-    print(model_str)
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
