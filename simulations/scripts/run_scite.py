@@ -62,7 +62,7 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
     if stderr:
         for i in str(stdout).split('\\n'):
             print(i)
-        raise RuntimeError('SCITE Error')
+        raise RuntimeError('SCITE Error: {}'.format(stderr))
     os.remove(data_file)
     # rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv
 
