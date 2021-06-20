@@ -218,7 +218,8 @@ rule run_scite:
         os.path.join(out_dir, filter_dir, 'scite_dir',
             'scite_tree.{run}_ml0.newick')
     resources:
-        mem_mb = 4096
+        mem_mb = 4096,
+        time_min = 240,
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
