@@ -728,7 +728,7 @@ def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
-        p_vals = chi2.sf(LR, dof - dof_diff)
+        p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
         p_val = np.average(p_vals, weights=weights)
     else:
         p_val = chi2.sf(LR, dof)
