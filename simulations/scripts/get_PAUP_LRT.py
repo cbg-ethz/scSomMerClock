@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 from statistics import mean, stdev
 from scipy.stats.distributions import chi2
 
@@ -21,8 +22,10 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             scores[run] ={'clock': -1, 'noClock': -1}
         scores[run][model] = score
 
+    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+
     out_str = ''
-    avg = [[], [], [], 0, 0]
+    avg = [[], [], [], [], [], 0]
     for run, run_info in sorted(scores.items()):
         h0 = run_info['clock']
         h1 = run_info['noClock']
@@ -30,25 +33,32 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             continue
 
         LR = -2 * (h0 - h1)
-        p_val = chi2.sf(LR, cell_no - 2)
+        dof = cell_no - 1
+        p_val = chi2.sf(LR, dof)
         if p_val < alpha:
             hyp = 'H1'
-            avg[4] += 1
+            if not clock:
+                avg[5] += 1
         else:
             hyp = 'H0'
-            avg[3] += 1
+            if clock:
+                avg[5] += 1
 
         avg[0].append(h0)
         avg[1].append(h1)
-        avg[2].append(p_val)
+        avg[2].append(LR)
+        avg[3].append(dof)
+        avg[4].append(p_val)
 
-        out_str += f'{run}\t{h0:.1f}\t{h1:.1f}\t{p_val:.2E}\t{hyp}\n'
+        out_str += f'{run}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
+            f'{p_val:.2E}\t{hyp}\n'
 
-    avg_line = f'\nAvg.\t{mean(avg[0])}\t{mean(avg[1])}\t{mean(avg[2])}\t' \
-        f'H0:{avg[3]};H1:{avg[4]}\n'
+    avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t'
+        f'{mean(avg[2]):0>5.2f}\t{mean(avg[3]):.2f}\t{mean(avg[4]):.2E}' \
+        f'{avg[5]}/{run+1}\n'
 
     with open(out_file, 'w') as f_out:
-        f_out.write('run\tH0:clock\tH1:noClock\tp-value\thypothesis\n')
+        f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)
 
     print(avg_line)
