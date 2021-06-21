@@ -75,7 +75,8 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
-        mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500)
+        mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500),
+        runtime = 180
     params:
         exe = config['cellcoal']['exe'],
     shell:
@@ -219,7 +220,7 @@ rule run_scite:
             'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 4096,
-        runtime = 240,
+        runtime = 180,
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
