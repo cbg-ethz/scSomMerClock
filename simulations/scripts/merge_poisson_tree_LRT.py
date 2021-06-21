@@ -43,12 +43,12 @@ def merge_LRT(in_files, out_file):
 
     print(df.loc[total])
 
-    try:
-        from plotting import plot_test_statistic, generate_pval_plot
-        plot_test_statistic(df)
-        generate_pval_plot(df)
-    except:
-        pass
+    # try:
+    #     from plotting import plot_test_statistic, generate_pval_plot
+    #     plot_test_statistic(df)
+    #     generate_pval_plot(df)
+    # except:
+    #     pass
 
 
 def parse_args():

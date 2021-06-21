@@ -144,7 +144,6 @@ def generate_pval_plot(in_object, out_file=None, bin_no=None):
     else:
         raise IOError(f'Unknown input type: {type(in_object)}')
 
-    import pdb; pdb.set_trace()
     fig = plt.figure(figsize=(16, 3 * len(models)))
     gs = GridSpec(3 * len(models), 1)
     for i, model in enumerate(models):
