@@ -84,38 +84,39 @@ def get_muts_per_cell(vcf_file, exclude, include):
 
 
 def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
-    avg = [[], [], [], [], 0, 0]
-    out_str = ''
-    for in_file in in_files:
-        run = os.path.basename(in_file).split('.')[1]
-        muts = np.array(get_muts_per_cell(in_file, exclude, include))
+    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
 
+    avg = [[], [], [], [], 0]
+    out_str = ''
+    for file_no, in_file in enumerate(in_files):
+        run = int(os.path.basename(in_file).split('.')[1])
+        muts = np.array(get_muts_per_cell(in_file, exclude, include))
         mean_muts = muts.mean()
 
-        ll_clock = -np.sum(muts * np.log(mean_muts) - mean_muts)
-        ll_uncon = -np.sum(muts * np.log(muts) - muts)
-        LR = 2 * (ll_clock - ll_uncon)
-        # LR2 =  np.sum((muts - mean_muts)**2) / mean_muts
-        
+        h0 = -np.sum(muts * np.log(mean_muts) - mean_muts)
+        h1 = -np.sum(muts * np.log(muts) - muts)
+        LR = 2 * (h0 - h1)
         dof = muts.size - 1
         p_val = chi2.sf(LR, dof)
 
-        for i, j in [(0, ll_clock), (1, ll_uncon), (2, LR), (3, p_val),]:
+        for i, j in [(0, h0), (1, h1), (2, LR), (3, p_val),]:
             avg[i].append(j)
 
         if p_val < alpha:
             hyp = 'H1'
-            avg[5] += 1
+            if not clock:
+                avg[4] += 1
         else:
             hyp = 'H0'
-            avg[4] += 1
-        
+            if clock:
+                avg[4] += 1
 
-        out_str += f'{run}\t{ll_clock:0>5.2f}\t{ll_uncon:0>5.2f}\t{LR:0>5.2f}\t' \
-            f'{dof}\t{p_val:.2E}\t{hyp}\n'
+        out_str += f'{run}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
+            f'{p_val:.2E}\t{hyp}\n'
 
-    avg_line = f'\nAvg.\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
-            f'{mean(avg[2]):0>5.2f}\t\t{mean(avg[3]):0>2.5f}\tH0:{avg[4]};H1:{avg[5]}\n'
+    avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
+            f'{mean(avg[2]):0>5.2f}\t{dof}\t{mean(avg[3]):0>2.5f}\t' \
+            f'{avg[4]}/{file_no+1}\n'
     with open(out_file, 'w') as f_out:
         f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str + avg_line)

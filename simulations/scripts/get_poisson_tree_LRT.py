@@ -740,7 +740,7 @@ def get_LRT_multinomial(Y, X, constr, init):
     def fun_multinomial(l, Y):
         return -np.sum(multinomial.logpmf(Y, Y.sum(), l)) / 100
 
-    init = np.clip(init / init.sum(), LAMBDA_MIN, 1 - LAMBDA_MIN)
+    init = np.clip(init / init.sum(), LAMBDA_MIN**2, 1 - LAMBDA_MIN**2)
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)},
         {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
     bounds = np.full((X.shape[0], 2), (0, 1))
@@ -792,10 +792,10 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     # simulate_nbinom_tree(X_H0, 1000, 0.0)
     # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
-    models = [('poisson', get_LRT_poisson),
-        ('poisson_nlopt', get_LRT_poisson_nlopt),
-        ('multinomial', get_LRT_multinomial)]
-    # models = [('poisson', get_LRT_poisson)]
+    # models = [('poisson', get_LRT_poisson),
+    #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
+    #     ('multinomial', get_LRT_multinomial)]
+    models = [('poisson', get_LRT_poisson)]
 
     cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
     header_str = 'run'

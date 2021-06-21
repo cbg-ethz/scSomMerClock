@@ -35,6 +35,10 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         LR = -2 * (h0 - h1)
         dof = cell_no - 1
         p_val = chi2.sf(LR, dof)
+
+        for i, j in [(0, h0), (1, h1), (2, LR), (3, dof), (4, p_val)]:
+            avg[i].append(j)
+
         if p_val < alpha:
             hyp = 'H1'
             if not clock:
@@ -44,18 +48,12 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             if clock:
                 avg[5] += 1
 
-        avg[0].append(h0)
-        avg[1].append(h1)
-        avg[2].append(LR)
-        avg[3].append(dof)
-        avg[4].append(p_val)
-
         out_str += f'{run}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}\n'
 
     avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
-        f'{mean(avg[2]):0>5.2f}\t{mean(avg[3]):.2f}\t{mean(avg[4]):.2E}' \
-        f'{avg[5]}/{run+1}\n'
+        f'{mean(avg[2]):0>5.2f}\t{mean(avg[3]):.2f}\t{mean(avg[4]):.2E}\t' \
+        f'{avg[5]}/{int(run)+1}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')

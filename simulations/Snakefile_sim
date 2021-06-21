@@ -18,9 +18,9 @@ out_dir, filter_dir = get_out_dir(config)
 
 def get_final_files(wildcards):
     files = []
-    if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
-        files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}') 
-            for i in RUNS]
+    # if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
+    #     files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}')
+    #         for i in RUNS]
 
     for tree in TREES:
         if config.get('mrbayes', {}).get('run', False):
@@ -46,9 +46,26 @@ def get_final_files(wildcards):
 
 rule all:
     input:
-        get_final_files
+        os.path.join(out_dir, filter_dir, 'final_summary.tsv'),
+
         
-            
+
+rule merge_summary_files:
+    input:
+        get_final_files
+    output:
+        os.path.join(out_dir, filter_dir, 'final_summary.tsv')
+    envmodules:
+        'pandas/1.0.1-python-3.7.7',
+    resources:
+        mem_mb = 4096,
+        runtime = 10,
+    script:
+        f'{SCRIPT_DIR}/merge_summaries.py'
+
+
+# ------------------------------- CELLCOAL -------------------------------------
+
 rule create_cellcoal_config:
     output:
         cellcoal = 'cellcoal_parameters',
@@ -81,6 +98,8 @@ rule run_cellcoal:
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
 
+# -------------------------- DATA POSTPROCESSING -------------------------------
+
 rule postprocess_vcf:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
@@ -96,15 +115,15 @@ rule postprocess_vcf:
         f'{SCRIPT_DIR}/postprocess_vcf.py'
 
 
-rule get_true_GT:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
-    output:
-        os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
-    resources:
-        mem_mb = 4096
-    script:
-        f'{SCRIPT_DIR}/convert_haplotype_to_vcf.py'
+# rule get_true_GT:
+#     input:
+#         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+#     output:
+#         os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
+#     resources:
+#         mem_mb = 4096
+#     script:
+#         f'{SCRIPT_DIR}/convert_haplotype_to_vcf.py'
 
 
 def get_nex_input(wildcards):
@@ -249,74 +268,6 @@ rule run_cellphy:
         '-p {params.prefix} {input} > /dev/null && '
         'rm -f {params.prefix}.raxml.bestModel {params.prefix}.raxml.startTree '
         '{params.prefix}.raxml.mlTrees'
-        
-
-# ------------------------------- MRBAYES --------------------------------------
-
-def get_mrbayes_hpc_runtime(steps):
-    steps_int = int(steps)
-    
-    if steps_int <= 1E6:
-        runtime = 240
-    elif steps_int <= 5E6:
-        runtime = 480
-    elif steps_int <= 10E6:
-        runtime = 1440
-    elif steps_int <= 20E6:
-        runtime = 1880
-    elif steps_int <= 60E6:
-        runtime = 3840
-    elif steps_int <= 80E6:
-        runtime = 4800
-    else:
-        runtime = 5760
-        
-    return runtime
-        
-
-rule run_mrbayes:
-    input:
-        os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
-            'nxs.{run}.{steps}.{model}')
-    output:
-        os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
-            'mrbayes.{run}.{steps}.{model}.lstat')
-    conda: 'envs/mrbayes.yaml'
-    envmodules:
-        'gcc/6.4.0',
-        'openmpi/2.1.1',
-        'mrbayes/3.2.7'
-    threads: 4
-    resources:
-        mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
-        runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps)
-    params:
-        model_str = lambda wildcards: 
-            '{wildcards.run}.{wildcards.steps}.{wildcards.model}' \
-                .format(wildcards=wildcards), 
-        mb_exe = config['mrbayes']['exe'] if not scheduler else 'mpirun mb',
-    shell:
-        'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
-        '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{params.model_str} > '
-        'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.log && '
-        'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.* '
-        'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.pstat'
-
-
-rule merge_mrbayes_results:
-    input:
-        expand(os.path.join(out_dir, filter_dir, 'mrbayes_dir_{{tree}}',
-                'mrbayes.{run}.{steps}.{model}.lstat'),
-            run=RUNS, steps=config['mrbayes']['ngen'], model=MODELS)
-    output:
-        os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
-            'mrbayes.clock_test_summary.tsv')
-    resources:
-        mem_mb=2048
-    params:
-        ss = '-ss' if config.get('mrbayes', {}).get('ss', False) else '',
-    script:
-        f'{SCRIPT_DIR}/get_MrBayes_BF.py'
 
 
 # -------------------------------- PAUP ----------------------------------------
@@ -458,7 +409,7 @@ def get_poisson_tree_input(wildcards):
     return tree
 
 
-rule run_poisson_tree_test:
+rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
@@ -482,7 +433,7 @@ rule run_poisson_tree_test:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
 
 
-rule merge_poisson_tree_test:
+rule merge_poisson_tree:
     input:
         expand(os.path.join(out_dir, filter_dir, 'poisson_dir_{{tree}}',
             'poisson.{run}.LRT.txt'), run=RUNS)
@@ -495,10 +446,77 @@ rule merge_poisson_tree_test:
         'pandas/1.0.1-python-3.7.7',
         'matplotlib/3.1.3-python-3.7.7'
     resources:
-        mem_mb = 2048
-
+        mem_mb = 2048,
     script:
         f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
+
+
+# ------------------------------- MRBAYES --------------------------------------
+
+# def get_mrbayes_hpc_runtime(steps):
+#     steps_int = int(steps)
+
+#     if steps_int <= 1E6:
+#         runtime = 240
+#     elif steps_int <= 5E6:
+#         runtime = 480
+#     elif steps_int <= 10E6:
+#         runtime = 1440
+#     elif steps_int <= 20E6:
+#         runtime = 1880
+#     elif steps_int <= 60E6:
+#         runtime = 3840
+#     elif steps_int <= 80E6:
+#         runtime = 4800
+#     else:
+#         runtime = 5760
+
+#     return runtime
+
+
+# rule run_mrbayes:
+#     input:
+#         os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
+#             'nxs.{run}.{steps}.{model}')
+#     output:
+#         os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+#             'mrbayes.{run}.{steps}.{model}.lstat')
+#     conda: 'envs/mrbayes.yaml'
+#     envmodules:
+#         'gcc/6.4.0',
+#         'openmpi/2.1.1',
+#         'mrbayes/3.2.7'
+#     threads: 4
+#     resources:
+#         mem_mb = 4096 if scheduler == 'lsf' else 3 * 4096,
+#         runtime = lambda wildcards: get_mrbayes_hpc_runtime(wildcards.steps)
+#     params:
+#         model_str = lambda wildcards:
+#             '{wildcards.run}.{wildcards.steps}.{wildcards.model}' \
+#                 .format(wildcards=wildcards),
+#         mb_exe = config['mrbayes']['exe'] if not scheduler else 'mpirun mb',
+#     shell:
+#         'cd {out_dir}/{filter_dir} && mkdir -p mrbayes_dir_{wildcards.tree} && '
+#         '{params.mb_exe} nxs_dir_{wildcards.tree}/nxs.{params.model_str} > '
+#         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.log && '
+#         'rm -f nxs_dir_{wildcards.tree}/nxs.{params.model_str}.* '
+#         'mrbayes_dir_{wildcards.tree}/mrbayes.{params.model_str}.pstat'
+
+
+# rule merge_mrbayes_results:
+#     input:
+#         expand(os.path.join(out_dir, filter_dir, 'mrbayes_dir_{{tree}}',
+#                 'mrbayes.{run}.{steps}.{model}.lstat'),
+#             run=RUNS, steps=config['mrbayes']['ngen'], model=MODELS)
+#     output:
+#         os.path.join(out_dir, filter_dir, 'mrbayes_dir_{tree}',
+#             'mrbayes.clock_test_summary.tsv')
+#     resources:
+#         mem_mb=2048
+#     params:
+#         ss = '-ss' if config.get('mrbayes', {}).get('ss', False) else '',
+#     script:
+#         f'{SCRIPT_DIR}/get_MrBayes_BF.py'
 
 
 # # -------------------------------- SIEVE ---------------------------------------
