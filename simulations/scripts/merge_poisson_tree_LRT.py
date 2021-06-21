@@ -18,7 +18,7 @@ def merge_LRT(in_files, out_file):
     # from plotting import plot_test_statistic
     # plot_test_statistic(df)
 
-    total = df.dropna().shape[0]
+    total = df.shape[0]
     avg_row = [-1]
 
     for model_idx in range((len(df.columns) - 1) // 6):
@@ -27,16 +27,17 @@ def merge_LRT(in_files, out_file):
             .apply(lambda x: x if isinstance(x, float) else None).isna()]
         avg_row += model_df.mean(axis=0).tolist()
 
+        model_total = model_df.dropna().shape[0]
         if clock:
             try:
-                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H0"]}/{total}']
+                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
             except KeyError:
-                avg_row += [f'0/{total}']
+                avg_row += [f'0/{model_total}']
         else:
             try:
-                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{total}']
+                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
             except KeyError:
-                avg_row += [f'0/{total}']
+                avg_row += [f'0/{model_total}']
     df.loc[total] = avg_row
     df.to_csv(out_file, sep='\t', index=False)
 

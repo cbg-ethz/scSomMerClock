@@ -134,7 +134,7 @@ def _plot_muts(muts, bin_no=100):
     return fig
 
 
-def generate_pval_plot(in_object, out_file=None, bin_no=100):
+def generate_pval_plot(in_object, out_file=None, bin_no=None):
     if isinstance(in_object, str):
         df = pd.read_csv(in_object, sep='\t', engine='python', skipfooter=1)
         models = ['_'.join(i.split('_')[1:]) for i in df.columns[1::6]]
@@ -144,13 +144,18 @@ def generate_pval_plot(in_object, out_file=None, bin_no=100):
     else:
         raise IOError(f'Unknown input type: {type(in_object)}')
 
+    import pdb; pdb.set_trace()
     fig = plt.figure(figsize=(16, 3 * len(models)))
     gs = GridSpec(3 * len(models), 1)
     for i, model in enumerate(models):
         ax = fig.add_subplot(gs[3*i:3*(i+1), 0])
         p_vals = df[f'p-value_{model}']
-        ax.hist(p_vals, bins=bin_no, range=(0, 1), alpha=0.5)
-        ax.axhline(p_vals.size / bin_no, ls='--', c='red')
+        if bin_no:
+            bin_no_in = bin_no
+        else:
+            bin_no_in = max(15, int(np.sqrt(len(p_vals))))
+        ax.hist(p_vals, bins=bin_no_in, range=(0, 1), alpha=0.5)
+        ax.axhline(p_vals.size / bin_no_in, ls='--', c='red')
         ax.set_ylabel(f'counts {model}\n(n={p_vals.size})', fontsize=LABEL_FONTSIZE)
         ax.set_xlim([-0.01, 1.01])
 
@@ -307,6 +312,8 @@ def parse_args():
         help='What type of plot to generate')
     parser.add_argument('-a', '--alpha', type=float, default=[1], nargs='+',
         help='Alpha parameters of Gamma distribution with mean 1. Default = 1')
+    parser.add_argument('-b', '--bins', type=int, default=0,
+        help='Number of bins for histograms. Default = log(n)')
     parser.add_argument('-nbp', '--nbinom_pars', nargs=2, type=float,
         help='r und p parameters of negative binomial distribution.')
     parser.add_argument('-o', '--output', type=str, default='',
@@ -321,9 +328,9 @@ if __name__ == '__main__':
     if args.format == 'mrbayes':
         generate_mrbayes_plots(args.input,args.output)
     elif args.format == 'pval':
-        generate_pval_plot(args.input, args.output)
+        generate_pval_plot(args.input, args.output, args.bins)
     elif args.format == 'test':
-        plot_test_statistic(args.input, out_file=args.output)
+        plot_test_statistic(args.input, out_file=args.output, bin_no=args.bins)
     elif args.format == 'gamma':
         generate_gamma_plot(args.alpha, args.output)
     elif args.format == 'nbinom':
