@@ -53,7 +53,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         out_str += f'{run}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}\n'
 
-    avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t'
+    avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
         f'{mean(avg[2]):0>5.2f}\t{mean(avg[3]):.2f}\t{mean(avg[4]):.2E}' \
         f'{avg[5]}/{run+1}\n'
 
