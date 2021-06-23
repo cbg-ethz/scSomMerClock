@@ -120,19 +120,19 @@ def vcf_to_nex(vcf_file, out_files, ngen, ss_flag=False, tree=None,
         tree_unrooted = ''
         fixed_tree = ''
     else:
-        if 'scite_dir' in tree:
+        if 'scite' in tree:
             tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
                 tree, paup_exe, root=False, sample_names=sample_names,
                 outg=outg)
             tree_name = 'treeSCITE'
-        elif 'trees_dir' in tree:
-            tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
-                tree, paup_exe, root=False, outg=outg)
-            tree_name = 'treeCellCoal'
-        elif 'cellphy_dir' in tree:
+        elif 'cellphy' in tree:
             tree_str_unrooted, tree_str_rooted = change_newick_tree_root(
                 tree, paup_exe, root=True, outg=outg)
             tree_name = 'treeCellPhy'
+        else:
+            tree_str_rooted, tree_str_unrooted = change_newick_tree_root(
+                tree, paup_exe, root=False, outg=outg)
+            tree_name = 'treeCellCoal'
 
         tree_rooted = 'tree {} = [&R] {}'.format(tree_name, tree_str_rooted)
         tree_unrooted = 'tree {} = [&U] {}'.format(tree_name, tree_str_unrooted)

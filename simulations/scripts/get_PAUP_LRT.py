@@ -37,7 +37,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
         p_val = chi2.sf(LR, dof)
 
         for i, j in [(0, h0), (1, h1), (2, LR), (3, dof), (4, p_val)]:
-            avg[i].append(j)
+            avg[i].append(float(j))
 
         if p_val < alpha:
             hyp = 'H1'

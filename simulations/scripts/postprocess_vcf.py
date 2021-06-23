@@ -23,7 +23,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                     monovar = True
                 elif line.startswith('#CHROM'):
                     header += '##FILTER=<ID=singleton,Description="SNP ' \
-                        'is singleton">\n'
+                        'is singleton">\n##FILTER=<ID=wildtype,Description="' \
+                        'Only 0|0 called">\n'
                     sample_no = len(line.strip().split('\t')[9:])
                     if monovar:
                         format_short = 'GT:AD:DP:GQ:PL'
@@ -58,6 +59,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 s_rec = s_rec_raw.split(':')
 
                 if monovar:
+                    gt = s_rec[0]
                     gq = int(s_rec[3])
                     dp = s_rec[2]
                     tg = ''
@@ -79,27 +81,32 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 
                 if int(dp) < minDP or gq < minGQ:
                     new_line[s_i] = missing + tg
+                    genotypes[s_i] = '.|.'
                 else:
                     if monovar:
                         new_line[s_i] = s_rec_raw
                     else:
                         new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
                             .format(gt, dp, rc, g10, pl, gq, tg)
+                    genotypes[s_i] = gt
 
             filter_str = line_cols[6]
             if s_filter:
-                diff_gt, diff_count = np.unique(genotypes[:-1], return_counts=True)
-                # Only one genotype detected
-                if len(diff_gt) == 1:
-                    if diff_gt[0] == b'0|0':
-                        filter_str = 'singleton'
-                # Two different genotypes detected
-                elif len(diff_gt) == 2:
-                    # But one out of the two is just detected in one cell
-                    if min(diff_count) == 1:
-                        filter_str = 'singleton'
+                called_gt = genotypes[:-1][genotypes[:-1] != b'.|.']
+                # Only wildtype called
+                if np.all(called_gt == b'0|0'):
+                    filter_str = 'wildtype'
+                # Two ore more different genotypes detected
                 else:
-                    if not any([i > 1 for i in sorted(diff_count)[:-1]]):
+                    diff_gt, diff_count = np.unique(called_gt, return_counts=True)
+                    # Check if any non-wildtype is called more than once
+                    is_singleton = True
+                    for i in np.argwhere(diff_gt != b'0|0'):
+                        if diff_count[i] > 1:
+                            is_singleton = False
+                            break
+
+                    if is_singleton:
                         filter_str = 'singleton'
 
             body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
@@ -134,5 +141,7 @@ if __name__ == '__main__':
             s_filter=snakemake.params['singletons'])
     else:
         args = parse_args()
+        if not args.output:
+            args.output = args.input + '.final'
         postprocess_vcf(args.input, args.output, minDP=args.minDP,
             minGQ=args.minGQ, s_filter=args.filter_singletons)

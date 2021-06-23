@@ -48,7 +48,6 @@ rule all:
     input:
         os.path.join(out_dir, filter_dir, 'final_summary.tsv'),
 
-        
 
 rule merge_summary_files:
     input:
@@ -59,7 +58,7 @@ rule merge_summary_files:
         'pandas/1.0.1-python-3.7.7',
     resources:
         mem_mb = 4096,
-        runtime = 10,
+        runtime = 20,
     script:
         f'{SCRIPT_DIR}/merge_summaries.py'
 
@@ -89,7 +88,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500),
-        runtime = 180
+        runtime = 180,
     params:
         exe = config['cellcoal']['exe'],
     shell:
@@ -156,7 +155,8 @@ rule vcf_to_nex:
         temp(expand(os.path.join(out_dir, filter_dir, 'nxs_dir_{{tree}}',
             'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
     resources:
-        mem_mb = 1024
+        mem_mb = 1024,
+        runtime = 30,
     params:
         ss = config.get('mrbayes', {}).get('ss', False),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
@@ -254,7 +254,8 @@ rule run_cellphy:
         os.path.join(out_dir, filter_dir, 'cellphy_dir',
             'cellphy_tree.{run}.raxml.bestTree')
     resources:
-        mem_mb = 1024
+        mem_mb = 1024,
+        runtime = 180,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
@@ -279,6 +280,8 @@ rule run_PAUP:
     output:
         temp(os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
             'paup.{run}.0.{model}.PAUP.score'))
+    resources:
+        runtime = 60,
     params:
         prefix = lambda wildcards: os.sep.join([out_dir, filter_dir,
             'paup_dir_{wildcards.tree}'.format(wildcards=wildcards)]), 
@@ -424,7 +427,7 @@ rule run_poisson_tree:
         'matplotlib/3.1.3-python-3.7.7'
     resources:
         mem_mb = 1024,
-        runtime = 10,
+        runtime = 20,
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),

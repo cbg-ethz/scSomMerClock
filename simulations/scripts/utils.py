@@ -119,6 +119,7 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
             # VCF records
             line_cols = line.strip().split('\t')
             # Check if filter passed
+
             if not 'PASS' in line_cols[6]:
                 continue
 

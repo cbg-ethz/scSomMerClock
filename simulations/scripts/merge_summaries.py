@@ -15,10 +15,22 @@ def merge_summaries(in_files, out_file):
             suffix = f'{method}'
         else:
             tree = in_file.split(os.sep)[-2].split('_')[-1]
+            if tree not in ['cellcoal', 'cellphy', 'scite']:
+                tree = os.path.basename(in_file).split('.')[1]
             suffix = f'{method}.{tree}'
 
+        print(method, suffix)
+
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
-        new_df.rename(lambda x: f'{x}_{suffix}', axis=1, inplace=True)
+        if method == 'poisson_tree':
+            to_drop = [i for i in new_df.columns \
+                if 'nlopt' in i or 'multinomial' in i]
+            new_df.drop(to_drop, inplace=True, axis=1)
+            new_df.rename(lambda x: x.split('_')[0], axis=1, inplace=True)
+        new_df.rename(index={'Avg.': '-1'}, inplace=True)
+        new_df.index = new_df.index.astype(int)
+        new_df.rename(lambda x: f'{x.split(":")[0]}_{suffix}', axis=1, inplace=True)
+
         df = pd.concat([df, new_df], axis=1)
 
     df.to_csv(out_file, sep='\t', index=True)
