@@ -336,7 +336,7 @@ def get_poisson_input(wildcards):
             'vcf.{}.final'.format(i)) for i in RUNS]
 
 
-rule run_poisson_test:
+rule run_poisson:
     input:
         get_poisson_input
     output:
@@ -346,7 +346,8 @@ rule run_poisson_test:
     envmodules:
         'scipy/1.4.1-python-3.7.7',
     resources:
-        mem_mb = 2048
+        mem_mb = 2048,
+        runtime = 120,
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
