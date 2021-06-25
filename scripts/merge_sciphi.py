@@ -41,11 +41,13 @@ def merge_readCounts(in_files, out_file):
     def set_chr(x):
         try:
             return int(x)
-        except:
+        except ValueError:
             if x == 'X':
                 return 23
-            else:
+            elif x == 'Y':
                 return 24
+            else:
+                raise IndexError
 
     try:
         in_files_sorted = sorted(in_files,
@@ -55,7 +57,6 @@ def merge_readCounts(in_files, out_file):
             key=lambda x: set_chr(x.split(os.path.sep)[-1].split('.')[-2]))
 
     for i, in_file in enumerate(in_files_sorted):
-    
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
 
@@ -63,6 +64,7 @@ def merge_readCounts(in_files, out_file):
             sample_str = '\n'.join(file_raw[:2])
             mut_str = file_raw[6]
 
+        print('{}: {}'.format(file_raw[2], file_raw[3]))
         cand_sites += int(file_raw[3])
         bg_sites += int(file_raw[5])
 
@@ -98,8 +100,9 @@ def merge_readCounts(in_files, out_file):
         .format(cand_sites, bg_sites)
 
     if not out_file:
-        out_dir = os.path.sep.join(in_files[0].split(os.path.sep)[:-3])
+        out_dir = os.path.dirname(in_files[0])
         out_file = os.path.join(out_dir, 'SciPhi_merged.tsv')
+        print('Out_file : {}'.format(out_file))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -130,7 +133,6 @@ if __name__ == '__main__':
     else:
         import argparse
         args = parse_args()
-
         if args.read_count:
             merge_readCounts(args.input, args.output)
         else:
