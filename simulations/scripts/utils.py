@@ -276,7 +276,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     stdout, stderr = paup.communicate()
     paup.wait()
 
-    assert stderr == b'', str(stdout)
+    assert stderr == b'', str(stdout) + '\n' + str(stderr)
     
     with open(out_file.name, 'r') as f_tree:
         tree_new = f_tree.read().strip()

@@ -64,7 +64,6 @@ def merge_readCounts(in_files, out_file):
             sample_str = '\n'.join(file_raw[:2])
             mut_str = file_raw[6]
 
-        print('{}: {}'.format(file_raw[2], file_raw[3]))
         cand_sites += int(file_raw[3])
         bg_sites += int(file_raw[5])
 
