@@ -47,8 +47,14 @@ def merge_readCounts(in_files, out_file):
             else:
                 return 24
 
-    for i, in_file in enumerate(sorted(
-            in_files, key=lambda x: set_chr(x.split('/')[-3].split('.')[-1]))):
+    try:
+        in_files_sorted = sorted(in_files,
+            key=lambda x: set_chr(x.split(os.path.sep)[-3].split('.')[-1]))
+    except IndexError:
+        in_files_sorted = sorted(in_files,
+            key=lambda x: set_chr(x.split(os.path.sep)[-1].split('.')[-2]))
+
+    for i, in_file in enumerate(in_files_sorted):
     
         with open(in_file , 'r') as f:
             file_raw = f.read().strip().split('\n')
