@@ -90,9 +90,13 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                             .format(gt, dp, rc, g10, pl, gq, tg)
                     genotypes[s_i] = gt
 
+            # No signal above filtering threshold for position: skip
+            if np.all(genotypes == b'.|.'):
+                continue
+
             filter_str = line_cols[6]
             if s_filter:
-                called_gt = genotypes[:-1][genotypes[:-1] != b'.|.']
+                called_gt = genotypes[genotypes != b'.|.']
                 # Only wildtype called
                 if np.all(called_gt == b'0|0'):
                     filter_str = 'wildtype'
