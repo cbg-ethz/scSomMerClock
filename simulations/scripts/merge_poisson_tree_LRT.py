@@ -6,7 +6,6 @@ import pandas as pd
 
 
 def merge_LRT(in_files, out_file):
-    out_str = ''
     df = pd.DataFrame()
 
     clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
@@ -14,9 +13,6 @@ def merge_LRT(in_files, out_file):
     for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
-    
-    # from plotting import plot_test_statistic
-    # plot_test_statistic(df)
 
     total = df.shape[0]
     avg_row = [-1]

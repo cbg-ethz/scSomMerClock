@@ -399,20 +399,6 @@ rule run_poisson:
 # --------------------------- POISSON TREE -------------------------------------
 
 
-def get_poisson_tree_input(wildcards):
-    if wildcards.tree == 'cellphy':
-        tree = os.path.join(out_dir, filter_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
-                .format(wildcards=wildcards))
-    elif wildcards.tree == 'scite':
-        tree = os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
-    else:
-        tree = os.path.join(out_dir, 'trees_dir', 'trees.{wildcards.run}' \
-            .format(wildcards=wildcards))
-    return tree
-
-
 rule run_poisson_tree:
     input:
         unpack(get_nex_input)
