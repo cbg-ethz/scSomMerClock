@@ -13,6 +13,8 @@ specific:
   pair_end: True
   bulk_normal: CRC0907-Normal # SRR308649
   bulk_samples: [CRC0907-Cancer, CRC0907-Polyps] # [SRR3086498, SRR3086497]
+  normal_regex: CRC0907-N\d
+  tumor_regex:
   WGA_library: REPLI-G
   SEQ: WES
   WES_target: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
@@ -21,11 +23,11 @@ specific:
 
 SCcaller:
   run: True
-  exe: /home/uvi/be/nbo/SCcaller_NB/sccaller_v2.0.0_NB.py
+  exe: ../SCcaller_NB/sccaller_v2.0.0_NB.py
 
 monovar:
   run: True
-  exe: /home/uvi/be/nbo/MonoVar_NB/src/monovar.py
+  exe: ../MonoVar_NB/src/monovar.py
 
 mutect:
   filter: contamination
@@ -33,3 +35,6 @@ mutect:
 filters:
   depth: 10
   geno_qual: 20
+
+paup:
+  exe: ../paup4a168_ubuntu64

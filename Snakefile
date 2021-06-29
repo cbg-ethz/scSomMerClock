@@ -54,8 +54,8 @@ ss_samples.sort()
 
 
 def get_all_files(wildcards):
-    files = [os.path.join('Calls', 'all.vcf.gz'),
-        'PAUP_LRT_test.tsv', 'poisson_dispersion_test.all.tsv']
+    files = [os.path.join('Calls', 'all.vcf.gz'), 'PAUP_LRT_test.tsv',
+         'poisson_tree_LRT.tsv', 'poisson_dispersion_test.tsv']
     
     if config['static'].get('QC_seq', False):
         files.append(os.path.join('QC', 'QC_sequencing.tsv'))
@@ -573,7 +573,7 @@ rule run_poisson_test:
     input:
         os.path.join('QC',  'all.filtered.vcf')
     output:
-        'poisson_dispersion_test.all.tsv'
+        'poisson_dispersion_test.tsv'
     envmodules:  
         'scipy/1.4.1-python-3.7.7',
     resources:
@@ -584,8 +584,7 @@ rule run_poisson_test:
         f'simulations/{SCRIPT_DIR}/get_poisson_LRT.py'
 
 
-# ------------------------------- PAUP LRT -------------------------------------
-
+# ---------------------------- TREE INFERENCE ----------------------------------
 
 rule run_scite:
     input:
@@ -602,6 +601,8 @@ rule run_scite:
     script:
         f'simulations/{SCRIPT_DIR}/run_scite.py'
 
+
+# ------------------------------- PAUP LRT -------------------------------------
 
 rule vcf_to_nex:
     input:
@@ -643,6 +644,32 @@ rule merge_paup_results:
         no_cells = config['cellcoal']['model']['no_cells'] + 1,
     script:
         f'{SCRIPT_DIR}/get_PAUP_LRT.py'
+
+
+# --------------------------- POISSON TREE LRT ---------------------------------
+
+rule run_poisson_tree:
+    input:
+        vcf = os.path.join('QC',  'all.filtered.vcf'),
+        tree = os.path.join('QC', 'scite_tree_ml0.newick'),
+    output:
+        'poisson_tree_LRT.tsv'
+    conda:
+        ''
+    envmodules:
+        'biopython/1.77-python-3.7.7',
+        'pandas/1.0.1-python-3.7.7',
+        'scipy/1.4.1-python-3.7.7',
+        'matplotlib/3.1.3-python-3.7.7'
+    resources:
+        mem_mb = 1024,
+        runtime = 20,
+    params:
+        exclude = config.get('specific', {}).get('normal_regex', ''),
+        include = config.get('specific', {}).get('tumor_regex', ''),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+    script:
+        f'{SCRIPT_DIR}/12_poisson_tree_LRT.py'
 
 
 # ------------------------------------------------------------------------------
