@@ -198,6 +198,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
 
+
     with open(in_file, 'r') as f_tree:
         tree = f_tree.read().strip()
 
@@ -240,6 +241,8 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
         if 'trees_dir' in in_file:
             tree = tree.replace('cell', 'tumcell') \
                 .replace('outgtumcell', 'healthycell')
+        elif 'cellphy' in in_file:
+            tree =re.sub('\[\d+\]', '', tree)
     
     temp_tree_file.write(str.encode(tree))
     temp_tree_file.close()
@@ -260,10 +263,10 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     else:
         save_brLens = 'no'
         
-    paup_cmd = 'getTrees file={i};\n' \
+    paup_cmd = 'getTrees file={i} allBlocks=yes;\n' \
         '{g}' \
         '{c};\n' \
-        'saveTrees format=Newick root={r} brLens={b} file={o};\n' \
+        'saveTrees format=Newick root={r} brLens={b} file={o} supportValues=nodeLabels;\n' \
         'quit;'.format(i=temp_tree_file.name, g=outg_cmd, c=root_cmd, r=root,
             b=save_brLens, o=out_file.name)
 
@@ -289,4 +292,4 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
 
 
 if __name__ == '__main__':
-    print('Nothing to do...') 
+    print('Nothing to do...')

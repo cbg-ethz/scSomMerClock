@@ -15,10 +15,14 @@ def merge_LRT(in_files, out_file):
         df = df.append(new_df, ignore_index=True)
 
     total = df.shape[0]
-    avg_row = [-1]
+    general_cols = 5
+    model_cols = 6
 
-    for model_idx in range((len(df.columns) - 1) // 6):
-        model_df = df[df.columns[6 * model_idx + 1: 6 * model_idx + 7]]
+    avg_row = [-1] + df.iloc[:, 1:general_cols].mean(axis=0).tolist()
+    for model_idx in range((len(df.columns) - general_cols) // model_cols):
+        start_idx = model_cols * model_idx + general_cols
+        end_idx = model_cols * model_idx + general_cols + model_cols
+        model_df = df[df.columns[start_idx: end_idx]]
         model_df = model_df[~model_df[model_df.columns[-2]] \
             .apply(lambda x: x if isinstance(x, float) else None).isna()]
         avg_row += model_df.mean(axis=0).tolist()

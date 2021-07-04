@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 import argparse
 import numpy as np
 
@@ -13,6 +14,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
     header = ''
     body = ''
 
+    rows_skipped = 0
+    mut_no = np.zeros(2)
     monovar = False
     with file_stream as f_in:
         for line in f_in:
@@ -24,7 +27,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                 elif line.startswith('#CHROM'):
                     header += '##FILTER=<ID=singleton,Description="SNP ' \
                         'is singleton">\n##FILTER=<ID=wildtype,Description="' \
-                        'Only 0|0 called">\n'
+                        'Only 0|0 called">\n##droppedRows=0\n'
                     sample_no = len(line.strip().split('\t')[9:])
                     if monovar:
                         format_short = 'GT:AD:DP:GQ:PL'
@@ -51,6 +54,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                     line_cols[6] = 'PASS'
             else:
                 PLN_col = FORMAT_col.index('PLN')
+                true_gt = np.chararray(sample_no, itemsize=3)
 
             new_line = np.zeros(sample_no, dtype=object)
             genotypes = np.chararray(sample_no, itemsize=3)
@@ -78,6 +82,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                     else:
                         gq = -1
                         pl = '.'
+                    true_gt[s_i] = tg
                 
                 if int(dp) < minDP or gq < minGQ:
                     new_line[s_i] = missing + tg
@@ -90,32 +95,46 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                             .format(gt, dp, rc, g10, pl, gq, tg)
                     genotypes[s_i] = gt
 
+            called_gt = genotypes[genotypes != b'.|.']
+            if not monovar:
+                if np.unique(true_gt).size > 1:
+                    # import pdb; pdb.set_trace()
+                    mut_no[0] += 1
+                else:
+                    all_gt = true_gt[0].decode()
+                    if all_gt[0] == ref and all_gt[-1] == ref:
+                        mut_no[1] += 1
+                    else:
+                        import pdb; pdb.set_trace()
+
             # No signal above filtering threshold for position: skip
-            if np.all(genotypes == b'.|.'):
+            if called_gt.size == 0:
+                rows_skipped += 1
                 continue
 
             filter_str = line_cols[6]
-            if s_filter:
-                called_gt = genotypes[genotypes != b'.|.']
-                # Only wildtype called
-                if np.all(called_gt == b'0|0'):
-                    filter_str = 'wildtype'
-                # Two ore more different genotypes detected
-                else:
-                    diff_gt, diff_count = np.unique(called_gt, return_counts=True)
-                    # Check if any non-wildtype is called more than once
-                    is_singleton = True
-                    for i in np.argwhere(diff_gt != b'0|0'):
-                        if diff_count[i] > 1:
-                            is_singleton = False
-                            break
+            # Only wildtype called
+            if np.all(called_gt == b'0|0'):
+                filter_str = 'wildtype'
+            elif s_filter:
+                # One or more different genotypes detected
+                diff_gt, diff_count = np.unique(called_gt, return_counts=True)
+                # Check if any non-wildtype is called more than once
+                is_singleton = True
+                for i in np.argwhere(diff_gt != b'0|0'):
+                    if diff_count[i] > 1:
+                        is_singleton = False
+                        break
 
-                    if is_singleton:
-                        filter_str = 'singleton'
+                if is_singleton:
+                    filter_str = 'singleton'
 
             body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
                     .format(filter_str, line_cols[7], format_short) \
                 + '\t'.join(new_line) + '\n'
+
+    if rows_skipped:
+        header = re.sub('(?<=droppedRows\=)0(?=\n)', str(rows_skipped), header)
 
     with open(out_file, 'w') as f_out:
         f_out.write('{}{}'.format(header, body))

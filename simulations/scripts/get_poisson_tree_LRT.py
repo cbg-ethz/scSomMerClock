@@ -2,6 +2,9 @@
 
 import os
 import re
+import copy
+import tempfile
+import subprocess
 from io import StringIO
 
 import numpy as np
@@ -144,7 +147,8 @@ def get_mut_df(vcf_file, exclude_pat, include_pat):
         file_stream = open(vcf_file, 'r')
 
     exclude = []
-    muts_raw = []
+    skip = 0
+    data = [[], []]
     with file_stream as f_in:
         for line in f_in:
             # Skip VCF header lines
@@ -181,30 +185,42 @@ def get_mut_df(vcf_file, exclude_pat, include_pat):
 
             # VCF records
             line_cols = line.strip().split('\t')
-            line_muts = np.zeros(sample_no)
+            if not 'PASS' in line_cols[6]:
+                skip += 1
+                continue
+
+            ref = line_cols[3]
+            line_muts = np.zeros((2, sample_no))
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
-                    gt = s_rec[:s_rec.index(':')]
+                    gt = s_rec[:s_rec.index(':')].split('|')
+                    true_gt = s_rec[-3:].split('|')
                 # Missing in Monovar output format
                 except ValueError:
-                    line_muts[s_i] = np.nan
+                    line_muts[:, s_i] = np.nan
                     continue
 
-                s_rec_ref = gt[0]
-                s_rec_alt = gt[-1]
-                if s_rec_ref == '.' or s_rec_alt == '.':
+                # Get true gt
+                if true_gt[0] != ref or true_gt[1] != ref:
+                    line_muts[1][s_i] = 1
+                # Skip filtered genotypes
+                if gt[0] == '.' or gt[1] == '.':
                     continue
+                # Check if gt is mutation
+                if gt[0] != '0' or gt[1] != '0':
+                    line_muts[0][s_i] = 1
 
-                if s_rec_alt != '0' or s_rec_ref != '0':
-                    line_muts[s_i] = 1
-            muts_raw.append(line_muts)
+            for i in [0, 1]:
+                data[i].append(line_muts[i])
 
-    muts = pd.DataFrame(muts_raw, columns=sample_names)
+    muts = pd.DataFrame(data[0], columns=sample_names)
+    true_muts = pd.DataFrame(data[1], columns=sample_names)
+
     # Sanity check: remove sample without name
     exclude.append('')
     include = [i for i in sample_names if i not in exclude]
     
-    return muts[include]
+    return muts[include], true_muts[include]
 
 
 def write_tree(tree, out_file='example.newick'):
@@ -212,51 +228,132 @@ def write_tree(tree, out_file='example.newick'):
     Phylo.write(tree, out_file, 'newick')
 
 
-def show_tree(tree, dendro=False, br_lambdas=True):
+def show_tree(tree, dendro=False, br_length='mut_no'):
     tree.ladderize(reverse=False)
 
     if dendro:
+        tree = copy.deepcopy(tree)
         max_depth = max(tree.depths().values())
         for i in tree.find_clades(terminal=False, order='postorder'):
             int_len = i.name.count('+')
             for child in i.clades:
                 child.branch_length = int_len - child.name.count('+')
 
-    if br_lambdas:
+    if br_length == 'lambda':
         tree.root.lambd = 'root'
         br_labels = lambda c: c.lambd
-    else:
+    elif br_length == 'length':
         br_labels = lambda c: c.branch_length
+    elif br_length == 'mut_no':
+        try:
+            tree.root.true_mut_no
+            br_labels = lambda c: f' {c.mut_no} ({c.true_mut_no})'
+        except AttributeError:
+            br_labels = lambda c: f' {c.mut_no}'
+    else:
+        raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
     Phylo.draw(tree, branch_labels=br_labels,
-        label_func=lambda c: c.name if c.name.count('+') == 0 else '',
+        label_func=lambda c: c.name if c.name and c.name.count('+') == 0 else '',
         subplots_adjust=({'left': 0.01, 'bottom': 0.01, 'right': 0.99, 'top': 0.99})
     ) 
 
 
-def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
+def get_tree_dict(tree_file, muts, true_muts, paup_exe, min_dist=0):
     if 'cellphy_dir' in tree_file:
-        _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
-            br_length=True)
-    elif 'trees_dir' in tree_file:
-        tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-            br_length=True)
-    elif 'scite_dir' in tree_file:
-        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
-            + ['healthycell']
-        tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-            sample_names=samples, br_length=True)
+        # _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
+        #     br_length=True)
+        # tree = Phylo.read(StringIO(tree_str), 'newick')
+        return add_cellphy_mutation_map(tree_file, paup_exe)
+    else:
+        if 'scite' in tree_file:
+            samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
+                + ['healthycell']
+            tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
+                sample_names=samples, br_length=True)
+        else:
+            tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
+                br_length=True)
+        tree = Phylo.read(StringIO(tree_str), 'newick')
+        return map_mutations_to_tree(tree, muts, true_muts, min_dist)
+        # return map_mutations_to_tree2(tree, muts, true_muts, min_dist)
 
-    # With BioPython package
-    tree = Phylo.read(StringIO(tree_str), 'newick')
 
+def add_cellphy_mutation_map(tree_file, paup_exe):
+    mut_file = tree_file.replace('mutationMapTree', 'mutationMapList')
+    with open(mut_file, 'r') as f_muts:
+        muts_raw = f_muts.read().strip().split('\n')
+
+    with open(tree_file, 'r') as f_tree:
+        tree_str = f_tree.read().strip()
+    n = tree_str.count('cell')
+
+    for i in muts_raw:
+        try:
+            id, mut_no, _ = i.split('\t')
+        except ValueError:
+            id, mut_no = i.split('\t')
+        tree_str = re.sub(f'0.\d+\[{id}\]', mut_no, tree_str)
+
+    temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
+    temp_tree_file.write(str.encode(tree_str))
+    temp_tree_file.close()
+
+    out_file = tempfile.NamedTemporaryFile(delete=False)
+    paup_cmd = 'getTrees file={i};\n' \
+        'DerootTrees;\n'\
+        'outgroup healthycell;\n' \
+        'RootTrees rootMethod=outgroup userBrLens=yes;\n' \
+        'saveTrees format=Newick root=yes brLens=user file={o} ;\n' \
+        'quit;'.format(i=temp_tree_file.name, o=out_file.name)
+
+    paup_file = tempfile.NamedTemporaryFile(delete=False)
+    paup_file.write(str.encode(paup_cmd))
+    paup_file.close()
+
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
+    paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = paup.communicate()
+    paup.wait()
+
+    assert stderr == b'', str(stdout) + '\n' + str(stderr)
+
+    with open(out_file.name, 'r') as f_tree:
+        tree_new = f_tree.read().strip()
+    out_file.close()
+
+    try:
+        wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
+    except AttributeError:
+        wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
+
+    tree = Phylo.read(StringIO(tree_new), 'newick')
+    for node in tree.find_clades():
+        node.name = '+'.join([i.name for i in node.get_terminals()])
+        # Correct PAUP* rooting by replacing branch with 0 length branch
+        if node.name == 'healthycell':
+            node.mut_no = node.branch_length + wrong_root_len
+        elif node.name.count('+') == n - 2:
+            assert node.branch_length == wrong_root_len, 'Cannot identify added root branch'
+            node.mut_no = 0
+            node.branch_length = 0
+        else:
+            node.mut_no = node.branch_length
+    # show_tree(tree)
+
+    return tree
+
+
+def map_mutations_to_tree(tree, muts, true_muts, min_dist):
     # Get max age if branch lengths display age instead of mutation number
     max_age = muts.sum(axis=0).max()
 
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
         leaf_node.muts = set(muts.loc[muts[leaf_node.name] == 1].index)
-        
+        leaf_node.true_muts = set(true_muts.loc[true_muts[leaf_node.name] == 1].index)
+
     # Add number of mutations to internal nodes
     for int_node in tree.get_nonterminals(order='postorder'):
         int_node.name = '+'.join([i.name for i in int_node.get_terminals()])
@@ -265,16 +362,53 @@ def get_tree_dict(tree_file, muts, paup_exe, min_dist=0):
         child1 = int_node.clades[1]
 
         int_node.muts = child0.muts.intersection(child1.muts)
+        int_node.true_muts = child0.true_muts.intersection(child1.true_muts)
         child0.age = max_age - len(child0.muts)
         child1.age = max_age - len(child1.muts)
         child0.mut_no = len(child0.muts.difference(int_node.muts))
         child1.mut_no = len(child1.muts.difference(int_node.muts))
+        child0.true_mut_no = len(child0.true_muts.difference(int_node.true_muts))
+        child1.true_mut_no = len(child1.true_muts.difference(int_node.true_muts))
 
     tree.root.mut_no = len(tree.root.muts)
+    tree.root.true_mut_no = len(tree.root.true_muts)
     tree.root.age = max_age
     tree.root.lambd = 'root'
 
-    # Collapse nodes with # mutations below threshold 
+    # Collapse nodes with # mutations below threshold
+    if min_dist > 0:
+        write_tree(tree)
+        tree = collapse_branches(tree, min_dist)
+        write_tree(tree, 'example.collapsed.newick')
+
+    return tree
+
+
+def map_mutations_to_tree2(tree, muts, true_muts, min_dist):
+    # Get max age if branch lengths display age instead of mutation number
+    tree.root.muts = set(muts.index)
+    tree.root.mut_no = len(tree.root.muts)
+    tree.root.true_muts = set(true_muts.index[true_muts.sum(axis=1) > 0])
+    tree.root.true_mut_no = len(tree.root.true_muts)
+    tree.root.lambd = 'root'
+
+    # Add all mutations to the root
+    for node in tree.get_nonterminals(order='level'):
+        terminals = []
+        for child in node.clades:
+            cells = [i.name for i in child.get_terminals()]
+            terminals.extend(cells)
+            child.muts = set(muts.index[muts[cells].sum(axis=1) > 0])
+            child.true_muts = set(
+                true_muts.index[true_muts[cells].sum(axis=1) > 0])
+            # import pdb; pdb.set_trace()
+            child.mut_no = len(node.muts.intersection(child.muts))
+            child.true_mut_no = len(node.true_muts.intersection(child.true_muts))
+            child.mut_no = len(node.muts.difference(child.muts))
+            child.true_mut_no = len(node.true_muts.difference(child.true_muts))
+        node.name = '+'.join(terminals)
+
+    # Collapse nodes with # mutations below threshold
     if min_dist > 0:
         write_tree(tree)
         tree = collapse_branches(tree, min_dist)
@@ -769,41 +903,34 @@ def get_LRT_multinomial(Y, X, constr, init):
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
-            alpha=0.05):
+def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
 
     run = os.path.basename(vcf_file).split('.')[1]
-    muts = get_mut_df(vcf_file, exclude, include)
-    tree = get_tree_dict(tree_file, muts, paup_exe, 0)
+    muts, true_muts = get_mut_df(vcf_file, exclude, include)
+    tree = get_tree_dict(tree_file, muts, true_muts, paup_exe, 0)
+    # tree = get_tree_dict2(tree_file, muts, true_muts, paup_exe, 0)
     
+    # show_tree(tree2, br_length='mut_no')
+    # show_tree(tree, br_length='mut_no')
+
     Y, X_H0, constr, init = get_model0_data(tree, 0)
-    # Y, X_H0 = get_model1_data(tree)
-
-    # n = 1000
-    # p_vals = np.zeros(n)
-    # for i in range(n):
-    #     tree_id = get_ideal_tree(tree_file, mut_no=muts.shape[0])
-    #     Y, X_H0 = get_model1_data(tree_id)
-    #     ll_H0, ll_H1, dof_diff = get_LRT_poisson(Y, X_H0, tree)
-    #     p_vals[i] = chi2.sf(-2 * (ll_H0 - ll_H1) / 1, dof_poisson)
-    # show_pvals(p_vals)
-    # import pdb; pdb.set_trace()
-
-    # simulate_nbinom_tree(X_H0, 1000, 0.0)
-    # simulate_poisson_tree(X_H0, 1000, 0.2, glm=False)
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
     #     ('multinomial', get_LRT_multinomial)]
     models = [('poisson', get_LRT_poisson)]
 
+    TP = ((true_muts == 1) & (muts == 1)).sum().sum()
+    FP = ((true_muts == 0) & (muts == 1)).sum().sum()
+    FN = ((true_muts == 1) & (muts == 0)).sum().sum()
+
+    alpha = 0.05
     cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
-    header_str = 'run'
-    model_str = f'{run}'
+    header_str = 'run\tSNVs\tTP\tFP\tFN'
+    model_str = f'{run}\t{muts.shape[0]}\t{TP}\t{FP}\t{FN}'
 
     for model_name, model_call in models:
         # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
-
         ll_H0, ll_H1, LR, dof, p_val = model_call(Y, X_H0, constr, init)
         if np.isnan(ll_H0):
             continue
@@ -823,8 +950,6 @@ def parse_args():
     parser.add_argument('tree', type=str, help='Tree file in newick format')
     parser.add_argument('-o', '--output', type=str, help='Output file.')
     parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
-    parser.add_argument('-a', '--alpha', type=float, default=0.05,
-        help='Significance threshold. Default = 0.05.')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
@@ -846,4 +971,4 @@ if __name__ == '__main__':
         import argparse
         args = parse_args()
         test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
-            args.include, args.alpha)
+            args.include)
