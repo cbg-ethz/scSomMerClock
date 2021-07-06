@@ -19,8 +19,6 @@ def merge_summaries(in_files, out_file):
                 tree = os.path.basename(in_file).split('.')[1]
             suffix = f'{method}.{tree}'
 
-        print(method, suffix)
-
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
         if method == 'poisson_tree':
             to_drop = [i for i in new_df.columns \

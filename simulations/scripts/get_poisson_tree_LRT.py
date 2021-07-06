@@ -17,6 +17,7 @@ from scipy.optimize import minimize, Bounds, LinearConstraint
 from scipy.stats import poisson, nbinom, multinomial
 
 from Bio import Phylo
+from tqdm import tqdm
 import nlopt
 
 from utils import change_newick_tree_root
@@ -229,10 +230,10 @@ def write_tree(tree, out_file='example.newick'):
 
 
 def show_tree(tree, dendro=False, br_length='mut_no'):
+    tree = copy.deepcopy(tree)
     tree.ladderize(reverse=False)
 
     if dendro:
-        tree = copy.deepcopy(tree)
         max_depth = max(tree.depths().values())
         for i in tree.find_clades(terminal=False, order='postorder'):
             int_len = i.name.count('+')
@@ -245,11 +246,14 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     elif br_length == 'length':
         br_labels = lambda c: c.branch_length
     elif br_length == 'mut_no':
+        for i in tree.find_clades():
+            i.branch_length = i.mut_no
+
         try:
             tree.root.true_mut_no
-            br_labels = lambda c: f' {c.mut_no} ({c.true_mut_no})'
+            br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
         except AttributeError:
-            br_labels = lambda c: f' {c.mut_no}'
+            br_labels = lambda c: f' {c.mut_no:.1f}'
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -260,7 +264,7 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
 
 
 def get_tree_dict(tree_file, muts, true_muts, paup_exe, min_dist=0):
-    if 'cellphy_dir' in tree_file:
+    if 'cellphy' in tree_file:
         # _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
         #     br_length=True)
         # tree = Phylo.read(StringIO(tree_str), 'newick')
@@ -275,7 +279,7 @@ def get_tree_dict(tree_file, muts, true_muts, paup_exe, min_dist=0):
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
                 br_length=True)
         tree = Phylo.read(StringIO(tree_str), 'newick')
-        return map_mutations_to_tree(tree, muts, true_muts, min_dist)
+        return map_mutations_to_tree(tree, muts, true_muts)
         # return map_mutations_to_tree2(tree, muts, true_muts, min_dist)
 
 
@@ -345,7 +349,42 @@ def add_cellphy_mutation_map(tree_file, paup_exe):
     return tree
 
 
-def map_mutations_to_tree(tree, muts, true_muts, min_dist):
+def map_mutations_to_tree(tree, muts, true_muts, FP_rate=1e-3, FN_rate=0.2):
+    muts = muts.astype(bool)
+    n = muts.shape[1]
+    node_map = {}
+    X = pd.DataFrame(data=np.zeros((2 * n - 1, n), dtype=bool),
+        columns=muts.columns)
+
+    # Initialize node attributes on tree and get leaf nodes of each internal node
+    for i, node in enumerate(tree.find_clades()):
+        node_map[i] = node
+        node.muts = set([])
+        node.mut_no = 0
+        leaf_nodes = [j.name for j in node.get_terminals()]
+        X.loc[i, leaf_nodes] = True
+        node.name = '+'.join(leaf_nodes)
+
+    TP = np.log(1 - FP_rate)
+    FP = np.log(FP_rate)
+    TN = np.log(1 - FN_rate)
+    FN = np.log(FN_rate)
+
+    for i, mut in tqdm(muts.iterrows()):
+        probs = TP * (mut & X).sum(axis=1).values \
+            + FP * (mut & ~X).sum(axis=1).values \
+            + TN * (~mut & ~X).sum(axis=1).values \
+            + FN * (~mut & X).sum(axis=1).values
+        best_nodes = np.argwhere(probs == np.max(probs)).flatten()
+        for best_node in best_nodes:
+            node_map[best_node].muts.add(i)
+            node_map[best_node].mut_no += 1 / best_nodes.size
+        # if best_nodes.size > 1: import pdb; pdb.set_trace()
+
+    return tree
+
+
+def map_mutations_to_tree_naive(tree, muts, true_muts, min_dist):
     # Get max age if branch lengths display age instead of mutation number
     max_age = muts.sum(axis=0).max()
 
@@ -554,13 +593,13 @@ def get_model0_data(tree, min_dist=0):
     node_idx = 0
     br_cells = {}
     lambdas = {}
-    for l_idx, (mut_no, int_node) in enumerate(sorted_br):
+    for l_idx, (_, int_node) in enumerate(sorted_br):
         is_terminal = [i.is_terminal() for i in int_node.clades]
         # Both terminal nodes
         if all(is_terminal):
             # Assign new lambda to terminals
             for i, terminal in enumerate(int_node.clades):
-                Y[node_idx] = max(min_dist, terminal.mut_no)
+                Y[node_idx] = max(min_dist, round(terminal.mut_no))
                 X[node_idx, l_idx] = 1
                 br_cells[terminal] = node_idx
                 terminal.lambd = f'+{l_idx}'
@@ -573,7 +612,7 @@ def get_model0_data(tree, min_dist=0):
         elif any(is_terminal):
             # Assign new lambda to terminal
             terminal = int_node.clades[is_terminal.index(True)]
-            Y[node_idx] = max(min_dist, terminal.mut_no)
+            Y[node_idx] = max(min_dist, round(terminal.mut_no))
             X[node_idx, l_idx] = 1
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
@@ -582,7 +621,7 @@ def get_model0_data(tree, min_dist=0):
             node_idx += 1
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
-            Y[node_idx] = max(min_dist, internal.mut_no)
+            Y[node_idx] = max(min_dist, round(internal.mut_no))
             X[node_idx, l_idx] = 1
             X[node_idx] -= get_traversal(internal, tree, X, br_cells)
             br_cells[internal] = node_idx
@@ -593,7 +632,7 @@ def get_model0_data(tree, min_dist=0):
         else:
             shorter, longer = sorted(int_node.clades, key=lambda x: x.branch_length)
             # Assign new lambda to shorter branch
-            Y[node_idx] = max(min_dist, shorter.mut_no)
+            Y[node_idx] = max(min_dist, round(shorter.mut_no))
             X[node_idx, l_idx] = 1
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
@@ -601,7 +640,7 @@ def get_model0_data(tree, min_dist=0):
             init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
             node_idx += 1
             # Assign lambda sum to longer
-            Y[node_idx] = max(min_dist, longer.mut_no)
+            Y[node_idx] = max(min_dist, round(longer.mut_no))
             X[node_idx, l_idx] = 1
             # Add (shortest) lambda traversal over shorter branch
             X[node_idx] += get_traversal(shorter, tree, X, br_cells)
@@ -909,11 +948,10 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
     muts, true_muts = get_mut_df(vcf_file, exclude, include)
     tree = get_tree_dict(tree_file, muts, true_muts, paup_exe, 0)
     # tree = get_tree_dict2(tree_file, muts, true_muts, paup_exe, 0)
-    
-    # show_tree(tree2, br_length='mut_no')
-    # show_tree(tree, br_length='mut_no')
 
     Y, X_H0, constr, init = get_model0_data(tree, 0)
+    show_tree(tree)
+    import pdb; pdb.set_trace()
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
