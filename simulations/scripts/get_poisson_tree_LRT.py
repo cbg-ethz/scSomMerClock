@@ -950,8 +950,8 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
     # tree = get_tree_dict2(tree_file, muts, true_muts, paup_exe, 0)
 
     Y, X_H0, constr, init = get_model0_data(tree, 0)
-    show_tree(tree)
-    import pdb; pdb.set_trace()
+    # show_tree(tree)
+    # import pdb; pdb.set_trace()
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
