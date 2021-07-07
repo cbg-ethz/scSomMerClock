@@ -263,7 +263,7 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     ) 
 
 
-def get_tree_dict(tree_file, muts, true_muts, paup_exe, min_dist=0):
+def get_tree(tree_file, muts, paup_exe, min_dist=0):
     if 'cellphy' in tree_file:
         # _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
         #     br_length=True)
@@ -279,8 +279,8 @@ def get_tree_dict(tree_file, muts, true_muts, paup_exe, min_dist=0):
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
                 br_length=True)
         tree = Phylo.read(StringIO(tree_str), 'newick')
-        return map_mutations_to_tree(tree, muts, true_muts)
-        # return map_mutations_to_tree2(tree, muts, true_muts, min_dist)
+        return map_mutations_to_tree(tree, muts)
+        # return map_mutations_to_tree2(tree, muts, min_dist)
 
 
 def add_cellphy_mutation_map(tree_file, paup_exe):
@@ -335,21 +335,24 @@ def add_cellphy_mutation_map(tree_file, paup_exe):
     tree = Phylo.read(StringIO(tree_new), 'newick')
     for node in tree.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
+        node.mut_no = node.branch_length
         # Correct PAUP* rooting by replacing branch with 0 length branch
-        if node.name == 'healthycell':
-            node.mut_no = node.branch_length + wrong_root_len
-        elif node.name.count('+') == n - 2:
-            assert node.branch_length == wrong_root_len, 'Cannot identify added root branch'
-            node.mut_no = 0
-            node.branch_length = 0
-        else:
-            node.mut_no = node.branch_length
+        # if node.name == 'healthycell':
+        #     node.mut_no = node.branch_length + wrong_root_len
+        # elif node.name.count('+') == n - 2:
+        #     assert node.branch_length == wrong_root_len, 'Cannot identify added root branch'
+        #     node.mut_no = 0
+        #     node.branch_length = 0
+        # else:
+        #     node.mut_no = node.branch_length
+
+    # import pdb; pdb.set_trace()
     # show_tree(tree)
 
     return tree
 
 
-def map_mutations_to_tree(tree, muts, true_muts, FP_rate=1e-3, FN_rate=0.2):
+def map_mutations_to_tree(tree, muts, FP_rate=1e-5, FN_rate=0.2):
     muts = muts.astype(bool)
     n = muts.shape[1]
     node_map = {}
@@ -365,10 +368,10 @@ def map_mutations_to_tree(tree, muts, true_muts, FP_rate=1e-3, FN_rate=0.2):
         X.loc[i, leaf_nodes] = True
         node.name = '+'.join(leaf_nodes)
 
-    TP = np.log(1 - FP_rate)
-    FP = np.log(FP_rate)
-    TN = np.log(1 - FN_rate)
-    FN = np.log(FN_rate)
+    TP = np.log(1 - max(FP_rate, LAMBDA_MIN))
+    FP = np.log(max(FP_rate, LAMBDA_MIN))
+    TN = np.log(1 - max(FP_rate, LAMBDA_MIN))
+    FN = np.log(max(FP_rate, LAMBDA_MIN))
 
     for i, mut in tqdm(muts.iterrows()):
         probs = TP * (mut & X).sum(axis=1).values \
@@ -384,14 +387,10 @@ def map_mutations_to_tree(tree, muts, true_muts, FP_rate=1e-3, FN_rate=0.2):
     return tree
 
 
-def map_mutations_to_tree_naive(tree, muts, true_muts, min_dist):
-    # Get max age if branch lengths display age instead of mutation number
-    max_age = muts.sum(axis=0).max()
-
+def map_mutations_to_tree_naive(tree, muts, min_dist):
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
         leaf_node.muts = set(muts.loc[muts[leaf_node.name] == 1].index)
-        leaf_node.true_muts = set(true_muts.loc[true_muts[leaf_node.name] == 1].index)
 
     # Add number of mutations to internal nodes
     for int_node in tree.get_nonterminals(order='postorder'):
@@ -401,17 +400,10 @@ def map_mutations_to_tree_naive(tree, muts, true_muts, min_dist):
         child1 = int_node.clades[1]
 
         int_node.muts = child0.muts.intersection(child1.muts)
-        int_node.true_muts = child0.true_muts.intersection(child1.true_muts)
-        child0.age = max_age - len(child0.muts)
-        child1.age = max_age - len(child1.muts)
         child0.mut_no = len(child0.muts.difference(int_node.muts))
         child1.mut_no = len(child1.muts.difference(int_node.muts))
-        child0.true_mut_no = len(child0.true_muts.difference(int_node.true_muts))
-        child1.true_mut_no = len(child1.true_muts.difference(int_node.true_muts))
 
     tree.root.mut_no = len(tree.root.muts)
-    tree.root.true_mut_no = len(tree.root.true_muts)
-    tree.root.age = max_age
     tree.root.lambd = 'root'
 
     # Collapse nodes with # mutations below threshold
@@ -423,12 +415,9 @@ def map_mutations_to_tree_naive(tree, muts, true_muts, min_dist):
     return tree
 
 
-def map_mutations_to_tree2(tree, muts, true_muts, min_dist):
-    # Get max age if branch lengths display age instead of mutation number
+def map_mutations_to_tree2(tree, muts, min_dist):
     tree.root.muts = set(muts.index)
     tree.root.mut_no = len(tree.root.muts)
-    tree.root.true_muts = set(true_muts.index[true_muts.sum(axis=1) > 0])
-    tree.root.true_mut_no = len(tree.root.true_muts)
     tree.root.lambd = 'root'
 
     # Add all mutations to the root
@@ -438,13 +427,8 @@ def map_mutations_to_tree2(tree, muts, true_muts, min_dist):
             cells = [i.name for i in child.get_terminals()]
             terminals.extend(cells)
             child.muts = set(muts.index[muts[cells].sum(axis=1) > 0])
-            child.true_muts = set(
-                true_muts.index[true_muts[cells].sum(axis=1) > 0])
-            # import pdb; pdb.set_trace()
             child.mut_no = len(node.muts.intersection(child.muts))
-            child.true_mut_no = len(node.true_muts.intersection(child.true_muts))
             child.mut_no = len(node.muts.difference(child.muts))
-            child.true_mut_no = len(node.true_muts.difference(child.true_muts))
         node.name = '+'.join(terminals)
 
     # Collapse nodes with # mutations below threshold
@@ -454,6 +438,21 @@ def map_mutations_to_tree2(tree, muts, true_muts, min_dist):
         write_tree(tree, 'example.collapsed.newick')
 
     return tree
+
+
+def add_true_muts(tree, true_muts):
+    # Add number of mutations to terminal nodes
+    for leaf_node in tree.get_terminals():
+        leaf_node.true_muts = set(true_muts.loc[true_muts[leaf_node.name] == 1].index)
+
+    for int_node in tree.get_nonterminals(order='postorder'):
+        child0 = int_node.clades[0]
+        child1 = int_node.clades[1]
+        int_node.true_muts = child0.true_muts.intersection(child1.true_muts)
+        child0.true_mut_no = len(child0.true_muts.difference(int_node.true_muts))
+        child1.true_mut_no = len(child1.true_muts.difference(int_node.true_muts))
+
+    tree.root.true_mut_no = len(tree.root.true_muts)
 
 
 def collapse_branches(tree, min_dist):
@@ -946,12 +945,10 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
 
     run = os.path.basename(vcf_file).split('.')[1]
     muts, true_muts = get_mut_df(vcf_file, exclude, include)
-    tree = get_tree_dict(tree_file, muts, true_muts, paup_exe, 0)
-    # tree = get_tree_dict2(tree_file, muts, true_muts, paup_exe, 0)
+    tree = get_tree(tree_file, muts, paup_exe, 0)
+    add_true_muts(tree, true_muts)
 
     Y, X_H0, constr, init = get_model0_data(tree, 0)
-    # show_tree(tree)
-    # import pdb; pdb.set_trace()
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
@@ -986,7 +983,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('vcf', type=str, help='SNP file in vcf format')
     parser.add_argument('tree', type=str, help='Tree file in newick format')
-    parser.add_argument('-o', '--output', type=str, help='Output file.')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Output file.')
     parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
@@ -1008,5 +1006,8 @@ if __name__ == '__main__':
     else:
         import argparse
         args = parse_args()
+        if not args.output:
+            args.output = os.path.join(os.path.dirname(args.vcf),
+                'poisson_tree.LRT.tsv')
         test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
             args.include)

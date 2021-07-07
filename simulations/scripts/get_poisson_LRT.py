@@ -119,7 +119,7 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
             f'{avg[4]}/{file_no+1}\n'
     with open(out_file, 'w') as f_out:
         f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
-        f_out.write(out_str + avg_line)
+        f_out.write(out_str.rstrip() + avg_line)
 
     print(avg_line)
 

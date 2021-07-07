@@ -22,8 +22,7 @@ LAMBDA_MIN = 1e-6
 LAMBDA_MAX = np.inf
 
 
-def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
-        br_length=False):
+def change_newick_tree_root(in_file, paup_exe, root=True, tree_format='scite'):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
@@ -31,7 +30,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     with open(in_file, 'r') as f_tree:
         tree = f_tree.read().strip()
 
-    if 'scite_dir' in in_file:
+    if tree_format == 'scite':
         # Add missing semicolon
         sem_count = tree.count(';')
         if sem_count == 0:
@@ -47,22 +46,12 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
             if i < cells:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
                 repl = sample_names[i]
-                if br_length:
-                    repl = '{}:0.1'.format(sample_names[i])
-                else:
-                    repl = str(sample_names[i])
+                repl = '{}:0.1'.format(sample_names[i])
             else:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
-                if br_length:
-                    repl = ':0.1'
-                else:
-                    repl = ''
+                repl = ':0.1'
+
             tree = re.sub(pat, repl, tree)
-    else:
-        if not br_length:
-            tree = re.sub(':0.\d+', '', tree)
-        if 'trees_dir' in in_file:
-            tree = tree.replace('outgcell', 'cell')
 
     return tree, None
 
@@ -161,16 +150,17 @@ def get_mut_df(vcf_file):
     return muts[include]
 
 
-def get_tree_dict(tree_file, muts, paup_exe,  exclude='', include=''):
-    if 'cellphy_dir' in tree_file:
+def get_tree_dict(tree_file, muts, paup_exe,  exclude='', include='',
+        tree_format='scite'):
+    if tree_format == 'cellphy':
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
-            br_length=True)
-    elif 'trees_dir' in tree_file:
+            tree_format='cellphy')
+    elif tree_format == 'scite':
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-            br_length=True)
-    elif 'scite_dir' in tree_file:
-        tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-            br_length=True)
+            tree_format='scite')
+    else:
+        raise RuntimeError(f'Unknown tree format: {tree_format}')
+
 
     # With BioPython package
     tree = Phylo.read(StringIO(tree_str), 'newick')
@@ -229,7 +219,17 @@ def get_tree_dict(tree_file, muts, paup_exe,  exclude='', include=''):
     tree.root.age = max_age
     tree.root.lambd = 'root'
 
+    # write_tree(tree, 'example.newick')
+    # import pdb; pdb.set_trace()
+
     return tree
+
+
+def write_tree(tree, out_file='example.newick'):
+    for i in tree.find_clades():
+        i.branch_length = i.mut_no
+    tree.ladderize(reverse=False)
+    Phylo.write(tree, out_file, 'newick')
 
 
 def show_tree(tree, dendro=False, br_mut=True):
@@ -251,36 +251,6 @@ def show_tree(tree, dendro=False, br_mut=True):
         label_func=lambda c: c.name if c.name.count('+') == 0 else '',
         subplots_adjust=({'left': 0.01, 'bottom': 0.01, 'right': 0.99, 'top': 0.99})
     )
-
-
-
-def collapse_branches(tree, min_dist):
-    while True:
-        int_nodes = sorted([(tree.distance(i), i) \
-                for i in tree.find_clades(terminal=False)],
-            key=lambda x: x[0], reverse=True)
-        # Iterate over internal nodes and check if criteria is met
-        # if met, collapse node and redo whole procedure
-        collapsed = False
-        for _, int_node in int_nodes:
-            br_length = [i.mut_no for i in int_node.clades]
-
-            if sum(br_length) < min_dist or int_node.mut_no < min_dist:
-                try:
-                    print(f'\nCollapsing: {int_node.name}')
-                    print(tree.total_branch_length())
-                    parent = tree.collapse(int_node)
-                    print(tree.total_branch_length())
-                except ValueError:
-                    pass
-                else:
-                    collapsed = True
-                    break
-
-        # No internal nodes fulfilled criteria
-        if not collapsed:
-            break
-    return tree
 
 
 def get_sign(x):
@@ -455,12 +425,12 @@ def get_LRT_poisson(Y, constr, init, short=True):
     #     options={'disp': False, 'maxiter': 10000,})
 
     if not opt.success:
-        print('\nFAILED POISSON OPTIMIZATION\n')
+        print('\nFAILED POISSON OPTIMIZATION with trust-constr\n')
         opt = minimize(fun_opt, init, args=(Y,), constraints=const,
             bounds=bounds, method='SLSQP', jac=fun_jac,
             options={'disp': False, 'maxiter': 10000,})
         if not opt.success:
-            print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
+            print('\nFAILED POISSON OPTIMIZATION with SLSQP\n')
             return np.nan, np.nan, np.nan, np.nan, np.nan,
 
     if short:
@@ -472,7 +442,7 @@ def get_LRT_poisson(Y, constr, init, short=True):
     LR = -2 * (ll_H0 - ll_H1)
     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(opt.x <= 2 * LAMBDA_MIN)
+    on_bound = np.sum(opt.x <= np.sqrt(LAMBDA_MIN))
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
@@ -481,7 +451,7 @@ def get_LRT_poisson(Y, constr, init, short=True):
     else:
         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof + on_bound, p_val
+    return ll_H0, ll_H1, LR, dof - on_bound / 2, p_val
 
 
 def get_LRT_poisson_relaxed(Y, constr, init, relax_idx):
@@ -513,19 +483,21 @@ def get_LRT_poisson_relaxed(Y, constr, init, relax_idx):
             bounds=bounds, method='SLSQP', jac=fun_jac,
             options={'disp': False, 'maxiter': 10000,})
         if not opt_H1.success:
-            print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
+            print('\nFAILED POISSON OPTIMIZATION with SLSQP\n')
             return np.nan, np.nan, np.nan, np.nan, np.nan,
 
     return np.nansum(Y * np.log(opt_H1.x) - opt_H1.x)
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
-            alpha=0.05):
+            alpha=0.05, tree_format='scite'):
 
     muts = get_mut_df(vcf_file)
-    tree = get_tree_dict(tree_file, muts, paup_exe,  exclude, include)
+    tree = get_tree_dict(tree_file, muts, paup_exe,  exclude, include, tree_format)
     
-    Y, constr, init = get_model_data(tree)
+    Y, constr, init = get_model_data(tree, 0)
+    write_tree(tree, out_file.replace('tsv', 'newick'))
+
 
     cols = ['alt. model', 'H0', 'H1', '-2logLR', 'dof', 'p-value', 'q-value',
         'hypothesis']
@@ -564,6 +536,8 @@ def parse_args():
     parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
     parser.add_argument('-a', '--alpha', type=float, default=0.05,
         help='Significance threshold. Default = 0.05.')
+    parser.add_argument('-tf', '--tree_format', type=str, default='scite',
+        choices=['scite', 'cellphy'], help='Tree format. Default = scite')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
@@ -580,7 +554,8 @@ if __name__ == '__main__':
             snakemake.params.include = ''
         test_data(snakemake.input.vcf, snakemake.input.tree, 
             snakemake.output[0], snakemake.params.paup_exe,
-            snakemake.params.exclude, snakemake.params.include)
+            snakemake.params.exclude, snakemake.params.include,
+            tree_format='scite')
     else:
         import argparse
         args = parse_args()
@@ -588,4 +563,4 @@ if __name__ == '__main__':
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree_LRT.tsv')
         test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
-            args.include, args.alpha)
+            args.include, args.alpha, args.tree_format)
