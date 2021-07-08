@@ -114,11 +114,14 @@ rule run_dataFilter:
         counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
     threads: 4
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 4096 * threads,
+        mem_mb = lambda wildcards, attempt: attempt * 4096 * 4,
+        runtime = 240,
     params:
         dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),
+        cells = os.path.join(DATA_DIR, config['sieve']['cells']),
     shell:
-        '{params.dataFilter} --in {input.pileup} -o {output.counts} -t {threads}'
+        '{params.dataFilter} --in {input.pileup} --cellNames {params.cells} '
+        '-o {output.counts} -t {threads}'
 
 
 rule concatenate_dataFilter:
