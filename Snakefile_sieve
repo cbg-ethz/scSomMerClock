@@ -10,6 +10,8 @@ SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
 workdir: DATA_DIR
 OUT_DIR = 'Sieve'
 
+if not os.path.exists(OUT_DIR):
+    os.mkdir(OUT_DIR)
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
@@ -110,12 +112,13 @@ rule run_dataFilter:
         pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
     output:
         counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
+    threads: 4
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 4096 * threads,
     params:
         dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),
     shell:
-        '{params.dataFilter} --in {input.pileup} -o {output.counts}'
+        '{params.dataFilter} --in {input.pileup} -o {output.counts} -t {threads}'
 
 
 rule concatenate_dataFilter:
