@@ -116,8 +116,8 @@ def parse_args():
         help='Path to input tsv files')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file. Default = <INPUT_DIR>/SciPhi_merged.tsv.')
-    parser.add_argument('-rc', '--read_count', action='store_true',
-        help='Merge read counts instead of standard SciPhi output.')
+    parser.add_argument('-st', '--standard', action='store_true',
+        help='Merge standard SciPhi output instead of read counts.')
     
     args = parser.parse_args()
     return args
@@ -125,14 +125,11 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        if snakemake.params.full_run:
-            merge_standard(snakemake.input, snakemake.output[0])
-        else:
-            merge_readCounts(snakemake.input, snakemake.output[0])
+        merge_readCounts(snakemake.input, snakemake.output[0])
     else:
         import argparse
         args = parse_args()
-        if args.read_count:
-            merge_readCounts(args.input, args.output)
-        else:
+        if args.standard:
             merge_standard(args.input, args.output)
+        else:
+            merge_readCounts(args.input, args.output)

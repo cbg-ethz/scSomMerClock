@@ -8,6 +8,7 @@ DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
 SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
 workdir: DATA_DIR
+OUT_DIR = 'Sieve'
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -15,20 +16,24 @@ if not os.path.exists('logs'):
 CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
 
 
-with open(os.path.join(DATA_DIR, config['ethan']['cells']), 'r') as f_in:
+with open(os.path.join(DATA_DIR, config['sieve']['cells']), 'r') as f_in:
     x = f_in.read().strip().split('\n')
 
 ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
 
 
-if config['ethan'].get('full', False):
-    rule all:
-        input:
-            os.path.join('SciPhi', 'SciPhi_merged.vcf')
-else:
-    rule all:
-        input:
-            os.path.join('SciPhi', 'SciPhi_merged.tsv')
+def get_all_files(wildcards):
+    files = []
+    if config['sieve'].get('sciphi', {}).get('run', False):
+        files.append(os.path.join(OUT_DIR, 'SciPhi_merged.tsv'))
+    if config['sieve'].get('dataFilter', {}).get('run', False):
+        files.append(os.path.join(OUT_DIR, 'dataFilter_merged.tsv'))
+    return files
+
+
+rule all:
+    input:
+        get_all_files
 
 
 rule generate_bamfiles:
@@ -36,7 +41,7 @@ rule generate_bamfiles:
         expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
             cell=ss_samples_ethan)
     output:
-        os.path.join('SciPhi', '{chr}.bamspath.txt')
+        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
     run:
         with open(output[0], 'w') as f:
             for bam_file in input:
@@ -45,16 +50,16 @@ rule generate_bamfiles:
 
 rule generate_mpileup:
     input:
-        os.path.join('SciPhi', '{chr}.bamspath.txt')
+        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
     output:
-        os.path.join('SciPhi', 'ss.{chr}.mpileup')
+        os.path.join(OUT_DIR, 'ss.{chr}.mpileup')
     envmodules:
         'samtools',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
         ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
-        regions = '' if not config['ethan'].get('target_only', False) else 
+        regions = '' if not config['sieve'].get('target_only', False) else
             '-l {}/{}'.format(config['static']['resources_path'],
                 config['specific']['WES_target']),
     shell:
@@ -64,34 +69,11 @@ rule generate_mpileup:
         '--bam-list {input} > {output}'
 
 
-rule run_sciphi_long:
+rule run_sciphi:
     input:
-        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
+        pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
     output:
-        os.path.join('SciPhi', 'preprocessed.{chr}.vcf')     
-    envmodules:
-        'gcccore/6.4.0',
-        'boost/1.73.0-python-3.7.7',
-        'seqan/2.4.0',
-        'dlib/19.16',
-        'zlib/1.2.11',
-        'samtools',
-    resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
-    params:
-        sciphi = config['ethan']['sciphi'],
-        names = os.path.join(DATA_DIR, config['ethan']['cells']),
-        steps = config['ethan'].get('steps', 1000000),
-    shell:
-        '{params.sciphi} --lz 1 -l {params.steps} --in {params.names}'
-        ' -o SciPhi/preprocessed.{wildcards.chr} {input.pileup}'
-
-
-rule run_sciphi_short:
-    input:
-        pileup = os.path.join('SciPhi', 'ss.{chr}.mpileup'),
-    output:
-        os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
+        os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
             'readCounts.tsv')
     envmodules:
         'gcccore/6.4.0',
@@ -103,41 +85,44 @@ rule run_sciphi_short:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
-        sciphi = config['ethan']['sciphi'],
-        names = os.path.join(DATA_DIR, config['ethan']['cells']),
+        sciphi = config['sieve'].get('sciphi', {}).get('exe', ''),
+        names = os.path.join(DATA_DIR, config['sieve']['cells']),
     shell:
         '{params.sciphi} --slt on --af on --lz 1 '
-        '--in {params.names} -o SciPhi/preprocessed.{wildcards.chr} '
+        '--in {params.names} -o {OUT_DIR}/preprocessed.{wildcards.chr} '
         '{input.pileup}'
 
 
-def get_all_sciphi_output(wildcards):
-    if config['ethan'].get('full', False):
-        return [os.path.join('SciPhi', 'preprocessed.{}.vcf'.format(i)) \
-            for i in CHROM]
-    else:
-        return [os.path.join('SciPhi', 'preprocessed.{}'.format(i), 'best_index',
-            'readCounts.tsv') for i in CHROM]
-
-rule concatenate_sciphi_long:
+rule concatenate_sciphi:
     input:
-        expand(os.path.join('SciPhi', 'preprocessed.{chr}.vcf'), chr=CHROM)
+        expand(os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
+            'readCounts.tsv'), chr=CHROM)
     output:
-        os.path.join('SciPhi', 'SciPhi_merged.vcf')
+        os.path.join(OUT_DIR, 'SciPhi_merged.tsv')
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 2048
-    params:
-        full_run = True
     script:
         f'{SCRIPT_DIR}/merge_sciphi.py'
 
 
-rule concatenate_sciphi_short:
+rule run_dataFilter:
     input:
-        expand(os.path.join('SciPhi', 'preprocessed.{chr}', 'best_index',
-            'readCounts.tsv'), chr=CHROM)
+        pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
     output:
-        os.path.join('SciPhi', 'SciPhi_merged.tsv')
+        counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),
+    shell:
+        '{params.dataFilter} --in {input.pileup} -o {output.counts}'
+
+
+rule concatenate_dataFilter:
+    input:
+        expand(os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv'), chr=CHROM)
+    output:
+        os.path.join(OUT_DIR, 'dataFilter_merged.tsv')
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 2048
     params:
