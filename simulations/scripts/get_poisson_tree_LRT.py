@@ -990,7 +990,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
