@@ -204,11 +204,11 @@ def get_mut_df(vcf_file, exclude_pat, include_pat):
                 # Get true gt
                 if true_gt[0] != ref or true_gt[1] != ref:
                     line_muts[1][s_i] = 1
-                # Skip filtered genotypes
+                # Set filtered genotypes to nan
                 if gt[0] == '.' or gt[1] == '.':
-                    continue
+                    line_muts[0][s_i] = np.nan
                 # Check if gt is mutation
-                if gt[0] != '0' or gt[1] != '0':
+                elif gt[0] != '0' or gt[1] != '0':
                     line_muts[0][s_i] = 1
 
             for i in [0, 1]:
@@ -279,7 +279,12 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
                 br_length=True)
         tree = Phylo.read(StringIO(tree_str), 'newick')
-        return map_mutations_to_tree(tree, muts)
+        map_mutations_to_tree(tree, muts.copy())
+
+        outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
+        tree.prune(outg)
+
+        return tree
         # return map_mutations_to_tree2(tree, muts, min_dist)
 
 
@@ -353,38 +358,43 @@ def add_cellphy_mutation_map(tree_file, paup_exe):
 
 
 def map_mutations_to_tree(tree, muts, FP_rate=1e-5, FN_rate=0.2):
-    muts = muts.astype(bool)
     n = muts.shape[1]
     node_map = {}
-    X = pd.DataFrame(data=np.zeros((2 * n - 1, n), dtype=bool),
-        columns=muts.columns)
-
+    X = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts.columns)
     # Initialize node attributes on tree and get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
         node.muts = set([])
         node.mut_no = 0
         leaf_nodes = [j.name for j in node.get_terminals()]
-        X.loc[i, leaf_nodes] = True
+        X.loc[i, leaf_nodes] = 1
         node.name = '+'.join(leaf_nodes)
+
+    X = X.values
+    muts = muts.values
+
+    X_inv = 1 - X
+    muts_inv = 1 - muts
 
     TP = np.log(1 - max(FP_rate, LAMBDA_MIN))
     FP = np.log(max(FP_rate, LAMBDA_MIN))
     TN = np.log(1 - max(FP_rate, LAMBDA_MIN))
     FN = np.log(max(FP_rate, LAMBDA_MIN))
+    errors = np.array([TP, FP, TN, FN])
 
-    for i, mut in tqdm(muts.iterrows()):
-        probs = TP * (mut & X).sum(axis=1).values \
-            + FP * (mut & ~X).sum(axis=1).values \
-            + TN * (~mut & ~X).sum(axis=1).values \
-            + FN * (~mut & X).sum(axis=1).values
+    for i, mut in tqdm(enumerate(muts)):
+        mut_data = np.stack([
+            np.nansum(X * mut, axis=1),
+            np.nansum(X_inv * mut, axis=1),
+            np.nansum(X_inv * muts_inv[i], axis=1),
+            np.nansum(X * muts_inv[i], axis=1),
+        ])
+        probs = np.dot(errors, mut_data)
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
         for best_node in best_nodes:
             node_map[best_node].muts.add(i)
             node_map[best_node].mut_no += 1 / best_nodes.size
         # if best_nodes.size > 1: import pdb; pdb.set_trace()
-
-    return tree
 
 
 def map_mutations_to_tree_naive(tree, muts, min_dist):
@@ -799,7 +809,12 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
     if short:
         ll_H1 = np.nansum(Y * np.log(np.where(Y > 0, Y, np.nan)) \
             - np.where(Y > 0, Y, np.nan))
-        scale_fac = (ll_H1 // 1000) * 1000
+        for i in [10000, 1000, 100, 10]:
+            scale_fac = (ll_H1 // i) * i
+            if scale_fac != 0:
+                break
+        print(scale_fac)
+        if scale_fac == 0: import pdb; pdb.set_trace()
         def fun_opt(l, Y):
             return -np.nansum(Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) \
                 / scale_fac
@@ -974,6 +989,8 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
         model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
+
+    import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
