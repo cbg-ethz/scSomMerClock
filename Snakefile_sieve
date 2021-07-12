@@ -58,7 +58,8 @@ rule generate_mpileup:
     envmodules:
         'samtools',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
+        runtime = 240,
     params:
         ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
         regions = '' if not config['sieve'].get('target_only', False) else
