@@ -113,10 +113,10 @@ rule run_dataFilter:
         pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
     output:
         counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
-    threads: 4
+    threads: 1
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 4096 * 4,
-        runtime = 240,
+        mem_mb = lambda wildcards, attempt: attempt * 32768,
+        runtime = 600,
     params:
         dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),
         cells = os.path.join(DATA_DIR, config['sieve']['cells']),

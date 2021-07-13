@@ -53,12 +53,10 @@ def simulate_poisson_tree(X, n=1000, pi_tresh=0, glm=True):
 
     p_vals = chi2.sf(LR, dof)
     p_vals_glm = chi2.sf(LR_glm, dof)
-    import pdb; pdb.set_trace()
 
     from plotting import generate_pval_plot, plot_test_statistic
     generate_pval_plot(p_vals)
     plot_test_statistic(LR, in_dof=dof)
-    import pdb; pdb.set_trace()
 
     return p_vals
 
@@ -136,7 +134,6 @@ def simulate_nbinom_tree(X_H0, n=1000, pi_tresh=0):
     from plotting import generate_pval_plot, plot_test_statistic
     generate_pval_plot(p_vals)
     plot_test_statistic(LR, in_dof=15)
-    import pdb; pdb.set_trace()
 
     return p_vals
 
@@ -394,7 +391,6 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-5, FN_rate=0.2):
         for best_node in best_nodes:
             node_map[best_node].muts.add(i)
             node_map[best_node].mut_no += 1 / best_nodes.size
-        # if best_nodes.size > 1: import pdb; pdb.set_trace()
 
 
 def map_mutations_to_tree_naive(tree, muts, min_dist):
@@ -565,6 +561,8 @@ def get_model0_data(tree, min_dist=0):
     
     X = np.zeros((br_no, br_indi_no), dtype=int)
     Y = np.zeros(br_no, dtype=float)
+    Y_true = np.full(br_no, -1, dtype=float)
+
     constr = np.zeros((br_indi_no, br_no), dtype=int)
     init = np.zeros(br_no)
     init_p = np.zeros(br_no)
@@ -609,6 +607,10 @@ def get_model0_data(tree, min_dist=0):
             # Assign new lambda to terminals
             for i, terminal in enumerate(int_node.clades):
                 Y[node_idx] = max(min_dist, round(terminal.mut_no))
+                try:
+                    Y_true[node_idx] = terminal.true_mut_no
+                except AttributeError:
+                    pass
                 X[node_idx, l_idx] = 1
                 br_cells[terminal] = node_idx
                 terminal.lambd = f'+{l_idx}'
@@ -622,6 +624,10 @@ def get_model0_data(tree, min_dist=0):
             # Assign new lambda to terminal
             terminal = int_node.clades[is_terminal.index(True)]
             Y[node_idx] = max(min_dist, round(terminal.mut_no))
+            try:
+                Y_true[node_idx] = terminal.true_mut_no
+            except AttributeError:
+                pass
             X[node_idx, l_idx] = 1
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
@@ -631,6 +637,10 @@ def get_model0_data(tree, min_dist=0):
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
             Y[node_idx] = max(min_dist, round(internal.mut_no))
+            try:
+                Y_true[node_idx] = internal.true_mut_no
+            except AttributeError:
+                pass
             X[node_idx, l_idx] = 1
             X[node_idx] -= get_traversal(internal, tree, X, br_cells)
             br_cells[internal] = node_idx
@@ -642,6 +652,10 @@ def get_model0_data(tree, min_dist=0):
             shorter, longer = sorted(int_node.clades, key=lambda x: x.branch_length)
             # Assign new lambda to shorter branch
             Y[node_idx] = max(min_dist, round(shorter.mut_no))
+            try:
+                Y_true[node_idx] = shorter.true_mut_no
+            except AttributeError:
+                pass
             X[node_idx, l_idx] = 1
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
@@ -650,6 +664,10 @@ def get_model0_data(tree, min_dist=0):
             node_idx += 1
             # Assign lambda sum to longer
             Y[node_idx] = max(min_dist, round(longer.mut_no))
+            try:
+                Y_true[node_idx] = longer.true_mut_no
+            except AttributeError:
+                pass
             X[node_idx, l_idx] = 1
             # Add (shortest) lambda traversal over shorter branch
             X[node_idx] += get_traversal(shorter, tree, X, br_cells)
@@ -678,7 +696,7 @@ def get_model0_data(tree, min_dist=0):
     assert (init >= max(min_dist, 2 * LAMBDA_MIN)).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
-    return Y, X, constr, init
+    return Y, constr, init, Y_true
 
 
 def get_model1_data(tree):
@@ -804,7 +822,7 @@ def get_LRT_nbinom(Y, X_H0, tree=False, alpha=0.05):
     return ll_H0, ll_H1
 
 
-def get_LRT_poisson(Y, X, constr, init, short=True):
+def get_LRT_poisson(Y, constr, init, short=True):
 
     if short:
         ll_H1 = np.nansum(Y * np.log(np.where(Y > 0, Y, np.nan)) \
@@ -813,8 +831,6 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
-        print(scale_fac)
-        if scale_fac == 0: import pdb; pdb.set_trace()
         def fun_opt(l, Y):
             return -np.nansum(Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) \
                 / scale_fac
@@ -825,18 +841,15 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
             l[:] = np.clip(l, LAMBDA_MIN, None)
             return -np.sum(poisson.logpmf(Y, l)) / scale_fac
 
-
     def fun_jac(l, Y):
         return -(Y / np.clip(l, LAMBDA_MIN, None) - 1) / scale_fac
                 
-
     def fun_hess(l, Y):
         return np.identity(Y.size) * (Y / np.clip(l, LAMBDA_MIN, None)**2) / scale_fac
 
-
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     init = np.clip(init, LAMBDA_MIN, None)
-    bounds = np.full((X.shape[0], 2), (LAMBDA_MIN, Y.sum()))
+    bounds = np.full((constr.shape[1], 2), (LAMBDA_MIN, Y.sum()))
 
     opt = minimize(fun_opt, init, args=(Y,), constraints=const,
         bounds=bounds, method='trust-constr', jac=fun_jac, hess=fun_hess,
@@ -864,7 +877,7 @@ def get_LRT_poisson(Y, X, constr, init, short=True):
     LR = -2 * (ll_H0 - ll_H1)
     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(opt.x <= 2 * LAMBDA_MIN)
+    on_bound = np.sum(opt.x <= 10 * LAMBDA_MIN)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         weights = scipy.special.binom(on_bound, dof_diff)
@@ -963,7 +976,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
     tree = get_tree(tree_file, muts, paup_exe, 0)
     add_true_muts(tree, true_muts)
 
-    Y, X_H0, constr, init = get_model0_data(tree, 0)
+    Y, constr, init, Y_true = get_model0_data(tree, 0)
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
@@ -981,7 +994,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
 
     for model_name, model_call in models:
         # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
-        ll_H0, ll_H1, LR, dof, p_val = model_call(Y, X_H0, constr, init)
+        ll_H0, ll_H1, LR, dof, p_val = model_call(Y, constr, init)
         if np.isnan(ll_H0):
             continue
         hyp = f'H{int(p_val < alpha)}'
