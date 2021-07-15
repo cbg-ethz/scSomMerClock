@@ -79,6 +79,7 @@ rule run_sciphi:
         os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
             'readCounts.tsv')
     envmodules:
+        'cesga/2018'
         'gcccore/6.4.0',
         'boost/1.73.0-python-3.7.7',
         'seqan/2.4.0',
@@ -86,14 +87,14 @@ rule run_sciphi:
         'zlib/1.2.11',
         'samtools',
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 16384
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
+        runtime = 240,
     params:
         sciphi = config['sieve'].get('sciphi', {}).get('exe', ''),
         names = os.path.join(DATA_DIR, config['sieve']['cells']),
     shell:
-        '{params.sciphi} --slt on --af on --lz 1 '
-        '--in {params.names} -o {OUT_DIR}/preprocessed.{wildcards.chr} '
-        '{input.pileup}'
+        '{params.sciphi} --slt on --af on --lz 1 --in {params.names} '
+        ' -o {OUT_DIR}/sciphi.{wildcards.chr} {input.pileup}'
 
 
 rule concatenate_sciphi:

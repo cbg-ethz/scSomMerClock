@@ -58,11 +58,19 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
     )
     stdout, stderr = SCITE.communicate()
     SCITE.wait()
+    stdout = str(stdout)
 
     if stderr:
-        for i in str(stdout).split('\\n'):
+        for i in stdout.split('\\n'):
             print(i)
         raise RuntimeError('SCITE Error: {}'.format(stderr))
+
+    beta = float(re.search('best value for beta:\\\\t(0.\d+)', stdout).group(1))
+    alpha = float(re.search('best value for alpha:\\\\t(0.\d+)', stdout).group(1))
+
+    with open('{}.errors.csv'.format(out_files), 'w') as f:
+        f.write('alpha,beta\n{},{}'.format(alpha, beta))
+
     os.remove(data_file)
     # rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv
 

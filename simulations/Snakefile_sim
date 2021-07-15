@@ -414,6 +414,7 @@ rule run_poisson_tree:
         'pandas/1.0.1-python-3.7.7',
         'scipy/1.4.1-python-3.7.7',
         'matplotlib/3.1.3-python-3.7.7'
+    threads: 1
     resources:
         mem_mb = 1024,
         runtime = 20,
