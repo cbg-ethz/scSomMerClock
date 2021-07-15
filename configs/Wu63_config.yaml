@@ -38,3 +38,13 @@ filters:
 
 paup:
   exe: ../paup4a168_ubuntu64
+
+sieve:
+  cells: Wu61_SciPhi_cells.tsv
+  target_only: False
+  sciphi:
+    run: True
+    exe: /home/uvi/be/nbo/SCIPhI/build/sciphi0.1.7
+  dataFilter:
+    run: False
+    exe: /home/uvi/be/nbo/DataFilter/build/bin/datafilter
