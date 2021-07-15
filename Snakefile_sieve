@@ -79,7 +79,7 @@ rule run_sciphi:
         os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
             'readCounts.tsv')
     envmodules:
-        'cesga/2018'
+        'cesga/2018',
         'gcccore/6.4.0',
         'boost/1.73.0-python-3.7.7',
         'seqan/2.4.0',
