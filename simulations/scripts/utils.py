@@ -202,7 +202,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
     with open(in_file, 'r') as f_tree:
         tree = f_tree.read().strip()
 
-    if 'scite_dir' in in_file:
+    if 'scite' in in_file:
         # Add missing semicolon
         sem_count = tree.count(';')
         if sem_count == 0:
@@ -235,9 +235,11 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
                 else:
                     repl = ''
             tree = re.sub(pat, repl, tree)
+
     else:
         if not br_length:
             tree = re.sub(':0.\d+', '', tree)
+
         if 'trees_dir' in in_file:
             tree = tree.replace('cell', 'tumcell') \
                 .replace('outgtumcell', 'healthycell')
