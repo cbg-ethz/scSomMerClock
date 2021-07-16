@@ -401,12 +401,14 @@ rule run_poisson:
 # --------------------------- POISSON TREE -------------------------------------
 
 
+pt_weights = config.get('poisson', {}).get('leaf_weights', 1)
 rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
-        os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
-            'poisson.{run}.LRT.txt')
+        os.path.join(out_dir, filter_dir,
+            'poissonTree_{{tree}}_{}'.format(pt_weights),
+            'poissonTree.{run}.LRT.txt')
     conda:
         ''
     envmodules:
@@ -422,14 +424,16 @@ rule run_poisson_tree:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
+        weights = pt_weights
     script:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
 
 
 rule merge_poisson_tree:
     input:
-        expand(os.path.join(out_dir, filter_dir, 'poisson_dir_{{tree}}',
-            'poisson.{run}.LRT.txt'), run=RUNS)
+        expand(os.path.join(out_dir, filter_dir,
+            'poissonTree_{{{{tree}}}}_{}'.format(pt_weights),
+            'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
         os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
             'poisson_tree.clock_test_summary.tsv')

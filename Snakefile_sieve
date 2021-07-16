@@ -116,7 +116,7 @@ rule run_dataFilter:
         counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
     threads: 1
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 32768,
+        mem_mb = lambda wildcards, attempt: attempt * 8192,
         runtime = 600,
     params:
         dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),

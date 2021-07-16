@@ -41,11 +41,11 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
         with open(mut_file, 'w') as f_mut:
             f_mut.write('\n'.join(['m{}'.format(i) for i in range(no_muts)]))
 
-    out_files = os.path.join(out_dir, 'scite_tree{}'.format(run_no))
+    out_file = os.path.join(out_dir, 'scite_tree{}'.format(run_no))
     cmmd = ' '.join(
         [exe, '-i', data_file, '-transpose', '-r 1', '-n', str(no_muts),
         '-m', str(no_cells), '-l', str(steps), '-fd', str(fd), '-ad', str(ad),
-        '-e 0.1', '-a',  '-o', out_files, '-names', mut_file,
+        '-e 0.1', '-a',  '-o', out_file, '-names', mut_file,
         '-max_treelist_size 1']
     )
 
@@ -65,11 +65,8 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
             print(i)
         raise RuntimeError('SCITE Error: {}'.format(stderr))
 
-    beta = float(re.search('best value for beta:\\\\t(0.\d+)', stdout).group(1))
-    alpha = float(re.search('best value for alpha:\\\\t(0.\d+)', stdout).group(1))
-
-    with open('{}.errors.csv'.format(out_files), 'w') as f:
-        f.write('alpha,beta\n{},{}'.format(alpha, beta))
+    with open('{}.log'.format(out_file), 'w') as f:
+        f.write(stdout)
 
     os.remove(data_file)
     # rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv
