@@ -175,8 +175,9 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
             elif os.path.exists(log_file):
                 with open(log_file, 'r') as f:
                     log_raw = f.read()
-                FN = float(re.search('best value for beta:\\\\t(0.\d+)', log_raw ).group(1))
-                FP = float(re.search('best value for alpha:\\\\t(0.\d+)', log_raw ).group(1))
+                FN = float(re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw ).group(1))
+                FP = float(re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw ).group(1))
+                # 'best value for beta:\t8.3600953793288964e-05'
             else:
                 FP = 1e-3
                 FN = 0.15
