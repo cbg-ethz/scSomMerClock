@@ -167,17 +167,18 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
                 sample_names=samples, br_length=True)
             error_file = tree_file.replace('_ml0.newick', '.errors.csv')
-            log_file =  '{}.log'.format(tree_file)
+            log_file =  tree_file.replace('_ml0.newick', '.log')
             if os.path.exists(error_file):
                 with open(error_file, 'r') as f:
                     errors_raw = f.read().strip().split('\n')
                 FP, FN = [float(i) for i in errors_raw[1].split(',')]
             elif os.path.exists(log_file):
-                import pdb; pdb.set_trace()
-                # FN = float(re.search('best value for beta:\\\\t(0.\d+)', stdout).group(1))
-                # FP = float(re.search('best value for alpha:\\\\t(0.\d+)', stdout).group(1))
+                with open(log_file, 'r') as f:
+                    log_raw = f.read()
+                FN = float(re.search('best value for beta:\\\\t(0.\d+)', log_raw ).group(1))
+                FP = float(re.search('best value for alpha:\\\\t(0.\d+)', log_raw ).group(1))
             else:
-                FP = 1e-4
+                FP = 1e-3
                 FN = 0.15
         else:
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
