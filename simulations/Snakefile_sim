@@ -10,9 +10,10 @@ RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
 
 scheduler = config.get('scheduler', None)
+pt_weights = config.get('poisson', {}).get('leaf_weights', 1)
 
-if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
-    config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
+# if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
+#     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir, filter_dir = get_out_dir(config)
 
 
@@ -35,7 +36,7 @@ def get_final_files(wildcards):
         if config.get('poisson', {}).get('run', False):
             files.append(os.path.join(out_dir, filter_dir,
                 'poisson_dir_{}'.format(tree),
-                'poisson_tree.clock_test_summary.tsv'))
+                'poisson_tree.clock_test_summary_{}.tsv'.format(pt_weights)))
 
     if config.get('poisson', {}).get('run', False):
         files.append(os.path.join(out_dir, filter_dir,
@@ -401,7 +402,6 @@ rule run_poisson:
 # --------------------------- POISSON TREE -------------------------------------
 
 
-pt_weights = config.get('poisson', {}).get('leaf_weights', 1)
 rule run_poisson_tree:
     input:
         unpack(get_nex_input)
@@ -436,7 +436,7 @@ rule merge_poisson_tree:
             'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
         os.path.join(out_dir, filter_dir, 'poisson_dir_{tree}',
-            'poisson_tree.clock_test_summary.tsv')
+            'poisson_tree.clock_test_summary_{}.tsv'.format(pt_weights))
     conda:
         ''
     envmodules:

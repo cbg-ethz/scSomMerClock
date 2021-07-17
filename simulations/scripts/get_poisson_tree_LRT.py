@@ -175,9 +175,12 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
             elif os.path.exists(log_file):
                 with open(log_file, 'r') as f:
                     log_raw = f.read()
-                FN = float(re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw ).group(1))
-                FP = float(re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw ).group(1))
-                # 'best value for beta:\t8.3600953793288964e-05'
+                FN = float(
+                    re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
+                        .group(1))
+                FP = float(
+                    re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
+                        .group(1))
             else:
                 FP = 1e-3
                 FN = 0.15
@@ -293,7 +296,7 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
-    muts = muts.values
+    muts = muts.fillna(0.5).values
 
     X_inv = 1 - X
     muts_inv = 1 - muts
