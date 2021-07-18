@@ -45,7 +45,7 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
     cmmd = ' '.join(
         [exe, '-i', data_file, '-transpose', '-r 1', '-n', str(no_muts),
         '-m', str(no_cells), '-l', str(steps), '-fd', str(fd), '-ad', str(ad),
-        '-e 0.1', '-a',  '-o', out_file, '-names', mut_file,
+        '-e 0.1', '-z', '-a',  '-o', out_file, '-names', mut_file,
         '-max_treelist_size 1']
     )
 
