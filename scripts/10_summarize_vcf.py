@@ -577,9 +577,8 @@ def merge_summaries(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog='QC_coverage',
-        usage='python3 QC_coverage.py <DATA> [options]',
-        description='*** Generate Lorenz curve and Gini coefficient. ***')
+    parser = argparse.ArgumentParser(
+        description='Merge and filter vcf files from different SNVcallers.')
     parser.add_argument('input', type=str,  nargs='*',
         help='Absolute or relative path(s) to input VCF file')
     parser.add_argument('-t', '--task', type=str, choices=['summarize', 'merge'],
@@ -594,8 +593,8 @@ def parse_args():
         help='Column name of bulk tumor. Default = None.')
     parser.add_argument('-ks', '--keep_sex', action='store_true',
         help='If flag is set, keep the sex chromosomes in the all file.')
-    parser.add_argument('-q', '--quality', type=int, default=20,
-        help='Minimum quality threshold. Default = 20.')
+    parser.add_argument('-q', '--quality', type=int, default=13,
+        help='Minimum quality threshold. Default = 13.')
     parser.add_argument('-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.')
     parser.add_argument('-p', '--prefix', type=str, default='',

@@ -280,8 +280,7 @@ def _normalize_log_probs(probs):
 
 
 def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
-    FP_rate = 1e-3
-    FN_rate = 0.1
+
 
     n = muts.shape[1]
     node_map = {}
@@ -296,16 +295,23 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
-    muts = muts.fillna(0.5).values
+    muts = muts.values
 
     X_inv = 1 - X
     muts_inv = 1 - muts
+    muts_nan = np.where(np.isnan(muts), 1, 0)
 
-    TP = np.log(1 - max(FP_rate, LAMBDA_MIN))
-    FP = np.log(max(FP_rate, LAMBDA_MIN))
-    TN = np.log(1 - max(FP_rate, LAMBDA_MIN))
-    FN = np.log(max(FP_rate, LAMBDA_MIN))
-    errors = np.array([TP, FP, TN, FN])
+    FP_n = max(FP_rate, LAMBDA_MIN)
+    FN_n = max(FN_rate, LAMBDA_MIN)
+    TP = np.log(1 - FN_n)
+    FP = np.log(FP_n)
+    TN = np.log(1 - FP_n)
+    FN = np.log(FN_n)
+    # Missing positive / negative
+    MP = np.log((1 - FN_n + FP_n) / 2)
+    MN = np.log((1 - FP_n + FN_n) / 2)
+
+    errors = np.array([TP, FP, TN, FN, MP, MN])
 
     soft_assigned = np.zeros(X.shape[0])
     for i, mut in tqdm(enumerate(muts)):
@@ -313,7 +319,9 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
             np.nansum(X * mut, axis=1), # TP
             np.nansum(X_inv * mut, axis=1), # FP
             np.nansum(X_inv * muts_inv[i], axis=1), # TN
-            np.nansum(X * muts_inv[i], axis=1), # FN
+            np.nansum(X * muts_inv[i], axis=1), # FN,
+            np.nansum(X * muts_nan[i], axis=1), # MP
+            np.nansum(X_inv * muts_nan[i], axis=1), # MN
         ])
         probs = np.dot(errors, mut_data)
 

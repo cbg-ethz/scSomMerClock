@@ -238,7 +238,7 @@ rule run_scite:
             'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 4096,
-        runtime = 180,
+        runtime = 300,
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
@@ -419,7 +419,7 @@ rule run_poisson_tree:
     threads: 1
     resources:
         mem_mb = 1024,
-        runtime = 20,
+        runtime = 30,
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),

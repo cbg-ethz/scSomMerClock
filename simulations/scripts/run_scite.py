@@ -75,17 +75,18 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input vcf file')
-    parser.add_argument('-s', '--steps', type=int, help='Number of mcmc steps.')
+    parser.add_argument('-s', '--steps', type=int, default=500000,
+        help='Number of mcmc steps. Default=500000.')
     parser.add_argument('-e', '--exe', type=str, help='Path to scite exe.')
     parser.add_argument('--FP', type=float, default=0.001,
-        help='False positive rate. Default=0.001')
+        help='False positive rate. Default=0.001.')
     parser.add_argument('--FN', type=float, default=0.2,
-        help='False negative rate. Default=0.2')
+        help='False negative rate. Default=0.2.')
     parser.add_argument('--verbose', action='store_true', help='Print to stdout')
     parser.add_argument('-ex', '--exclude', type=str, default='',
-        help='Regex pattern for samples to exclude from LRT test,')
+        help='Regex pattern for samples to exclude from LRT test.')
     parser.add_argument('-in', '--include', type=str, default='',
-        help='Regex pattern for samples to include from LRT test,')
+        help='Regex pattern for samples to include from LRT test.')
     args = parser.parse_args()
     return args
 
