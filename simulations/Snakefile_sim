@@ -47,14 +47,16 @@ def get_final_files(wildcards):
 
 rule all:
     input:
-        os.path.join(out_dir, filter_dir, 'final_summary.tsv'),
+        os.path.join(out_dir, filter_dir,
+            'final_summary_{}.tsv'.format(pt_weights)),
 
 
 rule merge_summary_files:
     input:
         get_final_files
     output:
-        os.path.join(out_dir, filter_dir, 'final_summary.tsv')
+        os.path.join(out_dir, filter_dir,
+            'final_summary_{}.tsv'.format(pt_weights))
     envmodules:
         'pandas/1.0.1-python-3.7.7',
     resources:
