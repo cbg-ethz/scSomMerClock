@@ -328,8 +328,10 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
     TN = np.log(1 - FP_n)
     FN = np.log(FN_n)
     # Missing positive / negative
-    MP = np.log((1 - FN_n + FP_n) / 2)
-    MN = np.log((1 - FP_n + FN_n) / 2)
+    # MP = np.log((1 - FN_n + FP_n) / 2)
+    # MN = np.log((1 - FP_n + FN_n) / 2)
+    MP = np.log(0.5)
+    MN = np.log(0.5)
 
     errors = np.array([TP, FP, TN, FN, MP, MN])
 
