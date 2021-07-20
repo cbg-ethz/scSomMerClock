@@ -104,6 +104,8 @@ def get_mut_df(vcf_file, exclude_pat, include_pat):
     muts = pd.DataFrame(data[0], columns=sample_names)
     true_muts = pd.DataFrame(data[1], columns=sample_names)
 
+    print(f'Filtered muts: {skip} / {skip + muts.shape[0]}')
+
     # Sanity check: remove sample without name
     exclude.append('')
     include = [i for i in sample_names if i not in exclude]
@@ -159,7 +161,8 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
         # _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
         #     br_length=True)
         # tree = Phylo.read(StringIO(tree_str), 'newick')
-        tree = add_cellphy_mutation_map(tree_file, paup_exe)
+        tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
+        tree = tree_approx
     else:
         if 'scite' in tree_file:
             samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
@@ -199,56 +202,68 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
     return tree
 
 
-def add_cellphy_mutation_map(tree_file, paup_exe):
+def add_cellphy_mutation_map(tree_file, paup_exe, muts):
     mut_file = tree_file.replace('mutationMapTree', 'mutationMapList')
     with open(mut_file, 'r') as f_muts:
         muts_raw = f_muts.read().strip().split('\n')
 
     with open(tree_file, 'r') as f_tree:
-        tree_str = f_tree.read().strip()
-    n = tree_str.count('cell')
+        tree_old = f_tree.read().strip()
+    n = tree_old.count('cell')
+
+    tree_old_approx = tree_old
 
     for i in muts_raw:
         try:
             id, mut_no, _ = i.split('\t')
         except ValueError:
             id, mut_no = i.split('\t')
-        tree_str = re.sub(f'0.\d+\[{id}\]', mut_no, tree_str)
+        tree_old = re.sub(f'0.\d+\[{id}\]', mut_no, tree_old)
 
-    temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_tree_file.write(str.encode(tree_str))
-    temp_tree_file.close()
 
-    out_file = tempfile.NamedTemporaryFile(delete=False)
-    paup_cmd = 'getTrees file={i};\n' \
-        'DerootTrees;\n'\
-        'outgroup healthycell;\n' \
-        'RootTrees rootMethod=outgroup userBrLens=yes;\n' \
-        'saveTrees format=Newick root=yes brLens=user file={o} ;\n' \
-        'quit;'.format(i=temp_tree_file.name, o=out_file.name)
+    for l in re.findall('0.\d+\[\d+\]', tree_old_approx):
+        new_l = float(l.split('[')[0]) * muts.shape[0]
+        tree_old_approx = re.sub(re.escape(l), str(new_l), tree_old_approx)
 
-    paup_file = tempfile.NamedTemporaryFile(delete=False)
-    paup_file.write(str.encode(paup_cmd))
-    paup_file.close()
 
-    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
-    paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    stdout, stderr = paup.communicate()
-    paup.wait()
+    def get_rooted_tree(tree_str):
+        temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_tree_file.write(str.encode(tree_str))
+        temp_tree_file.close()
 
-    assert stderr == b'', str(stdout) + '\n' + str(stderr)
+        out_file = tempfile.NamedTemporaryFile(delete=False)
+        paup_cmd = 'getTrees file={i};\n' \
+            'DerootTrees;\n'\
+            'outgroup healthycell;\n' \
+            'RootTrees rootMethod=outgroup userBrLens=yes;\n' \
+            'saveTrees format=Newick root=yes brLens=user file={o} ;\n' \
+            'quit;'.format(i=temp_tree_file.name, o=out_file.name)
 
-    with open(out_file.name, 'r') as f_tree:
-        tree_new = f_tree.read().strip()
-    out_file.close()
+        paup_file = tempfile.NamedTemporaryFile(delete=False)
+        paup_file.write(str.encode(paup_cmd))
+        paup_file.close()
 
-    try:
-        wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
-    except AttributeError:
-        wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
+        shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
+        paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        stdout, stderr = paup.communicate()
+        paup.wait()
 
-    tree = Phylo.read(StringIO(tree_new), 'newick')
+        assert stderr == b'', str(stdout) + '\n' + str(stderr)
+
+        with open(out_file.name, 'r') as f_tree:
+            tree_new = f_tree.read().strip()
+        out_file.close()
+
+        # try:
+        #     wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
+        # except AttributeError:
+        #     import pdb; pdb.set_trace()
+        #     wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
+
+        return Phylo.read(StringIO(tree_new), 'newick')
+
+    tree = get_rooted_tree(tree_old)
     for node in tree.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
         node.mut_no = node.branch_length
@@ -262,7 +277,12 @@ def add_cellphy_mutation_map(tree_file, paup_exe):
         # else:
         #     node.mut_no = node.branch_length
 
-    return tree
+    tree_approx = get_rooted_tree(tree_old_approx)
+    for node in tree_approx.find_clades():
+        node.name = '+'.join([i.name for i in node.get_terminals()])
+        node.mut_no = round(node.branch_length)
+
+    return tree, tree_approx
 
 
 def _normalize_log_probs(probs):
