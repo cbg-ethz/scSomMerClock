@@ -33,7 +33,6 @@ if [ "$mutect_calls" != "" ]; then
         --threads ${cores} \
         ${mutect_calls} \
         | bcftools annotate \
-            --remove FORMAT/AD \
             --output-type z \
             --output ${mutect_calls}.tmp \
             -

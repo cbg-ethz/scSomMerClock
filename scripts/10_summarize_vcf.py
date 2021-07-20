@@ -318,9 +318,11 @@ def get_call_summary(rec, sample_maps, depth, quality):
                 sc_calls[sample_map_id, alg] = 0
             continue
 
+        # Skip read depth below threshold
+        if sum(sample['AD']) < depth:
+            continue
+
         if alg == 2:
-            if sample['DP'] < depth:
-                continue
             if sample_map_id == 'normal':
                 snv_germline = True
             else:
@@ -329,11 +331,7 @@ def get_call_summary(rec, sample_maps, depth, quality):
             # Skip indels and "False" calls (only called by sccaller)
             if alg == 1 and sample['SO'] != 'True':
                 continue
-
-            # Skip low genotype quality calls or read depth below threshold
-            if sum(sample['AD']) < depth:
-                continue
-
+            # Skip genotype quality below threshold
             if sample['GQ'] < quality:
                 if 'FPL' in sample and sample['FPL'][0] != None:
                     if min(sample['FPL'][:2]) - max(sample['FPL'][2:]) \
