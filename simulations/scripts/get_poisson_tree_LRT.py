@@ -138,11 +138,13 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         for i in tree.find_clades():
             i.branch_length = i.mut_no
 
-        try:
-            tree.root.true_mut_no
-            br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
-        except AttributeError:
-            br_labels = lambda c: f'{c.mut_no:.1f}'
+        br_labels = lambda c: f'{c.mut_no:.0f}'
+
+        # try:
+        #     tree.root.true_mut_no
+        #     br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
+        # except AttributeError:
+        #     br_labels = lambda c: f'{c.mut_no:.1f}'
     elif br_length == 'true_mut_no':
         for i in tree.find_clades():
             i.branch_length = i.true_mut_no
@@ -150,9 +152,16 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    plt.rc('font', **{'family' : 'normal', 'size': 14})          # controls default text sizes
+    fig = plt.figure(figsize=(10, 20), dpi=100)
+    ax = fig.add_subplot(1, 1, 1)
     Phylo.draw(tree, branch_labels=br_labels,
         label_func=lambda c: c.name if c.name and c.name.count('+') == 0 else '',
-        subplots_adjust=({'left': 0.01, 'bottom': 0.01, 'right': 0.99, 'top': 0.99})
+        subplots_adjust=({'left': 0.01, 'bottom': 0.01, 'right': 0.99, 'top': 0.99}),
+        axes=ax
     ) 
 
 
@@ -315,6 +324,9 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
+    # add normal cell to filter errors
+    X = np.vstack([X, np.zeros(X.shape[1])])
+    n_normal = X.shape[0]
     muts = muts.values
 
     X_inv = 1 - X
@@ -336,6 +348,7 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
     errors = np.array([TP, FP, TN, FN, MP, MN])
 
     soft_assigned = np.zeros(X.shape[0])
+    wildtype = 0
     for i, mut in tqdm(enumerate(muts)):
         mut_data = np.stack([
             np.nansum(X * mut, axis=1), # TP
@@ -346,12 +359,16 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
             np.nansum(X_inv * muts_nan[i], axis=1), # MN
         ])
         probs = np.dot(errors, mut_data)
-
-        soft_assigned += _normalize_log_probs(probs)
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
+
+        if n_normal in best_nodes:
+            wildtype += 1
+            continue
+
         for best_node in best_nodes:
             node_map[best_node].muts.add(i)
             node_map[best_node].mut_no += 1 / best_nodes.size
+        soft_assigned += _normalize_log_probs(probs)
 
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
@@ -806,6 +823,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
 
     run = os.path.basename(vcf_file).split('.')[1]
     muts, true_muts = get_mut_df(vcf_file, exclude, include)
+    print(f'Wrong muts: {sum(true_muts.sum(axis=1) == 0)} / {true_muts.shape[0]}')
     tree = get_tree(tree_file, muts, paup_exe, 0)
     add_true_muts(tree, true_muts)
 
@@ -814,6 +832,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
 
     Y, constr, init, weights, Y_true = get_model_data(tree, min_dist=0,
         d_weight=weight)
+
 
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
@@ -838,6 +857,8 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
+
+    # import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
