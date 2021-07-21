@@ -228,13 +228,11 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
             id, mut_no, _ = i.split('\t')
         except ValueError:
             id, mut_no = i.split('\t')
-        tree_old = re.sub(f'0.\d+\[{id}\]', mut_no, tree_old)
+        tree_old = re.sub(f'\d+\.\d+\[{id}\]', mut_no, tree_old)
 
-
-    for l in re.findall('0.\d+\[\d+\]', tree_old_approx):
+    for l in re.findall('\d+\.\d+\[\d+\]', tree_old_approx):
         new_l = float(l.split('[')[0]) * muts.shape[0]
         tree_old_approx = re.sub(re.escape(l), str(new_l), tree_old_approx)
-
 
     def get_rooted_tree(tree_str):
         temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
