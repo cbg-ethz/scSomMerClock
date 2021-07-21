@@ -138,13 +138,13 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         for i in tree.find_clades():
             i.branch_length = i.mut_no
 
-        br_labels = lambda c: f'{c.mut_no:.0f}'
+        # br_labels = lambda c: f'{c.mut_no:.0f}'
+        try:
+            tree.root.true_mut_no
+            br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
+        except AttributeError:
+            br_labels = lambda c: f'{c.mut_no:.1f}'
 
-        # try:
-        #     tree.root.true_mut_no
-        #     br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
-        # except AttributeError:
-        #     br_labels = lambda c: f'{c.mut_no:.1f}'
     elif br_length == 'true_mut_no':
         for i in tree.find_clades():
             i.branch_length = i.true_mut_no
@@ -154,8 +154,8 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
 
     import matplotlib
     import matplotlib.pyplot as plt
+    plt.rc('font', **{'size': 14})
 
-    plt.rc('font', **{'family' : 'normal', 'size': 14})          # controls default text sizes
     fig = plt.figure(figsize=(10, 20), dpi=100)
     ax = fig.add_subplot(1, 1, 1)
     Phylo.draw(tree, branch_labels=br_labels,
@@ -201,6 +201,7 @@ def get_tree(tree_file, muts, paup_exe, min_dist=0):
                 br_length=True)
             FP = float(re.search('WGA0[\.\d]*-(0[\.\d]*)', tree_file).group(1))
             FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+        print(f'Assumed rates: {max(FP, 1e-6)}\t{max(FN, 0.01)}\t(FP, FN)')
         tree = Phylo.read(StringIO(tree_str), 'newick')
         map_mutations_to_tree(tree, muts.copy(),
             FP_rate=max(FP, 1e-6), FN_rate=max(FN, 0.01))
@@ -309,8 +310,6 @@ def _normalize_log_probs(probs):
 
 
 def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
-
-
     n = muts.shape[1]
     node_map = {}
     X = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts.columns)
@@ -701,14 +700,14 @@ def log_poisson(x, k, T):
     # return -np.nansum(poisson.logpmf(k, l))
 
 
-def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True):
+def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
+            alg='trust-constr'):
     if weights.size == 0:
         weights = np.ones(Y.size)
 
     if short:
         ll_H1 = np.sum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
-
-        for i in [10000, 1000, 100, 10]:
+        for i in [10000, 1000, 100, 10, 1]:
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
@@ -718,7 +717,10 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True):
                 / scale_fac
     else:
         ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
-        scale_fac = (-ll_H1 // 10) * 10
+        for i in [100, 10, 1]:
+            scale_fac = (-ll_H1 // i) * i
+            if scale_fac != 0:
+                break
         def fun_opt(l, Y):
             l[:] = np.clip(l, LAMBDA_MIN, None)
             return -np.sum(poisson.logpmf(Y, l) * weights) / scale_fac
@@ -733,13 +735,17 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True):
     init = np.clip(init, LAMBDA_MIN, None)
     bounds = np.full((constr.shape[1], 2), (LAMBDA_MIN, Y.sum()))
 
-    opt = minimize(fun_opt, init, args=(Y,), constraints=const,
-        bounds=bounds, method='trust-constr', jac=fun_jac, hess=fun_hess,
-        options={'disp': False, 'maxiter': 10000, 'barrier_tol': 1e-5})
-
-    # opt = minimize(fun_opt, init, args=(Y,), constraints=const,
-    #     bounds=bounds, method='SLSQP', jac=fun_jac,
-    #     options={'disp': False, 'maxiter': 10000,})
+    if alg == 'trust-constr':
+        opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+            bounds=bounds, method='trust-constr', jac=fun_jac, hess=fun_hess,
+            options={'disp': False, 'maxiter': 10000, 'barrier_tol': 1e-5})
+    elif alg == 'SLSQP':
+        opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+            bounds=bounds, method='SLSQP', jac=fun_jac,
+            options={'disp': False, 'maxiter': 10000,})
+    else:
+        opt = minimize(fun_opt, init, args=(Y,), constraints=const,
+            bounds=bounds, method=alg, jac=fun_jac, hess=fun_hess)
 
     if not opt.success:
         print('\nFAILED POISSON OPTIMIZATION\n')
@@ -753,7 +759,8 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True):
     if short:
         ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
     else:
-        ll_H0 = np.sum(poisson.logpmf(Y, opt.x) * weights)
+        ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
+            * weights)
 
     dof = Y.size - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
@@ -762,60 +769,61 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True):
     on_bound = np.sum(opt.x <= 10 * LAMBDA_MIN)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
-        weights = scipy.special.binom(on_bound, dof_diff)
         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-        p_val = np.average(p_vals, weights=weights)
+        p_val_weights = np.where(np.isnan(p_vals), 0,
+            scipy.special.binom(on_bound, dof_diff))
+        p_val = np.average(np.nan_to_num(p_vals), weights=p_val_weights)
     else:
         p_val = chi2.sf(LR, dof)
 
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
-    scale_fac = 100
+# def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
+#     scale_fac = 100
 
-    def f(x, grad):
-        if grad.size > 0:
-            grad[:] = -(Y / x - 1) / scale_fac
-        return -np.sum(poisson.logpmf(Y, x)) / scale_fac
+#     def f(x, grad):
+#         if grad.size > 0:
+#             grad[:] = -(Y / x - 1) / scale_fac
+#         return -np.sum(poisson.logpmf(Y, x)) / scale_fac
 
-    def c(x, grad, c):
-        if grad.size > 0:
-            grad[:] = -c / scale_fac
-        return -np.sum(c * x) / scale_fac
+#     def c(x, grad, c):
+#         if grad.size > 0:
+#             grad[:] = -c / scale_fac
+#         return -np.sum(c * x) / scale_fac
 
-    def c1(result, x, grad):
-        if grad.size > 0:
-           grad[:] = -constr / scale_fac
-           result[:] = -constr @ x  / scale_fac
+#     def c1(result, x, grad):
+#         if grad.size > 0:
+#            grad[:] = -constr / scale_fac
+#            result[:] = -constr @ x  / scale_fac
 
 
-    opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
-    opt.set_min_objective(f)
-    opt.set_xtol_rel(LAMBDA_MIN)
-    opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
-    opt.set_upper_bounds(np.full(Y.size, Y.sum()))
-    opt.add_equality_mconstraint(c1, np.full(constr.shape[0], 2 * LAMBDA_MIN))
+#     opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
+#     opt.set_min_objective(f)
+#     opt.set_xtol_rel(LAMBDA_MIN)
+#     opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
+#     opt.set_upper_bounds(np.full(Y.size, Y.sum()))
+#     opt.add_equality_mconstraint(c1, np.full(constr.shape[0], 2 * LAMBDA_MIN))
 
-    xopt = opt.optimize(init)
+#     xopt = opt.optimize(init)
         
-    ll_H1 = np.sum(poisson.logpmf(Y, Y))
-    ll_H0 = np.sum(poisson.logpmf(Y, xopt))
+#     ll_H1 = np.sum(poisson.logpmf(Y, Y))
+#     ll_H0 = np.sum(poisson.logpmf(Y, xopt))
 
-    dof = Y.size - constr.shape[0]
-    LR = -2 * (ll_H0 - ll_H1)
-    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
+#     dof = Y.size - constr.shape[0]
+#     LR = -2 * (ll_H0 - ll_H1)
+#     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(xopt <= 2 * LAMBDA_MIN)
-    if on_bound > 0:
-        dof_diff = np.arange(on_bound + 1)
-        weights = scipy.special.binom(on_bound, dof_diff)
-        p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-        p_val = np.average(p_vals, weights=weights)
-    else:
-        p_val = chi2.sf(LR, dof)
+#     on_bound = np.sum(xopt <= 2 * LAMBDA_MIN)
+#     if on_bound > 0:
+#         dof_diff = np.arange(on_bound + 1)
+#         weights = scipy.special.binom(on_bound, dof_diff)
+#         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
+#         p_val = np.average(p_vals, weights=weights)
+#     else:
+#         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof + on_bound, p_val
+#     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
@@ -827,7 +835,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     tree = get_tree(tree_file, muts, paup_exe, 0)
     add_true_muts(tree, true_muts)
 
-    # import pdb; pdb.set_trace()
     # pp [(i.true_mut_no, i.mut_no, i.mut_no_soft) for i in tree.find_clades()]
 
     Y, constr, init, weights, Y_true = get_model_data(tree, min_dist=0,
@@ -840,7 +847,10 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
 
     TP = ((true_muts == 1) & (muts == 1)).sum().sum()
     FP = ((true_muts == 0) & (muts == 1)).sum().sum()
+    TN = ((true_muts == 0) & (muts == 0)).sum().sum()
     FN = ((true_muts == 1) & (muts == 0)).sum().sum()
+
+    print(f'Real rates: {FP / muts.size:.3f}\t{FN / muts.size:.3f}\t(FP, FN)')
 
     alpha = 0.05
     cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
@@ -857,8 +867,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
             f'{p_val:.2E}\t{hyp}'
         header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
-
-    # import pdb; pdb.set_trace()
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')

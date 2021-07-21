@@ -114,6 +114,8 @@ rule postprocess_vcf:
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
+        s_dp = config.get('SNP_filter', {}).get('singleton_depth', None),
+        s_gq = config.get('SNP_filter', {}).get('singleton_quality', None),
         singletons = config.get('SNP_filter', {}).get('singletons', False),
     script:
         f'{SCRIPT_DIR}/postprocess_vcf.py'

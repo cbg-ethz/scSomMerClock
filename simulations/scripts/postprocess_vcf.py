@@ -5,7 +5,8 @@ import argparse
 import numpy as np
 
 
-def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
+def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
+            s_minGQ=1, s_filter=False):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -96,6 +97,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                     genotypes[s_i] = gt
 
             called_gt = genotypes[genotypes != b'.|.']
+            # Count true mutations
             if not monovar:
                 if np.unique(true_gt).size > 1:
                     # import pdb; pdb.set_trace()
@@ -116,7 +118,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
             # Only wildtype called
             if np.all(called_gt == b'0|0'):
                 filter_str = 'wildtype'
-            elif s_filter:
+            else:
                 # One or more different genotypes detected
                 diff_gt, diff_count = np.unique(called_gt, return_counts=True)
                 # Check if any non-wildtype is called more than once
@@ -127,7 +129,18 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_filter=False):
                         break
 
                 if is_singleton:
-                    filter_str = 'singleton'
+                    cell_no = np.argwhere(
+                        (genotypes != b'.|.') & (genotypes != b'0|0')).flatten()[0]
+                    cell_rec = line_cols[9 + cell_no].split(':')
+                    s_pln = np.array([-float(i) \
+                        for i in cell_rec[PLN_col].split(',')])
+                    s_gq = min(99, sorted(pln - pln.min())[1])
+
+                    if int(cell_rec[1]) < s_minDP or s_gq < s_minGQ:
+                        new_line[cell_no] = missing + tg
+                        filter_str = 'wildtype'
+                    elif s_filter:
+                        filter_str = 'singleton'
 
             body += '\t'.join(line_cols[:6]) + '\t{}\t{}\t{}\t' \
                     .format(filter_str, line_cols[7], format_short) \
@@ -150,7 +163,12 @@ def parse_args():
         help='Min. reads to include a locus (else missing). Default = 1.')
     parser.add_argument('-gq', '--minGQ', type=int, default=0,
         help='Min. Genotype Quality to include a locus (else missing). '
-            'Default = 1.')
+            'Default = 0.')
+    parser.add_argument('-sdp', '--singeltonMinDP', type=int, default=1,
+        help='Min. reads to include a locus (else missing). Default = 1.')
+    parser.add_argument('-sgq', '--singeltonMinGQ', type=int, default=0,
+        help='Min. Genotype Quality to include a locus (else missing). '
+            'Default = 0.')
     parser.add_argument('-fs', '--filter_singletons', action='store_true',
         help='If set, singleton SNPs are filtered out.')
     args = parser.parse_args()
@@ -159,12 +177,29 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
+
+        if not snakemake.params['s_dp']:
+            s_dp = snakemake.params['dp']
+        else:
+            s_dp = snakemake.params['s_dp']
+        if not snakemake.params['s_gq']:
+            s_gq = snakemake.params['gq']
+        else:
+            s_gq = snakemake.params['s_gq']
+
         postprocess_vcf(snakemake.input[0], snakemake.output[0],
-            minDP=snakemake.params['dp'], minGQ=snakemake.params['gq'],
+            minDP=snakemake.params['dp'],
+            minGQ=snakemake.params['gq'],
+            s_minDP=s_dp,
+            s_minGQ=s_gq,
             s_filter=snakemake.params['singletons'])
     else:
         args = parse_args()
         if not args.output:
             args.output = args.input + '.final'
-        postprocess_vcf(args.input, args.output, minDP=args.minDP,
-            minGQ=args.minGQ, s_filter=args.filter_singletons)
+        postprocess_vcf(args.input, args.output,
+            minDP=args.minDP,
+            minGQ=args.minGQ,
+            s_minDP=args.singeltonMinDP,
+            s_minGQ=args.singeltonMinGQ,
+            s_filter=args.filter_singletons)
