@@ -231,7 +231,8 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
         tree_old = re.sub(f'\d+\.\d+\[{id}\]', mut_no, tree_old)
 
     for l in re.findall('\d+\.\d+\[\d+\]', tree_old_approx):
-        new_l = float(l.split('[')[0]) * muts.shape[0]
+        # TODO take value from config
+        new_l = float(l.split('[')[0]) * 10000
         tree_old_approx = re.sub(re.escape(l), str(new_l), tree_old_approx)
 
     def get_rooted_tree(tree_str):
@@ -709,6 +710,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
+
         def fun_opt(l, Y):
             return -np.nansum(
                 (Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) * weights) \
@@ -838,7 +840,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     Y, constr, init, weights, Y_true = get_model_data(tree, min_dist=0,
         d_weight=weight)
 
-
     # models = [('poisson', get_LRT_poisson),
     #     ('poisson_nlopt', get_LRT_poisson_nlopt),]
     models = [('poisson', get_LRT_poisson)]
@@ -855,16 +856,17 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     header_str = 'run\tSNVs\tTP\tFP\tFN'
     model_str = f'{run}\t{muts.shape[0]}\t{TP}\t{FP}\t{FN}'
 
-    for model_name, model_call in models:
-        # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
-        ll_H0, ll_H1, LR, dof, p_val = model_call(Y, constr, init, weights)
-        if np.isnan(ll_H0):
-            continue
-        hyp = f'H{int(p_val < alpha)}'
+    if np.any(Y != 0):
+        for model_name, model_call in models:
+            # ll_H0, ll_H1, dof = model_call(Y, X_H0, tree)
+            ll_H0, ll_H1, LR, dof, p_val = model_call(Y, constr, init, weights)
+            if np.isnan(ll_H0):
+                continue
+            hyp = f'H{int(p_val < alpha)}'
 
-        model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
-            f'{p_val:.2E}\t{hyp}'
-        header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
+            model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
+                f'{p_val:.2E}\t{hyp}'
+            header_str += '\t' + '\t'.join([f'{col}_{model_name}' for col in cols])
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
