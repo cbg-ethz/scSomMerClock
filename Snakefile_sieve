@@ -30,7 +30,8 @@ ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
 if config['sieve'].get('paths', ''):
     with open(config['sieve']['paths'], 'r') as f:
         paths_raw = f.read().strip().split('\n')
-    paths = {i.split('\t')[0]:i.split('\t')[-1] for i in paths_raw[1:]}
+    paths = {i.split('\t')[0].strip():i.split('\t')[-1].strip() \
+        for i in paths_raw[1:]}
 
 
 def get_all_files(wildcards):
