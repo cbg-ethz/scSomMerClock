@@ -49,8 +49,8 @@ rule all:
 
 if 'CRC08' in DATA_DIR:
     def get_CRC08_bams(wildcards):
-        wildcards.cell
-        os.path.join(DATA_DIR, paths[wildcards.cell])
+        cell = '{wildcards.cell}'.format(wildcards=wildcards)
+        os.path.join(DATA_DIR, paths[cell])
         import pdb; pdb.set_trace()
         return bam
 
