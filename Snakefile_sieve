@@ -7,8 +7,12 @@ BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
 SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
-workdir: DATA_DIR
 OUT_DIR = 'Sieve'
+
+if config['specific'].get('out_path', ''):
+    workdir: config['specific']['out_path']
+else:
+    workdir: DATA_DIR
 
 if not os.path.exists(OUT_DIR):
     os.mkdir(OUT_DIR)
@@ -20,8 +24,13 @@ CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
 
 with open(os.path.join(DATA_DIR, config['sieve']['cells']), 'r') as f_in:
     x = f_in.read().strip().split('\n')
-
 ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
+
+
+if config['sieve'].get('paths', ''):
+    with open(config['sieve']['paths'], 'r') as f:
+        paths_raw = f.read().strip().split('\n')
+    paths = {i.split('\t')[0]:i.split('\t')[-1] for i in paths_raw[1:]}
 
 
 def get_all_files(wildcards):
@@ -38,16 +47,39 @@ rule all:
         get_all_files
 
 
-rule generate_bamfiles:
-    input:
-        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
-            cell=ss_samples_ethan)
-    output:
-        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
-    run:
-        with open(output[0], 'w') as f:
-            for bam_file in input:
-                f.write(f'{bam_file}\n')
+if 'CRC08' in DATA_DIR:
+    def get_CRC08_bams(wildcards):
+        wildcards.cell
+        os.path.join(DATA_DIR, paths[wildcards.cell])
+        import pdb; pdb.set_trace()
+        return bam
+
+    rule generate_bamfiles:
+        input:
+            get_CRC08_bams
+        output:
+            expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
+                chr=CHROM)
+        envmodules:
+            'samtools'
+        params:
+            chrom = CHROM,
+        shell:
+            'for chr in {params.chrom}; do '
+            'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}.recal.${{chr}}.bam; '
+            'samtools index Processing/{wildcards.cell}.recal.${{chr}}.bam; '
+            'done'
+else:
+    rule generate_bampath:
+        input:
+            expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
+                cell=ss_samples_ethan)
+        output:
+            os.path.join(OUT_DIR, '{chr}.bamspath.txt')
+        run:
+            with open(output[0], 'w') as f:
+                for bam_file in input:
+                    f.write(f'{bam_file}\n')
 
 
 rule generate_mpileup:

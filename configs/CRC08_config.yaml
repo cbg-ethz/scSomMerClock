@@ -1,0 +1,21 @@
+static:
+  resources_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/RESOURCES
+  WGA_ref: hs37d5.fa
+
+
+specific:
+  data_path: /mnt/lustre/scratch/home/uvi/be/posadalustre/CRC/CRC08/final_bams/
+  out_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/CRC08
+  WES_target: Agilent_SureSelect_Human_All_Exome_V4_hg19/S03723314_Covered.modified.bed
+
+
+sieve:
+  cells: CRC08_SciPhi_cells.tsv
+  paths: CRC08_paths.txt
+  target_only: False
+  sciphi:
+    run: False
+    exe: /home/uvi/be/nbo/SCIPhI/build/sciphi0.1.7
+  dataFilter:
+    run: True
+    exe: /home/uvi/be/nbo/DataFilter/build/bin/datafilter
