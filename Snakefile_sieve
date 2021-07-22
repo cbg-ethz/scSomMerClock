@@ -69,17 +69,18 @@ if 'CRC08' in DATA_DIR:
             'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}.recal.${{chr}}.bam; '
             'samtools index Processing/{wildcards.cell}.recal.${{chr}}.bam; '
             'done'
-else:
-    rule generate_bampath:
-        input:
-            expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
-                cell=ss_samples_ethan)
-        output:
-            os.path.join(OUT_DIR, '{chr}.bamspath.txt')
-        run:
-            with open(output[0], 'w') as f:
-                for bam_file in input:
-                    f.write(f'{bam_file}\n')
+
+
+rule generate_bampath:
+    input:
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
+            cell=ss_samples_ethan)
+    output:
+        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
+    run:
+        with open(output[0], 'w') as f:
+            for bam_file in input:
+                f.write(f'{bam_file}\n')
 
 
 rule generate_mpileup:
