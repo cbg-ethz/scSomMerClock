@@ -48,7 +48,6 @@ elif isinstance(dataFilter_cfg, str):
         else:
             dataFilters['master'] = dataFilter_cfg
 
-import pdb; pdb.set_trace()
 
 def get_all_files(wildcards):
     files = []
@@ -185,7 +184,7 @@ rule concatenate_dataFilter:
     output:
         os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv')
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 2048
+        mem_mb = lambda wildcards, attempt: attempt * 4096
     params:
         full_run = False
     script:
