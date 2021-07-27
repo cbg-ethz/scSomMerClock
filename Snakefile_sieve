@@ -66,27 +66,19 @@ rule all:
 
 
 if 'CRC08' in DATA_DIR or 'CRC09' in DATA_DIR:
-    def get_CRC_bams(wildcards):
-        cell = '{wildcards.cell}'.format(wildcards=wildcards)
-        return paths[cell]
-
     rule generate_bamfiles:
         input:
-            get_CRC_bams
+            lambda wildcards: paths[wildcards.cell]
         output:
-            expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
-                chr=CHROM)
+            os.path.join('Processing', '{cell}.recal.{chr}.bam')
         resources:
-            runtime = 240,
+            runtime = 120,
         envmodules:
             'samtools'
-        params:
-            chrom = CHROM,
         shell:
-            'for chr in {params.chrom}; do '
-            'samtools view {input} ${{chr}} -b > Processing/{wildcards.cell}.recal.${{chr}}.bam; '
-            'samtools index Processing/{wildcards.cell}.recal.${{chr}}.bam; '
-            'done'
+            'samtools view {input} {wildcards.chr} -b > '
+            'Processing/{wildcards.cell}.recal.{wildcards.chr}.bam; '
+            'samtools index Processing/{wildcards.cell}.recal.{wildcards.chr}.bam;'
 
 
 rule generate_bampath:
@@ -170,7 +162,7 @@ rule run_dataFilter:
         mem_mb = lambda wildcards, attempt: attempt * 8192,
         runtime = 600,
     params:
-        exe = lambda wildcards: dataFilters['{dataFilter}'],
+        exe = lambda wildcards: dataFilters[wildcards.dataFilter],
         cells = config['sieve']['cells'],
     shell:
         '{params.exe} --in {input.pileup} --cellNames {params.cells} '
@@ -180,7 +172,7 @@ rule run_dataFilter:
 rule concatenate_dataFilter:
     input:
         expand(os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter.{chr}.tsv'),
-            chr=CHROM)
+            chr=CHROM, dataFilter=dataFilters.keys())
     output:
         os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv')
     resources:
