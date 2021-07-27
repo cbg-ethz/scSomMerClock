@@ -18,4 +18,4 @@ sieve:
     exe: /home/uvi/be/nbo/SCIPhI/build/sciphi0.1.7
   dataFilter:
     run: True
-    exe: /home/uvi/be/nbo/DataFilter/build/bin/datafilter
+    exe: /home/uvi/be/nbo/DataFilter/build/bin/datafilter_master, /home/uvi/be/nbo/DataFilter/build/bin/datafilter_improvedFormula

@@ -30,16 +30,34 @@ ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
 if config['sieve'].get('paths', ''):
     with open(config['sieve']['paths'], 'r') as f:
         paths_raw = f.read().strip().split('\n')
-    paths = {i.split('\t')[0].strip():i.split('\t')[-1].strip() \
+    paths = {i.split('\t')[0].strip(): i.split('\t')[-1].strip() \
         for i in paths_raw[1:]}
 
+
+dataFilters = {}
+dataFilter_cfg = config['sieve'].get('dataFilter', {}).get('exe', '')
+if isinstance(dataFilter_cfg, list):
+    for filter_exe in dataFilter_cfg:
+        name = os.path.basename(filter_exe).split('_')[-1]
+        dataFilters[name] = filter_exe
+elif isinstance(dataFilter_cfg, str):
+    if dataFilter_cfg:
+        pos_name = os.path.basename(dataFilter_cfg).split('_')[-1]
+        if len(pos_name) < len(os.path.basename(dataFilter_cfg)):
+            dataFilters[pos_name] = dataFilter_cfg
+        else:
+            dataFilters['master'] = dataFilter_cfg
+
+import pdb; pdb.set_trace()
 
 def get_all_files(wildcards):
     files = []
     if config['sieve'].get('sciphi', {}).get('run', False):
         files.append(os.path.join(OUT_DIR, 'SciPhi_merged.tsv'))
     if config['sieve'].get('dataFilter', {}).get('run', False):
-        files.append(os.path.join(OUT_DIR, 'dataFilter_merged.tsv'))
+        for filter_name in dataFilters.keys():
+            files.append(os.path.join(OUT_DIR, filter_name,
+                'dataFilter_merged.tsv'))
     return files
 
 
@@ -59,6 +77,8 @@ if 'CRC08' in DATA_DIR or 'CRC09' in DATA_DIR:
         output:
             expand(os.path.join('Processing', '{{cell}}.recal.{chr}.bam'),
                 chr=CHROM)
+        resources:
+            runtime = 240,
         envmodules:
             'samtools'
         params:
@@ -145,24 +165,25 @@ rule run_dataFilter:
     input:
         pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
     output:
-        counts = os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv')
+        counts = os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter.{chr}.tsv')
     threads: 1
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 8192,
         runtime = 600,
     params:
-        dataFilter = config['sieve'].get('dataFilter', {}).get('exe', ''),
+        exe = lambda wildcards: dataFilters['{dataFilter}'],
         cells = config['sieve']['cells'],
     shell:
-        '{params.dataFilter} --in {input.pileup} --cellNames {params.cells} '
+        '{params.exe} --in {input.pileup} --cellNames {params.cells} '
         '-o {output.counts} -t {threads}'
 
 
 rule concatenate_dataFilter:
     input:
-        expand(os.path.join(OUT_DIR, 'dataFilter.{chr}.tsv'), chr=CHROM)
+        expand(os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter.{chr}.tsv'),
+            chr=CHROM)
     output:
-        os.path.join(OUT_DIR, 'dataFilter_merged.tsv')
+        os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv')
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 2048
     params:
