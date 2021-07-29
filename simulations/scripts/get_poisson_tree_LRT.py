@@ -569,7 +569,6 @@ def get_model_data(tree, min_dist=0, true_data=False):
     # Lambdas are assigned branchwise from the tips to the root, following the
     #   classical strict molecular clock
 
-    import pdb; pdb.set_trace()
     internal_nodes = [i for i in tree.find_clades(terminal=False)]
 
     br_indi_no = tree.count_terminals() - 1
