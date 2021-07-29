@@ -913,7 +913,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         for muts_type in use_true_muts:
             Y, constr, init, leaf_dist = get_model_data(tree, min_dist=0,
                 true_data=muts_type)
-            weight_loss = FN
             weights = 1 - np.nansum(FN ** leaf_dist, axis=1) \
                 - np.nansum(FP ** leaf_dist, axis=1)
 
