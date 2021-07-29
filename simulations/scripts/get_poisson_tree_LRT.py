@@ -210,6 +210,9 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
         # tree = Phylo.read(StringIO(tree_str), 'newick')
         tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
         tree = tree_approx
+        FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+            .group(1))
+        FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
     else:
         if 'scite' in tree_file:
             samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
@@ -396,6 +399,7 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         probs = np.dot(errors, mut_data)
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
+        # import pdb; pdb.set_trace()
         for best_node in best_nodes:
             node_map[best_node].muts.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
@@ -450,6 +454,7 @@ def prune_leafs(tree_in):
         leaf_muts = leaf.mut_no
         parent = tree.collapse(leaf)
         continue
+
     # Merge unifurcating branches
     while True:
         for node in tree.find_clades(order='postorder'):
@@ -564,6 +569,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
     # Lambdas are assigned branchwise from the tips to the root, following the
     #   classical strict molecular clock
 
+    import pdb; pdb.set_trace()
     internal_nodes = [i for i in tree.find_clades(terminal=False)]
 
     br_indi_no = tree.count_terminals() - 1
@@ -711,53 +717,6 @@ def get_model_data(tree, min_dist=0, true_data=False):
         f'Init value smaller than min. distance: {init.min()}'
 
     return Y, constr, init, d
-
-
-def get_model1_data(tree):
-    # Lambdas are assigned horizontally to each inter-node distance
-
-    internal_nodes = [i for i in tree.find_clades(terminal=False)]
-
-    br_indi_no = len(internal_nodes)
-    br_no = br_indi_no + tree.count_terminals() - 1
-
-    X = np.zeros((br_no, br_indi_no), dtype=bool)
-    Y = np.zeros(br_no, dtype=int)
-
-    # Get nodes in reverse depth first order
-    br_dist = []
-    for int_node in internal_nodes:
-        dist = tree.distance(int_node)
-        no_desc = int_node.name.count('+')
-        br_id = dist + (1 - no_desc / 1000)
-        br_dist.append((br_id, int_node))
-    sorted_br = sorted(br_dist, key=lambda x: x[0], reverse=True)
-
-    # Iterate over internal nodes
-    node_idx = 0
-    br_cells = {}
-    for l_idx, (mut_no, int_node) in enumerate(sorted_br, 1):
-        # Iterate over the two child nodes of each internal node
-        for child in int_node.clades:
-            # Set node properties
-            Y[node_idx] = child.mut_no
-            X[node_idx, 0:l_idx] = True
-            # Subtract lambdas of child nodes
-            for grand_child in child.clades:
-                X[node_idx] = X[node_idx] & ~X[br_cells[grand_child]]
-            # Store node index
-            child.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
-                for i, j in enumerate(X[node_idx]) if j != 0]))
-            br_cells[child] = node_idx
-            node_idx += 1
-
-    return Y, X.astype(int)
-
-
-def log_poisson(x, k, T):
-    l = np.matmul(T, x)
-    return -np.nansum(k * np.log(l) - l)
-    # return -np.nansum(poisson.logpmf(k, l))
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -914,8 +873,9 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         for muts_type in use_true_muts:
             Y, constr, init, leaf_dist = get_model_data(tree, min_dist=0,
                 true_data=muts_type)
-            weights = 1 - np.nansum(FN ** leaf_dist, axis=1) \
-                - np.nansum(FP ** leaf_dist, axis=1)
+            # weights = 1 - np.nansum(FN ** leaf_dist, axis=1) \
+            #     - np.nansum(FP ** leaf_dist, axis=1)
+            weights = np.array([])
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
