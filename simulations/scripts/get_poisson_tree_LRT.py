@@ -237,7 +237,8 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
         else:
             tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
                 br_length=True)
-            FP = float(re.search('WGA0[\.\d]*-(0[\.\d]*)', tree_file).group(1))
+            FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+                    .group(1))
             FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
 
         if FN_fix:
