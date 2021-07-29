@@ -6,7 +6,7 @@ import numpy as np
 
 
 def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
-            s_minGQ=1, s_filter=False):
+            s_minGQ=1, s_filter=False, stats_file=''):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -17,6 +17,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
 
     rows_skipped = 0
     mut_no = np.zeros(2)
+    stats = [0, 0, 0, 0, 0] # TP, FP, TN, FN, MS
     monovar = False
     with file_stream as f_in:
         for line in f_in:
@@ -43,12 +44,16 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                 continue
             elif line.strip() == '':
                 break
-            
+
             # VCF records
             line_cols = line.strip().split('\t')
 
+            bases = {line_cols[3]: 0}
             ref = line_cols[3]
             alts = line_cols[4].split(',')
+            for i, j in enumerate(alts, 1):
+                bases[j] = i
+
             FORMAT_col = line_cols[8].split(':')
             if monovar:
                 if line_cols[6] == '.':
@@ -69,11 +74,22 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     dp = s_rec[2]
                     tg = ''
                 else:
-                    gt = s_rec[0]
+                    gt = '|'.join(sorted([i for i in s_rec[0].split('|')]))
                     dp = s_rec[1]
                     rc = s_rec[2]
                     g10 = s_rec[3]
-                    tg = s_rec[-1]
+                    try:
+                        tgt = '|'.join(sorted([str(bases[i]) \
+                            for i in s_rec[-1].split('|')]))
+                    except KeyError:
+                        tgt = s_rec[-1].replace(ref, '0')
+                        if tgt[0] != '0':
+                            bases[tgt[0]] = len(bases)
+                            tgt = tgt.replace(tgt[0], str(len(bases)))
+                        if tgt[-1] != '0':
+                            tgt = tgt.replace(tgt[-1], str(len(bases)))
+
+                    assert len(tgt) == 3, f'Wrong true GT field: {tgt}'
                     if len(FORMAT_col) == len(s_rec):
                         pln = np.array([-float(i) \
                             for i in s_rec[PLN_col].split(',')])
@@ -83,17 +99,30 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     else:
                         gq = -1
                         pl = '.'
-                    true_gt[s_i] = tg
-                
+                    true_gt[s_i] = tgt
+
+                    if gt == '.|.':
+                        stats[4] += 1
+                    elif (int(tgt[-1]) > 0) and (int(gt[-1]) > 0): #TP
+                        stats[0] += 1
+                    elif (int(tgt[-1]) == 0) and (int(gt[-1]) > 0): #FP
+                        stats[1] += 1
+                    elif  (int(tgt[-1]) == 0) and (int(gt[-1]) == 0): # TN
+                        stats[2] += 1
+                    elif (int(tgt[-1]) > 0) and (int(gt[-1]) == 0): # FN
+                        stats[3] += 1
+                    else:
+                        raise RuntimeError('Unknown case for stats update')
+
                 if int(dp) < minDP or gq < minGQ:
-                    new_line[s_i] = missing + tg
+                    new_line[s_i] = missing + tgt
                     genotypes[s_i] = '.|.'
                 else:
                     if monovar:
                         new_line[s_i] = s_rec_raw
                     else:
                         new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
-                            .format(gt, dp, rc, g10, pl, gq, tg)
+                            .format(gt, dp, rc, g10, pl, gq, tgt)
                     genotypes[s_i] = gt
 
             called_gt = genotypes[genotypes != b'.|.']
@@ -104,7 +133,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     mut_no[0] += 1
                 else:
                     all_gt = true_gt[0].decode()
-                    if all_gt[0] == ref and all_gt[-1] == ref:
+                    if all_gt[0] == '0' and all_gt[-1] == '0':
                         mut_no[1] += 1
                     else:
                         import pdb; pdb.set_trace()
@@ -115,6 +144,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                 continue
 
             filter_str = line_cols[6]
+
             # Only wildtype called
             if np.all(called_gt == b'0|0'):
                 filter_str = 'wildtype'
@@ -137,7 +167,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     s_gq = min(99, sorted(pln - pln.min())[1])
 
                     if int(cell_rec[1]) < s_minDP or s_gq < s_minGQ:
-                        new_line[cell_no] = missing + tg
+                        new_line[cell_no] = missing + tgt
                         filter_str = 'wildtype'
                     elif s_filter:
                         filter_str = 'singleton'
@@ -151,6 +181,13 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
 
     with open(out_file, 'w') as f_out:
         f_out.write('{}{}'.format(header, body))
+
+    if stats_file:
+        run_no = vcf_file.split('.')[-1]
+
+        with open(stats_file, 'a+') as f:
+            f.write(f'{run_no}\t{mut_no.sum()}\t{np.sum(stats)}\t{stats[0]}\t' \
+                f'{stats[1]}\t{stats[2]}\t{stats[3]}\t{stats[4]}\n')
 
 
 def parse_args():
@@ -192,7 +229,8 @@ if __name__ == '__main__':
             minGQ=snakemake.params['gq'],
             s_minDP=s_dp,
             s_minGQ=s_gq,
-            s_filter=snakemake.params['singletons'])
+            s_filter=snakemake.params['singletons'],
+            stats_file=snakemake.input[1])
     else:
         args = parse_args()
         if not args.output:

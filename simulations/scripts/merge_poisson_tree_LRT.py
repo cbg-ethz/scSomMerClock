@@ -2,6 +2,7 @@
 
 import os
 import re
+import numpy as np
 import pandas as pd
 
 
@@ -14,34 +15,37 @@ def merge_LRT(in_files, out_file):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
 
-    total = df.shape[0]
-    general_cols = 5
-    model_cols = 6
+    filter_muts = [True, False]
+    use_true_muts = [True, False]
 
-    avg_row = [-1] + df.iloc[:, 1:general_cols].mean(axis=0).tolist()
-    for model_idx in range((len(df.columns) - general_cols) // model_cols):
-        start_idx = model_cols * model_idx + general_cols
-        end_idx = model_cols * model_idx + general_cols + model_cols
-        model_df = df[df.columns[start_idx: end_idx]]
-        model_df = model_df[~model_df[model_df.columns[-2]] \
-            .apply(lambda x: x if isinstance(x, float) else None).isna()]
-        avg_row += model_df.mean(axis=0).tolist()
+    for filter_type in filter_muts:
+        for muts_type in use_true_muts:
+            total = df.shape[0]
+            avg_row = np.full(df.shape[1], -1, dtype=float)
 
-        model_total = model_df.dropna().shape[0]
-        if clock:
-            try:
-                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
-            except KeyError:
-                avg_row += [f'0/{model_total}']
-        else:
-            try:
-                avg_row += [f'{model_df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
-            except KeyError:
-                avg_row += [f'0/{model_total}']
-    df.loc[total] = avg_row
+            rel_df = df[(df['filtered'] == filter_type) \
+                & (df['true_muts'] == muts_type)]
+            avg_row[3:-1] = rel_df.iloc[:,3:-1].mean(axis=0).values
+
+            df.loc[total] = avg_row
+
+            model_total = rel_df.dropna().shape[0]
+            if clock:
+                try:
+                    avg_hyp = [f'{rel_df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
+                except KeyError:
+                    avg_hyp = [f'0/{model_total}']
+            else:
+                try:
+                    avg_hyp = [f'{rel_df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
+                except KeyError:
+                    avg_hyp = [f'0/{model_total}']
+            df.loc[total, 'filtered'] = int(filter_type)
+            df.loc[total, 'true_muts'] = int(muts_type)
+            df.loc[total, 'hypothesis_poissonTree'] = avg_hyp
     df.to_csv(out_file, sep='\t', index=False)
 
-    print(df.loc[total])
+    print(df.loc[total - 2])
 
     # try:
     #     from plotting import plot_test_statistic, generate_pval_plot
