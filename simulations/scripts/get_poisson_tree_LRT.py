@@ -265,7 +265,7 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
 
-    add_br_weigts(tree, max(FP LAMBDA_MIN), max(FN, LAMBDA_MIN))
+    add_br_weigts(tree, max(FP, LAMBDA_MIN), max(FN, LAMBDA_MIN))
     return tree, FP, FN
 
 
