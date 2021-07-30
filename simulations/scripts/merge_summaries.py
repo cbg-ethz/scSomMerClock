@@ -14,9 +14,16 @@ def merge_summaries(in_files, out_file):
         if method == 'poisson':
             suffix = f'{method}'
         else:
-            tree = in_file.split(os.sep)[-2].split('_')[-1]
-            if tree not in ['cellcoal', 'cellphy', 'scite']:
-                tree = os.path.basename(in_file).split('.')[1]
+            tree_dir = in_file.split(os.sep)[-2]
+            if 'cellcoal' in tree_dir:
+                tree = 'cellcoal'
+            elif 'cellphy' in tree_dir:
+                tree = 'cellphy'
+
+            elif 'scite' in tree_dir:
+                tree = 'scite'
+            else:
+                raise RuntimeError(f'Cannot determine tree from dir: {tree_dir}')
             suffix = f'{method}.{tree}'
 
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
@@ -33,6 +40,7 @@ def merge_summaries(in_files, out_file):
 
         df = pd.concat([df, new_df], axis=1)
 
+    df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
 
 

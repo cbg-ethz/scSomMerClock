@@ -187,6 +187,10 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         for i in tree.find_clades():
             i.branch_length = i.true_mut_no
         br_labels = lambda c: f'{c.true_mut_no}'
+    elif br_length == 'weights':
+        for i in tree.find_clades():
+            i.branch_length = i.weight
+        br_labels = lambda c: f'{c.weight:.3f}'
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -260,6 +264,8 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
 
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
+
+    add_br_weigts(tree, FP, FN)
     return tree, FP, FN
 
 
@@ -432,6 +438,45 @@ def map_mutations_to_tree_naive(tree, muts, min_dist):
         tree = collapse_branches(tree, min_dist)
 
 
+def add_br_weigts(tree, FP_in, FN_in):
+    m = tree.count_terminals()
+    n = 2 * m - 1
+    X = np.zeros((n, m), dtype=int)
+    # Get terminal matrix
+    nodes = [i for i in tree.find_clades()]
+    for i, node in enumerate(nodes):
+        cells = [int(i[-4:]) - 1 for i in node.name.split('+')]
+        X[i, cells] = 1
+    X = np.vstack([X, np.zeros(m)])
+    X_inv = 1 - X
+
+    TP = np.log(1 - FN_in)
+    FP = np.log(FP_in)
+    TN = np.log(1 - FP_in)
+    FN = np.log(FN_in)
+
+    errors = np.array([TP, FP, TN, FN])
+    errors_rev = np.array([TP, FN, TN, FP])
+
+    weights = np.zeros(n + 1)
+    for i, y in enumerate(X):
+        data = np.stack([
+            np.nansum(X * y, axis=1), # TP
+            np.nansum(X_inv * y, axis=1), # FP
+            np.nansum(X_inv * (1 - y), axis=1), # TN
+            np.nansum(X * (1 - y), axis=1), # FN,
+        ])
+        probs_FN = np.dot(errors, data)
+        probs_FP = np.dot(errors_rev, data)
+        probs = np.exp(np.logaddexp(probs_FN, probs_FP))
+
+        weights[i] = 1 - np.delete(probs, i).sum()
+
+    weights_norm = weights / weights.max()
+    for i, node in enumerate(nodes):
+        node.weight = weights_norm[i]
+
+
 def add_true_muts(tree, true_muts):
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
@@ -578,6 +623,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
     Y = np.zeros(br_no, dtype=float)
     # distance from leaf nodes
     d = np.ones((br_no, 2), dtype=float)
+    weights = np.zeros(br_no, dtype=float)
 
     constr = np.zeros((br_indi_no, br_no), dtype=int)
     init = np.zeros(br_no)
@@ -627,6 +673,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 else:
                     Y[node_idx] = max(min_dist, round(terminal.mut_no))
                 d[node_idx] = [1, np.nan]
+                weights[node_idx] = terminal.weight
                 X[node_idx, l_idx] = 1
                 br_cells[terminal] = node_idx
                 terminal.lambd = f'+{l_idx}'
@@ -644,6 +691,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
             else:
                 Y[node_idx] = max(min_dist, round(terminal.mut_no))
             d[node_idx] = [1, np.nan]
+            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
@@ -658,6 +706,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = max(min_dist, round(internal.mut_no))
             d[node_idx] = [internal.clades[0].name.count('+') + 1,
                 internal.clades[1].name.count('+') + 1]
+            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             X[node_idx] -= get_traversal(internal, tree, X, br_cells)
             br_cells[internal] = node_idx
@@ -674,6 +723,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = max(min_dist, round(shorter.mut_no))
             d[node_idx] = [shorter.clades[0].name.count('+') + 1,
                 shorter.clades[1].name.count('+') + 1]
+            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
@@ -687,6 +737,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = max(min_dist, round(longer.mut_no))
             d[node_idx] = [longer.clades[0].name.count('+') + 1,
                 longer.clades[1].name.count('+') + 1]
+            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             # Add (shortest) lambda traversal over shorter branch
             X[node_idx] += get_traversal(shorter, tree, X, br_cells)
@@ -715,7 +766,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
     assert (init >= max(min_dist, 2 * LAMBDA_MIN)).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
-    return Y, constr, init, d
+    return Y, constr, init, weights
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -870,11 +921,10 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
-            Y, constr, init, leaf_dist = get_model_data(tree, min_dist=0,
+            Y, constr, init, weights = get_model_data(tree, min_dist=0,
                 true_data=muts_type)
             # weights = 1 - np.nansum(FN ** leaf_dist, axis=1) \
             #     - np.nansum(FP ** leaf_dist, axis=1)
-            weights = np.array([])
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
