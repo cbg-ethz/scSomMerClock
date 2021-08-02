@@ -291,6 +291,44 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     return tree, FP, FN
 
 
+def get_rooted_tree(tree_str, paup_exe):
+    temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
+    temp_tree_file.write(str.encode(tree_str))
+    temp_tree_file.close()
+
+    out_file = tempfile.NamedTemporaryFile(delete=False)
+    paup_cmd = 'getTrees file={i};\n' \
+        'DerootTrees;\n'\
+        'outgroup healthycell;\n' \
+        'RootTrees rootMethod=outgroup userBrLens=yes;\n' \
+        'saveTrees format=Newick root=yes brLens=user taxaBlk=yes file={o} ;\n' \
+        'quit;'.format(i=temp_tree_file.name, o=out_file.name)
+
+    paup_file = tempfile.NamedTemporaryFile(delete=False)
+    paup_file.write(str.encode(paup_cmd))
+    paup_file.close()
+
+    shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
+    paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = paup.communicate()
+    paup.wait()
+
+    assert stderr == b'', str(stdout) + '\n' + str(stderr)
+
+    with open(out_file.name, 'r') as f_tree:
+        tree_new = f_tree.read().strip()
+    out_file.close()
+
+    # try:
+    #     wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
+    # except AttributeError:
+    #     import pdb; pdb.set_trace()
+    #     wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
+
+    return Phylo.read(StringIO(tree_new), 'newick')
+
+
 def add_cellphy_mutation_map(tree_file, paup_exe, muts):
     mut_file = tree_file.replace('mutationMapTree', 'mutationMapList')
     with open(mut_file, 'r') as f_muts:
@@ -302,59 +340,44 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
     tree_old_approx = tree_old
 
+    tree_init = Phylo.read(StringIO(tree_old), 'newick')
+    tree_init.root_with_outgroup('healthycell')
+
+    name_map = {}
+    for node in tree_init.find_clades():
+        terminals = '+'.join([i.name for i in node.get_terminals()])
+        name_map[terminals] = node.name
+
+    mut_map = {}
     for i in muts_raw:
         try:
-            id, mut_no, _ = i.split('\t')
+            id, mut_no, muts = i.split('\t')
         except ValueError:
             id, mut_no = i.split('\t')
+            muts = ''
+        node_name = re.search(f'(\w*):\d+\.\d+\[{id}\]', tree_old).group(1)
         tree_old = re.sub(f'\d+\.\d+\[{id}\]', mut_no, tree_old)
+        if muts:
+            mut_map[node_name] = set([int(i[3:]) for i in muts.split(',')])
+        else:
+            mut_map[node_name] = set([])
 
     for l in re.findall('\d+\.\d+\[\d+\]', tree_old_approx):
         # TODO take value from config
         new_l = float(l.split('[')[0]) * 10000
         tree_old_approx = re.sub(re.escape(l), str(new_l), tree_old_approx)
 
-    def get_rooted_tree(tree_str):
-        temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_tree_file.write(str.encode(tree_str))
-        temp_tree_file.close()
 
-        out_file = tempfile.NamedTemporaryFile(delete=False)
-        paup_cmd = 'getTrees file={i};\n' \
-            'DerootTrees;\n'\
-            'outgroup healthycell;\n' \
-            'RootTrees rootMethod=outgroup userBrLens=yes;\n' \
-            'saveTrees format=Newick root=yes brLens=user file={o} ;\n' \
-            'quit;'.format(i=temp_tree_file.name, o=out_file.name)
-
-        paup_file = tempfile.NamedTemporaryFile(delete=False)
-        paup_file.write(str.encode(paup_cmd))
-        paup_file.close()
-
-        shell_cmd = ' '.join([paup_exe, '-n', paup_file.name ])#, '>', '/dev/null'])
-        paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        stdout, stderr = paup.communicate()
-        paup.wait()
-
-        assert stderr == b'', str(stdout) + '\n' + str(stderr)
-
-        with open(out_file.name, 'r') as f_tree:
-            tree_new = f_tree.read().strip()
-        out_file.close()
-
-        # try:
-        #     wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
-        # except AttributeError:
-        #     import pdb; pdb.set_trace()
-        #     wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
-
-        return Phylo.read(StringIO(tree_new), 'newick')
-
-    tree = get_rooted_tree(tree_old)
+    tree = get_rooted_tree(tree_old, paup_exe)
     for node in tree.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
         node.mut_no = node.branch_length
+
+        try:
+            node.muts_br = mut_map[name_map[node.name]]
+        except KeyError:
+            node.muts_br = set([])
+
         # Correct PAUP* rooting by replacing branch with 0 length branch
         # if node.name == 'healthycell':
         #     node.mut_no = node.branch_length + wrong_root_len
@@ -365,7 +388,7 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
         # else:
         #     node.mut_no = node.branch_length
 
-    tree_approx = get_rooted_tree(tree_old_approx)
+    tree_approx = get_rooted_tree(tree_old_approx, paup_exe)
     for node in tree_approx.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
         node.mut_no = round(node.branch_length)
