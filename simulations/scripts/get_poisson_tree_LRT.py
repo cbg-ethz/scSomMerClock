@@ -95,11 +95,18 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 elif gt[0] != '0' or gt[1] != '0':
                     line_muts[0][s_i] = 1
 
+            # skip lines without any call, neither true or false
+            if not any(np.nansum(line_muts, axis=1) > 0):
+                skip += 1
+                continue
+
             for i in [0, 1]:
                 data[i].append(line_muts[i])
 
             pos = int(line_cols[1])
             idx[1].append(pos)
+
+            if pos == 1419: import pdb; pdb.set_trace()
             if 'PASS' in line_cols[6]:
                 idx[0].append(pos)
             else:
@@ -189,7 +196,7 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         br_labels = lambda c: f'{c.true_mut_no}'
     elif br_length == 'weights':
         for i in tree.find_clades():
-            i.branch_length = i.weight
+            i.branch_length = i.branch_length
         br_labels = lambda c: f'{c.weight:.3f}'
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
@@ -213,10 +220,20 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
         #     br_length=True)
         # tree = Phylo.read(StringIO(tree_str), 'newick')
         tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
-        tree = tree_approx
-        FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-            .group(1))
-        FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+        tree = tree_mapped
+        if FN_fix:
+            FN = max(FN_fix, LAMBDA_MIN)
+        else:
+            FN = max(float(re.search('WGA(0[\.\d]*)-', tree_file).group(1)),
+                LAMBDA_MIN)
+
+        if FP_fix:
+            FP = max(FP_fix, LAMBDA_MIN)
+        else:
+            FP = max(
+                float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+                    .group(1)),
+                LAMBDA_MIN)
     else:
         if 'scite' in tree_file:
             samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
@@ -249,14 +266,14 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
             FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
 
         if FN_fix:
-            FN = FN_fix
+            FN = max(FN_fix, LAMBDA_MIN)
         else:
-            FN = max(FN, 0.01)
+            FN = max(FN, LAMBDA_MIN)
 
         if FP_fix:
-            FP = FP_fix
+            FP = max(FP_fix, LAMBDA_MIN)
         else:
-            FP = max(FP, 1e-6)
+            FP = max(FP, LAMBDA_MIN)
 
         tree = Phylo.read(StringIO(tree_str), 'newick')
         map_mutations_to_tree(tree, muts.copy(), FP_rate=FP, FN_rate=FN)
@@ -265,7 +282,12 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
 
-    add_br_weigts(tree, max(FP, LAMBDA_MIN), max(FN, LAMBDA_MIN))
+    # If FN is inferred: add missing rate to FN for branch weight determination
+    if 'scite' in tree_file:
+        MS = muts.isna().sum().sum() / muts.size
+    else:
+        MS = 0
+    add_br_weigts(tree, FP, FN + MS)
     return tree, FP, FN
 
 
@@ -372,7 +394,7 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
     # Initialize node attributes on tree and get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
-        node.muts = set([])
+        node.muts_br = set([])
         node.mut_no = 0
         leaf_nodes = [j.name for j in node.get_terminals()]
         X.loc[i, leaf_nodes] = 1
@@ -407,7 +429,7 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
 
         # import pdb; pdb.set_trace()
         for best_node in best_nodes:
-            node_map[best_node].muts.add(idx_map[i])
+            node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
         soft_assigned += _normalize_log_probs(probs)
     for i, node in node_map.items():
@@ -477,19 +499,30 @@ def add_br_weigts(tree, FP_in, FN_in):
         node.weight = weights_norm[i]
 
 
-def add_true_muts(tree, true_muts):
+def add_true_muts(tree, df_true):
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
-        leaf_node.true_muts = set(true_muts.loc[true_muts[leaf_node.name] == 1].index)
+        leaf_node.true_muts_node = set(
+            df_true.loc[df_true[leaf_node.name] == 1].index)
+        # leaf_node.false_muts = leaf_node.muts.difference(leaf_node.true_muts)
 
     for int_node in tree.get_nonterminals(order='postorder'):
         child0 = int_node.clades[0]
         child1 = int_node.clades[1]
-        int_node.true_muts = child0.true_muts.intersection(child1.true_muts)
-        child0.true_mut_no = len(child0.true_muts.difference(int_node.true_muts))
-        child1.true_mut_no = len(child1.true_muts.difference(int_node.true_muts))
+        int_node.true_muts_node = child0.true_muts_node \
+            .intersection(child1.true_muts_node)
+        # child0.false_muts = int_node.true_muts_node.difference(int_node.true_muts)
+        child0.true_muts_br = child0.true_muts_node \
+            .difference(int_node.true_muts_node)
+        child0.false_muts_br = child0.muts_br.difference(child0.true_muts_br)
+        child0.true_mut_no = len(child0.true_muts_br)
+        child1.true_muts_br = child1.true_muts_node \
+            .difference(int_node.true_muts_node)
+        child1.false_muts_br = child1.muts_br.difference(child1.true_muts_br)
+        child1.true_mut_no = len(child1.true_muts_br)
 
-    tree.root.true_mut_no = len(tree.root.true_muts)
+    tree.root.true_muts_br = tree.root.true_muts_node
+    tree.root.true_mut_no = len(tree.root.true_muts_br)
 
 
 def prune_leafs(tree_in):
@@ -915,16 +948,15 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
             filter=filter_type)
         tree, FP, FN = get_tree(tree_file, muts, paup_exe,)
             # FP_fix=stats['FP'] / muts.size,
-            # FN_fix=(stats['FN'] + stats['MS_T']) / muts.size)
+            # FN_fix=(stats['FN'] + stats['MS']) / muts.size)
         add_true_muts(tree, true_muts)
 
+        # import pdb; pdb.set_trace()
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
             Y, constr, init, weights = get_model_data(tree, min_dist=0,
                 true_data=muts_type)
-            # weights = 1 - np.nansum(FN ** leaf_dist, axis=1) \
-            #     - np.nansum(FP ** leaf_dist, axis=1)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
@@ -939,7 +971,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                 model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
                     f'{p_val:.2E}\t{hyp}\n'
 
-    # if p_val < alpha: import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 

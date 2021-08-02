@@ -240,11 +240,11 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
         if not br_length:
             tree = re.sub(':0.\d+', '', tree)
 
-        if 'trees_dir' in in_file:
+        if 'cellphy' in in_file:
+            tree =re.sub('\[\d+\]', '', tree)
+        else:
             tree = tree.replace('cell', 'tumcell') \
                 .replace('outgtumcell', 'healthycell')
-        elif 'cellphy' in in_file:
-            tree =re.sub('\[\d+\]', '', tree)
     
     temp_tree_file.write(str.encode(tree))
     temp_tree_file.close()
