@@ -106,7 +106,6 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             pos = int(line_cols[1])
             idx[1].append(pos)
 
-            if pos == 1419: import pdb; pdb.set_trace()
             if 'PASS' in line_cols[6]:
                 idx[0].append(pos)
             else:
