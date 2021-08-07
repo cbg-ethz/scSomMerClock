@@ -67,8 +67,8 @@
 [OUTPUT]
     [print SNV genotypes] [1]
     [print SNV haplotypes] [2]
-    [print full genotypes] {out_full_GT}
-    [print full haplotypes] [4]
+    [print full genotypes] [3]
+    [print full haplotypes] {out_full_hap}
     [print root ancestors] 5
     [print trees] {out_tree}
     [print times] [7]

@@ -213,70 +213,65 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     )
 
 
-def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
+def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
+    FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1))
+    FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+
     if 'cellphy' in tree_file:
-        # _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
-        #     br_length=True)
-        # tree = Phylo.read(StringIO(tree_str), 'newick')
-        tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
-        tree = tree_mapped
-        if FN_fix:
-            FN = max(FN_fix, LAMBDA_MIN)
-        else:
-            FN = max(float(re.search('WGA(0[\.\d]*)-', tree_file).group(1)),
-                LAMBDA_MIN)
+        _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
+            br_length=True)
+        # tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
+        # tree = tree_mapped
 
-        if FP_fix:
-            FP = max(FP_fix, LAMBDA_MIN)
-        else:
-            FP = max(
-                float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-                    .group(1)),
-                LAMBDA_MIN)
-    else:
-        if 'scite' in tree_file:
-            samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
-                + ['healthycell']
-            tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-                sample_names=samples, br_length=True)
-            error_file = tree_file.replace('_ml0.newick', '.errors.csv')
-            log_file =  tree_file.replace('_ml0.newick', '.log')
-            if os.path.exists(error_file):
-                with open(error_file, 'r') as f:
-                    errors_raw = f.read().strip().split('\n')
-                FP, FN = [float(i) for i in errors_raw[1].split(',')]
-            elif os.path.exists(log_file):
-                with open(log_file, 'r') as f:
-                    log_raw = f.read()
-                FN = float(
-                    re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                        .group(1))
-                FP = float(
-                    re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                        .group(1))
-            else:
-                FP = 1e-3
-                FN = 0.15
-        else:
-            tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
-                br_length=True)
-            FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+        log_file = tree_file.replace('.mutationMapTree', '.log')
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                log = f.read().strip()
+            try:
+                FP = float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1))
+                FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1))
+            except AttributeError:
+                pass
+    elif 'scite' in tree_file:
+        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
+            + ['healthycell']
+        tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
+            sample_names=samples, br_length=True)
+        # Get ML error rates from log file
+        error_file = tree_file.replace('_ml0.newick', '.errors.csv')
+        log_file =  tree_file.replace('_ml0.newick', '.log')
+        if os.path.exists(error_file):
+            with open(error_file, 'r') as f:
+                errors_raw = f.read().strip().split('\n')
+            FP, FN = [float(i) for i in errors_raw[1].split(',')]
+        elif os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                log_raw = f.read()
+            FN = float(
+                re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1))
-            FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+            FP = float(
+                re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
+                    .group(1))
+    else:
+        tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
+            br_length=True)
 
-        if FN_fix:
-            FN = max(FN_fix, LAMBDA_MIN)
-        else:
-            FN = max(FN, LAMBDA_MIN)
+    tree = Phylo.read(StringIO(tree_str), 'newick')
 
-        if FP_fix:
-            FP = max(FP_fix, LAMBDA_MIN)
-        else:
-            FP = max(FP, LAMBDA_MIN)
+    if FN_fix:
+        FN = FN_fix
+    FN = max(FN, LAMBDA_MIN)
 
-        tree = Phylo.read(StringIO(tree_str), 'newick')
-        map_mutations_to_tree(tree, muts.copy(), FP_rate=FP, FN_rate=FN)
-        # map_mutations_to_tree_naive(tree, muts, min_dist)
+    if FP_fix:
+        FP = FP_fix
+    FP = max(FP, LAMBDA_MIN)
+
+    # if stats:
+    #     FP = stats['FP'] / muts.size
+    #     FN = (stats['FN'] + stats['MS']) / muts.size
+
+    map_mutations_to_tree(tree, muts.copy(), FP_rate=FP, FN_rate=FN)
 
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
@@ -286,6 +281,10 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
         MS = muts.isna().sum().sum() / muts.size
     else:
         MS = 0
+
+    # FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+    #                 .group(1))
+    # FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
     add_br_weigts(tree, FP, FN + MS)
     return tree, FP, FN
 
@@ -439,7 +438,6 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
 
     soft_assigned = np.zeros(X.shape[0])
     for i, mut in tqdm(enumerate(muts)):
-
         mut_data = np.stack([
             np.nansum(X * mut, axis=1), # TP
             np.nansum(X_inv * mut, axis=1), # FP
@@ -449,11 +447,11 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         probs = np.dot(errors, mut_data)
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
-        # import pdb; pdb.set_trace()
         for best_node in best_nodes:
             node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
         soft_assigned += _normalize_log_probs(probs)
+
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
 
@@ -491,6 +489,7 @@ def add_br_weigts(tree, FP_in, FN_in):
     for i, node in enumerate(nodes):
         cells = [int(i[-4:]) - 1 for i in node.name.split('+')]
         X[i, cells] = 1
+    # Add zero line for wildtype probabiltities
     X = np.vstack([X, np.zeros(m)])
     X_inv = 1 - X
 
@@ -502,8 +501,8 @@ def add_br_weigts(tree, FP_in, FN_in):
     errors = np.array([TP, FP, TN, FN])
     errors_rev = np.array([TP, FN, TN, FP])
 
-    weights = np.zeros(n + 1)
-    for i, y in enumerate(X):
+    weights = np.zeros(n)
+    for i, y in enumerate(X[:-1]):
         data = np.stack([
             np.nansum(X * y, axis=1), # TP
             np.nansum(X_inv * y, axis=1), # FP
@@ -573,7 +572,6 @@ def prune_leafs(tree_in):
             break
 
     return tree
-
 
 
 def collapse_branches(tree, min_dist):
@@ -951,24 +949,22 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
-            weight=1):
-
+def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
     alpha = 0.05
 
-    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
+    cols = ['FP', 'FN', 'H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
     header_str = 'run\tfiltered\ttrue_muts\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
     header_str += '\t'.join([f'{col}_poissonTree' for col in cols])
     model_str = ''
 
-    filter_muts = [False, True]
+    filter_muts = [True]
     use_true_muts = [True, False]
 
     for filter_type in filter_muts:
         muts, true_muts, stats = get_mut_df(vcf_file, exclude, include,
             filter=filter_type)
-        tree, FP, FN = get_tree(tree_file, muts, paup_exe,)
+        tree, FP, FN = get_tree(tree_file, muts, paup_exe, stats=stats)
             # FP_fix=stats['FP'] / muts.size,
             # FN_fix=(stats['FN'] + stats['MS']) / muts.size)
         add_true_muts(tree, true_muts)
@@ -990,8 +986,8 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                     continue
                 hyp = f'H{int(p_val < alpha)}'
 
-                model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
-                    f'{p_val:.2E}\t{hyp}\n'
+                model_str += f'\t{FP}\t{FN}\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t' \
+                    f'{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
 
     # import pdb; pdb.set_trace()
     with open(out_file, 'w') as f_out:
@@ -1005,8 +1001,6 @@ def parse_args():
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
     parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
-    parser.add_argument('-w', '--weights', type=float, default=1,
-        help='Weight for leaf branches (<1 = down-weighting). Default = 1')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
@@ -1023,8 +1017,7 @@ if __name__ == '__main__':
             snakemake.params.include = ''
         test_data(snakemake.input.vcf, snakemake.input.tree, 
             snakemake.output[0], snakemake.params.paup_exe,
-            snakemake.params.exclude, snakemake.params.include,
-            snakemake.params.weights)
+            snakemake.params.exclude, snakemake.params.include)
     else:
         import argparse
         args = parse_args()
@@ -1032,4 +1025,4 @@ if __name__ == '__main__':
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree.LRT.tsv')
         test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
-            args.include, args.weights)
+            args.include)

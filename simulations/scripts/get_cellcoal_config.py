@@ -74,15 +74,13 @@ def get_cellcoal_config(config, template_file, out_dir):
 
     templ = re.sub('{out_tree}', '6', templ)
 
-    if config['cellcoal'].get('output', {}).get('full_GT', False) \
-            or config.get('paup', {}).get('full_GT', False) \
-            or config.get('sieve', {}).get('run', False):
-        templ = re.sub('{out_full_GT}', '3', templ)
+    if config['cellcoal'].get('output', {}).get('observed_haplotype', False):
+        templ = re.sub('{out_full_hap}', '4', templ)
     else:
-        templ = re.sub('{out_full_GT}', '', templ)
+        templ = re.sub('{out_full_hap}', '', templ)
 
     if config['cellcoal'].get('output', {}).get('true_haplotype', False):
-        templ = re.sub('{out_true_hap}', '9', templ)
+        templ = re.sub('{out_true_hap}', 'Y', templ)
     else:
         templ = re.sub('{out_true_hap}', '', templ)
 

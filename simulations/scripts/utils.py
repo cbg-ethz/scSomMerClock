@@ -192,12 +192,11 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     return samples, [i.replace('-', '_') for i in sample_names]
 
 
-def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
+def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
         sample_names=[], br_length=False):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
-
 
     with open(in_file, 'r') as f_tree:
         tree = f_tree.read().strip()

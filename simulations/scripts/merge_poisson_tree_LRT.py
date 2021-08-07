@@ -15,8 +15,8 @@ def merge_LRT(in_files, out_file):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
 
-    filter_muts = [True, False]
-    use_true_muts = [True, False]
+    filter_muts = df['filtered'].unique()
+    use_true_muts = df['true_muts'].unique()
 
     for filter_type in filter_muts:
         for muts_type in use_true_muts:
@@ -45,7 +45,9 @@ def merge_LRT(in_files, out_file):
             df.loc[total, 'hypothesis_poissonTree'] = avg_hyp
     df.to_csv(out_file, sep='\t', index=False)
 
-    print(df.loc[total - 2])
+    avg_row = df[(df['run'] == -1) & (df['filtered'] == True) \
+        & (df['true_muts'] == False)]
+    print(avg_row.iloc[0])
 
     # try:
     #     from plotting import plot_test_statistic, generate_pval_plot
