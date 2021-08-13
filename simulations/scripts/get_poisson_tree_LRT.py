@@ -78,22 +78,29 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             line_muts = np.zeros((2, sample_no))
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
-                    gt = s_rec[:s_rec.index(':')].split('|')
-                    true_gt = s_rec[-3:].split('|')
+                    gt = s_rec[:s_rec.index(':')]
+                    true_gt = s_rec[-3:]
                 # Missing in Monovar output format
                 except ValueError:
                     line_muts[:, s_i] = np.nan
                     continue
 
                 # Get true gt
-                if true_gt[0] != '0' or true_gt[1] != '0':
+                if true_gt.count('0') == 1:
                     line_muts[1][s_i] = 1
+                elif true_gt == '1|1' or true_gt == '2|2' or true_gt == '1|2' \
+                        or true_gt == '2|1':
+                    line_muts[1][s_i] = 2
                 # Set filtered genotypes to nan
-                if gt[0] == '.' or gt[1] == '.':
+                if gt == '.|.':
                     line_muts[0][s_i] = np.nan
                 # Check if gt is mutation
-                elif gt[0] != '0' or gt[1] != '0':
+                elif gt.count('0') == 1:
                     line_muts[0][s_i] = 1
+                elif gt == '0|0':
+                    pass
+                else:
+                    line_muts[0][s_i] = 2
 
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
@@ -133,13 +140,13 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
 
 def get_stats(df, true_df, verbose=False):
-    TP = ((true_df == 1) & (df == 1)).sum().sum()
-    FP = ((true_df == 0) & (df == 1)).sum().sum()
+    TP = ((df == true_df) & df > 0).sum().sum()
+    FP = (df > true_df).sum().sum()
     TN = ((true_df == 0) & (df == 0)).sum().sum()
-    FN = ((true_df == 1) & (df == 0)).sum().sum()
+    FN = (df < true_df).sum().sum()
     MS = df.isna().sum().sum()
     MS_N = ((true_df == 0) & (df.isna())).sum().sum()
-    MS_T = ((true_df == 1) & (df.isna())).sum().sum()
+    MS_T = ((true_df > 1) & (df.isna())).sum().sum()
 
     if verbose:
         print(f'# Mutations: {df.shape[0]} ' \
@@ -271,7 +278,7 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
     #     FP = stats['FP'] / muts.size
     #     FN = (stats['FN'] + stats['MS']) / muts.size
 
-    map_mutations_to_tree(tree, muts.copy(), FP_rate=FP, FN_rate=FN)
+    map_mutations_to_tree(tree, muts, FP_rate=FP, FN_rate=FN)
 
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
@@ -408,10 +415,10 @@ def _normalize_log_probs(probs):
     return np.exp(np.clip(probs_norm, log_LAMBDA_MIN, 0))
 
 
-def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
-    n = muts.shape[1]
+def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
+    n = muts_in.shape[1]
     node_map = {}
-    X = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts.columns)
+    X = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts_in.columns)
     # Initialize node attributes on tree and get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
@@ -422,8 +429,15 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
-    idx_map = muts.index.values
-    muts = muts.values
+    idx_map = muts_in.index.values
+    nans = np.isnan(muts_in).values
+    muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
+
+    het = np.where(muts_in == 1, 1, 0)
+    het = np.where(nans, np.nan, het)
+    hom = np.where(muts_in == 2, 1, 0)
+    hom = np.where(nans, np.nan, hom)
+
     X_inv = 1 - X
     muts_inv = 1 - muts
 
@@ -435,6 +449,16 @@ def map_mutations_to_tree(tree, muts, FP_rate=1e-4, FN_rate=0.2):
     FN = np.log(FN_n)
 
     errors = np.array([TP, FP, TN, FN])
+    print(np.exp(errors))
+
+    TP = np.log(1 - FP_n / 3 + FP_n * FN_n / 6 - FN_n / 2 + FN_n * FN_n / 4)
+    FP = np.log(2 * FP_n)
+    TN = np.log(1 - 2 * FP_n)
+    FN = np.log(FP_n / 3 - FP_n * FN_n / 6 + FN_n / 2 - FN_n * FN_n / 4)
+
+    errors = np.array([TP, FP, TN, FN])
+    print(np.exp(errors))
+
 
     soft_assigned = np.zeros(X.shape[0])
     for i, mut in tqdm(enumerate(muts)):
@@ -499,9 +523,16 @@ def add_br_weigts(tree, FP_in, FN_in):
     FN = np.log(FN_in)
 
     errors = np.array([TP, FP, TN, FN])
-    errors_rev = np.array([TP, FN, TN, FP])
+
+    TP = np.log(1 - FP_in / 3 + FP_in * FN_in / 6 - FN_in / 2 + FN_in * FN_in / 4)
+    FP = np.log(2 * FP_in)
+    TN = np.log(1 - 2 * FP_in)
+    FN = np.log(FP_in / 3 - FP_in * FN_in / 6 + FN_in / 2 - FN_in * FN_in / 4)
+
+    errors = np.array([TP, FP, TN, FN])
 
     weights = np.zeros(n)
+    odds = np.zeros(n)
     for i, y in enumerate(X[:-1]):
         data = np.stack([
             np.nansum(X * y, axis=1), # TP
@@ -509,13 +540,14 @@ def add_br_weigts(tree, FP_in, FN_in):
             np.nansum(X_inv * (1 - y), axis=1), # TN
             np.nansum(X * (1 - y), axis=1), # FN,
         ])
-        probs_FN = np.dot(errors, data)
-        probs_FP = np.dot(errors_rev, data)
-        probs = np.exp(np.logaddexp(probs_FN, probs_FP))
+        probs = np.dot(errors, data)
+        probs_norm = _normalize_log_probs(probs)
 
-        weights[i] = 1 - np.delete(probs, i).sum()
+        odds[i] = probs_norm[i] / np.delete(probs_norm, i).sum()
+        weights[i] = 1 - np.delete(probs_norm, i).sum()
 
-    weights_norm = weights / weights.max()
+    # import pdb; pdb.set_trace()
+    weights_norm = weights.size * weights / weights.sum()
     for i, node in enumerate(nodes):
         node.weight = weights_norm[i]
 

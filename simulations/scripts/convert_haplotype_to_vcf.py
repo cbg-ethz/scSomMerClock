@@ -145,7 +145,6 @@ def save_true_vcf(haps, out_file):
     for key, val in zip(['TP', 'FP', 'TN', 'FN', 'MS'], stats):
         print(f'{key}:\t{val:.4f}')
     print(f'FP:\t{hom_errors / bp_total:.4f}\t(het -> hom)')
-    import pdb; pdb.set_trace()
     with open(out_file, 'w') as f:
         f.write(VCF_TEMPLATE\
             .format(contig_length=len(ref['m']), rows=out_str.rstrip(),
