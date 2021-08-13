@@ -512,9 +512,12 @@ def add_br_weigts(tree, FP_in, FN_in):
     X = np.zeros((n, m), dtype=int)
     # Get terminal matrix
     nodes = [i for i in tree.find_clades()]
+    root_idx = -1
     for i, node in enumerate(nodes):
         cells = [int(i[-4:]) - 1 for i in node.name.split('+')]
         X[i, cells] = 1
+        if node == tree.root:
+            root_idx = i
     # Add zero line for wildtype probabiltities
     X = np.vstack([X, np.zeros(m)])
     X_inv = 1 - X
@@ -548,8 +551,8 @@ def add_br_weigts(tree, FP_in, FN_in):
         odds[i] = probs_norm[i] / np.delete(probs_norm, i).sum()
         weights[i] = 1 - np.delete(probs_norm, i).sum()
 
-    # import pdb; pdb.set_trace()
     weights_norm = weights.size * weights / weights.sum()
+    print(weights_norm.size, weights_norm.sum())
     for i, node in enumerate(nodes):
         node.weight = weights_norm[i]
 
@@ -703,18 +706,15 @@ def get_model_data(tree, min_dist=0, true_data=False):
 
     internal_nodes = [i for i in tree.find_clades(terminal=False)]
 
-    br_indi_no = tree.count_terminals() - 1
+    br_indi_no = tree.count_terminals()
     br_no = br_indi_no + len(internal_nodes)
 
-    X = np.zeros((br_no, br_indi_no), dtype=int)
     Y = np.zeros(br_no, dtype=float)
-    # distance from leaf nodes
-    d = np.ones((br_no, 2), dtype=float)
+    X = np.zeros((br_no, br_indi_no), dtype=int)
     weights = np.zeros(br_no, dtype=float)
 
-    constr = np.zeros((br_indi_no, br_no), dtype=int)
+    constr = np.zeros((br_indi_no - 1, br_no), dtype=int)
     init = np.zeros(br_no)
-    init_p = np.zeros(br_no)
 
     # Get nodes in reverse depth first order
     br_dist = []
@@ -748,7 +748,6 @@ def get_model_data(tree, min_dist=0, true_data=False):
     # Iterate over internal nodes
     node_idx = 0
     br_cells = {}
-    lambdas = {}
     for l_idx, (_, int_node) in enumerate(sorted_br):
         is_terminal = [i.is_terminal() for i in int_node.clades]
         # Both terminal nodes
@@ -759,14 +758,13 @@ def get_model_data(tree, min_dist=0, true_data=False):
                     Y[node_idx] = terminal.true_mut_no
                 else:
                     Y[node_idx] = max(min_dist, round(terminal.mut_no))
-                d[node_idx] = [1, np.nan]
-                weights[node_idx] = terminal.weight
                 X[node_idx, l_idx] = 1
+                weights[node_idx] = terminal.weight
+
                 br_cells[terminal] = node_idx
                 terminal.lambd = f'+{l_idx}'
                 if i == 0:
-                    lambdas[l_idx] = node_idx
-                    init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
+                    init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
                     node_idx += 1
 
         # One internal, one terminal node
@@ -777,13 +775,12 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = terminal.true_mut_no
             else:
                 Y[node_idx] = max(min_dist, round(terminal.mut_no))
-            d[node_idx] = [1, np.nan]
-            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
+            weights[node_idx] = terminal.weight
+
             br_cells[terminal] = node_idx
             terminal.lambd = f'+{l_idx}'
-            lambdas[l_idx] = node_idx
-            init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
+            init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
             node_idx += 1
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
@@ -791,11 +788,10 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = internal.true_mut_no
             else:
                 Y[node_idx] = max(min_dist, round(internal.mut_no))
-            d[node_idx] = [internal.clades[0].name.count('+') + 1,
-                internal.clades[1].name.count('+') + 1]
-            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             X[node_idx] -= get_traversal(internal, tree, X, br_cells)
+            weights[node_idx] = internal.weight
+
             br_cells[internal] = node_idx
             internal.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
                 for i, j in enumerate(X[node_idx]) if j != 0]))
@@ -808,28 +804,25 @@ def get_model_data(tree, min_dist=0, true_data=False):
                 Y[node_idx] = shorter.true_mut_no
             else:
                 Y[node_idx] = max(min_dist, round(shorter.mut_no))
-            d[node_idx] = [shorter.clades[0].name.count('+') + 1,
-                shorter.clades[1].name.count('+') + 1]
-            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
+            weights[node_idx] = shorter.weight
+
             br_cells[shorter] = node_idx
             shorter.lambd = f'+{l_idx}'
-            lambdas[l_idx] = node_idx
-            init[node_idx] = max(min_dist, Y[node_idx], 2 * LAMBDA_MIN)
+            init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
             node_idx += 1
             # Assign lambda sum to longer
             if true_data:
                 Y[node_idx] = longer.true_mut_no
             else:
                 Y[node_idx] = max(min_dist, round(longer.mut_no))
-            d[node_idx] = [longer.clades[0].name.count('+') + 1,
-                longer.clades[1].name.count('+') + 1]
-            weights[node_idx] = terminal.weight
             X[node_idx, l_idx] = 1
             # Add (shortest) lambda traversal over shorter branch
             X[node_idx] += get_traversal(shorter, tree, X, br_cells)
             # Subtract (shortest) lambda traversal over longer branch
             X[node_idx] -= get_traversal(longer, tree, X, br_cells)
+            weights[node_idx] = longer.weight
+
             br_cells[longer] = node_idx
             longer.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
                 for i, j in enumerate(X[node_idx]) if j != 0]))
@@ -848,9 +841,20 @@ def get_model_data(tree, min_dist=0, true_data=False):
             init[node_idx,] = np.matmul(X[node_idx], init[::2])
         node_idx += 1
 
+    # Add data for last node
+    if true_data:
+        Y[node_idx] = int_node.true_mut_no
+    else:
+        Y[node_idx] = max(min_dist, round(int_node.mut_no))
+    X[node_idx, l_idx + 1] = 1
+    weights[node_idx] = int_node.weight
+
+    shorter.lambd = f'+{l_idx + 1}'
+    init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+
     assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
         'Constraints not fulfilled for x_0'
-    assert (init >= max(min_dist, 2 * LAMBDA_MIN)).all(), \
+    assert (init >= max(min_dist, LAMBDA_MIN)).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
     return Y, constr, init, weights
@@ -1002,8 +1006,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
             # FP_fix=stats['FP'] / muts.size,
             # FN_fix=(stats['FN'] + stats['MS']) / muts.size)
         add_true_muts(tree, true_muts)
-
-        # import pdb; pdb.set_trace()
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
