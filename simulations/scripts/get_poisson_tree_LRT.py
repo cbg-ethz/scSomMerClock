@@ -445,21 +445,17 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
 
     FP_n = max(FP_rate, LAMBDA_MIN)
     FN_n = max(FN_rate, LAMBDA_MIN)
-    TP = np.log(1 - FN_n)
-    FP = np.log(FP_n)
-    TN = np.log(1 - FP_n)
-    FN = np.log(FN_n)
-
-    errors = np.array([TP, FP, TN, FN])
-    print(np.exp(errors))
+    # TP = np.log(1 - FN_n)
+    # FP = np.log(FP_n)
+    # TN = np.log(1 - FP_n)
+    # FN = np.log(FN_n)
+    # errors = np.array([TP, FP, TN, FN])
 
     TP = np.log(1 - FP_n / 3 + FP_n * FN_n / 6 - FN_n / 2 + FN_n * FN_n / 4)
     FP = np.log(2 * FP_n)
     TN = np.log(1 - 2 * FP_n)
     FN = np.log(FP_n / 3 - FP_n * FN_n / 6 + FN_n / 2 - FN_n * FN_n / 4)
-
     errors = np.array([TP, FP, TN, FN])
-    print(np.exp(errors))
 
 
     soft_assigned = np.zeros(X.shape[0])
@@ -522,22 +518,18 @@ def add_br_weigts(tree, FP_in, FN_in):
     X = np.vstack([X, np.zeros(m)])
     X_inv = 1 - X
 
-    TP = np.log(1 - FN_in)
-    FP = np.log(FP_in)
-    TN = np.log(1 - FP_in)
-    FN = np.log(FN_in)
-
-    errors = np.array([TP, FP, TN, FN])
+    # TP = np.log(1 - FN_in)
+    # FP = np.log(FP_in)
+    # TN = np.log(1 - FP_in)
+    # FN = np.log(FN_in)
+    # errors = np.array([TP, FP, TN, FN])
 
     TP = np.log(1 - FP_in / 3 + FP_in * FN_in / 6 - FN_in / 2 + FN_in * FN_in / 4)
     FP = np.log(2 * FP_in)
     TN = np.log(1 - 2 * FP_in)
     FN = np.log(FP_in / 3 - FP_in * FN_in / 6 + FN_in / 2 - FN_in * FN_in / 4)
-
     errors = np.array([TP, FP, TN, FN])
 
-    weights = np.zeros(n)
-    odds = np.zeros(n)
     for i, y in enumerate(X[:-1]):
         data = np.stack([
             np.nansum(X * y, axis=1), # TP
@@ -548,13 +540,8 @@ def add_br_weigts(tree, FP_in, FN_in):
         probs = np.dot(errors, data)
         probs_norm = _normalize_log_probs(probs)
 
-        odds[i] = probs_norm[i] / np.delete(probs_norm, i).sum()
-        weights[i] = 1 - np.delete(probs_norm, i).sum()
-
-    weights_norm = weights.size * weights / weights.sum()
-    print(weights_norm.size, weights_norm.sum())
-    for i, node in enumerate(nodes):
-        node.weight = weights_norm[i]
+        nodes[i].odds = probs_norm[i] / max(LAMBDA_MIN, (1 - probs_norm[i]))
+        nodes[i].weight = probs_norm[i]
 
 
 def add_true_muts(tree, df_true):
@@ -706,15 +693,15 @@ def get_model_data(tree, min_dist=0, true_data=False):
 
     internal_nodes = [i for i in tree.find_clades(terminal=False)]
 
-    br_indi_no = tree.count_terminals()
-    br_no = br_indi_no + len(internal_nodes)
+    leaf_no = tree.count_terminals()
+    br_no = 2 * leaf_no - 2
 
     Y = np.zeros(br_no, dtype=float)
-    X = np.zeros((br_no, br_indi_no), dtype=int)
+    init = np.zeros(br_no, dtype=float)
     weights = np.zeros(br_no, dtype=float)
+    leafs = np.ones(br_no, dtype=float)
+    constr = np.zeros((leaf_no - 1, br_no), dtype=int)
 
-    constr = np.zeros((br_indi_no - 1, br_no), dtype=int)
-    init = np.zeros(br_no)
 
     # Get nodes in reverse depth first order
     br_dist = []
@@ -725,25 +712,21 @@ def get_model_data(tree, min_dist=0, true_data=False):
         br_dist.append((br_id, int_node))
     sorted_br = sorted(br_dist, key=lambda x: x[0], reverse=True)
 
-    def get_traversal(start_node, tree, X, br_cells):
-        X_traverse = np.zeros(br_indi_no, dtype=int)
-        traverse = start_node
+    def get_traversal(start_node, tree):
+        traverse = np.zeros(br_no, dtype=int)
+        traverse[br_cells[start_node]] = 1
+        node = start_node
         while True:
             # Exit case: terminal node
-            try:
-                child0 = X[br_cells[traverse.clades[0]]]
-            except IndexError:
+            if len(node.clades) == 0:
                 break
+            if node.clades[0].count_terminals() >= node.clades[1].count_terminals():
+                traverse[br_cells[node.clades[0]]] = 1
+                node = node.clades[0]
             else:
-                child1 = X[br_cells[traverse.clades[1]]]
-
-            if sum(child1 == -1) > sum(child0 == -1):
-                X_traverse += child0
-                traverse = traverse.clades[0]
-            else:
-                X_traverse += child1
-                traverse = traverse.clades[1]
-        return X_traverse
+                traverse[br_cells[node.clades[1]]] = 1
+                node = node.clades[1]
+        return traverse
 
     # Iterate over internal nodes
     node_idx = 0
@@ -754,114 +737,118 @@ def get_model_data(tree, min_dist=0, true_data=False):
         if all(is_terminal):
             # Assign new lambda to terminals
             for i, terminal in enumerate(int_node.clades):
+                br_cells[terminal] = node_idx
                 if true_data:
-                    Y[node_idx] = terminal.true_mut_no
+                    Y[node_idx] = max(min_dist, terminal.true_mut_no)
                 else:
                     Y[node_idx] = max(min_dist, round(terminal.mut_no))
-                X[node_idx, l_idx] = 1
                 weights[node_idx] = terminal.weight
+                constr[l_idx, node_idx] = 1
 
-                br_cells[terminal] = node_idx
                 terminal.lambd = f'+{l_idx}'
+                leafs[node_idx] = 0
                 if i == 0:
                     init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
                     node_idx += 1
+                else:
+                    constr[l_idx, node_idx] = -1
 
         # One internal, one terminal node
         elif any(is_terminal):
             # Assign new lambda to terminal
             terminal = int_node.clades[is_terminal.index(True)]
-            if true_data:
-                Y[node_idx] = terminal.true_mut_no
-            else:
-                Y[node_idx] = max(min_dist, round(terminal.mut_no))
-            X[node_idx, l_idx] = 1
-            weights[node_idx] = terminal.weight
 
             br_cells[terminal] = node_idx
-            terminal.lambd = f'+{l_idx}'
+            if true_data:
+                Y[node_idx] = max(min_dist, terminal.true_mut_no)
+            else:
+                Y[node_idx] = max(min_dist, round(terminal.mut_no))
+            weights[node_idx] = terminal.weight
+            constr[l_idx, node_idx] = 1
             init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+
+            leafs[node_idx] = 0
+            terminal.lambd = f'+{l_idx}'
             node_idx += 1
+
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
-            if true_data:
-                Y[node_idx] = internal.true_mut_no
-            else:
-                Y[node_idx] = max(min_dist, round(internal.mut_no))
-            X[node_idx, l_idx] = 1
-            X[node_idx] -= get_traversal(internal, tree, X, br_cells)
-            weights[node_idx] = internal.weight
 
             br_cells[internal] = node_idx
+            if true_data:
+                Y[node_idx] = max(min_dist, internal.true_mut_no)
+            else:
+                Y[node_idx] = max(min_dist, round(internal.mut_no))
+            weights[node_idx] = internal.weight
+            constr[l_idx] = get_traversal(terminal, tree) - get_traversal(internal, tree)
+
             internal.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
-                for i, j in enumerate(X[node_idx]) if j != 0]))
+                for i, j in enumerate(constr[l_idx]) if j != 0]))
 
         # Both internal nodes
         else:
             shorter, longer = sorted(int_node.clades, key=lambda x: x.branch_length)
             # Assign new lambda to shorter branch
+            br_cells[shorter] = node_idx
             if true_data:
-                Y[node_idx] = shorter.true_mut_no
+                Y[node_idx] = max(min_dist, shorter.true_mut_no)
             else:
                 Y[node_idx] = max(min_dist, round(shorter.mut_no))
-            X[node_idx, l_idx] = 1
             weights[node_idx] = shorter.weight
-
-            br_cells[shorter] = node_idx
-            shorter.lambd = f'+{l_idx}'
+            constr[l_idx, node_idx] = 1
             init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+
+            shorter.lambd = f'+{l_idx}'
             node_idx += 1
             # Assign lambda sum to longer
+            br_cells[longer] = node_idx
             if true_data:
-                Y[node_idx] = longer.true_mut_no
+                Y[node_idx] = max(min_dist, longer.true_mut_no)
             else:
                 Y[node_idx] = max(min_dist, round(longer.mut_no))
-            X[node_idx, l_idx] = 1
-            # Add (shortest) lambda traversal over shorter branch
-            X[node_idx] += get_traversal(shorter, tree, X, br_cells)
-            # Subtract (shortest) lambda traversal over longer branch
-            X[node_idx] -= get_traversal(longer, tree, X, br_cells)
             weights[node_idx] = longer.weight
+            constr[l_idx] = get_traversal(shorter, tree) - get_traversal(longer, tree)
 
-            br_cells[longer] = node_idx
             longer.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
-                for i, j in enumerate(X[node_idx]) if j != 0]))
+                for i, j in enumerate(constr[l_idx]) if j != 0]))
 
-        constr_idx = node_idx // 2
-        constr[constr_idx, node_idx] = 1
-        for i, j in enumerate(X[node_idx]):
-            if j:
-                constr[node_idx // 2, i*2] = -j
-        init_val = np.matmul(X[node_idx], init[::2])
+        init_val = np.dot(constr[l_idx], init)
+
         # Make sure init is within bounds
-        if init_val >= max(2 * LAMBDA_MIN, min_dist):
-            init[node_idx,] = init_val
+        if init_val >= max(LAMBDA_MIN, min_dist):
+            init[node_idx] = init_val
         else:
-            init[node_idx-1,] += -init_val + (1 + min_dist)
-            init[node_idx,] = np.matmul(X[node_idx], init[::2])
+            # If not, increase latested added lambda value
+            init[node_idx - 1] += -init_val + (0.1 + min_dist)
+            init[node_idx] = np.dot(constr[l_idx], init)
         node_idx += 1
 
     # Add data for last node
-    if true_data:
-        Y[node_idx] = int_node.true_mut_no
-    else:
-        Y[node_idx] = max(min_dist, round(int_node.mut_no))
-    X[node_idx, l_idx + 1] = 1
-    weights[node_idx] = int_node.weight
+    # if true_data:
+    #     Y[node_idx] = int_node.true_mut_no
+    # else:
+    #     Y[node_idx] = max(min_dist, round(int_node.mut_no))
+    # weights[node_idx] = int_node.weight
 
-    shorter.lambd = f'+{l_idx + 1}'
-    init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+    # shorter.lambd = f'+{l_idx + 1}'
+    # init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
 
     assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
         'Constraints not fulfilled for x_0'
     assert (init >= max(min_dist, LAMBDA_MIN)).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
-    return Y, constr, init, weights
+    # Normalize weights
+    weights_norm = weights.size * weights / weights.sum()
+
+    return Y, constr, init, weights_norm, leafs
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             alg='trust-constr'):
+
+    # print(weights)
+    # weights = np.ones(Y.size)
     if weights.size == 0:
         weights = np.ones(Y.size)
 
@@ -871,7 +858,8 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
-
+        # TODO: Necessary to scale down for optimization?
+        scale_fac = 1
         def fun_opt(l, Y):
             return -np.nansum(
                 (Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) * weights) \
@@ -892,9 +880,13 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     def fun_hess(l, Y):
         return np.identity(Y.size) * (Y / np.clip(l, LAMBDA_MIN, None)**2) * weights / scale_fac
 
+    rel_constr = np.argwhere(constr[:,np.argwhere(weights).flatten()].sum(axis=1)) \
+        .flatten()
+    constr = constr[rel_constr]
+
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     init = np.clip(init, LAMBDA_MIN, None)
-    bounds = np.full((constr.shape[1], 2), (LAMBDA_MIN, Y.sum()))
+    bounds = np.full((Y.size, 2), (LAMBDA_MIN, Y.sum()))
 
     if alg == 'trust-constr':
         opt = minimize(fun_opt, init, args=(Y,), constraints=const,
@@ -923,9 +915,18 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
         ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
             * weights)
 
-    dof = Y.size - constr.shape[0]
+    dof = weights.sum() - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
-    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
+
+    K = fun_hess(opt.x, Y)
+    np.fill_diagonal(K, np.clip(np.diag(K), LAMBDA_MIN, None))
+    K_inv =  np.zeros(K.shape)
+    np.fill_diagonal(K_inv, 1 / np.diag(K))
+    var = np.diag(np.sqrt(K_inv ** 2))
+
+    print(f' First Bartlett identity: {np.mean(fun_jac(opt.x, Y))}')
+    print('Second Bartlett identity: '
+        f'{np.mean(fun_hess(opt.x, Y)) + np.var(fun_jac(opt.x, Y))}')
 
     on_bound = np.sum(opt.x <= 10 * LAMBDA_MIN)
     if on_bound > 0:
@@ -940,51 +941,59 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-# def get_LRT_poisson_nlopt(Y, X, constr, init, short=True):
-#     scale_fac = 100
+def get_LRT_poisson_nlopt(Y, constr, init, weights=np.array([]), short=True):
+    if weights.size == 0:
+        weights = np.ones(Y.size)
 
-#     def f(x, grad):
-#         if grad.size > 0:
-#             grad[:] = -(Y / x - 1) / scale_fac
-#         return -np.sum(poisson.logpmf(Y, x)) / scale_fac
+    scale_fac = 1
 
-#     def c(x, grad, c):
-#         if grad.size > 0:
-#             grad[:] = -c / scale_fac
-#         return -np.sum(c * x) / scale_fac
+    if short:
+        def f(x, grad):
+            if grad.size > 0:
+                grad[:] = -(Y / x - 1) * weights / scale_fac
+            return -np.nansum((Y * np.log(x) - x) * weights) / scale_fac
 
-#     def c1(result, x, grad):
-#         if grad.size > 0:
-#            grad[:] = -constr / scale_fac
-#            result[:] = -constr @ x  / scale_fac
+    else:
+        def f(x, grad):
+            if grad.size > 0:
+                grad[:] = -(Y / x - 1) * weights / scale_fac
+            return -np.sum(poisson.logpmf(Y, x) * weights) / scale_fac
 
+    def c(result, x, grad):
+        if grad.size > 0:
+            grad[:] = -constr / scale_fac
+            result[:] = -constr @ x
 
-#     opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
-#     opt.set_min_objective(f)
-#     opt.set_xtol_rel(LAMBDA_MIN)
-#     opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
-#     opt.set_upper_bounds(np.full(Y.size, Y.sum()))
-#     opt.add_equality_mconstraint(c1, np.full(constr.shape[0], 2 * LAMBDA_MIN))
+    opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
+    opt.set_min_objective(f)
+    opt.set_xtol_rel(LAMBDA_MIN)
+    opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
+    opt.set_upper_bounds(np.full(Y.size, Y.sum()))
+    opt.add_equality_mconstraint(c, np.full(constr.shape[0], LAMBDA_MIN))
 
-#     xopt = opt.optimize(init)
+    xopt = opt.optimize(init)
 
-#     ll_H1 = np.sum(poisson.logpmf(Y, Y))
-#     ll_H0 = np.sum(poisson.logpmf(Y, xopt))
+    if short:
+        ll_H1 = np.nansum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
+        ll_H0 = np.nansum((Y * np.log(xopt) - xopt) * weights)
+    else:
+        ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
+        ll_H0 = np.sum(poisson.logpmf(Y, xopt) * weights)
 
-#     dof = Y.size - constr.shape[0]
-#     LR = -2 * (ll_H0 - ll_H1)
-#     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
+    dof = weights.sum() - constr.shape[0]
+    LR = -2 * (ll_H0 - ll_H1)
+    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-#     on_bound = np.sum(xopt <= 2 * LAMBDA_MIN)
-#     if on_bound > 0:
-#         dof_diff = np.arange(on_bound + 1)
-#         weights = scipy.special.binom(on_bound, dof_diff)
-#         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-#         p_val = np.average(p_vals, weights=weights)
-#     else:
-#         p_val = chi2.sf(LR, dof)
+    on_bound = np.sum(xopt <= LAMBDA_MIN)
+    if on_bound > 0:
+        dof_diff = np.arange(on_bound + 1)
+        weights = scipy.special.binom(on_bound, dof_diff)
+        p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
+        p_val = np.average(p_vals, weights=weights)
+    else:
+        p_val = chi2.sf(LR, dof)
 
-#     return ll_H0, ll_H1, LR, dof + on_bound, p_val
+    return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
@@ -1009,7 +1018,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
-            Y, constr, init, weights = get_model_data(tree, min_dist=0,
+            Y, constr, init, weights, leafs = get_model_data(tree, min_dist=0,
                 true_data=muts_type)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
@@ -1017,7 +1026,8 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
                 f'{stats["MS"]}\t{stats["MS_T"]}'
 
             if np.any(Y != 0):
-                ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson(Y, constr, init, weights)
+                # import pdb; pdb.set_trace()
+                ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson(Y, constr, init, leafs)
                 if np.isnan(ll_H0):
                     continue
                 hyp = f'H{int(p_val < alpha)}'
