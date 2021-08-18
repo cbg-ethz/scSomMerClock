@@ -426,6 +426,7 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
         node_map[i] = node
         node.muts_br = set([])
         node.mut_no = 0
+        node.probs = []
         leaf_nodes = [j.name for j in node.get_terminals()]
         X.loc[i, leaf_nodes] = 1
         node.name = '+'.join(leaf_nodes)
@@ -467,11 +468,13 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
             np.nansum(X * muts_inv[i], axis=1), # FN,
         ])
         probs = np.dot(errors, mut_data)
+        max_prob = _normalize_log_probs(probs).max()
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
         for best_node in best_nodes:
             node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
+            node_map[best_node].probs.append(max_prob)
         soft_assigned += _normalize_log_probs(probs)
 
     for i, node in node_map.items():
@@ -542,6 +545,11 @@ def add_br_weigts(tree, FP_in, FN_in):
 
         nodes[i].odds = probs_norm[i] / max(LAMBDA_MIN, (1 - probs_norm[i]))
         nodes[i].weight = probs_norm[i]
+
+        if len(nodes[i].probs) > 0:
+            nodes[i].weight = np.mean(nodes[i].probs)
+        else:
+            nodes[i].weight = probs_norm[i]
 
 
 def add_true_muts(tree, df_true):
@@ -880,9 +888,10 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     def fun_hess(l, Y):
         return np.identity(Y.size) * (Y / np.clip(l, LAMBDA_MIN, None)**2) * weights / scale_fac
 
-    rel_constr = np.argwhere(constr[:,np.argwhere(weights).flatten()].sum(axis=1)) \
-        .flatten()
-    constr = constr[rel_constr]
+    # rel_constr = np.argwhere(constr[:,np.argwhere(weights).flatten()].sum(axis=1)) \
+    #     .flatten()
+    # constr = constr[rel_constr]
+
 
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     init = np.clip(init, LAMBDA_MIN, None)
@@ -916,8 +925,11 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             * weights)
 
     dof = weights.sum() - constr.shape[0]
+    dof = Y.size - constr.shape[0]
+    print(dof)
     LR = -2 * (ll_H0 - ll_H1)
 
+    U = fun_jac(opt.x, Y)
     K = fun_hess(opt.x, Y)
     np.fill_diagonal(K, np.clip(np.diag(K), LAMBDA_MIN, None))
     K_inv =  np.zeros(K.shape)
@@ -1027,7 +1039,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
 
             if np.any(Y != 0):
                 # import pdb; pdb.set_trace()
-                ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson(Y, constr, init, leafs)
+                ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson(Y, constr, init, weights)
                 if np.isnan(ll_H0):
                     continue
                 hyp = f'H{int(p_val < alpha)}'
