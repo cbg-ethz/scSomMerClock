@@ -474,6 +474,8 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
         for best_node in best_nodes:
             node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
+
+            # TODO <NB> Add 0 line for FP likelihood!
             node_map[best_node].probs.append(max_prob)
         soft_assigned += _normalize_log_probs(probs)
 
@@ -547,9 +549,9 @@ def add_br_weigts(tree, FP_in, FN_in):
         nodes[i].weight = probs_norm[i]
 
         if len(nodes[i].probs) > 0:
-            nodes[i].weight = np.mean(nodes[i].probs)
+            nodes[i].mut_weight = np.mean(nodes[i].probs)
         else:
-            nodes[i].weight = probs_norm[i]
+            nodes[i].mut_weight = probs_norm[i]
 
 
 def add_true_muts(tree, df_true):
@@ -695,7 +697,7 @@ def get_sign(x):
         return '+'
 
 
-def get_model_data(tree, min_dist=0, true_data=False):
+def get_model_data(tree, pseudo_mut=0, true_data=False):
     # Lambdas are assigned branchwise from the tips to the root, following the
     #   classical strict molecular clock
 
@@ -709,7 +711,6 @@ def get_model_data(tree, min_dist=0, true_data=False):
     weights = np.zeros(br_no, dtype=float)
     leafs = np.ones(br_no, dtype=float)
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
-
 
     # Get nodes in reverse depth first order
     br_dist = []
@@ -747,16 +748,16 @@ def get_model_data(tree, min_dist=0, true_data=False):
             for i, terminal in enumerate(int_node.clades):
                 br_cells[terminal] = node_idx
                 if true_data:
-                    Y[node_idx] = max(min_dist, terminal.true_mut_no)
+                    Y[node_idx] = terminal.true_mut_no + pseudo_mut
                 else:
-                    Y[node_idx] = max(min_dist, round(terminal.mut_no))
+                    Y[node_idx] = round(terminal.mut_no) + pseudo_mut
                 weights[node_idx] = terminal.weight
                 constr[l_idx, node_idx] = 1
 
                 terminal.lambd = f'+{l_idx}'
                 leafs[node_idx] = 0
                 if i == 0:
-                    init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+                    init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
                     node_idx += 1
                 else:
                     constr[l_idx, node_idx] = -1
@@ -768,12 +769,12 @@ def get_model_data(tree, min_dist=0, true_data=False):
 
             br_cells[terminal] = node_idx
             if true_data:
-                Y[node_idx] = max(min_dist, terminal.true_mut_no)
+                Y[node_idx] = terminal.true_mut_no + pseudo_mut
             else:
-                Y[node_idx] = max(min_dist, round(terminal.mut_no))
+                Y[node_idx] = round(terminal.mut_no) + pseudo_mut
             weights[node_idx] = terminal.weight
             constr[l_idx, node_idx] = 1
-            init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+            init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
 
             leafs[node_idx] = 0
             terminal.lambd = f'+{l_idx}'
@@ -784,9 +785,9 @@ def get_model_data(tree, min_dist=0, true_data=False):
 
             br_cells[internal] = node_idx
             if true_data:
-                Y[node_idx] = max(min_dist, internal.true_mut_no)
+                Y[node_idx] = internal.true_mut_no + pseudo_mut
             else:
-                Y[node_idx] = max(min_dist, round(internal.mut_no))
+                Y[node_idx] = round(internal.mut_no) + pseudo_mut
             weights[node_idx] = internal.weight
             constr[l_idx] = get_traversal(terminal, tree) - get_traversal(internal, tree)
 
@@ -799,21 +800,21 @@ def get_model_data(tree, min_dist=0, true_data=False):
             # Assign new lambda to shorter branch
             br_cells[shorter] = node_idx
             if true_data:
-                Y[node_idx] = max(min_dist, shorter.true_mut_no)
+                Y[node_idx] = shorter.true_mut_no + pseudo_mut
             else:
-                Y[node_idx] = max(min_dist, round(shorter.mut_no))
+                Y[node_idx] = round(shorter.mut_no) + pseudo_mut
             weights[node_idx] = shorter.weight
             constr[l_idx, node_idx] = 1
-            init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+            init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
 
             shorter.lambd = f'+{l_idx}'
             node_idx += 1
             # Assign lambda sum to longer
             br_cells[longer] = node_idx
             if true_data:
-                Y[node_idx] = max(min_dist, longer.true_mut_no)
+                Y[node_idx] = longer.true_mut_no + pseudo_mut
             else:
-                Y[node_idx] = max(min_dist, round(longer.mut_no))
+                Y[node_idx] = round(longer.mut_no) + pseudo_mut
             weights[node_idx] = longer.weight
             constr[l_idx] = get_traversal(shorter, tree) - get_traversal(longer, tree)
 
@@ -823,11 +824,11 @@ def get_model_data(tree, min_dist=0, true_data=False):
         init_val = np.dot(constr[l_idx], init)
 
         # Make sure init is within bounds
-        if init_val >= max(LAMBDA_MIN, min_dist):
+        if init_val >= LAMBDA_MIN:
             init[node_idx] = init_val
         else:
             # If not, increase latested added lambda value
-            init[node_idx - 1] += -init_val + (0.1 + min_dist)
+            init[node_idx - 1] += -init_val + (0.1)
             init[node_idx] = np.dot(constr[l_idx], init)
         node_idx += 1
 
@@ -835,15 +836,15 @@ def get_model_data(tree, min_dist=0, true_data=False):
     # if true_data:
     #     Y[node_idx] = int_node.true_mut_no
     # else:
-    #     Y[node_idx] = max(min_dist, round(int_node.mut_no))
+    #     Y[node_idx] = round(int_node.mut_no) + pseudo_mut
     # weights[node_idx] = int_node.weight
 
     # shorter.lambd = f'+{l_idx + 1}'
-    # init[node_idx] = max(min_dist, Y[node_idx], LAMBDA_MIN)
+    # init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
 
     assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
         'Constraints not fulfilled for x_0'
-    assert (init >= max(min_dist, LAMBDA_MIN)).all(), \
+    assert (init >= LAMBDA_MIN).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
     # Normalize weights
@@ -855,8 +856,7 @@ def get_model_data(tree, min_dist=0, true_data=False):
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             alg='trust-constr'):
 
-    # print(weights)
-    # weights = np.ones(Y.size)
+    weights = np.ones(Y.size)
     if weights.size == 0:
         weights = np.ones(Y.size)
 
@@ -892,7 +892,6 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     #     .flatten()
     # constr = constr[rel_constr]
 
-
     const = [{'type': 'eq', 'fun': lambda x: np.matmul(constr, x)}]
     init = np.clip(init, LAMBDA_MIN, None)
     bounds = np.full((Y.size, 2), (LAMBDA_MIN, Y.sum()))
@@ -924,23 +923,22 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
         ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
             * weights)
 
-    dof = weights.sum() - constr.shape[0]
-    dof = Y.size - constr.shape[0]
-    print(dof)
+    dof = weights.sum() - weights[::2].sum()
     LR = -2 * (ll_H0 - ll_H1)
 
-    U = fun_jac(opt.x, Y)
-    K = fun_hess(opt.x, Y)
-    np.fill_diagonal(K, np.clip(np.diag(K), LAMBDA_MIN, None))
-    K_inv =  np.zeros(K.shape)
-    np.fill_diagonal(K_inv, 1 / np.diag(K))
-    var = np.diag(np.sqrt(K_inv ** 2))
+    # U = fun_jac(opt.x, Y).reshape(Y.size, 1)
+    # K = fun_hess(opt.x, Y)
+    # np.fill_diagonal(K, np.clip(np.diag(K), LAMBDA_MIN, None))
+    # K_inv =  np.zeros(K.shape)
+    # np.fill_diagonal(K_inv, 1 / np.diag(K))
+    # var = np.diag(np.sqrt(K_inv ** 2))
 
-    print(f' First Bartlett identity: {np.mean(fun_jac(opt.x, Y))}')
-    print('Second Bartlett identity: '
-        f'{np.mean(fun_hess(opt.x, Y)) + np.var(fun_jac(opt.x, Y))}')
+    # print(f' First Bartlett identity: {np.mean(fun_jac(opt.x, Y))}')
+    # print('Second Bartlett identity: '
+    #     f'{np.mean(fun_hess(opt.x, Y)) + np.var(fun_jac(opt.x, Y))}')
+    # import pdb; pdb.set_trace()
 
-    on_bound = np.sum(opt.x <= 10 * LAMBDA_MIN)
+    on_bound = np.sum(opt.x <= 2 * LAMBDA_MIN)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
@@ -950,7 +948,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     else:
         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof + on_bound, p_val
+    return ll_H0, ll_H1, LR, dof, on_bound, p_val
 
 
 def get_LRT_poisson_nlopt(Y, constr, init, weights=np.array([]), short=True):
@@ -1024,13 +1022,11 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
         muts, true_muts, stats = get_mut_df(vcf_file, exclude, include,
             filter=filter_type)
         tree, FP, FN = get_tree(tree_file, muts, paup_exe, stats=stats)
-            # FP_fix=stats['FP'] / muts.size,
-            # FN_fix=(stats['FN'] + stats['MS']) / muts.size)
         add_true_muts(tree, true_muts)
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
-            Y, constr, init, weights, leafs = get_model_data(tree, min_dist=0,
+            Y, constr, init, weights,  leafs = get_model_data(tree, pseudo_mut=0,
                 true_data=muts_type)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
@@ -1038,16 +1034,14 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
                 f'{stats["MS"]}\t{stats["MS_T"]}'
 
             if np.any(Y != 0):
-                # import pdb; pdb.set_trace()
-                ll_H0, ll_H1, LR, dof, p_val = get_LRT_poisson(Y, constr, init, weights)
+                ll_H0, ll_H1, LR, dof, on_bound, p_val = \
+                    get_LRT_poisson(Y, constr, init, weights)
                 if np.isnan(ll_H0):
                     continue
-                hyp = f'H{int(p_val < alpha)}'
-
+                hyp = int(p_val < alpha)
                 model_str += f'\t{FP}\t{FN}\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t' \
-                    f'{LR:0>5.2f}\t{dof}\t{p_val:.2E}\t{hyp}\n'
+                    f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\n'
 
-    # import pdb; pdb.set_trace()
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 
