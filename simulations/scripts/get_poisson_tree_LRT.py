@@ -220,9 +220,26 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     )
 
 
+def get_xcoal_errors(FP, FN):
+    FP = max(FP, LAMBDA_MIN)
+    FN = max(FN, LAMBDA_MIN)
+    TN_fin = np.log(1 - 2 * FP)
+    TP_fin = np.log(1 - (FN * (2 * FP + 6 - 3 * FN) + 4 * FP) / 12)
+    FP_fin = np.log(2 * FP)
+    FN_fin = np.log((FN * (2 * FP + 6 - 3 * FN) + 4 * FP) / 12)
+    return np.array([TP_fin, FP_fin, TN_fin, FN_fin]) # TP, FP, TN, FN
+
+
+def get_scite_errors(FP, FN):
+    FP = max(FP, LAMBDA_MIN) # alpha
+    FN = max(FN, LAMBDA_MIN) # beta
+    return np.log(np.array([1 - FN, FP, 1 - FP, FN])) # TP, FP, TN, FN
+
+
 def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
     FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1))
     FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+    errors = get_xcoal_errors(FP, FN)
 
     if 'cellphy' in tree_file:
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
@@ -234,11 +251,14 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log = f.read().strip()
-            try:
-                FP = float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1))
-                FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1))
-            except AttributeError:
-                pass
+        try:
+            FP = float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1))
+            FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1))
+        except AttributeError:
+            pass
+        else:
+            errors = get_xcoal_errors(FP, FN)
+
     elif 'scite' in tree_file:
         samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
             + ['healthycell']
@@ -260,41 +280,32 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
             FP = float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1))
-        # TODO <NB> This is for the 'new' ADO/SEQ error likelihood
-        FN = 2 * FN
+        errors = get_scite_errors(FP, FN)
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             br_length=True)
 
+    if FP_fix and FN_fix:
+        errors = get_scite_errors(FP_fix, FN_fix)
+
     tree = Phylo.read(StringIO(tree_str), 'newick')
-
-    if FN_fix:
-        FN = FN_fix
-    FN = max(FN, LAMBDA_MIN)
-
-    if FP_fix:
-        FP = FP_fix
-    FP = max(FP, LAMBDA_MIN)
-
-    # if stats:
-    #     FP = stats['FP'] / muts.size
-    #     FN = (stats['FN'] + stats['MS']) / muts.size
-
-    map_mutations_to_tree(tree, muts, FP_rate=FP, FN_rate=FN)
-
+    # Prune outgroup
     outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
     tree.prune(outg)
+    # Remove outgroup mutations
+    muts.drop(outg.name, axis=1, inplace=True)
+    # Remove mutations that were only present in outgroup
+    muts = muts[muts.sum(axis=1) > 0]
 
-    # If FN is inferred: add missing rate to FN for branch weight determination
-    if 'scite' in tree_file:
-        MS = muts.isna().sum().sum() / muts.size
-    else:
-        MS = 0
+    map_mutations_to_tree(tree, muts, errors)
 
-    # FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-    #                 .group(1))
-    # FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
-    add_br_weigts(tree, FP, FN + MS)
+    # For branch weighting: add missing rate to FN (errors: [TP, FP, TN, FN])
+    MS = muts.isna().sum().sum() / muts.size
+    errors[3] = np.log(np.exp(errors[3]) + MS) # FN
+    errors[0] = np.log(1 - np.exp(errors[3])) # TN
+
+    add_br_weigts(tree, errors)
+
     return tree, FP, FN
 
 
@@ -417,7 +428,7 @@ def _normalize_log_probs(probs):
     return np.exp(np.clip(probs_norm, log_LAMBDA_MIN, 0))
 
 
-def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
+def map_mutations_to_tree(tree, muts_in, errors):
     n = muts_in.shape[1]
     node_map = {}
     X = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts_in.columns)
@@ -432,32 +443,19 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
+    X = np.vstack([X, np.zeros(n)])
+
     idx_map = muts_in.index.values
     nans = np.isnan(muts_in).values
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
 
-    het = np.where(muts_in == 1, 1, 0)
-    het = np.where(nans, np.nan, het)
-    hom = np.where(muts_in == 2, 1, 0)
-    hom = np.where(nans, np.nan, hom)
+    # het = np.where(muts_in == 1, 1, 0)
+    # het = np.where(nans, np.nan, het)
+    # hom = np.where(muts_in == 2, 1, 0)
+    # hom = np.where(nans, np.nan, hom)
 
     X_inv = 1 - X
     muts_inv = 1 - muts
-
-    FP_n = max(FP_rate, LAMBDA_MIN)
-    FN_n = max(FN_rate, LAMBDA_MIN)
-    # TP = np.log(1 - FN_n)
-    # FP = np.log(FP_n)
-    # TN = np.log(1 - FP_n)
-    # FN = np.log(FN_n)
-    # errors = np.array([TP, FP, TN, FN])
-
-    TP = np.log(1 - FP_n / 3 + FP_n * FN_n / 6 - FN_n / 2 + FN_n * FN_n / 4)
-    FP = np.log(2 * FP_n)
-    TN = np.log(1 - 2 * FP_n)
-    FN = np.log(FP_n / 3 - FP_n * FN_n / 6 + FN_n / 2 - FN_n * FN_n / 4)
-    errors = np.array([TP, FP, TN, FN])
-
 
     soft_assigned = np.zeros(X.shape[0])
     for i, mut in tqdm(enumerate(muts)):
@@ -474,8 +472,6 @@ def map_mutations_to_tree(tree, muts_in, FP_rate=1e-4, FN_rate=0.2):
         for best_node in best_nodes:
             node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
-
-            # TODO <NB> Add 0 line for FP likelihood!
             node_map[best_node].probs.append(max_prob)
         soft_assigned += _normalize_log_probs(probs)
 
@@ -507,7 +503,7 @@ def map_mutations_to_tree_naive(tree, muts, min_dist):
         tree = collapse_branches(tree, min_dist)
 
 
-def add_br_weigts(tree, FP_in, FN_in):
+def add_br_weigts(tree, errors):
     m = tree.count_terminals()
     n = 2 * m - 1
     X = np.zeros((n, m), dtype=int)
@@ -522,18 +518,6 @@ def add_br_weigts(tree, FP_in, FN_in):
     # Add zero line for wildtype probabiltities
     X = np.vstack([X, np.zeros(m)])
     X_inv = 1 - X
-
-    # TP = np.log(1 - FN_in)
-    # FP = np.log(FP_in)
-    # TN = np.log(1 - FP_in)
-    # FN = np.log(FN_in)
-    # errors = np.array([TP, FP, TN, FN])
-
-    TP = np.log(1 - FP_in / 3 + FP_in * FN_in / 6 - FN_in / 2 + FN_in * FN_in / 4)
-    FP = np.log(2 * FP_in)
-    TN = np.log(1 - 2 * FP_in)
-    FN = np.log(FP_in / 3 - FP_in * FN_in / 6 + FN_in / 2 - FN_in * FN_in / 4)
-    errors = np.array([TP, FP, TN, FN])
 
     for i, y in enumerate(X[:-1]):
         data = np.stack([
@@ -848,7 +832,10 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
         f'Init value smaller than min. distance: {init.min()}'
 
     # Normalize weights
-    weights_norm = weights.size * weights / weights.sum()
+    weights_norm = np.sqrt(weights.size * weights / weights.sum())
+
+    # from plotting import plot_histogram
+    # plot_weights(weights_norm)
 
     return Y, constr, init, weights_norm, leafs
 
@@ -856,7 +843,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             alg='trust-constr'):
 
-    weights = np.ones(Y.size)
+    # weights = np.ones(Y.size)
     if weights.size == 0:
         weights = np.ones(Y.size)
 
@@ -923,7 +910,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
         ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
             * weights)
 
-    dof = weights.sum() - weights[::2].sum()
+    dof = Y.size - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
 
     # U = fun_jac(opt.x, Y).reshape(Y.size, 1)
@@ -951,59 +938,72 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     return ll_H0, ll_H1, LR, dof, on_bound, p_val
 
 
-def get_LRT_poisson_nlopt(Y, constr, init, weights=np.array([]), short=True):
-    if weights.size == 0:
-        weights = np.ones(Y.size)
+# def get_LRT_poisson_nlopt(Y, constr, init, weights=np.array([]), short=True):
+#     if weights.size == 0:
+#         weights = np.ones(Y.size)
 
-    scale_fac = 1
+#     scale_fac = 1
 
-    if short:
-        def f(x, grad):
-            if grad.size > 0:
-                grad[:] = -(Y / x - 1) * weights / scale_fac
-            return -np.nansum((Y * np.log(x) - x) * weights) / scale_fac
+#     if short:
+#         def f(x, grad):
+#             if grad.size > 0:
+#                 grad[:] = -(Y / x - 1) * weights / scale_fac
+#             return -np.nansum((Y * np.log(x) - x) * weights) / scale_fac
 
-    else:
-        def f(x, grad):
-            if grad.size > 0:
-                grad[:] = -(Y / x - 1) * weights / scale_fac
-            return -np.sum(poisson.logpmf(Y, x) * weights) / scale_fac
+#     else:
+#         def f(x, grad):
+#             if grad.size > 0:
+#                 grad[:] = -(Y / x - 1) * weights / scale_fac
+#             return -np.sum(poisson.logpmf(Y, x) * weights) / scale_fac
 
-    def c(result, x, grad):
-        if grad.size > 0:
-            grad[:] = -constr / scale_fac
-            result[:] = -constr @ x
+#     def c(result, x, grad):
+#         if grad.size > 0:
+#             grad[:] = -constr / scale_fac
+#             result[:] = -constr @ x
 
-    opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
-    opt.set_min_objective(f)
-    opt.set_xtol_rel(LAMBDA_MIN)
-    opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
-    opt.set_upper_bounds(np.full(Y.size, Y.sum()))
-    opt.add_equality_mconstraint(c, np.full(constr.shape[0], LAMBDA_MIN))
+#     opt = nlopt.opt(nlopt.LD_SLSQP, Y.size) # LD_AUGLAG, LD_SLSQP, LN_COBYLA, GN_ISRES
+#     opt.set_min_objective(f)
+#     opt.set_xtol_rel(LAMBDA_MIN)
+#     opt.set_lower_bounds(np.full(Y.size, LAMBDA_MIN))
+#     opt.set_upper_bounds(np.full(Y.size, Y.sum()))
+#     opt.add_equality_mconstraint(c, np.full(constr.shape[0], LAMBDA_MIN))
 
-    xopt = opt.optimize(init)
+#     xopt = opt.optimize(init)
 
-    if short:
-        ll_H1 = np.nansum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
-        ll_H0 = np.nansum((Y * np.log(xopt) - xopt) * weights)
-    else:
-        ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
-        ll_H0 = np.sum(poisson.logpmf(Y, xopt) * weights)
+#     if short:
+#         ll_H1 = np.nansum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
+#         ll_H0 = np.nansum((Y * np.log(xopt) - xopt) * weights)
+#     else:
+#         ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
+#         ll_H0 = np.sum(poisson.logpmf(Y, xopt) * weights)
 
-    dof = weights.sum() - constr.shape[0]
-    LR = -2 * (ll_H0 - ll_H1)
-    # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
+#     dof = weights.sum() - constr.shape[0]
+#     LR = -2 * (ll_H0 - ll_H1)
+#     # LR_test = -2 * (np.nansum(Y * np.log(opt2.x) - opt2.x) - ll_H1)
 
-    on_bound = np.sum(xopt <= LAMBDA_MIN)
-    if on_bound > 0:
-        dof_diff = np.arange(on_bound + 1)
-        weights = scipy.special.binom(on_bound, dof_diff)
-        p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-        p_val = np.average(p_vals, weights=weights)
-    else:
-        p_val = chi2.sf(LR, dof)
+#     on_bound = np.sum(xopt <= LAMBDA_MIN)
+#     if on_bound > 0:
+#         dof_diff = np.arange(on_bound + 1)
+#         weights = scipy.special.binom(on_bound, dof_diff)
+#         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
+#         p_val = np.average(p_vals, weights=weights)
+#     else:
+#         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof + on_bound, p_val
+#     return ll_H0, ll_H1, LR, dof + on_bound, p_val
+
+
+def test_tree(tree, n=100):
+    Y_true, constr, init, weights, _ = \
+        get_model_data(tree, pseudo_mut=1, true_data=True)
+
+    res = np.zeros((n, 6))
+    for i in tqdm(range(n)):
+        Y = poisson.rvs(Y_true)
+        res[i] = get_LRT_poisson(Y, constr, init, weights)
+
+    p_vals = res[:,-1]
+    print(f'P-vals. avg: {np.mean(p_vals):.4f}\t ({np.sum(p_vals <= 0.05)}/{n})')
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
@@ -1026,7 +1026,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
-            Y, constr, init, weights,  leafs = get_model_data(tree, pseudo_mut=0,
+            Y, constr, init, weights, leafs = get_model_data(tree, pseudo_mut=0,
                 true_data=muts_type)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
@@ -1036,6 +1036,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
             if np.any(Y != 0):
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
                     get_LRT_poisson(Y, constr, init, weights)
+
                 if np.isnan(ll_H0):
                     continue
                 hyp = int(p_val < alpha)

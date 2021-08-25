@@ -134,6 +134,22 @@ def _plot_muts(muts, bin_no=100):
     return fig
 
 
+def plot_weights(data, out_file=None, bin_no=None):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    if not bin_no:
+        bin_no = int(np.sqrt(len(data)))
+    ax.hist(data, bins=bin_no, rwidth=0.8)
+    ax.set_ylabel(f'Frequency', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('weights', fontsize=LABEL_FONTSIZE)
+    fig.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99, hspace=0.5)
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
 def generate_pval_plot(in_object, out_file=None, bin_no=None):
     if isinstance(in_object, str):
         df = pd.read_csv(in_object, sep='\t', engine='python', skipfooter=1)
