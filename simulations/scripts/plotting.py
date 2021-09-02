@@ -134,14 +134,22 @@ def _plot_muts(muts, bin_no=100):
     return fig
 
 
-def plot_weights(data, out_file=None, bin_no=None):
+def plot_weights(data_in, out_file=None, bin_no=None):
     fig = plt.figure()
-    ax = fig.add_subplot()
+    gs = GridSpec(3, 1)
+
+    y_labels = ['Topology FN', 'Avg. Mutation Prob', 'Topology FN+FP']
     if not bin_no:
-        bin_no = int(np.sqrt(len(data)))
-    ax.hist(data, bins=bin_no, rwidth=0.8)
-    ax.set_ylabel(f'Frequency', fontsize=LABEL_FONTSIZE)
+        bin_no_best = int(np.sqrt(data_in.shape[0]))
+        bin_no = np.linspace(data_in.min(), data_in.max(), bin_no_best)
+
+    for i, data in enumerate(data_in.T):
+        ax = fig.add_subplot(gs[i])
+        ax.hist(data, bins=bin_no, rwidth=0.8)
+        ax.set_ylabel(f'Frequency\n{y_labels[i]}', fontsize=LABEL_FONTSIZE)
+        ax.set_ylim([None, data_in.shape[0] / 2])
     ax.set_xlabel('weights', fontsize=LABEL_FONTSIZE)
+
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.99, hspace=0.5)
     if out_file:
         fig.savefig(out_file, dpi=300)

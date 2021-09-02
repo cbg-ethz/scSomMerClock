@@ -12,9 +12,9 @@ np.seterr(all='raise')
 np.set_printoptions(suppress=True)
 import pandas as pd
 from scipy.stats.distributions import chi2
-import scipy.special
+from scipy.special import binom
 from scipy.optimize import minimize, Bounds, LinearConstraint
-from scipy.stats import poisson, nbinom, multinomial
+from scipy.stats import poisson, multinomial
 
 from Bio import Phylo
 from tqdm import tqdm
@@ -25,7 +25,6 @@ from utils import change_newick_tree_root
 
 LAMBDA_MIN = 1e-6
 log_LAMBDA_MIN = np.log(LAMBDA_MIN)
-LAMBDA_MAX = np.inf
 
 
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
@@ -134,19 +133,28 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
     no_true = (true_muts.sum(axis=1) > 0).sum()
     no_false = muts.shape[0] - no_true
-    stats = get_stats(muts, true_muts, True)
+    stats = get_stats(muts, true_muts, True, True)
 
     return muts, true_muts, stats
 
 
-def get_stats(df, true_df, verbose=False):
-    TP = ((df == true_df) & df > 0).sum().sum()
-    FP = (df > true_df).sum().sum()
-    TN = ((true_df == 0) & (df == 0)).sum().sum()
-    FN = (df < true_df).sum().sum()
-    MS = df.isna().sum().sum()
-    MS_N = ((true_df == 0) & (df.isna())).sum().sum()
-    MS_T = ((true_df > 1) & (df.isna())).sum().sum()
+def get_stats(df, true_df, binary=True, verbose=False):
+    if binary:
+        df = df.replace(2, 1)
+        true_df = true_df.replace(2, 1)
+
+    T = (df == true_df) & df.notnull()
+    TP = (T & (df > 0)).sum().sum()
+    TN = (T & (df == 0)).sum().sum()
+
+    F = (df != true_df) & df.notnull()
+    FP = (F & (df > true_df)).sum().sum()
+    FN = (F & (df < true_df)).sum().sum()
+
+    MS_df = df.isna()
+    MS = MS_df.sum().sum()
+    MS_N = (MS_df & (true_df == 0)).sum().sum()
+    MS_T = (MS_df & (true_df > 0)).sum().sum()
 
     if verbose:
         print(f'# Mutations: {df.shape[0]} ' \
@@ -161,7 +169,6 @@ def get_stats(df, true_df, verbose=False):
 
     return {'TP': TP, 'FP': FP, 'TN': TN, 'FN': FN, 'MS': MS, 'MS_N': MS_N,
         'MS_T': MS_T}
-
 
 
 def write_tree(tree, out_file='example.newick'):
@@ -192,7 +199,7 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         # br_labels = lambda c: f'{c.mut_no:.0f}'
         try:
             tree.root.true_mut_no
-            br_labels = lambda c: f' {c.mut_no:.1f} ({c.true_mut_no})'
+            br_labels = lambda c: f'{c.mut_no:.1f} ({c.true_mut_no})'
         except AttributeError:
             br_labels = lambda c: f'{c.mut_no:.1f}'
 
@@ -203,7 +210,17 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     elif br_length == 'weights':
         for i in tree.find_clades():
             i.branch_length = i.branch_length
-        br_labels = lambda c: f'{c.weight:.3f}'
+        br_labels = lambda c: '/'.join([f'{i:.3f}' for i in c.weight_norm])
+    elif br_length == 'mut_no_weights':
+        for i in tree.find_clades():
+            i.branch_length = i.mut_no
+        try:
+            tree.root.true_mut_no
+            br_labels = lambda c: f'{c.mut_no:.0f} ({c.true_mut_no})\n' \
+                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+        except AttributeError:
+            br_labels = lambda c: f'{c.mut_no:.0f}\n' \
+                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -237,7 +254,9 @@ def get_scite_errors(FP, FN):
 
 
 def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
-    FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1))
+    FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
+        + 0.01
+    # TODO <NB> hardcoded seq error. Take from config/directory structure
     FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
     errors = get_xcoal_errors(FP, FN)
 
@@ -438,12 +457,14 @@ def map_mutations_to_tree(tree, muts_in, errors):
         node.muts_br = set([])
         node.mut_no = 0
         node.probs = []
+        node.prob_weights = []
         leaf_nodes = [j.name for j in node.get_terminals()]
         X.loc[i, leaf_nodes] = 1
         node.name = '+'.join(leaf_nodes)
 
     X = X.values
     X = np.vstack([X, np.zeros(n)])
+    X_inv = 1 - X
 
     idx_map = muts_in.index.values
     nans = np.isnan(muts_in).values
@@ -454,7 +475,6 @@ def map_mutations_to_tree(tree, muts_in, errors):
     # hom = np.where(muts_in == 2, 1, 0)
     # hom = np.where(nans, np.nan, hom)
 
-    X_inv = 1 - X
     muts_inv = 1 - muts
 
     soft_assigned = np.zeros(X.shape[0])
@@ -473,6 +493,7 @@ def map_mutations_to_tree(tree, muts_in, errors):
             node_map[best_node].muts_br.add(idx_map[i])
             node_map[best_node].mut_no += 1 / best_nodes.size
             node_map[best_node].probs.append(max_prob)
+            node_map[best_node].prob_weights.append(1 / best_nodes.size)
         soft_assigned += _normalize_log_probs(probs)
 
     for i, node in node_map.items():
@@ -519,6 +540,8 @@ def add_br_weigts(tree, errors):
     X = np.vstack([X, np.zeros(m)])
     X_inv = 1 - X
 
+    errors_rev = np.array([errors[0], errors[3], errors[2], errors[1]])
+
     for i, y in enumerate(X[:-1]):
         data = np.stack([
             np.nansum(X * y, axis=1), # TP
@@ -528,14 +551,20 @@ def add_br_weigts(tree, errors):
         ])
         probs = np.dot(errors, data)
         probs_norm = _normalize_log_probs(probs)
+        probs_rev = np.dot(errors_rev, data)
+        probs_norm_rev = _normalize_log_probs(probs_rev)
 
         nodes[i].odds = probs_norm[i] / max(LAMBDA_MIN, (1 - probs_norm[i]))
-        nodes[i].weight = probs_norm[i]
+        nodes[i].weight = {'top': probs_norm[i],
+            'top_2': np.mean([probs_norm_rev[i], probs_norm[i]])}
 
-        if len(nodes[i].probs) > 0:
-            nodes[i].mut_weight = np.mean(nodes[i].probs)
+        if sum(nodes[i].prob_weights) > 1:
+            avg = np.average(nodes[i].probs, weights=nodes[i].prob_weights)
+            std = np.sqrt(np.average((nodes[i].probs - avg) ** 2,
+                weights=nodes[i].prob_weights))
+            nodes[i].weight['mut'] = (avg, std)
         else:
-            nodes[i].mut_weight = probs_norm[i]
+            nodes[i].weight['mut'] = (probs_norm[i], np.nan)
 
 
 def add_true_muts(tree, df_true):
@@ -692,7 +721,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
 
     Y = np.zeros(br_no, dtype=float)
     init = np.zeros(br_no, dtype=float)
-    weights = np.zeros(br_no, dtype=float)
+    weights = np.zeros((br_no, 3), dtype=float)
     leafs = np.ones(br_no, dtype=float)
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
 
@@ -735,7 +764,9 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
                     Y[node_idx] = terminal.true_mut_no + pseudo_mut
                 else:
                     Y[node_idx] = round(terminal.mut_no) + pseudo_mut
-                weights[node_idx] = terminal.weight
+                weights[node_idx, 0] = terminal.weight['top']
+                weights[node_idx, 1] = terminal.weight['mut'][0]
+                weights[node_idx, 2] = terminal.weight['top_2']
                 constr[l_idx, node_idx] = 1
 
                 terminal.lambd = f'+{l_idx}'
@@ -756,7 +787,9 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
                 Y[node_idx] = terminal.true_mut_no + pseudo_mut
             else:
                 Y[node_idx] = round(terminal.mut_no) + pseudo_mut
-            weights[node_idx] = terminal.weight
+            weights[node_idx, 0] = terminal.weight['top']
+            weights[node_idx, 1] = terminal.weight['mut'][0]
+            weights[node_idx, 2] = terminal.weight['top_2']
             constr[l_idx, node_idx] = 1
             init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
 
@@ -772,7 +805,9 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
                 Y[node_idx] = internal.true_mut_no + pseudo_mut
             else:
                 Y[node_idx] = round(internal.mut_no) + pseudo_mut
-            weights[node_idx] = internal.weight
+            weights[node_idx, 0] = internal.weight['top']
+            weights[node_idx, 1] = internal.weight['mut'][0]
+            weights[node_idx, 2] = internal.weight['top_2']
             constr[l_idx] = get_traversal(terminal, tree) - get_traversal(internal, tree)
 
             internal.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
@@ -787,7 +822,9 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
                 Y[node_idx] = shorter.true_mut_no + pseudo_mut
             else:
                 Y[node_idx] = round(shorter.mut_no) + pseudo_mut
-            weights[node_idx] = shorter.weight
+            weights[node_idx, 0] = shorter.weight['top']
+            weights[node_idx, 1] = shorter.weight['mut'][0]
+            weights[node_idx, 2] = shorter.weight['top_2']
             constr[l_idx, node_idx] = 1
             init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
 
@@ -799,7 +836,9 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
                 Y[node_idx] = longer.true_mut_no + pseudo_mut
             else:
                 Y[node_idx] = round(longer.mut_no) + pseudo_mut
-            weights[node_idx] = longer.weight
+            weights[node_idx, 0] = longer.weight['top']
+            weights[node_idx, 1] = longer.weight['mut'][0]
+            weights[node_idx, 2] = longer.weight['top_2']
             constr[l_idx] = get_traversal(shorter, tree) - get_traversal(longer, tree)
 
             longer.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
@@ -832,12 +871,17 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
         f'Init value smaller than min. distance: {init.min()}'
 
     # Normalize weights
-    weights_norm = np.sqrt(weights.size * weights / weights.sum())
+    weights_norm = weights.shape[0] * weights / weights.sum(axis=0)
 
-    # from plotting import plot_histogram
+    for node in tree.find_clades():
+        i = np.abs(weights[:, 0] - node.weight['top']).argmin()
+        node.weight_norm = weights_norm[i]
+
+    # from plotting import plot_weights
     # plot_weights(weights_norm)
+    # import pdb; pdb.set_trace()
 
-    return Y, constr, init, weights_norm, leafs
+    return Y, constr, init, weights_norm[:,0], leafs
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -853,11 +897,10 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
-        # TODO: Necessary to scale down for optimization?
-        scale_fac = 1
+
         def fun_opt(l, Y):
             return -np.nansum(
-                (Y * np.log(np.where(l>LAMBDA_MIN, l, np.nan)) - l) * weights) \
+                (Y * np.log(np.where(l > LAMBDA_MIN, l, np.nan)) - l) * weights) \
                 / scale_fac
     else:
         ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
@@ -902,7 +945,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             options={'disp': False, 'maxiter': 10000,})
         if not opt.success:
             print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
-            return np.nan, np.nan, np.nan, np.nan, np.nan,
+            return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
     if short:
         ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
@@ -929,8 +972,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-        p_val_weights = np.where(np.isnan(p_vals), 0,
-            scipy.special.binom(on_bound, dof_diff))
+        p_val_weights = np.where(np.isnan(p_vals), 0, binom(on_bound, dof_diff))
         p_val = np.average(np.nan_to_num(p_vals), weights=p_val_weights)
     else:
         p_val = chi2.sf(LR, dof)
@@ -984,7 +1026,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #     on_bound = np.sum(xopt <= LAMBDA_MIN)
 #     if on_bound > 0:
 #         dof_diff = np.arange(on_bound + 1)
-#         weights = scipy.special.binom(on_bound, dof_diff)
+#         weights = binom(on_bound, dof_diff)
 #         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
 #         p_val = np.average(p_vals, weights=weights)
 #     else:
@@ -1035,7 +1077,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
 
             if np.any(Y != 0):
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
-                    get_LRT_poisson(Y, constr, init, weights)
+                    get_LRT_poisson(Y, constr, init, weights, short=False)
 
                 if np.isnan(ll_H0):
                     continue
