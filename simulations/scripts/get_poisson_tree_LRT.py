@@ -237,9 +237,9 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
     )
 
 
-def get_xcoal_errors(FP, FN):
-    FP = max(FP, LAMBDA_MIN)
-    FN = max(FN, LAMBDA_MIN)
+def get_xcoal_errors(FP, FN, c=1):
+    FP = max(FP * c, LAMBDA_MIN)
+    FN = max(FN * c, LAMBDA_MIN)
     TN_fin = np.log(1 - 2 * FP)
     TP_fin = np.log(1 - (FN * (2 * FP + 6 - 3 * FN) + 4 * FP) / 12)
     FP_fin = np.log(2 * FP)
@@ -247,18 +247,19 @@ def get_xcoal_errors(FP, FN):
     return np.array([TP_fin, FP_fin, TN_fin, FN_fin]) # TP, FP, TN, FN
 
 
-def get_scite_errors(FP, FN):
-    FP = max(FP, LAMBDA_MIN) # alpha
-    FN = max(FN, LAMBDA_MIN) # beta
+def get_scite_errors(FP, FN, c=1):
+    FP = max(FP * c, LAMBDA_MIN) # alpha
+    FN = max(FN * c, LAMBDA_MIN) # beta
     return np.log(np.array([1 - FN, FP, 1 - FP, FN])) # TP, FP, TN, FN
 
 
 def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
+    fkt = 2
     FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
     # TODO <NB> hardcoded seq error. Take from config/directory structure
     FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
-    errors = get_xcoal_errors(FP, FN)
+    errors = get_xcoal_errors(FP, FN, fkt)
 
     if 'cellphy' in tree_file:
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
@@ -276,7 +277,7 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
         except AttributeError:
             pass
         else:
-            errors = get_xcoal_errors(FP, FN)
+            errors = get_xcoal_errors(FP, FN, fkt)
 
     elif 'scite' in tree_file:
         samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
@@ -299,13 +300,13 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
             FP = float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1))
-        errors = get_scite_errors(FP, FN)
+        errors = get_scite_errors(FP, FN, fkt)
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             br_length=True)
 
     if FP_fix and FN_fix:
-        errors = get_scite_errors(FP_fix, FN_fix)
+        errors = get_scite_errors(FP_fix, FN_fix, fkt)
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
     # Prune outgroup
@@ -968,7 +969,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     #     f'{np.mean(fun_hess(opt.x, Y)) + np.var(fun_jac(opt.x, Y))}')
     # import pdb; pdb.set_trace()
 
-    on_bound = np.sum(opt.x <= 2 * LAMBDA_MIN)
+    on_bound = np.sum(opt.x <= LAMBDA_MIN ** 0.5)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
