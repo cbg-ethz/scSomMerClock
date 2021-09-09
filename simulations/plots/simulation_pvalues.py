@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import re
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 from matplotlib.collections import LineCollection
+from scipy.stats import chi2
 
 
 COLORS = [
@@ -20,9 +23,17 @@ COLORS = [
 TICK_FONTSIZE = 12
 LABEL_FONTSIZE = 16
 
-vis_names = {'poisson': 'Poisson', 'paup': 'PAUP*',
-    'poissontree': 'Poisson + Tree', 'cellcoal': 'True', '-': '-',
-    'scite': 'SCITE', 'cellphy': 'CellPhy'}
+vis_names = {
+    'poisson': 'Poisson',
+    'paup': 'PAUP*',
+    'poissontree': 'Poisson + Tree',
+    'cellcoal': 'True',
+    '-': '-',
+    'scite': 'SCITE',
+    'cellphy': 'CellPhy',
+
+}
+
 
 def generate_pval_plot(in_file, out_file=None, bins=0):
     df_in = pd.read_csv(in_file, sep='\t', engine='python', index_col='run',
@@ -33,6 +44,7 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         bins = 100 # int(np.sqrt(n))
 
     df = pd.DataFrame(columns=['P-value', 'Method', 'Tree'])
+    df_lambda = pd.DataFrame(columns=['Lambda', 'Tree'])
     for rel_col in [i for i in df_in.columns if 'p-value' in i]:
         df_new = pd.DataFrame(df_in[rel_col]).rename({rel_col: 'P-value'}, axis=1)
         try:
@@ -45,7 +57,13 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         df_new['Tree'] = vis_names[tree]
         df = df.append(df_new, ignore_index=True)
 
-    fig, ax = plt.subplots()
+        if vis_names[method] == 'Poisson + Tree':
+            lambda_col = rel_col.replace('p-value_', '-2logLR_')
+            df_lambda_new = pd.DataFrame(
+                df_in[lambda_col]).rename({lambda_col: 'Lambda'}, axis=1)
+            df_lambda_new['Tree'] = vis_names[tree]
+            df_lambda = df_lambda.append(df_lambda_new, ignore_index=True)
+
     sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
     sns.set_context('paper',
         rc={'font.size': TICK_FONTSIZE,
@@ -66,40 +84,49 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         'True': '#153386',
         '-': '#C88B0A'
     }
+    plot_pvals(df, out_file, bins, colors)
+    plot_test_statistic(df_lambda, out_file, bins, colors)
+
+
+def plot_pvals(df, out_file, bins, colors):
+
+    row_order = ['Poisson', 'PAUP*', 'Poisson + Tree']
     dp = sns.displot(df, x='P-value', hue='Tree', row='Method',
-        element='step', stat='probability', kde=False,
+        element='bars', stat='density', kde=False,
         common_norm=False, fill=True, bins=bins,
         kde_kws={'cut': 0, 'clip': (0, 1)},
-        line_kws={'lw' : 3, 'alpha': 0.75},
+        line_kws={'lw': 3, 'alpha': 0.75},
         palette=colors, lw=2, alpha=0.5,
         height=4, aspect=3,
         hue_order=['-', 'SCITE', 'True', 'CellPhy'],
-        row_order=['Poisson', 'PAUP*', 'Poisson + Tree'])
+        row_order=row_order,
+        facet_kws={'sharey': False})
 
-    ideal_y = 1 / bins
-    for ax in dp.axes:
-        y_lim = min(1, ideal_y * 5)
-        ax[0].axhline(ideal_y, ls='--', c='red', lw=2)
+    ideal_y = 1
+    for ax_no, method in enumerate(row_order):
+        y_lim = max([i.get_height() for i in dp.axes[ax_no][0].patches]) * 1.05
+        # y_lim = min(1, ideal_y * 5)
+        dp.axes[ax_no][0].axhline(ideal_y, ls='--', c='red', lw=2)
 
-        ax[0].set_ylim([0, y_lim])
-        ax[0].set_ylabel('Probability')
-        ax[0].set_xlim([0, 1])
+        dp.axes[ax_no][0].set_ylim([0, y_lim])
+        dp.axes[ax_no][0].set_xlim([0, 1])
 
-        ax[0].tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
+        dp.axes[ax_no][0].tick_params(axis='both', which='major',
+            labelsize=TICK_FONTSIZE)
 
     # Rugplot for 1 row: poisson
     height = -0.03
     poisson_data = df[(df['Tree'] == '-') & (df['Method'] == 'Poisson')]
     sns.rugplot(data=poisson_data, x='P-value', height=height, clip_on=False,
-        alpha=1, color=colors['-'], ax=dp.axes[0][0], linewidth=0.05)
+        color=colors['-'], ax=dp.axes[0][0], linewidth=0.2)
     dp.axes[0][0].add_collection(
         LineCollection(np.array([[[0.05, 0],[0.05, height]]]),
         transform=dp.axes[0][0].get_xaxis_transform(),
-        clip_on=False, alpha=1, color='red', ls='-', linewidth=2)
+        clip_on=False, color='red', ls='-', linewidth=2)
     )
     sgf_perc = np.percentile(poisson_data['P-value'].values, 5)
     dp.axes[0][0].axvline(sgf_perc, ls='--', color=colors['-'], lw=2)
-    dp.axes[0][0].text(sgf_perc + 0.005, ideal_y * 4.5,
+    dp.axes[0][0].text(sgf_perc + 0.005, dp.axes[0][0].get_ylim()[1] / 2,
         f'5th percentile ({sgf_perc:.3f})', color=colors['-'])
     # dp.axes[0][0].add_collection(
     #     LineCollection(np.array([[[sgf_perc, 0], [sgf_perc, height]]]),
@@ -107,7 +134,7 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
     #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
     # )
 
-     # Rugplot for 2 and 3 row: paup and poisson + tree
+    # Rugplot for 2 and 3 row: paup and poisson + tree
     for ax_no, method in [(1, 'PAUP*'), (2, 'Poisson + Tree')]:
         for i, tree in enumerate(['True', 'SCITE', 'CellPhy']):
             data = df[(df['Tree'] == tree) & (df['Method'] == method)] \
@@ -116,15 +143,18 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
                 continue
 
             segs = np.stack((np.c_[data, data],
-                np.c_[np.zeros_like(data) + height * i, np.zeros_like(data) + height * (i + 1)]),
+                np.c_[np.zeros_like(data) + height * i,
+                        np.zeros_like(data) + height * (i + 1)]),
                     axis=-1)
-            lc = LineCollection(segs, transform=dp.axes[ax_no][0].get_xaxis_transform(),
-                clip_on=False, alpha=1, color=colors[tree], linewidth=0.05)
+            lc = LineCollection(segs,
+                transform=dp.axes[ax_no][0].get_xaxis_transform(),
+                clip_on=False, color=colors[tree], linewidth=0.025, alpha=0.75)
             dp.axes[ax_no][0].add_collection(lc)
 
             sgf_perc = np.percentile(data, 5)
             dp.axes[ax_no][0].axvline(sgf_perc, ls='--', color=colors[tree], lw=2)
-            dp.axes[ax_no][0].text(sgf_perc + 0.005, ideal_y * (4.5 - i),
+            dp.axes[ax_no][0].text(sgf_perc + 0.01,
+                dp.axes[ax_no][0].get_ylim()[1] / 6 * (i + 3),
                 f'5th percentile ({sgf_perc:.3f})', color=colors[tree])
 
             # sgf_line = np.array([[[sgf_perc, height * i],
@@ -139,8 +169,9 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         dp.axes[ax_no][0].add_collection(
             LineCollection(pval_line,
             transform=dp.axes[ax_no][0].get_xaxis_transform(),
-            clip_on=False, alpha=1, color='red', ls='-', linewidth=2)
+            clip_on=False, color='red', ls='-', linewidth=2)
         )
+
 
     dp.fig.subplots_adjust(left=0.1, bottom=0.1, right=0.85, top=0.9, hspace=0.33)
     dp.fig.suptitle(_get_title(in_file), fontsize=LABEL_FONTSIZE*1.25)
@@ -150,6 +181,42 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
     else:
         plt.show()
     plt.close()
+
+
+def plot_test_statistic(df, out_file, bins, colors):
+    dof = 29 # TODO <NB> remove hardcoding
+
+    if not bins:
+        bins = 100
+
+    row_order = ['SCITE', 'True', 'CellPhy']
+    # color = tuple([colors[i] for i in row_order])
+    # color = None
+
+    dp = sns.displot(df, x='Lambda', row='Tree',
+        element='bars', stat='density', kde=False,
+        common_norm=False, common_bins=False, fill=True, bins=bins,
+        kde_kws={'cut': 0, 'clip': (0, 1)},
+        line_kws={'lw': 3, 'alpha': 0.75},
+        lw=2, alpha=0.5,
+        height=3, aspect=3,
+        row_order=['SCITE', 'True', 'CellPhy'])
+
+    x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), bins)
+    y = chi2.pdf(x, dof)
+    for ax_no, method in enumerate(row_order):
+        dp.axes[ax_no][0].plot(x, y, ls='--', color='r', lw=2,
+                label=f'Chi2({dof}) pdf')
+        for child in dp.axes[ax_no][0].properties()['children'][:-1]:
+            if child.__str__().startswith('Rectangle'):
+                child.set_color(colors[method])
+
+    if out_file:
+        dp.fig.savefig(out_file.replace('.pdf', '.Lambda.pdf'), dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
 
 
 def _get_title(in_file):
@@ -201,6 +268,15 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    if not args.output:
-        args.output = f'{args.input}.pdf'
-    generate_pval_plot(args.input, args.output, args.bins)
+
+    if os.path.isdir(args.input):
+        rel_files = [os.path.join(args.input, i) for i in os.listdir(args.input) \
+            if i.startswith('final_summary') and i.endswith('.tsv')]
+        for in_file in sorted(rel_files):
+            out_file = f'{in_file}.pdf'
+            print(f'Processing: {in_file}')
+            generate_pval_plot(in_file, out_file, args.bins)
+    else:
+        if not args.output:
+            args.output = f'{args.input}.pdf'
+        generate_pval_plot(args.input, args.output, args.bins)
