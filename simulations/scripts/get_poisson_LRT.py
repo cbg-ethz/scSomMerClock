@@ -2,6 +2,7 @@
 
 import os
 import re
+import gzip
 import numpy as np
 from statistics import mean, stdev
 from scipy.stats.distributions import chi2
@@ -16,6 +17,10 @@ def get_muts_per_cell(vcf_file, exclude, include):
     exclude_i = []
     with file_stream as f_in:
         for line in f_in:
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers
@@ -85,6 +90,7 @@ def get_muts_per_cell(vcf_file, exclude, include):
 
 def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
     clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+    exclude += '|healthycell'
 
     avg = [[], [], [], [], 0]
     out_str = ''

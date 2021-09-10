@@ -86,6 +86,10 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     exclude_i = []
     with file_stream as f_in:
         for line in f_in:
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers

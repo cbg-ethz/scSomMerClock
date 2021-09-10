@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import re
 import argparse
+import gzip
 import numpy as np
+import re
 
 
 def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
@@ -21,6 +22,10 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
     monovar = False
     with file_stream as f_in:
         for line in f_in:
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers
@@ -37,8 +42,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     else:
                         header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
                             'Description="Genotype Quality">\n'
-                        format_short = 'GT:DP:RC:G10:PL:GQ:TG'
-                        missing = '.|.:.:.,.,.,.:.:.:.:'
+                        format_short = 'GT:DP:RC:GQ:TG'
+                        missing = '.|.:.:.,.,.,.:.:.|.'
 
                 header += line
                 continue
@@ -77,7 +82,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     gt = '|'.join(sorted([i for i in s_rec[0].split('|')]))
                     dp = s_rec[1]
                     rc = s_rec[2]
-                    g10 = s_rec[3]
+                    # g10 = s_rec[3]
                     try:
                         tgt = '|'.join(sorted([str(bases[i]) \
                             for i in s_rec[-1].split('|')]))
@@ -94,11 +99,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         pln = np.array([-float(i) \
                             for i in s_rec[PLN_col].split(',')])
                         gq = min(99, sorted(pln - pln.min())[1])
-                        pl = ','.join([str(max(int(i), -999)) \
-                            for i in s_rec[PLN_col - 1].split(',')])
                     else:
                         gq = -1
-                        pl = '.'
                     true_gt[s_i] = tgt
 
                     if gt == '.|.':
@@ -121,8 +123,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     if monovar:
                         new_line[s_i] = s_rec_raw
                     else:
-                        new_line[s_i] = '{}:{}:{}:{}:{}:{:.0f}:{}' \
-                            .format(gt, dp, rc, g10, pl, gq, tgt)
+                        new_line[s_i] = f'{gt}:{dp}:{rc}:{gq:.0f}:{tgt}'
                     genotypes[s_i] = gt
 
             called_gt = genotypes[genotypes != b'.|.']
@@ -179,8 +180,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
     if rows_skipped:
         header = re.sub('(?<=droppedRows\=)0(?=\n)', str(rows_skipped), header)
 
-    with open(out_file, 'w') as f_out:
-        f_out.write('{}{}'.format(header, body))
+    with gzip.open(out_file, 'wb') as f_out:
+        f_out.write(f'{header}{body}'.encode())
 
     if stats_file:
         run_no = vcf_file.split('.')[-1]

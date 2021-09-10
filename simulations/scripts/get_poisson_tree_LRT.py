@@ -79,7 +79,9 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             # VCF records
             line_cols = line.strip().split('\t')
             ref = line_cols[3]
-            line_muts = np.zeros((2, sample_no))
+            # dims: 0 het, 1 hom, 2 true
+            line_muts = np.zeros((3, sample_no))
+            diff_muts = []
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
                     gt = s_rec[:s_rec.index(':')]
@@ -91,28 +93,44 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
                 # Get true gt
                 if true_gt.count('0') == 1:
-                    line_muts[1][s_i] = 1
+                    line_muts[2][s_i] = 1
                 elif true_gt == '1|1' or true_gt == '2|2' or true_gt == '1|2' \
                         or true_gt == '2|1':
-                    line_muts[1][s_i] = 2
+                    line_muts[2][s_i] = 2
                 # Set filtered genotypes to nan
                 if gt == '.|.':
                     line_muts[0][s_i] = np.nan
+                    line_muts[1][s_i] = np.nan
                 # Check if gt is mutation
-                elif gt.count('0') == 1:
-                    line_muts[0][s_i] = 1
-                elif gt == '0|0':
+                elif gt.count('0') == 1: # Heterozygous
+                    line_muts[0][s_i] = int(gt[-1])
+                    diff_muts.append(int(gt[-1]))
+                elif gt == '0|0': # Wildtype
                     pass
-                else:
-                    line_muts[0][s_i] = 2
+                else: # Homozygous
+                    line_muts[1][s_i] = int(gt[-1])
+                    diff_muts.append(int(gt[-1]))
 
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
                 skip += 1
                 continue
 
-            for i in [0, 1]:
-                data[i].append(line_muts[i])
+            # Check if called mutations are all the same
+            alts, alt_counts = np.unique(diff_muts, return_counts=True)
+            if alts.size == 0:
+                data[0].append(line_muts[0] + line_muts[1])
+            # Two different single mutations: skip
+            elif alts.size == 2 and all(alt_counts == 1):
+                data[0].append(np.where(np.isnan(line_muts[0]), np.nan, 0))
+                line_cols[6] = 'wildtype'
+            else:
+                ab_alt = alts[np.argmax(alt_counts)]
+                het = np.where(line_muts[0] == ab_alt, 1, 0)
+                hom = np.where(line_muts[1] == ab_alt, 2, 0)
+                data[0].append(np.where(np.isnan(line_muts[0]), np.nan, hom+het))
+
+            data[1].append(line_muts[2])
 
             pos = int(line_cols[1])
             idx[1].append(pos)
@@ -163,7 +181,7 @@ def get_stats(df, true_df, binary=True, verbose=False):
 
     if verbose:
         print(f'# Mutations: {df.shape[0]} ' \
-            f'(wrong: {(true_df.sum(axis=1) == 0).sum()})\n' \
+            f'(wrong positive: {(true_df.sum(axis=1) == 0).sum()})\n' \
             f'\tTP: {TP: >7}\t({TP / df.size:.3f})\n' \
             f'\tFP: {FP: >7}\t({FP / df.size:.3f})\n' \
             f'\tTN: {TN: >7}\t({TN / df.size:.3f})\n' \
@@ -189,14 +207,14 @@ def save_mut_mapping(tree, out_dir):
             node.name = f'{i}.{node.name}'
         else:
             node.name = str(i)
-        node.branch_length = len(node.muts_br)
+        node.branch_length = node.mut_no_soft
         br_file = os.path.join(out_dir, f'muts_branch_{i:0>3}.tsv')
         with open(br_file, 'w') as f:
             f.write('\n'.join([f'1\t{i}' for i in node.muts_br]))
     write_tree(tree, out_file=os.path.join(out_dir, 'muts_branch_tree.newick'))
 
 
-def show_tree(tree, dendro=False, br_length='mut_no'):
+def show_tree(tree, dendro=False, br_length='mut_no_soft'):
     tree = copy.deepcopy(tree)
     tree.ladderize(reverse=False)
 
@@ -212,54 +230,45 @@ def show_tree(tree, dendro=False, br_length='mut_no'):
         br_labels = lambda c: c.lambd
     elif br_length == 'length':
         br_labels = lambda c: c.branch_length
-    elif br_length == 'mut_no':
+    elif br_length == 'mut_no_hard':
         for i in tree.find_clades():
-            i.branch_length = i.mut_no
-
-        # br_labels = lambda c: f'{c.mut_no:.0f}'
+            i.branch_length = i.mut_no_hard
         try:
-            tree.root.true_mut_no
-            br_labels = lambda c: f'{c.mut_no:.1f} ({c.true_mut_no})'
+            tree.root.mut_no_true
+            br_labels = lambda c: f'{c.mut_no_hard:.1f} ({c.mut_no_true})'
         except AttributeError:
-            br_labels = lambda c: f'{c.mut_no:.1f}'
+            br_labels = lambda c: f'{c.mut_no_hard:.1f}'
     elif br_length == 'mut_no_soft':
         for i in tree.find_clades():
             i.branch_length = i.mut_no_soft
-
         try:
-            tree.root.true_mut_no
-            br_labels = lambda c: f'{c.mut_no_soft:.1f} ({c.true_mut_no})'
+            tree.root.mut_no_true
+            br_labels = lambda c: f'{c.mut_no_soft:.1f} ({c.mut_no_true})'
         except AttributeError:
             br_labels = lambda c: f'{c.mut_no_soft:.1f}'
-
-    elif br_length == 'true_mut_no':
-        for i in tree.find_clades():
-            i.branch_length = i.true_mut_no
-        br_labels = lambda c: f'{c.true_mut_no}'
     elif br_length == 'weights':
         for i in tree.find_clades():
             i.branch_length = i.branch_length
         br_labels = lambda c: '/'.join([f'{i:.3f}' for i in c.weight_norm])
     elif br_length == 'weights_mut':
         for i in tree.find_clades():
-            i.branch_length = i.mut_no
-
+            i.branch_length = i.mut_no_soft
         try:
-            tree.root.true_mut_no
-            br_labels = lambda c: f'{c.mut_no:.0f} ({c.true_mut_no})\n' \
+            tree.root.mut_no_true
+            br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
                 + f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
         except AttributeError:
-            br_labels = lambda c: f'{c.mut_no:.0f}\n' \
+            br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
                 + f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
     elif br_length == 'mut_no_weights':
         for i in tree.find_clades():
-            i.branch_length = i.mut_no
+            i.branch_length = i.mut_no_soft
         try:
-            tree.root.true_mut_no
-            br_labels = lambda c: f'{c.mut_no:.0f} ({c.true_mut_no})\n' \
+            tree.root.mut_no_true
+            br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
                 + '/'.join([f'{i:.2f}' for i in c.weight_norm])
         except AttributeError:
-            br_labels = lambda c: f'{c.mut_no:.0f}\n' \
+            br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
                 + '/'.join([f'{i:.2f}' for i in c.weight_norm])
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
@@ -358,6 +367,8 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
     muts = muts[muts.sum(axis=1) > 0]
 
     M = map_mutations_to_tree(tree, muts, errors)
+    FP_ret = np.exp(errors)[1]
+    FN_ret = np.exp(errors)[3]
 
     # For branch weighting: add missing rate to FN (errors: [TP, FP, TN, FN])
     MS = muts.isna().sum().sum() / muts.size
@@ -366,7 +377,7 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
 
     add_br_weigts(tree, errors)
 
-    return tree, FP, FN, M
+    return tree, FP_ret, FN_ret, M
 
 
 def get_rooted_tree(tree_str, paup_exe):
@@ -449,7 +460,7 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
     tree = get_rooted_tree(tree_old, paup_exe)
     for node in tree.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
-        node.mut_no = node.branch_length
+        node.mut_no_soft = node.branch_length
 
         try:
             node.muts_br = mut_map[name_map[node.name]]
@@ -458,18 +469,18 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
         # Correct PAUP* rooting by replacing branch with 0 length branch
         # if node.name == 'healthycell':
-        #     node.mut_no = node.branch_length + wrong_root_len
+        #     node.mut_no_soft = node.branch_length + wrong_root_len
         # elif node.name.count('+') == n - 2:
         #     assert node.branch_length == wrong_root_len, 'Cannot identify added root branch'
-        #     node.mut_no = 0
+        #     node.mut_no_soft = 0
         #     node.branch_length = 0
         # else:
-        #     node.mut_no = node.branch_length
+        #     node.mut_no_soft = node.branch_length
 
     tree_approx = get_rooted_tree(tree_old_approx, paup_exe)
     for node in tree_approx.find_clades():
         node.name = '+'.join([i.name for i in node.get_terminals()])
-        node.mut_no = round(node.branch_length)
+        node.mut_no_soft = node.branch_length
 
     return tree, tree_approx
 
@@ -496,7 +507,8 @@ def map_mutations_to_tree(tree, muts_in, errors):
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
         node.muts_br = set([])
-        node.mut_no = 0
+        node.mut_no_soft = 0
+        node.mut_no_hard = 0
         node.probs = []
         node.prob_weights = []
         leaf_nodes = [j.name for j in node.get_terminals()]
@@ -509,15 +521,14 @@ def map_mutations_to_tree(tree, muts_in, errors):
 
     idx_map = muts_in.index.values
     nans = np.isnan(muts_in).values
+    # Convert ternary hetero/homozygous data to binary mutation data
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
+    muts_inv = 1 - muts
 
     # het = np.where(muts_in == 1, 1, 0)
     # het = np.where(nans, np.nan, het)
     # hom = np.where(muts_in == 2, 1, 0)
     # hom = np.where(nans, np.nan, hom)
-
-    muts_inv = 1 - muts
-
 
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in tqdm(enumerate(muts)):
@@ -536,9 +547,8 @@ def map_mutations_to_tree(tree, muts_in, errors):
 
         for best_node in best_nodes:
             node_map[best_node].muts_br.add(idx_map[i])
-            node_map[best_node].mut_no += 1 / best_nodes.size
+            node_map[best_node].mut_no_hard += 1 / best_nodes.size
             node_map[best_node].probs.append(max_prob)
-            node_map[best_node].prob_weights.append(1 / best_nodes.size)
     # np.unique(np.argmax(M, axis=1), return_counts=True
 
     soft_assigned = M.sum(axis=0)
@@ -631,14 +641,14 @@ def add_true_muts(tree, df_true):
         child0.true_muts_br = child0.true_muts_node \
             .difference(int_node.true_muts_node)
         child0.false_muts_br = child0.muts_br.difference(child0.true_muts_br)
-        child0.true_mut_no = len(child0.true_muts_br)
+        child0.mut_no_true = len(child0.true_muts_br)
         child1.true_muts_br = child1.true_muts_node \
             .difference(int_node.true_muts_node)
         child1.false_muts_br = child1.muts_br.difference(child1.true_muts_br)
-        child1.true_mut_no = len(child1.true_muts_br)
+        child1.mut_no_true = len(child1.true_muts_br)
 
     tree.root.true_muts_br = tree.root.true_muts_node
-    tree.root.true_mut_no = len(tree.root.true_muts_br)
+    tree.root.mut_no_true = len(tree.root.true_muts_br)
 
 
 def prune_leafs(tree_in):
@@ -655,12 +665,12 @@ def prune_leafs(tree_in):
             parents = tree.get_path(node)
             if len(parents) > 1 and len(parents[-2].clades) == 1:
                 parents[-2].mut_no += node.mut_no
-                parents[-2].true_mut_no += node.true_mut_no
+                parents[-2].mut_no_true += node.mut_no_true
                 tree.collapse(node)
             # Node closest to root
             elif len(parents) == 1 and len(tree.root.clades) == 1:
                 tree.root.mut_no += node.mut_no
-                tree.root.true_mut_no += node.true_mut_no
+                tree.root.mut_no_true += node.mut_no_true
                 tree.collapse(node)
 
         if tree.is_bifurcating():
@@ -767,11 +777,11 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     leaf_no = tree.count_terminals()
     br_no = 2 * leaf_no - 2
 
-    Y = np.zeros(br_no, dtype=float)
-    Y_soft = np.zeros(br_no, dtype=float)
+    # Domensions: 0 soft assignment; 1 hard assignment
+    Y = np.zeros((2, br_no), dtype=float)
     init = np.zeros(br_no, dtype=float)
     weights = np.zeros((br_no, 3), dtype=float)
-    leafs = np.ones(br_no, dtype=float)
+    leafs = np.zeros(br_no, dtype=float)
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
 
     # Get nodes in reverse depth first order
@@ -810,19 +820,19 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             for i, terminal in enumerate(int_node.clades):
                 br_cells[terminal] = node_idx
                 if true_data:
-                    Y[node_idx] = terminal.true_mut_no + pseudo_mut
+                    Y[1, node_idx] = terminal.mut_no_true + pseudo_mut
                 else:
-                    Y[node_idx] = round(terminal.mut_no) + pseudo_mut
-                Y_soft[node_idx] = round(terminal.mut_no_soft) + pseudo_mut
+                    Y[1, node_idx] = terminal.mut_no_hard + pseudo_mut
+                Y[0, node_idx] = terminal.mut_no_soft + pseudo_mut
                 weights[node_idx, 0] = terminal.weight['top']
                 weights[node_idx, 1] = terminal.weight['mut'][0]
                 weights[node_idx, 2] = terminal.weight['top_2']
                 constr[l_idx, node_idx] = 1
 
                 terminal.lambd = f'+{l_idx}'
-                leafs[node_idx] = 0
+                leafs[node_idx] = 1
                 if i == 0:
-                    init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
+                    init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
                     node_idx += 1
                 else:
                     constr[l_idx, node_idx] = -1
@@ -834,17 +844,17 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
             br_cells[terminal] = node_idx
             if true_data:
-                Y[node_idx] = terminal.true_mut_no + pseudo_mut
+                Y[1, node_idx] = terminal.mut_no_true + pseudo_mut
             else:
-                Y[node_idx] = round(terminal.mut_no) + pseudo_mut
-            Y_soft[node_idx] = round(terminal.mut_no_soft) + pseudo_mut
+                Y[1, node_idx] = terminal.mut_no_hard + pseudo_mut
+            Y[0, node_idx] = terminal.mut_no_soft + pseudo_mut
             weights[node_idx, 0] = terminal.weight['top']
             weights[node_idx, 1] = terminal.weight['mut'][0]
             weights[node_idx, 2] = terminal.weight['top_2']
             constr[l_idx, node_idx] = 1
-            init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
+            init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
 
-            leafs[node_idx] = 0
+            leafs[node_idx] = 1
             terminal.lambd = f'+{l_idx}'
             node_idx += 1
 
@@ -853,10 +863,10 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
             br_cells[internal] = node_idx
             if true_data:
-                Y[node_idx] = internal.true_mut_no + pseudo_mut
+                Y[1, node_idx] = internal.mut_no_true + pseudo_mut
             else:
-                Y[node_idx] = round(internal.mut_no) + pseudo_mut
-            Y_soft[node_idx] = round(internal.mut_no_soft) + pseudo_mut
+                Y[1, node_idx] = internal.mut_no_hard + pseudo_mut
+            Y[0, node_idx] = internal.mut_no_soft + pseudo_mut
             weights[node_idx, 0] = internal.weight['top']
             weights[node_idx, 1] = internal.weight['mut'][0]
             weights[node_idx, 2] = internal.weight['top_2']
@@ -871,25 +881,25 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             # Assign new lambda to shorter branch
             br_cells[shorter] = node_idx
             if true_data:
-                Y[node_idx] = shorter.true_mut_no + pseudo_mut
+                Y[1, node_idx] = shorter.mut_no_true + pseudo_mut
             else:
-                Y[node_idx] = round(shorter.mut_no) + pseudo_mut
-            Y_soft[node_idx] = round(shorter.mut_no_soft) + pseudo_mut
+                Y[1, node_idx] = shorter.mut_no_hard + pseudo_mut
+            Y[0, node_idx] = shorter.mut_no_soft + pseudo_mut
             weights[node_idx, 0] = shorter.weight['top']
             weights[node_idx, 1] = shorter.weight['mut'][0]
             weights[node_idx, 2] = shorter.weight['top_2']
             constr[l_idx, node_idx] = 1
-            init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
+            init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
 
             shorter.lambd = f'+{l_idx}'
             node_idx += 1
             # Assign lambda sum to longer
             br_cells[longer] = node_idx
             if true_data:
-                Y[node_idx] = longer.true_mut_no + pseudo_mut
+                Y[1, node_idx] = longer.mut_no_true + pseudo_mut
             else:
-                Y[node_idx] = round(longer.mut_no) + pseudo_mut
-            Y_soft[node_idx] = round(longer.mut_no_soft) + pseudo_mut
+                Y[1, node_idx] = longer.mut_no_hard + pseudo_mut
+            Y[0, node_idx] = longer.mut_no_soft + pseudo_mut
             weights[node_idx, 0] = longer.weight['top']
             weights[node_idx, 1] = longer.weight['mut'][0]
             weights[node_idx, 2] = longer.weight['top_2']
@@ -911,13 +921,14 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
     # Add data for last node
     # if true_data:
-    #     Y[node_idx] = int_node.true_mut_no
+    #     Y[1, node_idx] = int_node.mut_no_true
     # else:
-    #     Y[node_idx] = round(int_node.mut_no) + pseudo_mut
+    #     Y[1, node_idx] = int_node.mut_no_hard + pseudo_mut
+    # Y[0, node_idx] = int_node.mut_no_soft + pseudo_mut
     # weights[node_idx] = int_node.weight
 
     # shorter.lambd = f'+{l_idx + 1}'
-    # init[node_idx] = max(Y[node_idx] + pseudo_mut, LAMBDA_MIN)
+    # init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
 
     assert np.allclose(constr @ init, 0, atol=LAMBDA_MIN), \
         'Constraints not fulfilled for x_0'
@@ -934,10 +945,10 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
     # from plotting import plot_weights
     # plot_weights(weights_norm)
-    # import pdb; pdb.set_trace()
 
-    # return Y, constr, init, weights_norm[:,0], leafs
-    return Y_soft, constr, init, weights_norm[:,0], leafs
+    if true_data:
+        return Y[1], constr, init, weights_norm[:,0], leafs
+    return Y[0], constr, init, weights_norm[:,0], leafs
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -959,6 +970,8 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
                 (Y * np.log(np.where(l > LAMBDA_MIN, l, np.nan)) - l) * weights) \
                 / scale_fac
     else:
+        Y = Y.round()
+        init = init.round()
         ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
         for i in [100, 10, 1]:
             scale_fac = (-ll_H1 // i) * i
@@ -1133,16 +1146,16 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
 
         for muts_type in use_true_muts:
             Y, constr, init, weights, leafs = get_model_data(tree, pseudo_mut=0,
-                true_data=muts_type, fkt=4)
+                true_data=muts_type, fkt=1)
 
-            import pdb; pdb.set_trace()
+            weights = np.ones(Y.size)
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
                 f'{stats["MS"]}\t{stats["MS_T"]}'
 
             if np.any(Y != 0):
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
-                    get_LRT_poisson(Y, constr, init, weights, short=False)
+                    get_LRT_poisson(Y, constr, init, weights, short=True)
 
                 if np.isnan(ll_H0):
                     continue

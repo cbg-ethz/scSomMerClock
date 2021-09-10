@@ -14,7 +14,7 @@ scheduler = config.get('scheduler', None)
 # if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
 #     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir, filter_dir = get_out_dir(config)
-
+base_dir = os.path.join(out_dir, filter_dir)
 
 def get_final_files(wildcards):
     files = []
@@ -23,37 +23,35 @@ def get_final_files(wildcards):
     #         for i in RUNS]
 
     for tree in TREES:
-        if config.get('mrbayes', {}).get('run', False):
-            files.append(os.path.join(out_dir, filter_dir,
-                'mrbayes_dir_{}'.format(tree), 'mrbayes.clock_test_summary.tsv'))
         if config.get('paup', {}).get('run', False):
-            files.append(os.path.join(out_dir, filter_dir,
-                'paup_dir_{}'.format(tree), 'paup.clock_test_summary.tsv'))
+            files.append(os.path.join(base_dir, f'paup_dir_{tree}',
+                'paup.clock_test_summary.tsv'))
+        if config.get('poisson', {}).get('run', False):
+            files.append(os.path.join(base_dir, f'poissonTree_{tree}',
+                'poissonTree.clock_test_summary.tsv'))
         if config.get('sieve', {}).get('run', False):
             files.append(os.path.join(out_dir, 'sieve_dir',
-                'sieve_{}.clock_test_summary.tsv'.format(tree)))
-        if config.get('poisson', {}).get('run', False):
-            files.append(os.path.join(out_dir, filter_dir,
-                'poissonTree_{}'.format(tree),
-                'poissonTree.clock_test_summary.tsv'))
+                f'sieve_{tree}.clock_test_summary.tsv'))
+        if config.get('mrbayes', {}).get('run', False):
+            files.append(os.path.join(base_dir, f'mrbayes_dir_{tree}',
+                'mrbayes.clock_test_summary.tsv'))
 
     if config.get('poisson', {}).get('run', False):
-        files.append(os.path.join(out_dir, filter_dir,
-            'poisson.clock_test_summary.tsv'))
+        files.append(os.path.join(base_dir, 'poisson.clock_test_summary.tsv'))
 
     return files
 
 
 rule all:
     input:
-        os.path.join(out_dir, filter_dir, 'final_summary.tsv'),
+        os.path.join(base_dir, 'final_summary.tsv'),
 
 
 rule merge_summary_files:
     input:
         get_final_files
     output:
-        os.path.join(out_dir, filter_dir, 'final_summary.tsv')
+        os.path.join(base_dir, 'final_summary.tsv')
     envmodules:
         'pandas/1.0.1-python-3.7.7',
     resources:
@@ -105,7 +103,7 @@ rule generate_overview_file:
     input:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS)
     output:
-        os.path.join(out_dir, filter_dir, 'data_overview.tsv')
+        os.path.join(base_dir, 'data_overview.tsv')
     run:
         with open(output[0], 'w') as f:
             f.write('run\tmuts\tsides\tTP\tFP\tTN\tFN\tMS\n')
@@ -115,9 +113,9 @@ rule postprocess_vcf:
     input:
         vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
         stats = ancient(
-            os.path.join(out_dir, filter_dir, 'data_overview.tsv')),
+            os.path.join(base_dir, 'data_overview.tsv')),
     output:
-        os.path.join(out_dir, filter_dir, 'vcf_dir', 'vcf.{run}.final')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     envmodules:
         'numpy/1.18.1-python-3.7.7',
     params:
@@ -146,16 +144,16 @@ def get_nex_input(wildcards):
         vcf_in_file = 'vcf.{wildcards.run}.monovar.final' \
             .format(wildcards=wildcards)
     else:
-        vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
+        vcf_in_file = 'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards)
 
-    vcf = os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
+    vcf = os.path.join(base_dir, 'vcf_dir', vcf_in_file)
 
     if wildcards.tree == 'cellphy':
-        tree = os.path.join(out_dir, filter_dir, 'cellphy_dir',
+        tree = os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{wildcards.run}.Mapped.raxml.mutationMapTree' \
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
-        tree = os.path.join(out_dir, filter_dir, 'scite_dir',
+        tree = os.path.join(base_dir, 'scite_dir',
             'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
     else:
         tree = os.path.join(out_dir, 'trees_dir', 'trees.{wildcards.run}' \
@@ -168,7 +166,7 @@ rule vcf_to_nex:
     input:
         unpack(get_nex_input)
     output:
-        temp(expand(os.path.join(out_dir, filter_dir, 'nxs_dir_{{tree}}',
+        temp(expand(os.path.join(base_dir, 'nxs_dir_{{tree}}',
             'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
     resources:
         mem_mb = 1024,
@@ -221,7 +219,7 @@ rule postprocess_monovar:
     input:
         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
     output:
-        os.path.join(out_dir, filter_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
     envmodules:
         'numpy/1.18.1-python-3.7.7',
     params:
@@ -239,16 +237,15 @@ def get_tree_inference_input(wildcards):
         vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf.final' \
             .format(wildcards=wildcards)
     else:
-        vcf_in_file = 'vcf.{wildcards.run}.final'.format(wildcards=wildcards)
-    return os.path.join(out_dir, filter_dir, 'vcf_dir', vcf_in_file)
+        vcf_in_file = 'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards)
+    return os.path.join(base_dir, 'vcf_dir', vcf_in_file)
 
 
 rule run_scite:
     input:
         get_tree_inference_input
     output:
-        os.path.join(out_dir, filter_dir, 'scite_dir',
-            'scite_tree.{run}_ml0.newick')
+        os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 6144,
         runtime = 480,
@@ -267,7 +264,7 @@ rule run_cellphy:
     input:
         get_tree_inference_input
     output:
-        os.path.join(out_dir, filter_dir, 'cellphy_dir',
+        os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
     resources:
         mem_mb = 1024,
@@ -275,9 +272,8 @@ rule run_cellphy:
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
-        prefix = lambda wildcards: os.sep.join([out_dir, filter_dir,
-            'cellphy_dir', 'cellphy_tree.{wildcards.run}' \
-                .format(wildcards=wildcards)]),
+        prefix = lambda wildcards: os.sep.join([base_dir, 'cellphy_dir',
+            'cellphy_tree.{wildcards.run}'.format(wildcards=wildcards)]),
         exe = config['tree']['cellphy'].get('exe', './cellphy.sh'),
         cmd = config['tree']['cellphy'].get('command', 'FAST'),
     shell:
@@ -291,15 +287,14 @@ rule run_cellphy:
 
 rule run_PAUP:
     input:
-        os.path.join(out_dir, filter_dir, 'nxs_dir_{tree}',
-            'nxs.{run}.0.{model}')
+        os.path.join(base_dir, 'nxs_dir_{tree}', 'nxs.{run}.0.{model}')
     output:
-        temp(os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
+        temp(os.path.join(base_dir, 'paup_dir_{tree}',
             'paup.{run}.0.{model}.PAUP.score'))
     resources:
         runtime = 60,
     params:
-        prefix = lambda wildcards: os.sep.join([out_dir, filter_dir,
+        prefix = lambda wildcards: os.sep.join([base_dir,
             'paup_dir_{wildcards.tree}'.format(wildcards=wildcards)]),
         paup_exe = config.get('paup', {}).get('exe', 'paup'),
     shell:
@@ -318,9 +313,9 @@ def get_paup_input(wildcards):
     in_files = []
     for model in models:
         for run in RUNS:
-            in_files.append(os.path.join(out_dir, filter_dir,
+            in_files.append(os.path.join(base_dir,
                 'paup_dir_{wildcards.tree}'.format(wildcards=wildcards),
-                'paup.{}.0.{}.PAUP.score'.format(run, model)))
+                f'paup.{run}.0.{model}.PAUP.score'))
     return in_files
 
 
@@ -328,8 +323,7 @@ rule merge_paup_results:
     input:
         get_paup_input
     output:
-        os.path.join(out_dir, filter_dir, 'paup_dir_{tree}',
-            'paup.clock_test_summary.tsv')
+        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.clock_test_summary.tsv')
     conda: 'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
@@ -344,19 +338,18 @@ rule merge_paup_results:
 # ------------------------------- POISSON --------------------------------------
 
 def get_poisson_input(wildcards):
+    vcf_dir = os.path.join(base_dir, 'vcf_dir')
     if config.get('monovar', {}).get('run', False):
-        return [os.path.join(out_dir, filter_dir, 'vcf_dir',
-                'vcf.{}.monovar.final'.format(i)) for i in RUNS]
+        return [os.path.join(vcf_dir, f'vcf.{i}.monovar.final') for i in RUNS]
     else:
-        return [os.path.join(out_dir, filter_dir, 'vcf_dir',
-            'vcf.{}.final'.format(i)) for i in RUNS]
+        return [os.path.join(vcf_dir, f'vcf.{i}.final.gz') for i in RUNS]
 
 
 rule run_poisson:
     input:
         get_poisson_input
     output:
-        os.path.join(out_dir, filter_dir, 'poisson.clock_test_summary.tsv')
+        os.path.join(base_dir, 'poisson.clock_test_summary.tsv')
     conda:
         'envs/monovar.yaml'
     envmodules:
@@ -377,8 +370,7 @@ rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
-        os.path.join(out_dir, filter_dir, 'poissonTree_{tree}',
-            'poissonTree.{run}.LRT.txt')
+        os.path.join(base_dir, 'poissonTree_{tree}', 'poissonTree.{run}.LRT.txt')
     conda:
         ''
     envmodules:
@@ -400,11 +392,10 @@ rule run_poisson_tree:
 
 rule merge_poisson_tree:
     input:
-        expand(os.path.join(out_dir, filter_dir,
-            'poissonTree_{{tree}}',
+        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
             'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
-        os.path.join(out_dir, filter_dir, 'poissonTree_{tree}',
+        os.path.join(base_dir, 'poissonTree_{tree}',
             'poissonTree.clock_test_summary.tsv')
     conda:
         ''
