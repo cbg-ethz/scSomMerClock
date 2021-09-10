@@ -3,6 +3,7 @@
 import os
 import re
 import copy
+import gzip
 import tempfile
 import subprocess
 from io import StringIO
@@ -39,6 +40,10 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     idx =[[], []]
     with file_stream as f_in:
         for line in f_in:
+            try:
+                line = line.decode()
+            except:
+                pass
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers
@@ -174,6 +179,21 @@ def get_stats(df, true_df, binary=True, verbose=False):
 def write_tree(tree, out_file='example.newick'):
     tree.ladderize(reverse=False)
     Phylo.write(tree, out_file, 'newick')
+
+
+def save_mut_mapping(tree, out_dir):
+    tree = copy.deepcopy(tree)
+    for i, node in enumerate(tree.find_clades()):
+        # Rename to identify later
+        if node.name.count('+') == 0:
+            node.name = f'{i}.{node.name}'
+        else:
+            node.name = str(i)
+        node.branch_length = len(node.muts_br)
+        br_file = os.path.join(out_dir, f'muts_branch_{i:0>3}.tsv')
+        with open(br_file, 'w') as f:
+            f.write('\n'.join([f'1\t{i}' for i in node.muts_br]))
+    write_tree(tree, out_file=os.path.join(out_dir, 'muts_branch_tree.newick'))
 
 
 def show_tree(tree, dendro=False, br_length='mut_no'):
@@ -1084,7 +1104,8 @@ def test_tree(tree, n=100):
     print(f'P-vals. avg: {np.mean(p_vals):.4f}\t ({np.sum(p_vals <= 0.05)}/{n})')
 
 
-def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
+def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
+            muts_per_branch=False):
     run = os.path.basename(vcf_file).split('.')[1]
     alpha = 0.05
 
@@ -1101,12 +1122,20 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include=''):
             filter=filter_type)
         tree, FP, FN, M = get_tree(tree_file, muts, paup_exe, stats=stats)
         add_true_muts(tree, true_muts)
+        if muts_per_branch:
+            out_dir = f'{tree_file}.muts_per_branch'
+            if not os.path.exists(out_dir):
+                os.mkdir(out_dir)
+            save_mut_mapping(tree, out_dir)
+            print(f'Mutation to branch mapping written to: {out_dir}')
+            exit()
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
             Y, constr, init, weights, leafs = get_model_data(tree, pseudo_mut=0,
-                true_data=muts_type, fkt=1)
+                true_data=muts_type, fkt=4)
 
+            import pdb; pdb.set_trace()
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
                 f'{stats["MS"]}\t{stats["MS_T"]}'
@@ -1136,6 +1165,8 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
+    parser.add_argument('-mpb', '--muts_per_branch', action='store_true',
+        help='Write the mutation to branch mapping and exit.')
     args = parser.parse_args()
     return args
 
@@ -1156,4 +1187,4 @@ if __name__ == '__main__':
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree.LRT.tsv')
         test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
-            args.include)
+            args.include, args.muts_per_branch)
