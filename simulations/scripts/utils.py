@@ -134,13 +134,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
 
-            try:
-                GQ_col = FORMAT_col.index('PLN')
-                monovar = False
-            except ValueError:
-                GQ_col = FORMAT_col.index('PL')
-                monovar = True
-
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
                     gt = s_rec[:s_rec.index(':')]
