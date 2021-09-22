@@ -21,6 +21,7 @@ def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
                 else:
                     p_bA1 = GATK(ib == ia1, eps) 
                     p_bA2 = GATK(ib == ia2, eps)
+
                 if delta:
                     # Lines 4688f
                     g0 += read * np.log10(0.5 * p_bA1 + 0.5 * p_bA2)

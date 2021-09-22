@@ -275,7 +275,7 @@ rule run_cellphy:
         prefix = lambda wildcards: os.sep.join([base_dir, 'cellphy_dir',
             'cellphy_tree.{wildcards.run}'.format(wildcards=wildcards)]),
         exe = config['tree']['cellphy'].get('exe', './cellphy.sh'),
-        cmd = config['tree']['cellphy'].get('command', 'FAST'),
+        cmd = config['tree']['cellphy'].get('command', 'SEARCH'),
     shell:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l '
         '-p {params.prefix} {input} > /dev/null && '

@@ -15,7 +15,7 @@ import pandas as pd
 from scipy.stats.distributions import chi2
 from scipy.special import binom
 from scipy.optimize import minimize, Bounds, LinearConstraint
-from scipy.stats import poisson, multinomial
+from scipy.stats import poisson, multinomial, betabinom
 
 from Bio import Phylo
 from tqdm import tqdm
@@ -26,6 +26,7 @@ from utils import change_newick_tree_root
 
 LAMBDA_MIN = 1e-6
 log_LAMBDA_MIN = np.log(LAMBDA_MIN)
+MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
@@ -38,6 +39,9 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     skip = 0
     data = [[], []]
     idx =[[], []]
+
+    reads = []
+    ref_gt = []
     with file_stream as f_in:
         for line in f_in:
             try:
@@ -72,20 +76,20 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                             print('\nWARNING: no samples with pattern {} in vcf!\n' \
                                 .format(include_pat))
                 continue
-
             elif line.strip() == '':
                 continue
 
             # VCF records
             line_cols = line.strip().split('\t')
-            ref = line_cols[3]
             # dims: 0 het, 1 hom, 2 true
             line_muts = np.zeros((3, sample_no))
+            line_reads = np.zeros((sample_no, 4))
             diff_muts = []
             for s_i, s_rec in enumerate(line_cols[9:]):
+                s_rec_elms = s_rec.split(':')
                 try:
-                    gt = s_rec[:s_rec.index(':')]
-                    true_gt = s_rec[-3:]
+                    gt = s_rec_elms[0]
+                    true_gt = s_rec_elms[-1]
                 # Missing in Monovar output format
                 except ValueError:
                     line_muts[:, s_i] = np.nan
@@ -111,6 +115,12 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                     line_muts[1][s_i] = int(gt[-1])
                     diff_muts.append(int(gt[-1]))
 
+                # Add reads
+                try:
+                    line_reads[s_i] = np.array(s_rec_elms[2].split(','), dtype=int)
+                except ValueError:
+                    line_reads[s_i] = np.full(4, np.nan)
+
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
                 skip += 1
@@ -118,6 +128,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
             # Check if called mutations are all the same
             alts, alt_counts = np.unique(diff_muts, return_counts=True)
+
             if alts.size == 0:
                 data[0].append(line_muts[0] + line_muts[1])
             # Two different single mutations: skip
@@ -129,14 +140,16 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 het = np.where(line_muts[0] == ab_alt, 1, 0)
                 hom = np.where(line_muts[1] == ab_alt, 2, 0)
                 data[0].append(np.where(np.isnan(line_muts[0]), np.nan, hom+het))
+                alt_idx = MUT[line_cols[4].split(',')[int(ab_alt) - 1]]
 
             data[1].append(line_muts[2])
 
             pos = int(line_cols[1])
             idx[1].append(pos)
-
             if 'PASS' in line_cols[6]:
                 idx[0].append(pos)
+                ref_gt.append((MUT[line_cols[3]], alt_idx))
+                reads.append(line_reads)
             else:
                 skip += 1
 
@@ -145,20 +158,22 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
     # Sanity check: remove sample without name
     exclude.append('')
-    include = [i for i in sample_names if i not in exclude]
+    include_id = [i for i in sample_names if i not in exclude]
+    include_idx = [i for i,j in enumerate(sample_names) if j not in exclude]
 
     if filter:
-        muts = muts.loc[idx[0], include]
-        true_muts = true_muts.loc[idx[0], include]
+        muts = muts.loc[idx[0], include_id]
+        true_muts = true_muts.loc[idx[0], include_id]
+        reads = np.array(reads)[:,include_idx]
     else:
-        muts = muts[include]
-        true_muts = true_muts[include]
+        muts = muts[include_id]
+        true_muts = true_muts[include_id]
+        reads = np.array(reads)
 
-    no_true = (true_muts.sum(axis=1) > 0).sum()
-    no_false = muts.shape[0] - no_true
     stats = get_stats(muts, true_muts, True, True)
 
-    return muts, true_muts, stats
+    read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
+    return muts, true_muts, read_data, stats
 
 
 def get_stats(df, true_df, binary=True, verbose=False):
@@ -179,9 +194,11 @@ def get_stats(df, true_df, binary=True, verbose=False):
     MS_N = (MS_df & (true_df == 0)).sum().sum()
     MS_T = (MS_df & (true_df > 0)).sum().sum()
 
+    mut_wrong = (df[true_df.sum(axis=1) == 0].sum(axis=1) > 0).sum()
+    mut_missing = (df[true_df.sum(axis=1) > 0].sum(axis=1) == 0).sum()
     if verbose:
         print(f'# Mutations: {df.shape[0]} ' \
-            f'(wrong positive: {(true_df.sum(axis=1) == 0).sum()})\n' \
+            f'(wrong: {mut_wrong}; missing: {mut_missing})\n' \
             f'\tTP: {TP: >7}\t({TP / df.size:.3f})\n' \
             f'\tFP: {FP: >7}\t({FP / df.size:.3f})\n' \
             f'\tTN: {TN: >7}\t({TN / df.size:.3f})\n' \
@@ -217,13 +234,6 @@ def save_mut_mapping(tree, out_dir):
 def show_tree(tree, dendro=False, br_length='mut_no_soft'):
     tree = copy.deepcopy(tree)
     tree.ladderize(reverse=False)
-
-    if dendro:
-        max_depth = max(tree.depths().values())
-        for i in tree.find_clades(terminal=False, order='postorder'):
-            int_len = i.name.count('+')
-            for child in i.clades:
-                child.branch_length = int_len - child.name.count('+')
 
     if br_length == 'lambda':
         tree.root.lambd = 'root'
@@ -273,6 +283,13 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft'):
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
+    if dendro:
+        max_depth = max(tree.depths().values())
+        for i in tree.find_clades(terminal=False, order='postorder'):
+            int_len = i.name.count('+')
+            for child in i.clades:
+                child.branch_length = int_len - child.name.count('+')
+
     import matplotlib
     import matplotlib.pyplot as plt
     plt.rc('font', **{'size': 14})
@@ -302,7 +319,7 @@ def get_scite_errors(FP, FN, c=1):
     return np.log(np.array([1 - FN, FP, 1 - FP, FN])) # TP, FP, TN, FN
 
 
-def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
+def get_tree(tree_file, paup_exe, FN_fix=None, FP_fix=None, rates=False):
     fkt = 1
     FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
@@ -359,14 +376,40 @@ def get_tree(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None, stats=None):
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
     # Prune outgroup
-    outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
-    tree.prune(outg)
-    # Remove outgroup mutations
-    muts.drop(outg.name, axis=1, inplace=True)
+    try:
+        outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
+        tree.prune(outg)
+    except IndexError:
+        outg = None
+
+    if rates:
+        return tree, outg.name, (FN, FP)
+    else:
+        return tree, outg.name, errors
+
+
+def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
+    tree, outg, errors = get_tree(tree_file, paup_exe, FN_fix, FP_fix, True)
+    M = map_mutations_CellCoal(tree, reads, errors, outg)
+
+    FN = errors[0]
+    FP = errors[1]
+    add_br_weigts(tree, np.log([1 - FN, FP, 1 - FP, FN]))
+
+    return tree, FP, FN, M
+
+
+
+def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
+    # Get rooted tree from newick file (outg removed) and errors
+    tree, outg, errors = get_tree(tree_file, paup_exe, FN_fix, FP_fix)
+
+    if outg in muts.columns:
+        muts.drop(outg, axis=1, inplace=True)
     # Remove mutations that were only present in outgroup
     muts = muts[muts.sum(axis=1) > 0]
 
-    M = map_mutations_to_tree(tree, muts, errors)
+    M = map_mutations_Scite(tree, muts, errors)
     FP_ret = np.exp(errors)[1]
     FN_ret = np.exp(errors)[3]
 
@@ -499,10 +542,10 @@ def _normalize_log_probs(probs):
     return np.exp(np.clip(probs_norm, log_LAMBDA_MIN, 0))
 
 
-def map_mutations_to_tree(tree, muts_in, errors):
-    n = muts_in.shape[1]
+def _get_S(tree, cells, add_zeros=True):
+    n = cells.size
     node_map = {}
-    S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts_in.columns)
+    S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=cells)
     # Initialize node attributes on tree and get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
@@ -516,8 +559,14 @@ def map_mutations_to_tree(tree, muts_in, errors):
         node.name = '+'.join(leaf_nodes)
 
     S = S.values
-    S = np.vstack([S, np.zeros(n)])
+    if add_zeros:
+        S = np.vstack([S, np.zeros(n)])
     S_inv = 1 - S
+    return S, S_inv, node_map
+
+
+def map_mutations_Scite(tree, muts_in, errors):
+    S, S_inv, node_map = _get_S(tree, muts_in.columns)
 
     idx_map = muts_in.index.values
     nans = np.isnan(muts_in).values
@@ -558,7 +607,83 @@ def map_mutations_to_tree(tree, muts_in, errors):
     return pd.DataFrame(M, index=muts_in.index)
 
 
-def map_mutations_to_tree_naive(tree, muts, min_dist):
+def map_mutations_CellCoal(tree, read_data, errors, outg):
+    # Remove outgroup mutations
+    idx, gt, reads, cells = read_data
+    if outg:
+        cell_idx = np.argwhere(cells != outg).flatten()
+        reads = reads[:,cell_idx,:]
+        cells = cells[cell_idx]
+
+    S, S_inv, node_map = _get_S(tree, cells)
+
+    gamma = np.log(errors[0]/2)
+    gamma_not = np.log(1 - errors[0])
+    eps = np.log(errors[1] / 3)
+    eps_not = np.log(1 - errors[1])
+
+    eps_het = np.log(2/3 * errors[1])
+    eps_het_not = np.log(1 - 2/3 * errors[1])
+    eps_const = np.log(2)
+
+    M = np.zeros((reads.shape[0], S.shape[0]))
+    skip = []
+    for i in tqdm(range(idx.size)):
+        reads_i = reads[i]
+        gt_i = gt[i]
+
+        depth = reads_i.sum(axis=1)
+        # ref, !ref counts
+        ref = reads_i[:,gt_i[0]]
+        ref_not = depth - ref
+        # alt, !alt counts
+        alt = reads_i[:,gt_i[1]]
+        alt_not = depth - alt
+        # ref|alt, !(ref|alt) counts
+        het = ref + alt
+        het_not = depth - het
+        # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
+        # Clip to avoid that single cells outweights whole prob
+        clip_min = -50
+        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
+        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
+        # Get log pro for p(b|0,1) for het genotype
+        p_noADO = het * eps_het_not + het_not * eps_het - depth * eps_const
+        p_het = np.clip(np.logaddexp(gamma_not + p_noADO,
+                np.logaddexp(gamma + p_ref, gamma + p_alt)), clip_min, 0)
+
+        probs = np.nansum(S_inv * p_ref + S * p_het, axis=1)
+        probs_norm = _normalize_log_probs(probs)
+        M[i] = probs_norm
+
+        max_prob = probs_norm.max()
+        best_nodes = np.argwhere(probs == np.max(probs)).flatten()
+
+        #if idx[i] in [60, 67, 81, 110, 138, 263]: import pdb; pdb.set_trace()
+
+        for best_node in sorted(best_nodes, reverse=True):
+            # Remove muts where MLE contains full wt (outside of tree/all zero)
+            try:
+                node_map[best_node].muts_br.add(idx[i])
+            except KeyError:
+                skip.append(i)
+                # import pdb; pdb.set_trace()
+            else:
+                node_map[best_node].mut_no_hard += 1 / best_nodes.size
+                node_map[best_node].probs.append(max_prob)
+    # np.unique(np.argmax(M, axis=1), return_counts=True
+
+    M = np.delete(M, skip, axis=0)
+    idx = np.delete(idx, skip, axis=0)
+
+    soft_assigned = M.sum(axis=0)
+    for i, node in node_map.items():
+        node.mut_no_soft = soft_assigned[i]
+
+    return pd.DataFrame(M, index=idx)
+
+
+def map_mutations_naive(tree, muts, min_dist):
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
         leaf_node.muts = set(muts.loc[muts[leaf_node.name] == 1].index)
@@ -1131,10 +1256,14 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     use_true_muts = [True, False]
 
     for filter_type in filter_muts:
-        muts, true_muts, stats = get_mut_df(vcf_file, exclude, include,
-            filter=filter_type)
-        tree, FP, FN, M = get_tree(tree_file, muts, paup_exe, stats=stats)
+        muts, true_muts, reads, stats = \
+            get_mut_df(vcf_file, exclude, include, filter=filter_type)
+        # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+        tree, FP, FN, M1 = get_tree_reads(tree_file, reads, paup_exe)
+
         add_true_muts(tree, true_muts)
+        # add_true_muts(tree1, true_muts)
+
         if muts_per_branch:
             out_dir = f'{tree_file}.muts_per_branch'
             if not os.path.exists(out_dir):
@@ -1149,6 +1278,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                 true_data=muts_type, fkt=1)
 
             weights = np.ones(Y.size)
+
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
                 f'{stats["MS"]}\t{stats["MS_T"]}'
