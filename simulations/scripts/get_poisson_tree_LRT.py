@@ -319,7 +319,8 @@ def get_scite_errors(FP, FN, c=1):
     return np.log(np.array([1 - FN, FP, 1 - FP, FN])) # TP, FP, TN, FN
 
 
-def get_tree(tree_file, paup_exe, FN_fix=None, FP_fix=None, rates=False):
+def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
+            rates=False):
     fkt = 1
     FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
@@ -332,7 +333,6 @@ def get_tree(tree_file, paup_exe, FN_fix=None, FP_fix=None, rates=False):
             br_length=True)
         # tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
         # tree = tree_mapped
-
         log_file = tree_file.replace('.mutationMapTree', '.log')
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
@@ -346,8 +346,6 @@ def get_tree(tree_file, paup_exe, FN_fix=None, FP_fix=None, rates=False):
             errors = get_xcoal_errors(FP, FN, fkt)
 
     elif 'scite' in tree_file:
-        samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
-            + ['healthycell']
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples, br_length=True)
         # Get ML error rates from log file
@@ -389,7 +387,8 @@ def get_tree(tree_file, paup_exe, FN_fix=None, FP_fix=None, rates=False):
 
 
 def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
-    tree, outg, errors = get_tree(tree_file, paup_exe, FN_fix, FP_fix, True)
+    tree, outg, errors = get_tree(tree_file, paup_exe, reads[3], FN_fix, FP_fix,
+        True)
     M = map_mutations_CellCoal(tree, reads, errors, outg)
 
     FN = errors[0]
@@ -402,7 +401,9 @@ def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
 
 def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     # Get rooted tree from newick file (outg removed) and errors
-    tree, outg, errors = get_tree(tree_file, paup_exe, FN_fix, FP_fix)
+    samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
+        + ['healthycell']
+    tree, outg, errors = get_tree(tree_file, paup_exe, samples, FN_fix, FP_fix)
 
     if outg in muts.columns:
         muts.drop(outg, axis=1, inplace=True)
@@ -1259,7 +1260,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
         muts, true_muts, reads, stats = \
             get_mut_df(vcf_file, exclude, include, filter=filter_type)
         # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
-        tree, FP, FN, M1 = get_tree_reads(tree_file, reads, paup_exe)
+        tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
 
         add_true_muts(tree, true_muts)
         # add_true_muts(tree1, true_muts)
