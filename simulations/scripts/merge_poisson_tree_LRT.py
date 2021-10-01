@@ -43,7 +43,7 @@ def merge_LRT(in_files, out_file):
             df.loc[total, 'filtered'] = int(filter_type)
             df.loc[total, 'true_muts'] = int(muts_type)
             df.loc[total, 'hypothesis_poissonTree'] = avg_hyp
-    df.to_csv(out_file, sep='\t', index=False)
+    df.round(4).to_csv(out_file, sep='\t', index=False)
 
     avg_row = df[(df['run'] == -1) & (df['filtered'] == True) \
         & (df['true_muts'] == False)]

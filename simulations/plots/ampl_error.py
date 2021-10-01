@@ -45,7 +45,7 @@ def get_prob_rec(k, n, a, s, p, inv=-1):
             s_plus = 0
         # base case 0: too unlikely, prob nearly 0
         if s + s_plus < -20:
-            pass
+            p.append(s + s_plus)
         # base case 3: true combination
         elif n == 2 and k == 0:
             p.append(s + s_plus)
@@ -65,6 +65,13 @@ def log_sum(x):
         if x_i != m:
             s += np.exp(x_i - m)
     return m + np.log1p(s)
+
+
+def log_norm(x):
+    max_i = np.argmax(x)
+    x_exp = np.exp(x[np.arange(x.size) != max_i] - x[max_i])
+    x_norm = x - x[max_i] - np.log1p(np.sum(x_exp))
+    return np.exp(np.clip(x_norm, None, 0))
 
 
 def get_prob(k, n, a):
@@ -87,7 +94,7 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-
+    import pdb; pdb.set_trace()
     print(get_prob(args.k, args.n, args.a))
     exit()
     p_all = np.zeros(args.n-1)

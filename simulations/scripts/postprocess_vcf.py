@@ -53,9 +53,10 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             # VCF records
             line_cols = line.strip().split('\t')
 
-            bases = {line_cols[3]: 0}
             ref = line_cols[3]
             alts = line_cols[4].split(',')
+
+            bases = {ref: 0}
             for i, j in enumerate(alts, 1):
                 bases[j] = i
 
@@ -82,7 +83,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     gt = '|'.join(sorted([i for i in s_rec[0].split('|')]))
                     dp = s_rec[1]
                     rc = s_rec[2]
-                    # g10 = s_rec[3]
+
                     try:
                         tgt = '|'.join(sorted([str(bases[i]) \
                             for i in s_rec[-1].split('|')]))

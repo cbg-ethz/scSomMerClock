@@ -13,18 +13,20 @@ def get_out_dir(config):
     else:
         model = 'clock0'
 
-    if config['cellcoal']['scWGA'].get('errors', False):
-        sim_scWGA = 'WGA{}-{}-{}'.format(
-            config['cellcoal']['scWGA']['ADO_rate'],
-            config['cellcoal']['scWGA']['doublet_rate'][0],
-            config['cellcoal']['scWGA']['ampl_error'][0])
+    scWGA = config['cellcoal']['scWGA']
+    if scWGA.get('errors', False):
+        if isinstance(scWGA["ADO_rate"], float):
+            sim_scWGA  = f'WGA{scWGA["ADO_rate"]}'
+        else:
+            sim_scWGA = f'WGA{scWGA["ADO_rate"][0]},{scWGA["ADO_rate"][1]}'
+        sim_scWGA += f'-{scWGA["doublet_rate"][0]}-{scWGA["ampl_error"][0]}'
     else:
         sim_scWGA = 'WGA0-0-0'
 
-    sim_NGS = 'NGS{}-'.format(config['cellcoal']['NGS']['seq_cov'])
-    if config['cellcoal']['NGS'].get('errors', False):
-        sim_NGS += '{}-{}'.format(config['cellcoal']['NGS']['seq_overdis'],
-            config['cellcoal']['NGS']['seq_error'])
+    NGS = config['cellcoal']['NGS']
+    sim_NGS = f'NGS{NGS["seq_cov"]}-'
+    if NGS.get('errors', False):
+        sim_NGS += f'{NGS["seq_overdis"]}-{NGS["seq_error"]}'
     else:
         sim_NGS += '0-0'
 

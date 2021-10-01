@@ -256,30 +256,40 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft'):
             br_labels = lambda c: f'{c.mut_no_soft:.1f} ({c.mut_no_true})'
         except AttributeError:
             br_labels = lambda c: f'{c.mut_no_soft:.1f}'
-    elif br_length == 'weights':
-        for i in tree.find_clades():
-            i.branch_length = i.branch_length
-        br_labels = lambda c: '/'.join([f'{i:.3f}' for i in c.weight_norm])
-    elif br_length == 'weights_mut':
+    elif 'weights' in br_length:
         for i in tree.find_clades():
             i.branch_length = i.mut_no_soft
+
         try:
             tree.root.mut_no_true
-            br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                + f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
         except AttributeError:
-            br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
-                + f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
-    elif br_length == 'mut_no_weights':
-        for i in tree.find_clades():
-            i.branch_length = i.mut_no_soft
-        try:
-            tree.root.mut_no_true
-            br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
-        except AttributeError:
-            br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
-                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+            true_muts = False
+        else:
+            true_muts = True
+
+        if br_length == 'weights':
+            br_labels = lambda c: '/'.join([f'{i:.3f}' for i in c.weight_norm])
+        elif br_length == 'weights_mut':
+            if true_muts:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
+                    f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
+            else:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
+                    f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
+        elif br_length == 'mut_no_weights':
+            if true_muts:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
+                    + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+            else:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
+                    + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+        elif br_length == 'weights_soft':
+            if true_muts:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
+                    f'{c.weight["soft"]:.2f}'
+            else:
+                br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
+                    f'{c.weight["soft"]:.2f}'
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -322,10 +332,10 @@ def get_scite_errors(FP, FN, c=1):
 def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
             rates=False):
     fkt = 1
-    FP = float(re.search('WGA0[\.\d]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
+    FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
     # TODO <NB> hardcoded seq error. Take from config/directory structure
-    FN = float(re.search('WGA(0[\.\d]*)-', tree_file).group(1))
+    FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
     errors = get_xcoal_errors(FP, FN, fkt)
 
     if 'cellphy' in tree_file:
@@ -660,7 +670,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         max_prob = probs_norm.max()
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
-        #if idx[i] in [60, 67, 81, 110, 138, 263]: import pdb; pdb.set_trace()
+        # if idx[i] in [60, 67, 81, 110, 138, 263]: import pdb; pdb.set_trace()
 
         for best_node in sorted(best_nodes, reverse=True):
             # Remove muts where MLE contains full wt (outside of tree/all zero)
@@ -726,7 +736,9 @@ def add_br_weigts(tree, errors):
 
     errors_rev = np.array([errors[0], errors[3], errors[2], errors[1]])
 
-    for i, y in enumerate(S[:-1]):
+    w = np.zeros((n + 1, n + 1))
+
+    for i, y in enumerate(S):
         data = np.stack([
             np.nansum(S * y, axis=1), # TP
             np.nansum(S_inv * y, axis=1), # FP
@@ -737,6 +749,11 @@ def add_br_weigts(tree, errors):
         probs_norm = _normalize_log_probs(probs)
         probs_rev = np.dot(errors_rev, data)
         probs_norm_rev = _normalize_log_probs(probs_rev)
+
+        w[i] = probs_norm
+        # prob for wiltype cell
+        if i == n:
+            continue
 
         nodes[i].odds = probs[i] / max(LAMBDA_MIN, (1 - probs[i]))
         nodes[i].weight = {'top': probs_norm[i],
@@ -749,6 +766,11 @@ def add_br_weigts(tree, errors):
             nodes[i].weight['mut'] = (avg, std)
         else:
             nodes[i].weight['mut'] = (probs_norm[i], np.nan)
+
+    for i, j in enumerate(w.sum(axis=0)):
+        if i == n:
+            continue
+        nodes[i].weight['soft'] = j
 
 
 def add_true_muts(tree, df_true):
@@ -1142,6 +1164,8 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
             return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
+    print(f'Diff init-opt: {np.sum(np.abs(opt.x - Y)):.2f}')
+
     if short:
         ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
     else:
@@ -1259,10 +1283,11 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
     for filter_type in filter_muts:
         muts, true_muts, reads, stats = \
             get_mut_df(vcf_file, exclude, include, filter=filter_type)
-        # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
-        tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
 
+        tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
         add_true_muts(tree, true_muts)
+
+        # tree1, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
         # add_true_muts(tree1, true_muts)
 
         if muts_per_branch:
@@ -1288,6 +1313,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
                     get_LRT_poisson(Y, constr, init, weights, short=True)
 
+                import pdb; pdb.set_trace()
                 if np.isnan(ll_H0):
                     continue
                 hyp = int(p_val < alpha)
