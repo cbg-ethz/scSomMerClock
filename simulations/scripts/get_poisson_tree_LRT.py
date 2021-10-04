@@ -1313,7 +1313,6 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
                     get_LRT_poisson(Y, constr, init, weights, short=True)
 
-                import pdb; pdb.set_trace()
                 if np.isnan(ll_H0):
                     continue
                 hyp = int(p_val < alpha)
