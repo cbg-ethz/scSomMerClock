@@ -7,6 +7,8 @@ import numpy as np
 from statistics import mean, stdev
 from scipy.stats.distributions import chi2
 
+LAMBDA_MIN = 1e-12
+
 
 def get_muts_per_cell(vcf_file, exclude, include):
     if vcf_file.endswith('gz'):
@@ -26,27 +28,34 @@ def get_muts_per_cell(vcf_file, exclude, include):
                 # Safe column headers
                 if line.startswith('#CHROM'):
                     sample_names = line.strip().split('\t')[9:]
-                    samples = [0 for i in range(len(sample_names))]
+                    sample_no = len(sample_names)
+                    samples = np.zeros(sample_no)
+                    include_i = np.full(sample_no, True)
+
                     if exclude != '':
                         print('Exluded:')
                         for s_i, sample in enumerate(sample_names):
                             if re.fullmatch(exclude, sample):
-                                exclude_i.append(s_i)
+                                include_i[s_i] = False
                                 print('\t{}'.format(sample))
-                        if len(exclude_i) == 0:
-                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
-                                .format(exclude))
+                        if include_i.sum() == sample_no:
+                            print('\nWARNING: no samples with pattern ' \
+                                f'{exclude} in vcf!\n')
                     if include != '':
                         print('Include:')
                         for s_i, sample in enumerate(sample_names):
                             if not re.fullmatch(include, sample):
-                                exclude_i.append(s_i)
+                                include_i[s_i] = False
                             else:
                                 if not re.fullmatch(exclude, sample):
                                     print('\t{}'.format(sample))
-                        if len(exclude_i) == 0:
-                            print('\nWARNING: no samples with pattern {} in vcf!\n' \
-                                .format(include))
+                        if include_i.sum() == sample_no:
+                            print('\nWARNING: no samples with pattern ' \
+                                f' {include} in vcf!\n')
+                    # Sanity check: remove sample without name
+                    for s_i, sample in enumerate(sample_names):
+                        if sample == '':
+                            include_i[s_i] = False
                 continue
 
             elif line.strip() == '':
@@ -77,15 +86,7 @@ def get_muts_per_cell(vcf_file, exclude, include):
                 #     print('True GT: {}; inferred GT: {}'.format(gt_true, gt_pred))
 
     # Remove excluded samples
-    for i in sorted(exclude_i, reverse=True):
-        samples.pop(i)
-    # Sanity check: remove sample without name
-    try:
-        samples.pop(sample_names.index(''))
-    except (ValueError, KeyError):
-        pass
-    
-    return samples
+    return samples[include_i]
 
 
 def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
@@ -94,13 +95,13 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
 
     avg = [[], [], [], [], 0]
     out_str = ''
-    for file_no, in_file in enumerate(in_files):
+    for file_no, in_file in enumerate(sorted(in_files)):
         run = int(os.path.basename(in_file).split('.')[1])
         muts = np.array(get_muts_per_cell(in_file, exclude, include))
         mean_muts = muts.mean()
 
-        h0 = -np.sum(muts * np.log(mean_muts) - mean_muts)
-        h1 = -np.sum(muts * np.log(muts) - muts)
+        h0 = -np.nansum(muts * np.log(mean_muts) - mean_muts)
+        h1 = -np.nansum(muts * np.log(np.clip(muts, LAMBDA_MIN, None)) - muts)
         LR = 2 * (h0 - h1)
         dof = muts.size - 1
         p_val = chi2.sf(LR, dof)

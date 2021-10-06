@@ -26,9 +26,12 @@ def get_final_files(wildcards):
         if config.get('paup', {}).get('run', False):
             files.append(os.path.join(base_dir, f'paup_dir_{tree}',
                 'paup.clock_test_summary.tsv'))
-        if config.get('poisson', {}).get('run', False):
+
+        if config.get('poisson', {}).get('tree', False) or \
+                config.get('poisson', {}).get('run', False):
             files.append(os.path.join(base_dir, f'poissonTree_{tree}',
                 'poissonTree.clock_test_summary.tsv'))
+
         if config.get('sieve', {}).get('run', False):
             files.append(os.path.join(out_dir, 'sieve_dir',
                 f'sieve_{tree}.clock_test_summary.tsv'))
@@ -36,8 +39,9 @@ def get_final_files(wildcards):
             files.append(os.path.join(base_dir, f'mrbayes_dir_{tree}',
                 'mrbayes.clock_test_summary.tsv'))
 
-    if config.get('poisson', {}).get('run', False):
-        files.append(os.path.join(base_dir, 'poisson.clock_test_summary.tsv'))
+    if config.get('poisson', {}).get('dispersion', False) or \
+                config.get('poisson', {}).get('run', False):
+        files.append(os.path.join(base_dir, 'poissonDisp.clock_test_summary.tsv'))
 
     return files
 
@@ -349,7 +353,7 @@ rule run_poisson:
     input:
         get_poisson_input
     output:
-        os.path.join(base_dir, 'poisson.clock_test_summary.tsv')
+        os.path.join(base_dir, 'poissonDisp.clock_test_summary.tsv')
     conda:
         'envs/monovar.yaml'
     envmodules:

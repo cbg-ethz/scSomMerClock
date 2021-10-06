@@ -11,7 +11,7 @@ def merge_summaries(in_files, out_file):
 
     for i, in_file in enumerate(sorted(in_files)):
         method = os.path.basename(in_file).split('.')[0]
-        if method == 'poisson':
+        if method == 'poissonDisp':
             suffix = f'{method}'
         else:
             tree_dir = in_file.split(os.sep)[-2]

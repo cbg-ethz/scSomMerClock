@@ -146,7 +146,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
             pos = int(line_cols[1])
             idx[1].append(pos)
-            if 'PASS' in line_cols[6]:
+            if 'PASS' in line_cols[6] or line_cols[6] == 's50':
                 idx[0].append(pos)
                 ref_gt.append((MUT[line_cols[3]], alt_idx))
                 reads.append(line_reads)
@@ -466,7 +466,6 @@ def get_rooted_tree(tree_str, paup_exe):
     # try:
     #     wrong_root_len = int(re.search(':(\d+),healthycell', tree_new).group(1))
     # except AttributeError:
-    #     import pdb; pdb.set_trace()
     #     wrong_root_len = int(re.search(':(\d+)\):0;', tree_new).group(1))
 
     return Phylo.read(StringIO(tree_new), 'newick')
@@ -655,13 +654,18 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         het_not = depth - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
-        clip_min = -50
+        clip_min = -100
         p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
         p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
         # Get log pro for p(b|0,1) for het genotype
+        noNAN = ~np.isnan(p_ref)
         p_noADO = het * eps_het_not + het_not * eps_het - depth * eps_const
-        p_het = np.clip(np.logaddexp(gamma_not + p_noADO,
-                np.logaddexp(gamma + p_ref, gamma + p_alt)), clip_min, 0)
+        try:
+            p_ADO = np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN)
+            p_het = np.clip(np.logaddexp(gamma_not + p_noADO, p_ADO, where=noNAN),
+                clip_min, 0)
+        except:
+            import pdb; pdb.set_trace()
 
         probs = np.nansum(S_inv * p_ref + S * p_het, axis=1)
         probs_norm = _normalize_log_probs(probs)
@@ -1165,6 +1169,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
     print(f'Diff init-opt: {np.sum(np.abs(opt.x - Y)):.2f}')
+    print(opt.x)
 
     if short:
         ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
