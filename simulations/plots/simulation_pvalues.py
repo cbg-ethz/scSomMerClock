@@ -20,8 +20,8 @@ COLORS = [
     '#FFFF99', '#B15928', #ugly
 ]
 
-TICK_FONTSIZE = 12
-LABEL_FONTSIZE = 16
+TICK_FONTSIZE = 8
+LABEL_FONTSIZE = 8
 
 vis_names = {
     'poisson': 'Poisson',
@@ -52,6 +52,8 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         except ValueError:
             method = rel_col.lower().replace('p-value_', '')
             tree = '-'
+
+        if method == 'p-value': method = 'poisson'
 
         df_new['Method'] = vis_names[method]
         df_new['Tree'] = vis_names[tree]
@@ -85,12 +87,18 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
         '-': '#C88B0A'
     }
     plot_pvals(df, out_file, bins, colors)
-    plot_test_statistic(df_lambda, out_file, bins, colors)
+    if not df_lambda.empty:
+        plot_test_statistic(df_lambda, out_file, bins, colors)
 
 
 def plot_pvals(df, out_file, bins, colors):
+    methods = df.Method.unique()
+    row_order = [i for i in ['Poisson', 'PAUP*', 'Poisson + Tree'] if i in methods]
+    if len(row_order) == 1 and row_order[0] == 'Poisson':
+        hue_order = ['-']
+    else:
+        hue_order = ['-', 'SCITE', 'True', 'CellPhy']
 
-    row_order = ['Poisson', 'PAUP*', 'Poisson + Tree']
     dp = sns.displot(df, x='P-value', hue='Tree', row='Method',
         element='bars', stat='density', kde=False,
         common_norm=False, fill=True, bins=bins,
@@ -98,7 +106,7 @@ def plot_pvals(df, out_file, bins, colors):
         line_kws={'lw': 3, 'alpha': 0.75},
         palette=colors, lw=2, alpha=0.5,
         height=4, aspect=3,
-        hue_order=['-', 'SCITE', 'True', 'CellPhy'],
+        hue_order=hue_order,
         row_order=row_order,
         facet_kws={'sharey': False})
 
@@ -115,63 +123,67 @@ def plot_pvals(df, out_file, bins, colors):
             labelsize=TICK_FONTSIZE)
 
     # Rugplot for 1 row: poisson
-    height = -0.03
-    poisson_data = df[(df['Tree'] == '-') & (df['Method'] == 'Poisson')]
-    sns.rugplot(data=poisson_data, x='P-value', height=height, clip_on=False,
-        color=colors['-'], ax=dp.axes[0][0], linewidth=0.2)
-    dp.axes[0][0].add_collection(
-        LineCollection(np.array([[[0.05, 0],[0.05, height]]]),
-        transform=dp.axes[0][0].get_xaxis_transform(),
-        clip_on=False, color='red', ls='-', linewidth=2)
-    )
-    sgf_perc = np.percentile(poisson_data['P-value'].values, 5)
-    dp.axes[0][0].axvline(sgf_perc, ls='--', color=colors['-'], lw=2)
-    dp.axes[0][0].text(sgf_perc + 0.005, dp.axes[0][0].get_ylim()[1] / 2,
-        f'5th percentile ({sgf_perc:.3f})', color=colors['-'])
-    # dp.axes[0][0].add_collection(
-    #     LineCollection(np.array([[[sgf_perc, 0], [sgf_perc, height]]]),
-    #     transform=dp.axes[0][0].get_xaxis_transform(),
-    #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
-    # )
-
-    # Rugplot for 2 and 3 row: paup and poisson + tree
-    for ax_no, method in [(1, 'PAUP*'), (2, 'Poisson + Tree')]:
-        for i, tree in enumerate(['True', 'SCITE', 'CellPhy']):
-            data = df[(df['Tree'] == tree) & (df['Method'] == method)] \
-                ['P-value'].values
-            if data.size == 0:
-                continue
-
-            segs = np.stack((np.c_[data, data],
-                np.c_[np.zeros_like(data) + height * i,
-                        np.zeros_like(data) + height * (i + 1)]),
-                    axis=-1)
-            lc = LineCollection(segs,
-                transform=dp.axes[ax_no][0].get_xaxis_transform(),
-                clip_on=False, color=colors[tree], linewidth=0.025, alpha=0.75)
-            dp.axes[ax_no][0].add_collection(lc)
-
-            sgf_perc = np.percentile(data, 5)
-            dp.axes[ax_no][0].axvline(sgf_perc, ls='--', color=colors[tree], lw=2)
-            dp.axes[ax_no][0].text(sgf_perc + 0.01,
-                dp.axes[ax_no][0].get_ylim()[1] / 6 * (i + 3),
-                f'5th percentile ({sgf_perc:.3f})', color=colors[tree])
-
-            # sgf_line = np.array([[[sgf_perc, height * i],
-            #     [sgf_perc, height * (i + 1)]]])
-            # dp.axes[ax_no][0].add_collection(
-            #     LineCollection(sgf_line,
-            #     transform=dp.axes[ax_no][0].get_xaxis_transform(),
-            #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
-            # )
-
-        pval_line = np.array([[[0.05, 0],[0.05, height * 3]]])
-        dp.axes[ax_no][0].add_collection(
-            LineCollection(pval_line,
-            transform=dp.axes[ax_no][0].get_xaxis_transform(),
+    if 'Poisson' in methods:
+        height = -0.03
+        poisson_data = df[(df['Tree'] == '-') & (df['Method'] == 'Poisson')]
+        sns.rugplot(data=poisson_data, x='P-value', height=height, clip_on=False,
+            color=colors['-'], ax=dp.axes[0][0], linewidth=0.2)
+        dp.axes[0][0].add_collection(
+            LineCollection(np.array([[[0.05, 0],[0.05, height]]]),
+            transform=dp.axes[0][0].get_xaxis_transform(),
             clip_on=False, color='red', ls='-', linewidth=2)
         )
+        sgf_perc = np.percentile(poisson_data['P-value'].values, 5)
+        dp.axes[0][0].axvline(sgf_perc, ls='--', color=colors['-'], lw=2)
+        dp.axes[0][0].text(sgf_perc + 0.005, dp.axes[0][0].get_ylim()[1] / 2,
+            f'5th percentile ({sgf_perc:.3f})', color=colors['-'])
+        # dp.axes[0][0].add_collection(
+        #     LineCollection(np.array([[[sgf_perc, 0], [sgf_perc, height]]]),
+        #     transform=dp.axes[0][0].get_xaxis_transform(),
+        #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
+        # )
 
+    # Rugplot for 2 and 3 row: paup and poisson + tree
+    if 'PAUP*' in methods and 'Poisson + Tree' in methods:
+        for ax_no, method in [(1, 'PAUP*'), (2, 'Poisson + Tree')]:
+            for i, tree in enumerate(['True', 'SCITE', 'CellPhy']):
+                data = df[(df['Tree'] == tree) & (df['Method'] == method)] \
+                    ['P-value'].values
+                if data.size == 0:
+                    continue
+
+                segs = np.stack((np.c_[data, data],
+                    np.c_[np.zeros_like(data) + height * i,
+                            np.zeros_like(data) + height * (i + 1)]),
+                        axis=-1)
+                lc = LineCollection(segs,
+                    transform=dp.axes[ax_no][0].get_xaxis_transform(),
+                    clip_on=False, color=colors[tree], linewidth=0.025, alpha=0.75)
+                dp.axes[ax_no][0].add_collection(lc)
+
+                sgf_perc = np.percentile(data, 5)
+                dp.axes[ax_no][0].axvline(sgf_perc, ls='--', color=colors[tree], lw=2)
+                dp.axes[ax_no][0].text(sgf_perc + 0.01,
+                    dp.axes[ax_no][0].get_ylim()[1] / 6 * (i + 3),
+                    f'5th percentile ({sgf_perc:.3f})', color=colors[tree])
+
+                # sgf_line = np.array([[[sgf_perc, height * i],
+                #     [sgf_perc, height * (i + 1)]]])
+                # dp.axes[ax_no][0].add_collection(
+                #     LineCollection(sgf_line,
+                #     transform=dp.axes[ax_no][0].get_xaxis_transform(),
+                #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
+                # )
+
+            pval_line = np.array([[[0.05, 0],[0.05, height * 3]]])
+            dp.axes[ax_no][0].add_collection(
+                LineCollection(pval_line,
+                transform=dp.axes[ax_no][0].get_xaxis_transform(),
+                clip_on=False, color='red', ls='-', linewidth=2)
+            )
+
+    if len(row_order) == 1 and row_order[0] == 'Poisson':
+        dp._legend.remove()
 
     dp.fig.subplots_adjust(left=0.1, bottom=0.1, right=0.85, top=0.9, hspace=0.33)
     dp.fig.suptitle(_get_title(in_file), fontsize=LABEL_FONTSIZE*1.25)
@@ -204,6 +216,7 @@ def plot_test_statistic(df, out_file, bins, colors):
 
     x = np.linspace(chi2.ppf(0.001, dof), chi2.ppf(0.999, dof), bins)
     y = chi2.pdf(x, dof)
+
     for ax_no, method in enumerate(row_order):
         dp.axes[ax_no][0].plot(x, y, ls='--', color='r', lw=2,
                 label=f'Chi2({dof}) pdf')
@@ -271,7 +284,8 @@ if __name__ == '__main__':
 
     if os.path.isdir(args.input):
         rel_files = [os.path.join(args.input, i) for i in os.listdir(args.input) \
-            if i.startswith('final_summary') and i.endswith('.tsv')]
+            if ('summary' in i) and i.endswith('.tsv')]
+
         for in_file in sorted(rel_files):
             out_file = f'{in_file}.pdf'
             print(f'Processing: {in_file}')

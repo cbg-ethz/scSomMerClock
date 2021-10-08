@@ -29,6 +29,18 @@ log_LAMBDA_MIN = np.log(LAMBDA_MIN)
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
+def plot_distribution(d, b=500):
+    import matplotlib.pyplot as plt
+
+    d = d.flatten()
+    d = d[~np.isnan(d)]
+
+    fig, ax = plt.subplots(1, 1)
+    ax.hist(d, histtype='stepfilled', bins=b)
+    plt.show()
+    plt.close()
+
+
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
@@ -117,9 +129,15 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
                 # Add reads
                 try:
-                    line_reads[s_i] = np.array(s_rec_elms[2].split(','), dtype=int)
+                    reads_i = np.array(s_rec_elms[2].split(','), dtype=int)
                 except ValueError:
-                    line_reads[s_i] = np.full(4, np.nan)
+                    reads_i = np.full(4, np.nan)
+                else:
+                    if sum(reads_i) == 0:
+                        reads_i = np.full(4, np.nan)
+
+                line_reads[s_i] = reads_i
+
 
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
@@ -173,6 +191,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     stats = get_stats(muts, true_muts, True, True)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
+    import pdb; pdb.set_trace()
     return muts, true_muts, read_data, stats
 
 
@@ -637,12 +656,13 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
     eps_const = np.log(2)
 
     M = np.zeros((reads.shape[0], S.shape[0]))
-    skip = []
+    max_probs = np.zeros(reads.shape[0])
+
     for i in tqdm(range(idx.size)):
         reads_i = reads[i]
         gt_i = gt[i]
-
         depth = reads_i.sum(axis=1)
+
         # ref, !ref counts
         ref = reads_i[:,gt_i[0]]
         ref_not = depth - ref
@@ -654,25 +674,26 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         het_not = depth - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
-        clip_min = -100
+        clip_min = None
         p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
         p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
         p_noADO = het * eps_het_not + het_not * eps_het - depth * eps_const
-        try:
-            p_ADO = np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN)
-            p_het = np.clip(np.logaddexp(gamma_not + p_noADO, p_ADO, where=noNAN),
-                clip_min, 0)
-        except:
-            import pdb; pdb.set_trace()
+        p_ADO = np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN)
+        p_het = np.logaddexp(gamma_not + p_noADO, p_ADO, where=noNAN)
 
-        probs = np.nansum(S_inv * p_ref + S * p_het, axis=1)
-        probs_norm = _normalize_log_probs(probs)
+        probs_full = np.clip(S_inv * p_ref + S * p_het, clip_min, 0)
+        probs_br = np.nansum(probs_full, axis=1)
+
+        # plot_distribution(probs_full)
+        # import pdb; pdb.set_trace()
+        probs_norm = _normalize_log_probs(probs_br)
         M[i] = probs_norm
 
         max_prob = probs_norm.max()
-        best_nodes = np.argwhere(probs == np.max(probs)).flatten()
+        best_nodes = np.argwhere(probs_br == np.max(probs_br)).flatten()
+        max_probs[i] = max_prob
 
         # if idx[i] in [60, 67, 81, 110, 138, 263]: import pdb; pdb.set_trace()
 
@@ -680,22 +701,19 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
             # Remove muts where MLE contains full wt (outside of tree/all zero)
             try:
                 node_map[best_node].muts_br.add(idx[i])
-            except KeyError:
-                skip.append(i)
-                # import pdb; pdb.set_trace()
-            else:
                 node_map[best_node].mut_no_hard += 1 / best_nodes.size
                 node_map[best_node].probs.append(max_prob)
-    # np.unique(np.argmax(M, axis=1), return_counts=True
+            except KeyError:
+                pass
 
-    M = np.delete(M, skip, axis=0)
-    idx = np.delete(idx, skip, axis=0)
+    # Remove muts where MLE contains full wt (outside of tree/all zero)
+    skip = np.where(M[:,-1] == M.max(axis=1), True, False)
+    soft_assigned = M[~skip].sum(axis=0)
 
-    soft_assigned = M.sum(axis=0)
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
 
-    return pd.DataFrame(M, index=idx)
+    return pd.DataFrame(M[~skip], index=idx[~skip])
 
 
 def map_mutations_naive(tree, muts, min_dist):
@@ -1257,19 +1275,6 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #         p_val = chi2.sf(LR, dof)
 
 #     return ll_H0, ll_H1, LR, dof + on_bound, p_val
-
-
-def test_tree(tree, n=100):
-    Y_true, constr, init, weights, _ = \
-        get_model_data(tree, pseudo_mut=1, true_data=True)
-
-    res = np.zeros((n, 6))
-    for i in tqdm(range(n)):
-        Y = poisson.rvs(Y_true)
-        res[i] = get_LRT_poisson(Y, constr, init, weights)
-
-    p_vals = res[:,-1]
-    print(f'P-vals. avg: {np.mean(p_vals):.4f}\t ({np.sum(p_vals <= 0.05)}/{n})')
 
 
 def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',

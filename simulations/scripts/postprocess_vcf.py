@@ -6,8 +6,13 @@ import numpy as np
 import re
 
 
+READS = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
+GT_MAPPING = {0: 'AA', 1: 'AC', 2: 'AG', 3: 'AT', 4: 'CC', 5: 'CG', 6: 'CT',
+    7: 'GG', 8: 'GT', 9: 'TT'}
+
+
 def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
-            s_minGQ=1, s_filter=False, stats_file=''):
+            s_minAlt=1, s_filter=False, stats_file=''):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
@@ -38,12 +43,10 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     sample_no = len(line.strip().split('\t')[9:])
                     if monovar:
                         format_short = 'GT:AD:DP:GQ:PL'
-                        missing = '.|.:.,.:.:.:.'
                     else:
                         header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
                             'Description="Genotype Quality">\n'
                         format_short = 'GT:DP:RC:GQ:TG'
-                        missing = '.|.:.:.,.,.,.:.:.|.'
 
                 header += line
                 continue
@@ -69,7 +72,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                 true_gt = np.chararray(sample_no, itemsize=3)
 
             new_line = np.zeros(sample_no, dtype=object)
-            genotypes = np.chararray(sample_no, itemsize=3)
+            genotypes = np.full((sample_no, 2), np.nan, dtype=float)
 
             for s_i, s_rec_raw in enumerate(line_cols[9:]):
                 s_rec = s_rec_raw.split(':')
@@ -104,6 +107,12 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         gq = -1
                     true_gt[s_i] = tgt
 
+                    if gt == '.|.' and int(dp) > 0:
+                        gt_raw = GT_MAPPING[
+                            np.array(s_rec[3].split(','), dtype=float).argmax()]
+                        gt = '{}|{}' \
+                            .format(*sorted([bases[gt_raw[0]], bases[gt_raw[1]]]))
+
                     if gt == '.|.':
                         stats[4] += 1
                     elif (int(tgt[-1]) > 0) and (int(gt[-1]) > 0): #TP
@@ -118,16 +127,19 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         raise RuntimeError('Unknown case for stats update')
 
                 if int(dp) < minDP or gq < minGQ:
-                    new_line[s_i] = missing + tgt
-                    genotypes[s_i] = '.|.'
+                    new_line[s_i] = f'.|.:{dp}:{rc}:{gq:.0f}:{tgt}'
                 else:
                     if monovar:
                         new_line[s_i] = s_rec_raw
                     else:
                         new_line[s_i] = f'{gt}:{dp}:{rc}:{gq:.0f}:{tgt}'
-                    genotypes[s_i] = gt
+                    try:
+                        genotypes[s_i] = [gt[0], gt[-1]]
+                    except:
+                        import pdb; pdb.set_trace()
 
-            called_gt = genotypes[genotypes != b'.|.']
+
+            called_gt = genotypes[~np.isnan(genotypes.sum(axis=1))]
             # Count true mutations
             if not monovar:
                 if np.unique(true_gt).size > 1:
@@ -148,28 +160,28 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             filter_str = line_cols[6]
 
             # Only wildtype called
-            if np.all(called_gt == b'0|0'):
+            if called_gt.sum() == 0:
                 filter_str = 'wildtype'
             else:
                 # One or more different genotypes detected
-                diff_gt, diff_count = np.unique(called_gt, return_counts=True)
+                diff_gt, diff_count = np.unique(called_gt, return_counts=True,
+                    axis=0)
                 # Check if any non-wildtype is called more than once
                 is_singleton = True
-                for i in np.argwhere(diff_gt != b'0|0'):
-                    if diff_count[i] > 1:
+                for i, gt_i in enumerate(diff_gt):
+                    if gt_i.sum() != 0 and diff_count[i] > 1:
                         is_singleton = False
                         break
 
                 if is_singleton:
-                    cell_no = np.argwhere(
-                        (genotypes != b'.|.') & (genotypes != b'0|0')).flatten()[0]
+                    cell_no = np.argwhere((genotypes[:,0] == gt_i[0]) \
+                            & (genotypes[:,1] == gt_i[1])).flatten()[0]
                     cell_rec = line_cols[9 + cell_no].split(':')
-                    s_pln = np.array([-float(i) \
-                        for i in cell_rec[PLN_col].split(',')])
-                    s_gq = min(99, sorted(pln - pln.min())[1])
+                    cell_reads = np.array(cell_rec[2].split(','), dtype=int)
+                    alt_reads = cell_reads[READS[alts[int(gt_i[1] - 1)]]]
 
-                    if int(cell_rec[1]) < s_minDP or s_gq < s_minGQ:
-                        new_line[cell_no] = missing + tgt
+                    if int(cell_rec[1]) < s_minDP or alt_reads < s_minAlt:
+                        new_line[cell_no] = f'.|.:{dp}:{rc}:{gq:.0f}:{tgt}'
                         filter_str = 'wildtype'
                     elif s_filter:
                         filter_str = 'singleton'
@@ -205,8 +217,8 @@ def parse_args():
             'Default = 0.')
     parser.add_argument('-sdp', '--singeltonMinDP', type=int, default=1,
         help='Min. reads to include a locus (else missing). Default = 1.')
-    parser.add_argument('-sgq', '--singeltonMinGQ', type=int, default=0,
-        help='Min. Genotype Quality to include a locus (else missing). '
+    parser.add_argument('-sgq', '--singeltonMinAlt', type=int, default=1,
+        help='Min. alternative reads to include a locus (else missing). '
             'Default = 0.')
     parser.add_argument('-fs', '--filter_singletons', action='store_true',
         help='If set, singleton SNPs are filtered out.')
@@ -221,16 +233,16 @@ if __name__ == '__main__':
             s_dp = snakemake.params['dp']
         else:
             s_dp = snakemake.params['s_dp']
-        if not snakemake.params['s_gq']:
-            s_gq = snakemake.params['gq']
+        if not snakemake.params.get('s_alt', 0):
+            s_alt = 0
         else:
-            s_gq = snakemake.params['s_gq']
+            s_alt = snakemake.params['s_alt']
 
         postprocess_vcf(snakemake.input[0], snakemake.output[0],
             minDP=snakemake.params['dp'],
             minGQ=snakemake.params['gq'],
             s_minDP=s_dp,
-            s_minGQ=s_gq,
+            s_minAlt=s_alt,
             s_filter=snakemake.params['singletons'],
             stats_file=snakemake.input[1])
     else:
@@ -241,5 +253,5 @@ if __name__ == '__main__':
             minDP=args.minDP,
             minGQ=args.minGQ,
             s_minDP=args.singeltonMinDP,
-            s_minGQ=args.singeltonMinGQ,
+            s_minAlt=args.singeltonMinAlt,
             s_filter=args.filter_singletons)
