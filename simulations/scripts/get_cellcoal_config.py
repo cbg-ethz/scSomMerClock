@@ -52,9 +52,13 @@ def get_cellcoal_config(config, template_file, out_dir):
             templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"]}', templ)
             templ = re.sub('{ADO_rate_var}', '', templ)
         else:
-            templ = re.sub('{ADO_rate}', '', templ)
-            templ = re.sub('{ADO_rate_var}',
-                f'P{scWGA["ADO_rate"][0]} {scWGA["ADO_rate"][1]}', templ)
+            if len(scWGA["ADO_rate"]) == 1:
+                templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"][0]}', templ)
+                templ = re.sub('{ADO_rate_var}', '', templ)
+            else:
+                templ = re.sub('{ADO_rate}', '', templ)
+                templ = re.sub('{ADO_rate_var}',
+                    f'P{scWGA["ADO_rate"][0]} {scWGA["ADO_rate"][1]}', templ)
         templ = re.sub('{ampl_error}', f'A{scWGA["ampl_error"][0]} ' \
             f'{scWGA["ampl_error"][1]} {scWGA["ampl_error"][2]}', templ)
         templ = re.sub('{doublet_rate}',

@@ -107,10 +107,20 @@ rule generate_overview_file:
     input:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS)
     output:
-        os.path.join(base_dir, 'data_overview.tsv')
+        stats = os.path.join(base_dir, 'data_overview.tsv'),
+        ADO = os.path.join(base_dir, 'ADO_overview.tsv')
+    params:
+        no_cells = config['cellcoal']['model']['no_cells'],
     run:
-        with open(output[0], 'w') as f:
-            f.write('run\tmuts\tsides\tTP\tFP\tTN\tFN\tMS\n')
+        cols = ['run', 'muts_cells', 'muts_outgrp', 'muts_false',
+            'sides', 'TP-sides', 'FP_sides', 'TN_sides', 'FN_sides', 'MS_sides']
+        with open(output.stats, 'w') as f:
+            f.write('\t'.join(cols) + '\n')
+
+        cells = '\t'.join([f'tumcell{i+1:0>4}' for i in range(params.no_cells)] \
+            + ['healthycell'])
+        with open(output.ADO, 'w') as f:
+            f.write('run\t' + cells + '\n')
 
 
 rule postprocess_vcf:
@@ -118,6 +128,7 @@ rule postprocess_vcf:
         vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
         stats = ancient(
             os.path.join(base_dir, 'data_overview.tsv')),
+        ADO = os.path.join(base_dir, 'ADO_overview.tsv')
     output:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     envmodules:
@@ -126,7 +137,7 @@ rule postprocess_vcf:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
         s_dp = config.get('SNP_filter', {}).get('singleton_depth', None),
-        s_gq = config.get('SNP_filter', {}).get('singleton_quality', None),
+        s_alt = config.get('SNP_filter', {}).get('singleton_alts', None),
         singletons = config.get('SNP_filter', {}).get('singletons', False),
     script:
         f'{SCRIPT_DIR}/postprocess_vcf.py'
@@ -370,9 +381,11 @@ rule run_poisson:
 
 # --------------------------- POISSON TREE -------------------------------------
 
+
 rule run_poisson_tree:
     input:
-        unpack(get_nex_input)
+        unpack(get_nex_input),
+        ADO = os.path.join(base_dir, 'ADO_overview.tsv')
     output:
         os.path.join(base_dir, 'poissonTree_{tree}', 'poissonTree.{run}.LRT.txt')
     conda:

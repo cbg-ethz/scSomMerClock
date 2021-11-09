@@ -113,16 +113,16 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 elif true_gt == '1|1' or true_gt == '2|2' or true_gt == '1|2' \
                         or true_gt == '2|1':
                     line_muts[2][s_i] = 2
+
                 # Set filtered genotypes to nan
                 if gt == '.|.':
-                    line_muts[0][s_i] = np.nan
-                    line_muts[1][s_i] = np.nan
-                # Check if gt is mutation
-                elif gt.count('0') == 1: # Heterozygous
-                    line_muts[0][s_i] = int(gt[-1])
-                    diff_muts.append(int(gt[-1]))
+                    line_muts[0:2, s_i] = np.nan
                 elif gt == '0|0': # Wildtype
                     pass
+                # Check if gt is mutation
+                elif '0' in gt: # Heterozygous
+                    line_muts[0][s_i] = int(gt[-1])
+                    diff_muts.append(int(gt[-1]))
                 else: # Homozygous
                     line_muts[1][s_i] = int(gt[-1])
                     diff_muts.append(int(gt[-1]))
@@ -138,7 +138,6 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
                 line_reads[s_i] = reads_i
 
-
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
                 skip += 1
@@ -152,7 +151,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             # Two different single mutations: skip
             elif alts.size == 2 and all(alt_counts == 1):
                 data[0].append(np.where(np.isnan(line_muts[0]), np.nan, 0))
-                line_cols[6] = 'wildtype'
+                line_cols[6] = 'ISA_violation'
             else:
                 ab_alt = alts[np.argmax(alt_counts)]
                 het = np.where(line_muts[0] == ab_alt, 1, 0)
@@ -189,33 +188,44 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
         reads = np.array(reads)
 
     stats = get_stats(muts, true_muts, True, True)
-
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
-    import pdb; pdb.set_trace()
+
     return muts, true_muts, read_data, stats
 
 
-def get_stats(df, true_df, binary=True, verbose=False):
+def get_stats(df, true_df, binary=True, verbose=False, per_cell=False):
     if binary:
         df = df.replace(2, 1)
         true_df = true_df.replace(2, 1)
 
     T = (df == true_df) & df.notnull()
-    TP = (T & (df > 0)).sum().sum()
-    TN = (T & (df == 0)).sum().sum()
-
     F = (df != true_df) & df.notnull()
-    FP = (F & (df > true_df)).sum().sum()
-    FN = (F & (df < true_df)).sum().sum()
-
     MS_df = df.isna()
-    MS = MS_df.sum().sum()
-    MS_N = (MS_df & (true_df == 0)).sum().sum()
-    MS_T = (MS_df & (true_df > 0)).sum().sum()
+    if per_cell:
+        muts = T.sum()
+        TP = (T & (df > 0)).sum() / muts
+        TN = (T & (df == 0)).sum() / muts
+
+        FP = (F & (df > true_df)).sum() / muts
+        FN = (F & (df < true_df)).sum() / muts
+
+        MS = MS_df.sum() / muts
+        MS_N = (MS_df & (true_df == 0)).sum() / muts
+        MS_T = (MS_df & (true_df > 0)).sum() / muts
+    else:
+        TP = (T & (df > 0)).sum().sum()
+        TN = (T & (df == 0)).sum().sum()
+
+        FP = (F & (df > true_df)).sum().sum()
+        FN = (F & (df < true_df)).sum().sum()
+
+        MS = MS_df.sum().sum()
+        MS_N = (MS_df & (true_df == 0)).sum().sum()
+        MS_T = (MS_df & (true_df > 0)).sum().sum()
 
     mut_wrong = (df[true_df.sum(axis=1) == 0].sum(axis=1) > 0).sum()
     mut_missing = (df[true_df.sum(axis=1) > 0].sum(axis=1) == 0).sum()
-    if verbose:
+    if verbose and not per_cell:
         print(f'# Mutations: {df.shape[0]} ' \
             f'(wrong: {mut_wrong}; missing: {mut_missing})\n' \
             f'\tTP: {TP: >7}\t({TP / df.size:.3f})\n' \
@@ -674,7 +684,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         het_not = depth - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
-        clip_min = None
+        clip_min = -200
         p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
         p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
         # Get log pro for p(b|0,1) for het genotype
@@ -1356,6 +1366,7 @@ if __name__ == '__main__':
             snakemake.params.exclude = ''
         if snakemake.params.include == None:
             snakemake.params.include = ''
+
         test_data(snakemake.input.vcf, snakemake.input.tree, 
             snakemake.output[0], snakemake.params.paup_exe,
             snakemake.params.exclude, snakemake.params.include)

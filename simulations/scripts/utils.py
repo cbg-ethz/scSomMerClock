@@ -18,10 +18,13 @@ def get_out_dir(config):
         if isinstance(scWGA["ADO_rate"], float):
             sim_scWGA  = f'WGA{scWGA["ADO_rate"]}'
         else:
-            max_var = scWGA["ADO_rate"][0] * (1 - scWGA["ADO_rate"][0])
-            max_var = int(max_var * 100) / 100 - 0.001
-            scWGA["ADO_rate"][1] = min(scWGA["ADO_rate"][1], max_var)
-            sim_scWGA = f'WGA{scWGA["ADO_rate"][0]},{scWGA["ADO_rate"][1]}'
+            if len(scWGA['ADO_rate']) == 1:
+                sim_scWGA  = f'WGA{scWGA["ADO_rate"][0]}'
+            else:
+                max_var = scWGA["ADO_rate"][0] * (1 - scWGA["ADO_rate"][0])
+                max_var = int(max_var * 100) / 100 - 0.001
+                scWGA["ADO_rate"][1] = min(scWGA["ADO_rate"][1], max_var)
+                sim_scWGA = f'WGA{scWGA["ADO_rate"][0]},{scWGA["ADO_rate"][1]}'
         sim_scWGA += f'-{scWGA["doublet_rate"][0]}-{scWGA["ampl_error"][0]}'
     else:
         sim_scWGA = 'WGA0-0-0'
