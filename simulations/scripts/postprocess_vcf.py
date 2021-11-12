@@ -236,9 +236,13 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         np.ma.masked_invalid(genotypes).sum(axis=1) > 0)
                     for cell_no in rel_cells:
                         cell_rec = line_cols[9 + cell_no[0]].split(':')
-                        cell_reads = np.array(cell_rec[2].split(','), dtype=int)
-                        alt_id = READS[alts[int(cell_rec[0][-1]) - 1]]
-                        alt_reads = cell_reads[alt_id]
+                        if cell_rec[0].startswith('.'):
+                            cell_rec[1] = -1
+                            alt_reads = -1
+                        else:
+                            cell_reads = np.array(cell_rec[2].split(','), dtype=int)
+                            alt_id = READS[alts[int(cell_rec[0][-1]) - 1]]
+                            alt_reads = cell_reads[alt_id]
 
                         if int(cell_rec[1]) < s_minDP or alt_reads < s_minAlt:
                             new_line[cell_no[0]] = '.|.' \
