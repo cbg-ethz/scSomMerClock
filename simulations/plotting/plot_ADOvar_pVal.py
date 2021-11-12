@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pandas as pd
+import re
 
 
 TICK_FONTSIZE = 16
@@ -18,7 +19,7 @@ COLORS = [
 ]
 
 
-def plot_ADO_distr(ADO, out_file):
+def plot_ADO_distr(ADO, out_file, title_str=''):
     fig, ax = plt.subplots(figsize=(16, 12))
     ax.hist(ADO.values.flatten(), density=True, histtype='stepfilled',
         color=COLORS[1], label='per cell', alpha=0.9)
@@ -29,6 +30,7 @@ def plot_ADO_distr(ADO, out_file):
     ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
     ax.tick_params(axis='both', which='minor', labelsize=TICK_FONTSIZE)
     plt.legend(fontsize=TICK_FONTSIZE)
+    plt.title(title_str, fontsize=LABEL_FONTSIZE)
 
     fig.savefig(out_file, dpi=300)
     plt.close()
@@ -37,9 +39,22 @@ def plot_ADO_distr(ADO, out_file):
 def generate_pval_plot(ADO_file, data_file, out_dir):
     ADO = pd.read_csv(ADO_file, sep='\t', index_col=0, encoding='utf-8')
     ADO.drop_duplicates(keep='last', inplace=True)
-    ADO.index = [int(i[-4:]) for i in ADO.index.values]
+    if ADO.index.dtype == str:
+        ADO.index = [int(i[-4:]) if len(i) > 3 else np.nan \
+            for i in ADO.index.values]
+    #import pdb; pdb.set_trace()
 
-    plot_ADO_distr(ADO, os.path.join(out_dir, 'ADO_distr.png'))
+    ADO_match = re.search('WGA(0[\.\d]*),?(0\.\d*)?-', ADO_file)
+    title_str = 'Simulation: '
+    try:
+        title_str += f'mean={ADO_match.group(1)}, var={ADO_match.group(2)}'
+    except IndexError:
+        title_str += f'mean={ADO_match.group(1)}'
+    except IndexError:
+        title_str += '?'
+    title_str += '\n'
+
+    plot_ADO_distr(ADO, os.path.join(out_dir, 'ADO_distr.png'), title_str)
 
     data = pd.read_csv(data_file, sep='\t', index_col=0)
 
@@ -59,7 +74,7 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
             ax.set_xlabel(f'ADO {y_label}', fontsize=LABEL_FONTSIZE)
             ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
             ax.tick_params(axis='both', which='minor', labelsize=TICK_FONTSIZE)
-            plt.title(f'Method: {method_str}')
+            plt.title(title_str + f'Method: {method_str}', fontsize=LABEL_FONTSIZE)
 
             out_file = os.path.join(out_dir, f'ADO_pVal_{method_str}_{y_label}.png')
             fig.savefig(out_file, dpi=300)
@@ -75,7 +90,7 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
         ax.set_zlabel('p-Value')
         ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
         ax.tick_params(axis='both', which='minor', labelsize=TICK_FONTSIZE)
-        plt.title(f'Method: {method_str}')
+        plt.title(title_str + f'Method: {method_str}', fontsize=LABEL_FONTSIZE)
 
         out_file = os.path.join(out_dir, f'ADO_pVal_{method_str}_3D.png')
         fig.savefig(out_file, dpi=300)
