@@ -128,7 +128,7 @@ rule postprocess_vcf:
         vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
         stats = ancient(
             os.path.join(base_dir, 'data_overview.tsv')),
-        ADO = os.path.join(base_dir, 'ADO_overview.tsv')
+        ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     envmodules:
@@ -283,7 +283,7 @@ rule run_cellphy:
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
     resources:
         mem_mb = 1024,
-        runtime = 240,
+        runtime = 300,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
@@ -384,8 +384,7 @@ rule run_poisson:
 
 rule run_poisson_tree:
     input:
-        unpack(get_nex_input),
-        ADO = os.path.join(base_dir, 'ADO_overview.tsv')
+        unpack(get_nex_input)
     output:
         os.path.join(base_dir, 'poissonTree_{tree}', 'poissonTree.{run}.LRT.txt')
     conda:
