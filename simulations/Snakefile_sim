@@ -133,6 +133,8 @@ rule postprocess_vcf:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     envmodules:
         'numpy/1.18.1-python-3.7.7',
+    resources:
+        runtime = 30,
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),

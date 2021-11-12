@@ -42,6 +42,7 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
     if ADO.index.dtype == str:
         ADO.index = [int(i[-4:]) if len(i) > 3 else np.nan \
             for i in ADO.index.values]
+    ADO = ADO[~ADO.index.duplicated()]
     #import pdb; pdb.set_trace()
 
     ADO_match = re.search('WGA(0[\.\d]*),?(0\.\d*)?-', ADO_file)
@@ -65,7 +66,10 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
         method_str = method.replace('p-value', '').strip('_')
         x = data[method]
         for y_label, y in y_all:
-            plot_data = pd.concat([y, x], axis=1).dropna().values.T
+            try:
+                plot_data = pd.concat([y, x], axis=1).dropna().values.T
+            except:
+                import pdb; pdb.set_trace()
 
             fig, ax = plt.subplots(figsize=(16, 12))
             plt.plot(plot_data[0], plot_data[1], marker='x', lw=0)
