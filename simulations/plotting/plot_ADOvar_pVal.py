@@ -128,7 +128,7 @@ if __name__ == '__main__':
             args.outDir = os.path.join(args.inDir, 'ADO_plots')
         else:
             args.outDir = os.path.join(os.path.dirname(data_file), 'ADO_plots')
-        os.makedirs(args.outDir, exist_ok=True)
+    os.makedirs(args.outDir, exist_ok=True)
 
     generate_pval_plot(ADO_file, data_file, args.outDir)
     if args.compress:
