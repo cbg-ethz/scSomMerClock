@@ -2,7 +2,7 @@
 
 import argparse
 import numpy as np
-import scipy.special
+from scipy.special import comb
 
 np.seterr(all='raise')
 
@@ -83,6 +83,18 @@ def get_prob(k, n, a):
         return 0
 
 
+def get_prob_short(k, n, a):
+    no_comb = np.log(comb(n - 2, k))
+    try:
+        prob_no_error = (n - k - 2) * np.log(1 - a) \
+            + np.log(np.arange(2, n-k)).sum()
+        prob_error = np.log(np.arange(0, k) * (1 - a) + (n - k) * a).sum()
+    except:
+        import pdb; pdb.set_trace()
+    norm = np.log(np.arange(2, n)).sum()
+    return np.exp(no_comb + prob_no_error + prob_error - norm)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-k', type=int, default='', help='# alt reads')
@@ -94,11 +106,14 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    import pdb; pdb.set_trace()
-    print(get_prob(args.k, args.n, args.a))
+
+    print(f'Exact: {get_prob(args.k, args.n, args.a):6f}')
+    print(f'Upper bound: {get_prob_short(args.k, args.n, args.a):6f}')
     exit()
-    p_all = np.zeros(args.n-1)
+    p_all = np.zeros((args.n-1, 2))
     for k in range(0, args.n-1, 1):
-        p_all[k] = get_prob(k, args.n, args.a)
-        print(f'p({k}|{args.n}) = {p_all[k]:.6f}')
-    print(f'\nsum: {np.sum(p_all):6f}')
+        p_all[k, 0] = get_prob(k, args.n, args.a)
+        p_all[k, 1] = get_prob_short(k, args.n, args.a)
+        print(f'p({k: >2}|{args.n}) = {p_all[k, 0]:.6f}\t'
+            f'(upper bound: {p_all[k, 1]:.6f})')
+    print(f'\nsum: {np.sum(p_all, axis=0)[0]:6f}')

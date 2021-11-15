@@ -136,9 +136,10 @@ def _plot_muts(muts, bin_no=100):
 
 def plot_weights(data_in, out_file=None, bin_no=None):
     fig = plt.figure()
-    gs = GridSpec(3, 1)
+    gs = GridSpec(data_in.shape[1], 1)
 
-    y_labels = ['Topology FN', 'Avg. Mutation Prob', 'Topology FN+FP']
+    y_labels = ['Topology FN', 'Avg. Mutation Prob', 'Topology FN+FP',
+        '1 - |Soft assignment|']
     if not bin_no:
         bin_no_best = int(np.sqrt(data_in.shape[0]))
         bin_no = np.linspace(data_in.min(), data_in.max(), bin_no_best)

@@ -104,6 +104,10 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--inDir', help='Input directory')
+    parser.add_argument('-a', '--ADO',
+        help='ADO file (if not Input directory given.')
+    parser.add_argument('-s', '--summary',
+        help='Summary file (if not Input directory given.')
     parser.add_argument('-o', '--outDir', default='', help='Output directory')
     parser.add_argument('-c', '--compress', action='store_true',
         help='Compress output directory')
@@ -113,8 +117,12 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    ADO_file = os.path.join(args.inDir, 'ADO_overview.tsv')
-    data_file = os.path.join(args.inDir, 'final_summary.tsv')
+    if args.inDir:
+        ADO_file = os.path.join(args.inDir, 'ADO_overview.tsv')
+        data_file = os.path.join(args.inDir, 'final_summary.tsv')
+    else:
+        ADO_file = args.ADO
+        data_file = args.summary
     if not args.outDir:
         args.outDir = os.path.join(args.inDir, 'ADO_plots')
         os.makedirs(args.outDir, exist_ok=True)

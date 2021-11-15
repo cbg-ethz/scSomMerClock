@@ -13,9 +13,9 @@ np.seterr(all='raise')
 np.set_printoptions(suppress=True)
 import pandas as pd
 from scipy.stats.distributions import chi2
-from scipy.special import binom
+from scipy.special import binom as binomCoeff
 from scipy.optimize import minimize, Bounds, LinearConstraint
-from scipy.stats import poisson, multinomial, betabinom
+from scipy.stats import poisson, multinomial, betabinom, binom
 
 from Bio import Phylo
 from tqdm import tqdm
@@ -25,7 +25,7 @@ from utils import change_newick_tree_root
 
 
 LAMBDA_MIN = 1e-6
-log_LAMBDA_MIN = np.log(LAMBDA_MIN)
+log_LAMBDA_MIN = -50
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
@@ -180,17 +180,16 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
     if filter:
         muts = muts.loc[idx[0], include_id]
-        true_muts = true_muts.loc[idx[0], include_id]
         reads = np.array(reads)[:,include_idx]
+        stats = get_stats(muts, true_muts.loc[idx[0], include_id], True, True)
     else:
         muts = muts[include_id]
-        true_muts = true_muts[include_id]
         reads = np.array(reads)
+        stats = get_stats(muts, true_muts, True, True)
 
-    stats = get_stats(muts, true_muts, True, True)
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
 
-    return muts, true_muts, read_data, stats
+    return muts, true_muts[include_id], read_data, stats
 
 
 def get_stats(df, true_df, binary=True, verbose=False, per_cell=False):
@@ -292,30 +291,31 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft'):
         try:
             tree.root.mut_no_true
         except AttributeError:
-            true_muts = False
+            true_muts_flag = False
         else:
-            true_muts = True
+            true_muts_flag = True
 
         if br_length == 'weights':
-            br_labels = lambda c: '/'.join([f'{i:.3f}' for i in c.weight_norm])
+            br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
+                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
         elif br_length == 'weights_mut':
-            if true_muts:
+            if true_muts_flag:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                    f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
+                    f'{c.weight_norm[1][0]:.2f} +- {c.weight_norm[1][1]:.2f}'
             else:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
-                    f'{c.weight["mut"][0]:.2f} +- {c.weight["mut"][1]:.2f}'
+                    f'{c.weight_norm[1][0]:.2f} +- {c.weight_norm[1][1]:.2f}'
         elif br_length == 'mut_no_weights':
-            if true_muts:
-                br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
+            if true_muts_flag:
+                br_labels = lambda c: f'{c.mut_no_sp_count_distoft:.0f} ({c.mut_no_true})\n' \
                     + '/'.join([f'{i:.2f}' for i in c.weight_norm])
             else:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
                     + '/'.join([f'{i:.2f}' for i in c.weight_norm])
         elif br_length == 'weights_soft':
-            if true_muts:
+            if true_muts_flag:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                    f'{c.weight["soft"]:.2f}'
+                    f'{c.weight_norm[3]:.2f}'
             else:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
                     f'{c.weight["soft"]:.2f}'
@@ -430,8 +430,11 @@ def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
         True)
     M = map_mutations_CellCoal(tree, reads, errors, outg)
 
-    FN = errors[0]
+    MS = np.sum(np.sum(np.isnan(reads[2]), axis=2) > 0) \
+        / (reads[2].shape[0] * reads[2].shape[1])
+    FN = errors[0] + MS
     FP = errors[1]
+
     add_br_weigts(tree, np.log([1 - FN, FP, 1 - FP, FN]))
 
     return tree, FP, FN, M
@@ -689,15 +692,17 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
+        p_count_dist = binom.logpmf(np.nan_to_num(alt), np.nan_to_num(depth), 0.5)
+
         p_noADO = het * eps_het_not + het_not * eps_het - depth * eps_const
         p_ADO = np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN)
+
         p_het = np.logaddexp(gamma_not + p_noADO, p_ADO, where=noNAN)
 
-        probs_full = np.clip(S_inv * p_ref + S * p_het, clip_min, 0)
+        probs_full = np.clip(S_inv * p_ref + S * p_het + S * p_count_dist, clip_min, 0)
         probs_br = np.nansum(probs_full, axis=1)
 
         # plot_distribution(probs_full)
-        # import pdb; pdb.set_trace()
         probs_norm = _normalize_log_probs(probs_br)
         M[i] = probs_norm
 
@@ -706,6 +711,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         max_probs[i] = max_prob
 
         # if idx[i] in [60, 67, 81, 110, 138, 263]: import pdb; pdb.set_trace()
+        # if idx[i] == 3071: import pdb; pdb.set_trace()
 
         for best_node in sorted(best_nodes, reverse=True):
             # Remove muts where MLE contains full wt (outside of tree/all zero)
@@ -758,9 +764,12 @@ def add_br_weigts(tree, errors):
     nodes = [i for i in tree.find_clades()]
 
     S = np.zeros((n, m), dtype=int)
+    Y = np.zeros(n)
     for i, node in enumerate(nodes):
         cells = [int(i[-4:]) - 1 for i in node.name.split('+')]
+        if cells[0] == 25 and len(cells) == 1: print(i)
         S[i, cells] = 1
+        Y[i] = node.mut_no_soft
 
     # Add zero line for wildtype probabilities
     S = np.vstack([S, np.zeros(m)])
@@ -782,9 +791,14 @@ def add_br_weigts(tree, errors):
         probs_rev = np.dot(errors_rev, data)
         probs_norm_rev = _normalize_log_probs(probs_rev)
 
-        w[i] = probs_norm
+        # print(probs_norm.max())
+        # if i == 28: import pdb; pdb.set_trace()
+
+        if i < n:
+            w[i] = probs_norm
         # prob for wiltype cell
-        if i == n:
+        else:
+            w[i] = probs_norm
             continue
 
         nodes[i].odds = probs[i] / max(LAMBDA_MIN, (1 - probs[i]))
@@ -799,7 +813,7 @@ def add_br_weigts(tree, errors):
         else:
             nodes[i].weight['mut'] = (probs_norm[i], np.nan)
 
-    for i, j in enumerate(w.sum(axis=0)):
+    for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
         if i == n:
             continue
         nodes[i].weight['soft'] = j
@@ -808,8 +822,7 @@ def add_br_weigts(tree, errors):
 def add_true_muts(tree, df_true):
     # Add number of mutations to terminal nodes
     for leaf_node in tree.get_terminals():
-        leaf_node.true_muts_node = set(
-            df_true.loc[df_true[leaf_node.name] == 1].index)
+        leaf_node.true_muts_node = set(df_true.index[df_true[leaf_node.name] > 0])
         # leaf_node.false_muts = leaf_node.muts.difference(leaf_node.true_muts)
 
     for int_node in tree.get_nonterminals(order='postorder'):
@@ -821,13 +834,18 @@ def add_true_muts(tree, df_true):
         child0.true_muts_br = child0.true_muts_node \
             .difference(int_node.true_muts_node)
         child0.false_muts_br = child0.muts_br.difference(child0.true_muts_br)
+        child0.missing_muts_br = child0.true_muts_br.difference(child0.muts_br)
         child0.mut_no_true = len(child0.true_muts_br)
+
         child1.true_muts_br = child1.true_muts_node \
             .difference(int_node.true_muts_node)
         child1.false_muts_br = child1.muts_br.difference(child1.true_muts_br)
+        child1.missing_muts_br = child1.true_muts_br.difference(child1.muts_br)
         child1.mut_no_true = len(child1.true_muts_br)
 
     tree.root.true_muts_br = tree.root.true_muts_node
+    tree.root.false_muts_br = tree.root.muts_br.difference(tree.root.true_muts_br)
+    tree.root.missing_muts_br = tree.root.true_muts_br.difference(tree.root.muts_br)
     tree.root.mut_no_true = len(tree.root.true_muts_br)
 
 
@@ -960,7 +978,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     # Domensions: 0 soft assignment; 1 hard assignment
     Y = np.zeros((2, br_no), dtype=float)
     init = np.zeros(br_no, dtype=float)
-    weights = np.zeros((br_no, 3), dtype=float)
+    weights = np.zeros((br_no, 4), dtype=float)
     leafs = np.zeros(br_no, dtype=float)
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
 
@@ -1004,9 +1022,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
                 else:
                     Y[1, node_idx] = terminal.mut_no_hard + pseudo_mut
                 Y[0, node_idx] = terminal.mut_no_soft + pseudo_mut
-                weights[node_idx, 0] = terminal.weight['top']
-                weights[node_idx, 1] = terminal.weight['mut'][0]
-                weights[node_idx, 2] = terminal.weight['top_2']
+                weights[node_idx] = [j[0] if i == 'mut' else j \
+                    for i,j in terminal.weight.items()]
                 constr[l_idx, node_idx] = 1
 
                 terminal.lambd = f'+{l_idx}'
@@ -1028,9 +1045,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             else:
                 Y[1, node_idx] = terminal.mut_no_hard + pseudo_mut
             Y[0, node_idx] = terminal.mut_no_soft + pseudo_mut
-            weights[node_idx, 0] = terminal.weight['top']
-            weights[node_idx, 1] = terminal.weight['mut'][0]
-            weights[node_idx, 2] = terminal.weight['top_2']
+            weights[node_idx] = [j[0] if i == 'mut' else j \
+                for i,j in terminal.weight.items()]
             constr[l_idx, node_idx] = 1
             init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
 
@@ -1047,9 +1063,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             else:
                 Y[1, node_idx] = internal.mut_no_hard + pseudo_mut
             Y[0, node_idx] = internal.mut_no_soft + pseudo_mut
-            weights[node_idx, 0] = internal.weight['top']
-            weights[node_idx, 1] = internal.weight['mut'][0]
-            weights[node_idx, 2] = internal.weight['top_2']
+            weights[node_idx] = [j[0] if i == 'mut' else j \
+                for i,j in internal.weight.items()]
             constr[l_idx] = get_traversal(terminal, tree) - get_traversal(internal, tree)
 
             internal.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
@@ -1065,9 +1080,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             else:
                 Y[1, node_idx] = shorter.mut_no_hard + pseudo_mut
             Y[0, node_idx] = shorter.mut_no_soft + pseudo_mut
-            weights[node_idx, 0] = shorter.weight['top']
-            weights[node_idx, 1] = shorter.weight['mut'][0]
-            weights[node_idx, 2] = shorter.weight['top_2']
+            weights[node_idx] = [j[0] if i == 'mut' else j \
+                for i,j in shorter.weight.items()]
             constr[l_idx, node_idx] = 1
             init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
 
@@ -1080,9 +1094,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             else:
                 Y[1, node_idx] = longer.mut_no_hard + pseudo_mut
             Y[0, node_idx] = longer.mut_no_soft + pseudo_mut
-            weights[node_idx, 0] = longer.weight['top']
-            weights[node_idx, 1] = longer.weight['mut'][0]
-            weights[node_idx, 2] = longer.weight['top_2']
+            weights[node_idx] = [j[0] if i == 'mut' else j \
+                for i,j in longer.weight.items()]
             constr[l_idx] = get_traversal(shorter, tree) - get_traversal(longer, tree)
 
             longer.lambd = ' '.join(sorted([f'{get_sign(j)}{i}' \
@@ -1126,9 +1139,13 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     # from plotting import plot_weights
     # plot_weights(weights_norm)
 
+
     if true_data:
-        return Y[1], constr, init, weights_norm[:,0], leafs
-    return Y[0], constr, init, weights_norm[:,0], leafs
+        Y_out =  Y[1]
+    else:
+        Y_out = Y[0]
+
+    return Y_out, constr, init, weights_norm[:,3], leafs
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -1196,8 +1213,8 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             print('\nFAILED POISSON OPTIMIZATION, TWICE\n')
             return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
-    print(f'Diff init-opt: {np.sum(np.abs(opt.x - Y)):.2f}')
-    print(opt.x)
+    if np.sum(np.abs(opt.x - Y)) < 1e-6:
+        print('WARNING: init values unchanged -> optimization likely failed.')
 
     if short:
         ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
@@ -1218,13 +1235,13 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     # print(f' First Bartlett identity: {np.mean(fun_jac(opt.x, Y))}')
     # print('Second Bartlett identity: '
     #     f'{np.mean(fun_hess(opt.x, Y)) + np.var(fun_jac(opt.x, Y))}')
-    # import pdb; pdb.set_trace()
 
     on_bound = np.sum(opt.x <= LAMBDA_MIN ** 0.5)
     if on_bound > 0:
         dof_diff = np.arange(on_bound + 1)
         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
-        p_val_weights = np.where(np.isnan(p_vals), 0, binom(on_bound, dof_diff))
+        p_val_weights = np.where(
+            np.isnan(p_vals), 0, binomCoeff(on_bound, dof_diff))
         p_val = np.average(np.nan_to_num(p_vals), weights=p_val_weights)
     else:
         p_val = chi2.sf(LR, dof)
@@ -1278,7 +1295,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #     on_bound = np.sum(xopt <= LAMBDA_MIN)
 #     if on_bound > 0:
 #         dof_diff = np.arange(on_bound + 1)
-#         weights = binom(on_bound, dof_diff)
+#         weights = binomCoeff(on_bound, dof_diff)
 #         p_vals = np.clip(chi2.sf(LR, dof - dof_diff), 1e-100, 1)
 #         p_val = np.average(p_vals, weights=weights)
 #     else:
@@ -1287,7 +1304,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
+def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
             muts_per_branch=False):
     run = os.path.basename(vcf_file).split('.')[1]
     alpha = 0.05
@@ -1323,7 +1340,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
             Y, constr, init, weights, leafs = get_model_data(tree, pseudo_mut=0,
                 true_data=muts_type, fkt=1)
 
-            weights = np.ones(Y.size)
+            # weights = np.ones(Y.size)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
@@ -1333,6 +1350,7 @@ def test_data(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
                     get_LRT_poisson(Y, constr, init, weights, short=True)
 
+                # if p_val < 0.05: import pdb; pdb.set_trace()
                 if np.isnan(ll_H0):
                     continue
                 hyp = int(p_val < alpha)
@@ -1367,7 +1385,7 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
-        test_data(snakemake.input.vcf, snakemake.input.tree, 
+        run_poisson_tree_test(snakemake.input.vcf, snakemake.input.tree,
             snakemake.output[0], snakemake.params.paup_exe,
             snakemake.params.exclude, snakemake.params.include)
     else:
@@ -1376,5 +1394,5 @@ if __name__ == '__main__':
         if not args.output:
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree.LRT.tsv')
-        test_data(args.vcf, args.tree, args.output, args.exe, args.exclude,
-            args.include, args.muts_per_branch)
+        run_poisson_tree_test(args.vcf, args.tree, args.output, args.exe,
+            args.exclude, args.include, args.muts_per_branch)
