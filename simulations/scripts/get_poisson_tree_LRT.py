@@ -1145,7 +1145,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     else:
         Y_out = Y[0]
 
-    return Y_out, constr, init, weights_norm[:,3], leafs
+    return Y_out, constr, init, weights_norm[:,0], leafs
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -1304,14 +1304,14 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 #     return ll_H0, ll_H1, LR, dof + on_bound, p_val
 
 
-def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, exclude='', include='',
-            muts_per_branch=False):
+def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, weight_fkt,
+        exclude='', include='', muts_per_branch=False):
     run = os.path.basename(vcf_file).split('.')[1]
     alpha = 0.05
 
-    cols = ['FP', 'FN', 'H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
+    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
     header_str = 'run\tfiltered\ttrue_muts\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
-    header_str += '\t'.join([f'{col}_poissonTree' for col in cols])
+    header_str += '\t'.join([f'{col}_poissonTree_{weight_fkt}' for col in cols])
     model_str = ''
 
     filter_muts = [True]
@@ -1337,10 +1337,13 @@ def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, exclude='', i
         # tree = prune_leafs(tree)
 
         for muts_type in use_true_muts:
-            Y, constr, init, weights, leafs = get_model_data(tree, pseudo_mut=0,
-                true_data=muts_type, fkt=1)
-
-            # weights = np.ones(Y.size)
+            if weight_fkt == 0:
+                Y, constr, init, weights, leafs = get_model_data(tree,
+                    pseudo_mut=0, true_data=muts_type, fkt=1)
+                weights = np.ones(Y.size)
+            else:
+                Y, constr, init, weights, leafs = get_model_data(tree,
+                    pseudo_mut=0, true_data=muts_type, fkt=weight_fkt)
 
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
@@ -1350,12 +1353,12 @@ def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, exclude='', i
                 ll_H0, ll_H1, LR, dof, on_bound, p_val = \
                     get_LRT_poisson(Y, constr, init, weights, short=True)
 
-                # if p_val < 0.05: import pdb; pdb.set_trace()
+                if p_val < 0.05: import pdb; pdb.set_trace()
                 if np.isnan(ll_H0):
                     continue
                 hyp = int(p_val < alpha)
-                model_str += f'\t{FP}\t{FN}\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t' \
-                    f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\n'
+                model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t' \
+                    f'{dof+on_bound}\t{p_val:.2E}\tH{hyp}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
@@ -1372,6 +1375,9 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
+    parser.add_argument('-w', '--weights', type=float, default=0,
+        help='Faktor for branch weighting. If <1: no weighting. If >=1: weights ' \
+            'to the power of the value are used.')
     parser.add_argument('-mpb', '--muts_per_branch', action='store_true',
         help='Write the mutation to branch mapping and exit.')
     args = parser.parse_args()
@@ -1385,14 +1391,28 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
-        run_poisson_tree_test(snakemake.input.vcf, snakemake.input.tree,
-            snakemake.output[0], snakemake.params.paup_exe,
-            snakemake.params.exclude, snakemake.params.include)
+        run_poisson_tree_test(
+            vcf_file=snakemake.input.vcf,
+            tree_file=snakemake.input.tree,
+            out_file=snakemake.output[0],
+            paup_exe=snakemake.params.paup_exe,
+            weight_fkt=float(snakemake.wildcards.tree_weight),
+            exclude=snakemake.params.exclude,
+            include=snakemake.params.include
+        )
     else:
         import argparse
         args = parse_args()
         if not args.output:
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree.LRT.tsv')
-        run_poisson_tree_test(args.vcf, args.tree, args.output, args.exe,
-            args.exclude, args.include, args.muts_per_branch)
+        run_poisson_tree_test(
+            vcf_file=args.vcf,
+            tree_file=args.tree,
+            out_file=args.output,
+            paup_exe=args.exe,
+            weight_fkt=args.weights,
+            exclude=args.exclude,
+            include=args.include,
+            muts_per_branch=args.muts_per_branch
+        )

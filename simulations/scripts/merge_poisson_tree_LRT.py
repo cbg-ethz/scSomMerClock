@@ -25,7 +25,10 @@ def merge_LRT(in_files, out_file):
 
             rel_df = df[(df['filtered'] == filter_type) \
                 & (df['true_muts'] == muts_type)]
-            avg_row[3:-1] = rel_df.iloc[:,3:-1].mean(axis=0).values
+            try:
+                avg_row[3:-1] = rel_df.iloc[:,3:-1].mean(axis=0).values
+            except:
+                import pdb; pdb.set_trace()
 
             df.loc[total] = avg_row
 
@@ -42,7 +45,8 @@ def merge_LRT(in_files, out_file):
                     avg_hyp = [f'0/{model_total}']
             df.loc[total, 'filtered'] = int(filter_type)
             df.loc[total, 'true_muts'] = int(muts_type)
-            df.loc[total, 'hypothesis_poissonTree'] = avg_hyp
+            df.iloc[total, -1] = avg_hyp
+
     df.round(4).to_csv(out_file, sep='\t', index=False)
 
     avg_row = df[(df['run'] == -1) & (df['filtered'] == True) \

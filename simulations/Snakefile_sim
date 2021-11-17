@@ -10,6 +10,10 @@ RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
 
 scheduler = config.get('scheduler', None)
+tree_weights = config.get('poisson', {}).get('tree_weights', [0])
+if isinstance(tree_weights, (int, float)):
+    tree_weights = [tree_weights]
+tree_weights = list(set([0 if i < 1 else i for i in tree_weights]))
 
 # if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
 #     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
@@ -25,23 +29,25 @@ def get_final_files(wildcards):
     for tree in TREES:
         if config.get('paup', {}).get('run', False):
             files.append(os.path.join(base_dir, f'paup_dir_{tree}',
-                'paup.clock_test_summary.tsv'))
+                'paup.summary.tsv'))
 
         if config.get('poisson', {}).get('tree', False) or \
                 config.get('poisson', {}).get('run', False):
-            files.append(os.path.join(base_dir, f'poissonTree_{tree}',
-                'poissonTree.clock_test_summary.tsv'))
+            for tree_weight in tree_weights:
+                files.append(os.path.join(base_dir,
+                    f'poissonTree_{tree_weight}_{tree}',
+                    'poissonTree.summary.tsv'))
 
         if config.get('sieve', {}).get('run', False):
             files.append(os.path.join(out_dir, 'sieve_dir',
-                f'sieve_{tree}.clock_test_summary.tsv'))
+                f'sieve_{tree}.summary.tsv'))
         if config.get('mrbayes', {}).get('run', False):
             files.append(os.path.join(base_dir, f'mrbayes_dir_{tree}',
-                'mrbayes.clock_test_summary.tsv'))
+                'mrbayes.summary.tsv'))
 
     if config.get('poisson', {}).get('dispersion', False) or \
                 config.get('poisson', {}).get('run', False):
-        files.append(os.path.join(base_dir, 'poissonDisp.clock_test_summary.tsv'))
+        files.append(os.path.join(base_dir, 'poissonDisp.summary.tsv'))
 
     return files
 
@@ -340,7 +346,7 @@ rule merge_paup_results:
     input:
         get_paup_input
     output:
-        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.clock_test_summary.tsv')
+        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.summary.tsv')
     conda: 'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
@@ -366,7 +372,7 @@ rule run_poisson:
     input:
         get_poisson_input
     output:
-        os.path.join(base_dir, 'poissonDisp.clock_test_summary.tsv')
+        os.path.join(base_dir, 'poissonDisp.summary.tsv')
     conda:
         'envs/monovar.yaml'
     envmodules:
@@ -388,7 +394,8 @@ rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
-        os.path.join(base_dir, 'poissonTree_{tree}', 'poissonTree.{run}.LRT.txt')
+        os.path.join(base_dir, 'poissonTree_{tree_weight}_{tree}',
+            'poissonTree.{run}.LRT.txt')
     conda:
         ''
     envmodules:
@@ -410,11 +417,11 @@ rule run_poisson_tree:
 
 rule merge_poisson_tree:
     input:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+        expand(os.path.join(base_dir, 'poissonTree_{{tree_weight}}_{{tree}}',
             'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
-        os.path.join(base_dir, 'poissonTree_{tree}',
-            'poissonTree.clock_test_summary.tsv')
+        os.path.join(base_dir, 'poissonTree_{tree_weight}_{tree}',
+            f'poissonTree.summary.tsv')
     conda:
         ''
     envmodules:

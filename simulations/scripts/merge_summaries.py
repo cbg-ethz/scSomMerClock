@@ -24,7 +24,12 @@ def merge_summaries(in_files, out_file):
                 tree = 'scite'
             else:
                 raise RuntimeError(f'Cannot determine tree from dir: {tree_dir}')
-            suffix = f'{method}.{tree}'
+
+            if tree_dir.count('_') == 2:
+                weight = tree_dir.split('_')[1]
+                suffix = f'{method}_{weight}.{tree}'
+            else:
+                suffix = f'{method}.{tree}'
 
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
         if method == 'poissonTree':
