@@ -29,18 +29,6 @@ log_LAMBDA_MIN = -50
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
-def plot_distribution(d, b=500):
-    import matplotlib.pyplot as plt
-
-    d = d.flatten()
-    d = d[~np.isnan(d)]
-
-    fig, ax = plt.subplots(1, 1)
-    ax.hist(d, histtype='stepfilled', bins=b)
-    plt.show()
-    plt.close()
-
-
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
@@ -358,8 +346,10 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
             with open(log_file, 'r') as f:
                 log = f.read().strip()
         try:
-            FP = float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1))
-            FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1))
+            FP = max(float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1)),
+                LAMBDA_MIN)
+            FN = max(float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1)),
+                LAMBDA_MIN)
         except AttributeError:
             pass
         else:
