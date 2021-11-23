@@ -140,20 +140,24 @@ def plot_weights(data_in, fkt, out_file=None, bin_no=None, y_labels=None):
 
     if not y_labels:
         y_labels = np.full(data_in.shape[1], '')
-        y_labels = ['Topology FN', 'Avg. Mutation Prob', 'Topology FN+FP',
-        '1 - |Soft assignment|', 'Mean Soft assignment']
     if not bin_no:
         bin_no_best = int(np.sqrt(data_in.shape[0]))
         bin_no = np.linspace(data_in.min(), data_in.max(), bin_no_best)
 
+    x_min = data_in.min().round(2) + 0.01
+    x_max = data_in.max().round(2) - 0.01
+
     for i, data in enumerate(data_in.T):
         ax = fig.add_subplot(gs[i])
-        ax.hist(data, bins=bin_no, rwidth=0.8)
-        ax.set_ylabel(f'Frequency\n{y_labels[i]}', fontsize=LABEL_FONTSIZE)
-        # ax.set_ylim([None, data_in.shape[0] / 2])
-    ax.set_xlabel('weights', fontsize=LABEL_FONTSIZE)
+        ax.hist(data, bins=bin_no, range=(x_min, x_max), rwidth=0.8)
+        ax.set_ylabel(f'Frequency\n({y_labels[i]})', fontsize=LABEL_FONTSIZE)
 
-    fig.suptitle(f'weights ^ {fkt}', fontsize=LABEL_FONTSIZE)
+    if fkt > 1:
+        ax.set_xlabel(f'weights ^ {fkt}', fontsize=LABEL_FONTSIZE)
+    else:
+        ax.set_xlabel('weights', fontsize=LABEL_FONTSIZE)
+
+    fig.suptitle('Branch weight distribution', fontsize=LABEL_FONTSIZE)
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=0.9, hspace=0.5)
     if out_file:
         fig.savefig(out_file, dpi=300)
