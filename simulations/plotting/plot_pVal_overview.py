@@ -24,7 +24,7 @@ TICK_FONTSIZE = 8
 LABEL_FONTSIZE = 8
 
 vis_names = {
-    'poisson': 'Poisson',
+    'poissondisp': 'Poisson Dispersion',
     'paup': 'PAUP*',
     'poissontree': 'Poisson + Tree',
     'cellcoal': 'True',
@@ -47,13 +47,15 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
     df_lambda = pd.DataFrame(columns=['Lambda', 'Tree'])
     for rel_col in [i for i in df_in.columns if 'p-value' in i]:
         df_new = pd.DataFrame(df_in[rel_col]).rename({rel_col: 'P-value'}, axis=1)
+        rel_col_short = rel_col.lower().replace('p-value_', '')
         try:
-            method, tree = rel_col.lower().replace('p-value_', '').split('.')
+            method, tree = rel_col_short.split('.')
+            method = method.split('_')[0]
         except ValueError:
-            method = rel_col.lower().replace('p-value_', '')
+            method = rel_col_short
             tree = '-'
 
-        if method == 'p-value': method = 'poisson'
+        if method == 'p-value': method = 'poissondisp'
 
         df_new['Method'] = vis_names[method]
         df_new['Tree'] = vis_names[tree]
@@ -93,11 +95,13 @@ def generate_pval_plot(in_file, out_file=None, bins=0):
 
 def plot_pvals(df, out_file, bins, colors):
     methods = df.Method.unique()
-    row_order = [i for i in ['Poisson', 'PAUP*', 'Poisson + Tree'] if i in methods]
-    if len(row_order) == 1 and row_order[0] == 'Poisson':
+    row_order = [i for i in ['Poisson Dispersion', 'PAUP*', 'Poisson + Tree'] \
+        if i in methods]
+    if len(row_order) == 1 and row_order[0] == 'Poisson Dispersion':
         hue_order = ['-']
     else:
-        hue_order = ['-', 'SCITE', 'True', 'CellPhy']
+        trees = df.Tree.unique()
+        hue_order = [i for i in ['-', 'SCITE', 'True', 'CellPhy'] if i in trees]
 
     dp = sns.displot(df, x='P-value', hue='Tree', row='Method',
         element='bars', stat='density', kde=False,
@@ -105,7 +109,7 @@ def plot_pvals(df, out_file, bins, colors):
         kde_kws={'cut': 0, 'clip': (0, 1)},
         line_kws={'lw': 3, 'alpha': 0.75},
         palette=colors, lw=2, alpha=0.5,
-        height=4, aspect=3,
+        height=len(row_order) + 1, aspect=3,
         hue_order=hue_order,
         row_order=row_order,
         facet_kws={'sharey': False})
@@ -114,7 +118,7 @@ def plot_pvals(df, out_file, bins, colors):
     for ax_no, method in enumerate(row_order):
         y_lim = max([i.get_height() for i in dp.axes[ax_no][0].patches]) * 1.05
         # y_lim = min(1, ideal_y * 5)
-        dp.axes[ax_no][0].axhline(ideal_y, ls='--', c='red', lw=2)
+        dp.axes[ax_no][0].axhline(ideal_y, ls='--', c='red', lw=1)
 
         dp.axes[ax_no][0].set_ylim([0, y_lim])
         dp.axes[ax_no][0].set_xlim([0, 1])
@@ -123,66 +127,82 @@ def plot_pvals(df, out_file, bins, colors):
             labelsize=TICK_FONTSIZE)
 
     # Rugplot for 1 row: poisson
-    if 'Poisson' in methods:
+    if 'Poisson Dispersion' in methods:
         height = -0.03
-        poisson_data = df[(df['Tree'] == '-') & (df['Method'] == 'Poisson')]
+        poisson_data = df[(df['Tree'] == '-') \
+            & (df['Method'] == 'Poisson Dispersion')]
         sns.rugplot(data=poisson_data, x='P-value', height=height, clip_on=False,
             color=colors['-'], ax=dp.axes[0][0], linewidth=0.2)
-        dp.axes[0][0].add_collection(
-            LineCollection(np.array([[[0.05, 0],[0.05, height]]]),
-            transform=dp.axes[0][0].get_xaxis_transform(),
-            clip_on=False, color='red', ls='-', linewidth=2)
-        )
-        sgf_perc = np.percentile(poisson_data['P-value'].values, 5)
-        dp.axes[0][0].axvline(sgf_perc, ls='--', color=colors['-'], lw=2)
-        dp.axes[0][0].text(sgf_perc + 0.005, dp.axes[0][0].get_ylim()[1] / 2,
-            f'5th percentile ({sgf_perc:.3f})', color=colors['-'])
         # dp.axes[0][0].add_collection(
-        #     LineCollection(np.array([[[sgf_perc, 0], [sgf_perc, height]]]),
+        #     LineCollection(np.array([[[0.05, 0],[0.05, height]]]),
+        #     transform=dp.axes[0][0].get_xaxis_transform(),
+        #     clip_on=False, color='red', ls='-', linewidth=2)
+        # )
+
+        pVals = poisson_data['P-value']
+        pVals_thresh = np.mean(pVals <= 0.05)
+        dp.axes[0][0].axvline(0.05, ls='--', color='red', lw=1)
+        dp.axes[0][0].axvline(pVals_thresh, ls='--', color=colors['-'], lw=2)
+        dp.axes[0][0].text(pVals_thresh + 0.005, dp.axes[0][0].get_ylim()[1] / 2,
+            f'p-values <0.05: {pVals_thresh:.3f}', color=colors['-'])
+        # sgf_perc = np.percentile(pVals.values, 5)
+        # dp.axes[0][0].add_collection(
+        #     LineCollection(np.array([[[pVals_thresh, 0], [pVals_thresh, height]]]),
         #     transform=dp.axes[0][0].get_xaxis_transform(),
         #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
         # )
 
-    # Rugplot for 2 and 3 row: paup and poisson + tree
-    if 'PAUP*' in methods and 'Poisson + Tree' in methods:
-        for ax_no, method in [(1, 'PAUP*'), (2, 'Poisson + Tree')]:
-            for i, tree in enumerate(['True', 'SCITE', 'CellPhy']):
-                data = df[(df['Tree'] == tree) & (df['Method'] == method)] \
-                    ['P-value'].values
-                if data.size == 0:
-                    continue
 
-                segs = np.stack((np.c_[data, data],
-                    np.c_[np.zeros_like(data) + height * i,
-                            np.zeros_like(data) + height * (i + 1)]),
-                        axis=-1)
-                lc = LineCollection(segs,
-                    transform=dp.axes[ax_no][0].get_xaxis_transform(),
-                    clip_on=False, color=colors[tree], linewidth=0.025, alpha=0.75)
-                dp.axes[ax_no][0].add_collection(lc)
+    def add_rugplot(ax_no, method):
+        for i, tree in enumerate(trees[trees != '-']):
+            data = df[(df['Tree'] == tree) & (df['Method'] == method)] \
+                ['P-value'].values
+            if data.size == 0:
+                continue
 
-                sgf_perc = np.percentile(data, 5)
-                dp.axes[ax_no][0].axvline(sgf_perc, ls='--', color=colors[tree], lw=2)
-                dp.axes[ax_no][0].text(sgf_perc + 0.01,
-                    dp.axes[ax_no][0].get_ylim()[1] / 6 * (i + 3),
-                    f'5th percentile ({sgf_perc:.3f})', color=colors[tree])
-
-                # sgf_line = np.array([[[sgf_perc, height * i],
-                #     [sgf_perc, height * (i + 1)]]])
-                # dp.axes[ax_no][0].add_collection(
-                #     LineCollection(sgf_line,
-                #     transform=dp.axes[ax_no][0].get_xaxis_transform(),
-                #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
-                # )
-
-            pval_line = np.array([[[0.05, 0],[0.05, height * 3]]])
-            dp.axes[ax_no][0].add_collection(
-                LineCollection(pval_line,
+            segs = np.stack((np.c_[data, data],
+                np.c_[np.zeros_like(data) + height * i,
+                        np.zeros_like(data) + height * (i + 1)]),
+                    axis=-1)
+            lc = LineCollection(segs,
                 transform=dp.axes[ax_no][0].get_xaxis_transform(),
-                clip_on=False, color='red', ls='-', linewidth=2)
-            )
+                clip_on=False, color=colors[tree], linewidth=0.025, alpha=0.75)
+            dp.axes[ax_no][0].add_collection(lc)
 
-    if len(row_order) == 1 and row_order[0] == 'Poisson':
+            pVals_thresh = np.mean(data <= 0.05)
+            # sgf_perc = np.percentile(data, 5)
+            dp.axes[ax_no][0].axvline(pVals_thresh, ls='--', color=colors[tree], lw=2)
+            dp.axes[ax_no][0].text(pVals_thresh + 0.01,
+                dp.axes[ax_no][0].get_ylim()[1] / 6 * (i + 3),
+                f'p-values <0.05: {pVals_thresh:.3f}', color=colors[tree])
+
+            # sgf_line = np.array([[[sgf_perc, height * i],
+            #     [sgf_perc, height * (i + 1)]]])
+            # dp.axes[ax_no][0].add_collection(
+            #     LineCollection(sgf_line,
+            #     transform=dp.axes[ax_no][0].get_xaxis_transform(),
+            #     clip_on=False, alpha=1, color='black', ls='-', linewidth=2)
+            # )
+
+        pval_line = np.array([[[0.05, 0],[0.05, height * 3]]])
+        dp.axes[ax_no][0].axvline(0.05, ls='--', color='red', lw=1)
+        # dp.axes[ax_no][0].add_collection(
+        #     LineCollection(pval_line,
+        #     transform=dp.axes[ax_no][0].get_xaxis_transform(),
+        #     clip_on=False, color='red', ls='-', linewidth=2)
+        # )
+
+    # Rugplot for 2 and 3 row: paup and poisson + tree
+    if 'PAUP*' in methods:
+        add_rugplot(1, 'PAUP*')
+
+    if 'Poisson + Tree' in methods:
+        if 'PAUP*' in methods:
+            add_rugplot(2, 'Poisson + Tree')
+        else:
+            add_rugplot(1, 'Poisson + Tree')
+
+    if len(row_order) == 1 and row_order[0] == 'Poisson Dispersion':
         dp._legend.remove()
 
     dp.fig.subplots_adjust(left=0.1, bottom=0.1, right=0.85, top=0.9, hspace=0.33)
@@ -229,7 +249,6 @@ def plot_test_statistic(df, out_file, bins, colors):
     else:
         plt.show()
     plt.close()
-
 
 
 def _get_title(in_file):
@@ -284,7 +303,7 @@ if __name__ == '__main__':
 
     if os.path.isdir(args.input):
         rel_files = [os.path.join(args.input, i) for i in os.listdir(args.input) \
-            if ('summary' in i) and i.endswith('.tsv')]
+            if ('final_summary' in i) and i.endswith('.tsv')]
 
         for in_file in sorted(rel_files):
             out_file = f'{in_file}.pdf'

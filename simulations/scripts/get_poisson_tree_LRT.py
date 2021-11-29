@@ -1054,6 +1054,7 @@ def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, weight_fkt,
                 Y, constr, init, weights = get_model_data(tree,
                     pseudo_mut=0, true_data=muts_type, fkt=weight_fkt)
 
+            import pdb; pdb.set_trace()
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
                 f'{stats["MS"]}\t{stats["MS_T"]}'

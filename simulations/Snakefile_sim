@@ -271,7 +271,7 @@ rule run_scite:
         os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 6144,
-        runtime = 480,
+        runtime = lambda wildcards, attempt: attempt * 480,
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
@@ -291,7 +291,7 @@ rule run_cellphy:
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
     resources:
         mem_mb = 1024,
-        runtime = 300,
+        runtime =  lambda wildcards, attempt: attempt * 300,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
