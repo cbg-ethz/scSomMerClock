@@ -44,7 +44,7 @@
 
 [scWGA PARAMETERS]
     [fixed allelic dropout (ADO)] {ADO_rate}
-    [ADO per cell] [P0.1 0.01]
+    [ADO per cell] {ADO_rate_var}
     [ADO per site] [Q0.2 0.01]
     [maternal allelic imbalance] [I0.5 0.01]
     [amplification error] {ampl_error}
@@ -67,8 +67,8 @@
 [OUTPUT]
     [print SNV genotypes] [1]
     [print SNV haplotypes] [2]
-    [print full genotypes] {out_full_GT}
-    [print full haplotypes] [4]
+    [print full genotypes] [3]
+    [print full haplotypes] {out_full_hap}
     [print root ancestors] 5
     [print trees] {out_tree}
     [print times] [7]

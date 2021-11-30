@@ -11,16 +11,30 @@ def merge_summaries(in_files, out_file):
 
     for i, in_file in enumerate(sorted(in_files)):
         method = os.path.basename(in_file).split('.')[0]
-        if method == 'poisson':
+        if method == 'poissonDisp':
             suffix = f'{method}'
         else:
-            tree = in_file.split(os.sep)[-2].split('_')[-1]
-            if tree not in ['cellcoal', 'cellphy', 'scite']:
-                tree = os.path.basename(in_file).split('.')[1]
-            suffix = f'{method}.{tree}'
+            tree_dir = in_file.split(os.sep)[-2]
+            if 'cellcoal' in tree_dir:
+                tree = 'cellcoal'
+            elif 'cellphy' in tree_dir:
+                tree = 'cellphy'
+
+            elif 'scite' in tree_dir:
+                tree = 'scite'
+            else:
+                raise RuntimeError(f'Cannot determine tree from dir: {tree_dir}')
+
+            if tree_dir.count('_') == 2:
+                weight = tree_dir.split('_')[1]
+                suffix = f'{method}_{weight}.{tree}'
+            else:
+                suffix = f'{method}.{tree}'
 
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
-        if method == 'poisson_tree':
+        if method == 'poissonTree':
+            new_df = new_df[(new_df['filtered'] == True) \
+                & (new_df['true_muts'] == False)]
             to_drop = [i for i in new_df.columns \
                 if 'nlopt' in i or 'multinomial' in i]
             new_df.drop(to_drop, inplace=True, axis=1)
@@ -31,6 +45,7 @@ def merge_summaries(in_files, out_file):
 
         df = pd.concat([df, new_df], axis=1)
 
+    df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
 
 

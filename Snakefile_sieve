@@ -180,3 +180,16 @@ rule concatenate_dataFilter:
         full_run = False
     script:
         f'{SCRIPT_DIR}/merge_sciphi.py'
+
+
+rule filter_dataFilter:
+    input:
+        SNPs = os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv'),
+        cells = config['sieve']['cells'],
+        CNVs = config['sieve']['CNV']
+    output:
+        os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged_filtered.tsv')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 4096
+    script:
+        f'{SCRIPT_DIR}/filter_CNV_sides.py'

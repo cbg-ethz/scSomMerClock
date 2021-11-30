@@ -13,18 +13,26 @@ def get_out_dir(config):
     else:
         model = 'clock0'
 
-    if config['cellcoal']['scWGA'].get('errors', False):
-        sim_scWGA = 'WGA{}-{}-{}'.format(
-            config['cellcoal']['scWGA']['ADO_rate'],
-            config['cellcoal']['scWGA']['doublet_rate'][0],
-            config['cellcoal']['scWGA']['ampl_error'][0])
+    scWGA = config['cellcoal']['scWGA']
+    if scWGA.get('errors', False):
+        if isinstance(scWGA["ADO_rate"], float):
+            sim_scWGA  = f'WGA{scWGA["ADO_rate"]}'
+        else:
+            if len(scWGA['ADO_rate']) == 1:
+                sim_scWGA  = f'WGA{scWGA["ADO_rate"][0]}'
+            else:
+                max_var = scWGA["ADO_rate"][0] * (1 - scWGA["ADO_rate"][0])
+                max_var = int(max_var * 100) / 100 - 0.001
+                scWGA["ADO_rate"][1] = min(scWGA["ADO_rate"][1], max_var)
+                sim_scWGA = f'WGA{scWGA["ADO_rate"][0]},{scWGA["ADO_rate"][1]}'
+        sim_scWGA += f'-{scWGA["doublet_rate"][0]}-{scWGA["ampl_error"][0]}'
     else:
         sim_scWGA = 'WGA0-0-0'
 
-    sim_NGS = 'NGS{}-'.format(config['cellcoal']['NGS']['seq_cov'])
-    if config['cellcoal']['NGS'].get('errors', False):
-        sim_NGS += '{}-{}'.format(config['cellcoal']['NGS']['seq_overdis'],
-            config['cellcoal']['NGS']['seq_error'])
+    NGS = config['cellcoal']['NGS']
+    sim_NGS = f'NGS{NGS["seq_cov"]}-'
+    if NGS.get('errors', False):
+        sim_NGS += f'{NGS["seq_overdis"]}-{NGS["seq_error"]}'
     else:
         sim_NGS += '0-0'
 
@@ -86,6 +94,10 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     exclude_i = []
     with file_stream as f_in:
         for line in f_in:
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
             # Skip VCF header lines
             if line.startswith('#'):
                 # Safe column headers
@@ -129,13 +141,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
             ref = line_cols[3]
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
-
-            try:
-                GQ_col = FORMAT_col.index('PLN')
-                monovar = False
-            except ValueError:
-                GQ_col = FORMAT_col.index('PL')
-                monovar = True
 
             for s_i, s_rec in enumerate(line_cols[9:]):
                 try:
@@ -192,12 +197,11 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     return samples, [i.replace('-', '_') for i in sample_names]
 
 
-def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
+def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
         sample_names=[], br_length=False):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
-
 
     with open(in_file, 'r') as f_tree:
         tree = f_tree.read().strip()
@@ -240,11 +244,11 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='',
         if not br_length:
             tree = re.sub(':0.\d+', '', tree)
 
-        if 'trees_dir' in in_file:
+        if 'cellphy' in in_file:
+            tree =re.sub('\[\d+\]', '', tree)
+        else:
             tree = tree.replace('cell', 'tumcell') \
                 .replace('outgtumcell', 'healthycell')
-        elif 'cellphy' in in_file:
-            tree =re.sub('\[\d+\]', '', tree)
     
     temp_tree_file.write(str.encode(tree))
     temp_tree_file.close()
