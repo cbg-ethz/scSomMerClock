@@ -8,8 +8,10 @@
 /home/uvi/be/nbo/data/data/Lo-P2/ClockTest/all/all.filtered.vcf.gz
 /home/uvi/be/nbo/data/data/Lo-P3/ClockTest/all/all.filtered.vcf.gz
 /home/uvi/be/nbo/data/data/Ni8_Monica/ClockTest/all/all.filtered.vcf.gz
+/home/uvi/be/nbo/data/data/Ni8_Monica/ClockTest/cancer/Ni8_cancer.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P1/ClockTest/all/all.filtered.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P2/ClockTest/all/all.filtered.vcf.gz
+/home/uvi/be/nbo/data/data/S21_P2/ClockTest/cancer/S21_P2_cancer.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P2/ClockTest/left/S21_P2_left.vcf.gz
 /home/uvi/be/nbo/data/data/W32_Monica/ClockTest/all/all.filtered.vcf.gz
 /home/uvi/be/nbo/data/data/W32_Monica/ClockTest/aneuploid/Wang32_aneuploid.vcf.gz
