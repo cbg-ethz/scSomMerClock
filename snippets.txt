@@ -21,3 +21,18 @@ sort -V -k1,1 -k2,2 <FILE>.bed > <FILE>.bed.sorted
 
 # Add "-I <X0>" to list of X elements from ls
 ls <Pattern> | sed 's/^/-I /' | tr '\n' ' '
+
+# Steps for subsampling samples/cells
+bgzip <VCF>
+tabix <VCF>.gz
+grep -E <PATTERN> ../../cellnames.txt > samples.txt
+bcftools view --samples-file samples.txt <VCF>.gz -O z -o <NEW_VCF>.gz
+
+# Print sample names in VCF
+bcftools query -l <VCF>
+
+# Replace small with capital letter in vcf (e.g. a to A)
+sed -i.bak $'s/\ta\t/\tA\t/g' <VCF>
+
+# run cellphy on slurm cluster
+sbatch -t 120 -p amd-shared --qos amd-shared --mem 1G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'

@@ -4,6 +4,7 @@ import argparse
 import os
 import pandas as pd
 import re
+from tqdm import tqdm
 
 
 def collect_ADO_estimates(in_dir, out_file):
@@ -12,7 +13,7 @@ def collect_ADO_estimates(in_dir, out_file):
 
     scite_dir = os.path.join(in_dir, 'scite_dir')
     if os.path.exists(scite_dir):
-        for scite_file in os.listdir(scite_dir):
+        for scite_file in tqdm(os.listdir(scite_dir)):
             if not scite_file.endswith('.log'):
                 continue
 
@@ -28,7 +29,7 @@ def collect_ADO_estimates(in_dir, out_file):
 
     cellphy_dir = os.path.join(in_dir, 'cellphy_dir')
     if os.path.exists(cellphy_dir):
-        for cellphy_file in os.listdir(cellphy_dir):
+        for cellphy_file in tqdm(os.listdir(cellphy_dir)):
             if not cellphy_file.endswith('.log'):
                 continue
 
