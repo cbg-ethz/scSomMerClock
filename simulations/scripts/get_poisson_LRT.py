@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
-import re
 import gzip
 import numpy as np
+import os
+import re
 from statistics import mean, stdev
 from scipy.stats.distributions import chi2
+from tqdm import tqdm
 
 LAMBDA_MIN = 1e-12
 
@@ -134,7 +135,7 @@ def test_poisson_simulation(in_files, out_file,
 
 def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
     out_str = ''
-    for in_file in sorted(in_files):
+    for in_file in tqdm(sorted(in_files)):
         path_strs = in_file.split(os.path.sep)
         clock_dir_no = [i for i, j in enumerate(path_strs) if j == 'ClockTest'][0]
         dataset = path_strs[clock_dir_no - 1]

@@ -22,7 +22,7 @@
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/all/all.filtered.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer/W61_cancer.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C/W61_cancer_C.vcf.gz
-/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C_CA/W61_cancer_CA.vcf.gz
+/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C_CA/W61_cancer_C_CA.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/W61_cancer_CA.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/normal/W61_normal.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/polyps/W61_polyps.vcf.gz
