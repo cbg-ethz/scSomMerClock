@@ -36,3 +36,6 @@ sed -i.bak $'s/\ta\t/\tA\t/g' <VCF>
 
 # run cellphy on slurm cluster
 sbatch -t 120 -p amd-shared --qos amd-shared --mem 1G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'
+
+# run scite on slurm cluster
+sbatch -t 360 -p amd-shared --qos amd-shared --mem 6G --wrap 'python3 /home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py -e /home/uvi/be/nbo/infSCITE/infSCITE  --verbose /home/uvi/be/nbo/data/data/<VCF>.gz'
