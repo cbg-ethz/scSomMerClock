@@ -8,9 +8,8 @@ import numpy as np
 from utils import get_sample_dict_from_vcf
 
 
-def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
-        exclude='', verbose=False):
-    # RUN SiCloneFit
+def run_scite_subprocess(vcf_file, exe, steps, out_dir, fd=0.001, ad=0.2,
+        include='', exclude='', verbose=False):
     if not os.path.exists(exe):
         raise RuntimeError(
             'SCITE not compiled: run "g++ *.cpp -o SCITE -std=c++11" inside '
@@ -21,7 +20,7 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
         run_no = '.' + re.search('\d\d\d\d', os.path.basename(vcf_file)).group()
     except AttributeError:
         run_no = ''
-    out_dir = os.path.sep.join(vcf_file.split(os.path.sep)[:-2] + ['scite_dir'])
+
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
@@ -75,6 +74,8 @@ def run_scite_subprocess(vcf_file, exe, steps, fd=0.001, ad=0.2, include='',
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input vcf file')
+    parser.add_argument('-o', '--out_dir', type=str, default='',
+        help='Output directory.')
     parser.add_argument('-s', '--steps', type=int, default=500000,
         help='Number of mcmc steps. Default=500000.')
     parser.add_argument('-e', '--exe', type=str, help='Path to scite exe.')
@@ -93,9 +94,27 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        run_scite_subprocess(snakemake.input[0], snakemake.params.exe,
-            snakemake.params.steps)
+        out_dir = os.path.sep.join(
+            snakemake.input[0].split(os.path.sep)[:-2] + ['scite_dir'])
+        run_scite_subprocess(
+            vcf_file=snakemake.input[0],
+            exe=snakemake.params.exe,
+            steps=snakemake.params.steps,
+            out_dir=out_dir,
+        )
     else:
         args = parse_args()
-        run_scite_subprocess(args.input, args.exe, args.steps, args.FP, args.FN,
-            args.include, args.exclude, args.verbose)
+        if not args.out_dir:
+            args.out_dir = os.path.join(os.path.dirname(args.input), 'scite_dir')
+
+        run_scite_subprocess(
+            vcf_file=args.input,
+            exe=args.exe,
+            steps=args.steps,
+            out_dir=args.out_dir,
+            fd=args.FP,
+            ad=args.FN,
+            include=args.include,
+            exclude=args.exclude,
+            verbose=args.verbose
+        )
