@@ -89,7 +89,8 @@ def get_muts_per_cell(vcf_file, exclude, include):
     return samples[include_i]
 
 
-def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
+def test_poisson_simulation(in_files, out_file,
+            exclude='', include='', alpha=0.05):
     clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
     exclude += '|healthycell'
 
@@ -131,6 +132,36 @@ def test_poisson(in_files, out_file, exclude='', include='', alpha=0.05):
     print(avg_line)
 
 
+def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
+    out_str = ''
+    for in_file in sorted(in_files):
+        path_strs = in_file.split(os.path.sep)
+        clock_dir_no = [i for i, j in enumerate(path_strs) if j == 'ClockTest'][0]
+        dataset = path_strs[clock_dir_no - 1]
+        subset = path_strs[clock_dir_no + 1]
+
+        muts = np.array(get_muts_per_cell(in_file, excl, incl))
+        mean_muts = muts.mean()
+
+        h0 = -np.nansum(muts * np.log(mean_muts) - mean_muts)
+        h1 = -np.nansum(muts * np.log(np.clip(muts, LAMBDA_MIN, None)) - muts)
+        LR = 2 * (h0 - h1)
+        dof = muts.size - 1
+        p_val = chi2.sf(LR, dof)
+
+        if p_val < alpha:
+            hyp = 'H1'
+        else:
+            hyp = 'H0'
+
+        out_str += f'{dataset}\t{subset}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}' \
+            f'\t{dof}\t{p_val:.2E}\t{hyp}\n'
+
+    with open(out_file, 'w') as f_out:
+        f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write(out_str.rstrip())
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Input files')
@@ -141,6 +172,8 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-i', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
+    parser.add_argument('-b', '--biological_data', action='store_true',
+        help='Test true data (isntead of simulation data).')
     args = parser.parse_args()
     return args
 
@@ -151,10 +184,29 @@ if __name__ == '__main__':
             snakemake.params.exclude = ''
         if snakemake.params.include == None:
             snakemake.params.include = ''
-        test_poisson(snakemake.input, snakemake.output[0],
-            snakemake.params.exclude, snakemake.params.include)
+
+        test_poisson_simulation(
+            in_files=snakemake.input,
+            out_file=snakemake.output[0],
+            exclude=snakemake.params.exclude,
+            include=snakemake.params.include,
+        )
     else:
         import argparse
         args = parse_args()
-        test_poisson(args.input, args.output, args.exclude, args.include,
-            args.alpha)
+        if args.biological_data:
+            test_poisson_biological(
+                in_files=args.input,
+                out_file=args.output,
+                excl=args.exclude,
+                incl=args.include,
+                alpha=args.alpha
+            )
+        else:
+            test_poisson_simulation(
+                in_files=args.input,
+                out_file=args.output,
+                exclude=args.exclude,
+                include=args.include,
+                alpha=args.alpha
+            )
