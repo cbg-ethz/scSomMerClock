@@ -8,7 +8,7 @@ import subprocess
 def run_poisson_disp(vcf_files, exe, out_dir):
     out_file = os.path.join(out_dir, 'Poisson_dispersion_all.tsv')
     cmmd = ' '.join(
-        ['python', exe, '-i', ' '.join(vcf_files), '-o', out_file, '-b'])
+        ['python', exe, ' '.join(vcf_files), '-o', out_file, '-b'])
     print('\nShell command:\n{}\n'.format(cmmd))
 
     poissonDisp = subprocess.Popen(

@@ -6,7 +6,6 @@ import os
 import re
 from statistics import mean, stdev
 from scipy.stats.distributions import chi2
-from tqdm import tqdm
 
 LAMBDA_MIN = 1e-12
 
@@ -135,7 +134,7 @@ def test_poisson_simulation(in_files, out_file,
 
 def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
     out_str = ''
-    for in_file in tqdm(sorted(in_files)):
+    for in_file in sorted(in_files):
         path_strs = in_file.split(os.path.sep)
         clock_dir_no = [i for i, j in enumerate(path_strs) if j == 'ClockTest'][0]
         dataset = path_strs[clock_dir_no - 1]
@@ -155,8 +154,8 @@ def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
         else:
             hyp = 'H0'
 
-        out_str += f'{dataset}\t{subset}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}' \
-            f'\t{dof}\t{p_val:.2E}\t{hyp}\n'
+        out_str += f'{dataset}\t{subset}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
+            f'\t{dof}\t{p_val}\t{hyp}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
