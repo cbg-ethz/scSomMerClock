@@ -439,12 +439,8 @@ def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
     )
 
     M = map_mutations_CellCoal(tree, reads, errors, outg)
-
-    MS = np.sum(np.sum(np.isnan(reads[2]), axis=2) > 0) \
-        / (reads[2].shape[0] * reads[2].shape[1])
-    FN = errors[0] + MS
+    FN = errors[0]
     FP = errors[1]
-
     add_br_weights(tree, np.log([1 - FN, FP, 1 - FP, FN]), M.copy())
 
     return tree, FP, FN, M
@@ -468,17 +464,9 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     muts = muts[muts.sum(axis=1) > 0]
 
     M = map_mutations_Scite(tree, muts, errors)
-    FP_ret = np.exp(errors)[1]
-    FN_ret = np.exp(errors)[3]
-
-    # For branch weighting: add missing rate to FN (errors: [TP, FP, TN, FN])
-    MS = muts.isna().sum().sum() / muts.size
-    errors[3] = np.log(np.exp(errors[3]) + MS) # FN
-    errors[0] = np.log(1 - np.exp(errors[3])) # TN
-
     add_br_weights(tree, errors, M.copy())
 
-    return tree, FP_ret, FN_ret, M
+    return tree, np.exp(errors)[1], np.exp(errors)[3], M
 
 
 def get_rooted_tree(tree_str, paup_exe):
@@ -1261,12 +1249,13 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         dataset = path_strs[clock_dir_no - 1]
         subset = path_strs[clock_dir_no + 1]
 
-    out_str = f'{dataset}\t{subset}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
-            f'\t{dof}\t{p_val}\tH{hyp}'
+    out_str = f'{dataset}\t{subset}\t{FN:.4f}\t{FP:.4f}\t{h0:0>5.3f}\t' \
+        f'{h1:0>5.3f}\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
     print(out_str)
     with open(out_file, 'w') as f_out:
-        f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write('dataset\tsubset\tFN\tFP' \
+            '\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str)
     # NOTE: has to be here, otherwise subprocess calling script fails
     print('success')
