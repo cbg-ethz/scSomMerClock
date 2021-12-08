@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import pandas as pd
 import subprocess
 
 
@@ -22,6 +23,7 @@ def run_poisson_disp(vcf_files, exe, out_dir):
         for i in stdout.split('\\n'):
             print(i)
         raise RuntimeError('Error in Poisson Dispersion: {}'.format(stderr))
+    return out_file
 
 
 def run_poisson_tree(tree, vcf_file, args):
@@ -64,6 +66,42 @@ def run_poisson_tree(tree, vcf_file, args):
         for i in stdout.split('\\n'):
             print(i)
         raise RuntimeError('Error in Poisson Tree: {}'.format(stderr))
+    return out_file
+
+
+def merge_datasets(disp_file, tree_files, out_dir):
+    if disp_file:
+        df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1])
+        df_disp.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
+        df_disp.columns = [f'{i}.dispersion' for i in df_disp.columns]
+
+    if tree_files:
+        df_trees = pd.DataFrame()
+        for tree_file in tree_files:
+            if not tree_file:
+                continue
+            tree = os.path.basename(tree_file).split('_')[2]
+            df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1])
+            df_tree.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
+            df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
+            dataset = df_tree.iloc[0].name
+            if dataset in df_trees.index:
+                df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
+            else:
+                df_trees = df_trees.append(df_tree)
+
+    if disp_file and tree_files:
+        df = df_disp.merge(df_trees, left_index=True, right_index=True)
+    elif disp_file:
+        df = df_disp
+    else:
+        df = df_trees
+    dof_cols = [i for i in df.columns if 'dof' in i]
+    df.rename({dof_cols[0]: 'dof'}, axis=1, inplace=True)
+    df.drop(dof_cols[1:], axis=1, inplace=True)
+
+    out_file = os.path.join(out_dir, 'Summary_biological_data.tsv')
+    df.to_csv(out_file, sep='\t')
 
 
 def parse_args():
@@ -95,16 +133,23 @@ if __name__ == '__main__':
         os.mkdir(args.out_dir)
 
     if args.tests == 'both' or args.tests == 'dispersion':
-        run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
+        disp_file = run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
+    else:
+        disp_file = None
 
     # # <TODO> remove test case
-    # test_vcf = '../data/Ni9/Ni8_cancer.vcf.gz'
-    # run_poisson_tree('cellphy', test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
-    # run_poisson_tree('scite', test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
-    # -----------------------
+    # disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
+    # tree_files = [os.path.join(args.out_dir, i) for i in os.listdir(args.out_dir) if 'tree' in i]
+    # merge_datasets(disp_file, tree_files, args.out_dir)
+    # import pdb; pdb.set_trace()
+    # # -----------------------
 
+    tree_files = []
     if args.tests == 'both' or args.tests == 'tree':
         for vcf_file in vcf_files:
-            run_poisson_tree('cellphy', vcf_file, args)
-            run_poisson_tree('scite', vcf_file, args)
+            tree_files.append(run_poisson_tree('cellphy', vcf_file, args))
+            tree_files.append(run_poisson_tree('scite', vcf_file, args))
+
+    merge_datasets(disp_file, tree_files, args.out_dir)
+
 

@@ -253,7 +253,7 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=-1):
     try:
         cmap =cm.get_cmap('RdYlBu_r')
         for i in tree.find_clades():
-            i.color = [int(j * 255) for j in cmap(i.weight_norm_z[col_id])[:3]]
+            i.color = [int(j * 255) for j in cmap(i.weights_norm_z[col_id])[:3]]
     except AttributeError:
         pass
 
@@ -291,21 +291,21 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=-1):
 
         if br_length == 'weights':
             br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+                + '/'.join([f'{i:.2f}' for i in c.weights_norm])
         elif br_length == 'weights_mut':
             if true_muts_flag:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f} ({c.mut_no_true})\n' \
-                    f'{c.weight_norm[1][0]:.2f} +- {c.weight_norm[1][1]:.2f}'
+                    f'{c.weights_norm[1][0]:.2f} +- {c.weights_norm[1][1]:.2f}'
             else:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
-                    f'{c.weight_norm[1][0]:.2f} +- {c.weight_norm[1][1]:.2f}'
+                    f'{c.weights_norm[1][0]:.2f} +- {c.weights_norm[1][1]:.2f}'
         elif br_length == 'mut_no_weights':
             if true_muts_flag:
                 br_labels = lambda c: f'{c.mut_no_sp_count_distoft:.0f} ({c.mut_no_true})\n' \
-                    + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+                    + '/'.join([f'{i:.2f}' for i in c.weights_norm])
             else:
                 br_labels = lambda c: f'{c.mut_no_soft:.0f}\n' \
-                    + '/'.join([f'{i:.2f}' for i in c.weight_norm])
+                    + '/'.join([f'{i:.2f}' for i in c.weights_norm])
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -1079,9 +1079,10 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
         weights_norm / 2, (weights_norm - 1) / (weights_norm.max(axis=0) - 1))
 
     for node, i in br_cells.items():
-        node.weight_norm = weights_norm[i]
-        node.weight_norm_z = weights_norm_z[i]
-    tree.root.weight_norm_z = np.ones(weights_norm_z.shape[1])
+        node.weights_norm = weights_norm[i]
+        node.weights_norm_z = weights_norm_z[i]
+    tree.root.weights_norm = np.full(weights.shape[0], -1)
+    tree.root.weights_norm_z = np.ones(weights_norm_z.shape[1])
 
     # from plotting import plot_weights
     # y_labels = ['ADO', 'Topology', 'Soft']
@@ -1225,6 +1226,20 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         f_out.write(f'{header_str}\n{model_str}')
 
 
+def save_tree(tree, tree_out):
+
+    int_nodes = 0
+    for node in tree.find_clades():
+        if node.is_terminal():
+            node.name = f'{node.name}[w:{node.weights_norm[0]:.4f}]'
+        else:
+            node.name = f'{int_nodes}[w:{node.weights_norm[0]:.4f}]'
+            int_nodes += 1
+        node.branch_length = node.mut_no_soft
+
+    Phylo.write(tree, tree_out, 'newick')
+
+
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     alpha = 0.05
@@ -1252,6 +1267,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     out_str = f'{dataset}\t{subset}\t{FN:.4f}\t{FP:.4f}\t{h0:0>5.3f}\t' \
         f'{h1:0>5.3f}\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
+    save_tree(tree, tree_file + 'mapped.newick')
+
     print(out_str)
     with open(out_file, 'w') as f_out:
         f_out.write('dataset\tsubset\tFN\tFP' \
@@ -1259,7 +1276,6 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         f_out.write(out_str)
     # NOTE: has to be here, otherwise subprocess calling script fails
     print('success')
-
 
 
 def parse_args():
