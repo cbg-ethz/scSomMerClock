@@ -216,7 +216,6 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
 
         nodes = [int(i) for i in re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree)]
         cells = len(sample_names)
-
         for i, s_i in enumerate(sorted(nodes)):
             if i < cells:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
@@ -235,11 +234,10 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
             else:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
                 if br_length:
-                    repl = ':0.1'
+                    repl = f'{i+1}:0.1'
                 else:
                     repl = ''
             tree = re.sub(pat, repl, tree)
-
     else:
         if not br_length:
             tree = re.sub(':0.\d+', '', tree)

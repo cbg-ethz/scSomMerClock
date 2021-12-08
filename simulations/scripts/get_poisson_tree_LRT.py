@@ -83,17 +83,19 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             line_cols = line.strip().split('\t')
             # dims: 0 het, 1 hom, 2 true
             line_muts = np.zeros((3, sample_no))
-            line_reads = np.zeros((sample_no, 4))
+            line_reads = np.zeros((sample_no, 4)) # Order: ACGT
             diff_muts = []
+            elem_ids = line_cols[8].split(':')
+
             for s_i, s_rec in enumerate(line_cols[9:]):
                 s_rec_elms = s_rec.split(':')
+                gt = s_rec_elms[elem_ids.index('GT')].replace('/', '|')
                 try:
-                    gt = s_rec_elms[0]
-                    true_gt = s_rec_elms[-1]
+                    true_gt = s_rec_elms[elem_ids.index('TG')]
                 # Missing in Monovar output format
                 except ValueError:
-                    line_muts[:, s_i] = np.nan
-                    continue
+                    true_gt = ''
+                    line_muts[2, s_i] = np.nan
 
                 # Get true gt
                 if true_gt.count('0') == 1:
@@ -115,14 +117,28 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                     line_muts[1][s_i] = int(gt[-1])
                     diff_muts.append(int(gt[-1]))
 
-                # Add reads
-                try:
-                    reads_i = np.array(s_rec_elms[2].split(','), dtype=int)
-                except ValueError:
-                    reads_i = np.full(4, np.nan)
-                else:
-                    if sum(reads_i) == 0:
+                if 'RC' in elem_ids:
+                    # Add reads
+                    try:
+                        reads_i = np.array(
+                            s_rec_elms[elem_ids.index('RC')].split(','), dtype=int)
+                    except ValueError:
                         reads_i = np.full(4, np.nan)
+                    else:
+                        if sum(reads_i) == 0:
+                            reads_i = np.full(4, np.nan)
+
+                elif 'AD' in elem_ids:
+                    try:
+                        ref_cnt, alt_cnt = s_rec_elms[elem_ids.index('AD')].split(',')
+                    except ValueError:
+                        reads_i = np.full(4, np.nan)
+                    else:
+                        reads_i = np.zeros(4)
+                        reads_i[MUT[line_cols[3]]] = int(ref_cnt)
+                        reads_i[MUT[line_cols[4]]] = int(alt_cnt)
+                        if sum(reads_i) == 0:
+                            reads_i = np.full(4, np.nan)
 
                 line_reads[s_i] = reads_i
 
@@ -227,7 +243,7 @@ def get_stats(df, true_df, binary=True, verbose=False, per_cell=False):
         'MS_T': MS_T}
 
 
-def show_tree(tree, dendro=False, br_length='mut_no_soft'):
+def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=-1):
     import matplotlib.pyplot as plt
     from matplotlib import cm
 
@@ -237,7 +253,7 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft'):
     try:
         cmap =cm.get_cmap('RdYlBu_r')
         for i in tree.find_clades():
-            i.color = [int(j * 255) for j in cmap(i.weight_norm_z[2])[:3]]
+            i.color = [int(j * 255) for j in cmap(i.weight_norm_z[col_id])[:3]]
     except AttributeError:
         pass
 
@@ -330,18 +346,25 @@ def get_scite_errors(FP, FN):
 
 def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
             rates=False):
-    FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
+    try:
+        FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
-    # TODO <NB> hardcoded seq error. Take from config/directory structure
-    FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
-    errors = get_xcoal_errors(FP, FN)
+        # TODO <NB> hardcoded seq error. Take from config/directory structure
+        FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
+    except:
+        errors = get_scite_errors(LAMBDA_MIN, LAMBDA_MIN)
+    else:
+        errors = get_xcoal_errors(FP, FN)
 
-    if 'cellphy' in tree_file:
+
+    if 'cellphy' in tree_file or tree_file.endswith('.raxml.bestTree') \
+            or tree_file.endswith('.Mapped.raxml.mutationMapTree'):
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
             br_length=True)
         # tree_mapped, tree_approx = add_cellphy_mutation_map(tree_file, paup_exe, muts)
         # tree = tree_mapped
-        log_file = tree_file.replace('.mutationMapTree', '.log')
+        log_file = tree_file.replace('.mutationMapTree', '.log') \
+            .replace('.bestTree', '.log')
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log = f.read().strip()
@@ -383,17 +406,26 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
         errors = get_scite_errors(FP_fix, FN_fix)
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
-    # Prune outgroup
+    # Initialize node attributes on tree
+    for i, node in enumerate(tree.find_clades()):
+        node.muts_br = set([])
+        node.mut_no_soft = 0
+        node.mut_no_hard = 0
+        node.weights = np.zeros(5, dtype=float)
+        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
+
+    # Prune outgroup (of simulations)
     try:
         outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
         tree.prune(outg)
-    except IndexError:
-        outg = None
+        outg_name = outg.name
+    except (IndexError, AttributeError):
+        outg_name = None
 
     if rates:
-        return tree, outg.name, (FN, FP)
+        return tree, outg_name, (FN, FP)
     else:
-        return tree, outg.name, errors
+        return tree, outg_name, errors
 
 
 def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
@@ -413,15 +445,15 @@ def get_tree_reads(tree_file, reads, paup_exe, FN_fix=None, FP_fix=None):
     FN = errors[0] + MS
     FP = errors[1]
 
-    add_br_weigts(tree, np.log([1 - FN, FP, 1 - FP, FN]))
+    add_br_weights(tree, np.log([1 - FN, FP, 1 - FP, FN]), M.copy())
 
     return tree, FP, FN, M
 
 
 def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     # Get rooted tree from newick file (outg removed) and errors
-    samples = [f'tumcell{i:0>4d}' for i in range(1, muts.shape[1], 1)] \
-        + ['healthycell']
+
+    samples = muts.columns.values
     tree, outg, errors = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
@@ -444,7 +476,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     errors[3] = np.log(np.exp(errors[3]) + MS) # FN
     errors[0] = np.log(1 - np.exp(errors[3])) # TN
 
-    add_br_weigts(tree, errors)
+    add_br_weights(tree, errors, M.copy())
 
     return tree, FP_ret, FN_ret, M
 
@@ -502,7 +534,7 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
     name_map = {}
     for node in tree_init.find_clades():
-        terminals = '+'.join([i.name for i in node.get_terminals()])
+        terminals = '+'.join(sorted([i.name for i in node.get_terminals()]))
         name_map[terminals] = node.name
 
     mut_map = {}
@@ -527,7 +559,6 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
     tree = get_rooted_tree(tree_old, paup_exe)
     for node in tree.find_clades():
-        node.name = '+'.join([i.name for i in node.get_terminals()])
         node.mut_no_soft = node.branch_length
 
         try:
@@ -547,14 +578,14 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
     tree_approx = get_rooted_tree(tree_old_approx, paup_exe)
     for node in tree_approx.find_clades():
-        node.name = '+'.join([i.name for i in node.get_terminals()])
+        node.name = '+'.join(sorted([i.name for i in node.get_terminals()]))
         node.mut_no_soft = node.branch_length
 
     return tree, tree_approx
 
 
-def _normalize_log_probs(probs):
-    max_i = np.argmax(probs)
+def _normalize_log_probs(probs, return_normal=True):
+    max_i = np.nanargmax(probs)
     try:
         exp_probs = np.exp(probs[np.arange(probs.size) != max_i] \
             - probs[max_i])
@@ -563,24 +594,23 @@ def _normalize_log_probs(probs):
             np.clip(probs[np.arange(probs.size) != max_i] - probs[max_i],
                 log_LAMBDA_MIN, 0)
         )
-    probs_norm = probs - probs[max_i] - np.log1p(np.sum(exp_probs))
-    return np.exp(np.clip(probs_norm, log_LAMBDA_MIN, 0))
+    probs_norm = probs - probs[max_i] - np.log1p(np.nansum(exp_probs))
+
+    if return_normal:
+        return np.exp(np.clip(probs_norm, log_LAMBDA_MIN, 0))
+    else:
+        return probs_norm
 
 
 def _get_S(tree, cells, add_zeros=True):
     n = cells.size
     node_map = {}
     S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=cells)
-    # Initialize node attributes on tree and get leaf nodes of each internal node
+    # Get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
-        node.muts_br = set([])
-        node.mut_no_soft = 0
-        node.mut_no_hard = 0
-        node.weights = np.zeros(3, dtype=float)
-        leaf_nodes = [j.name for j in node.get_terminals()]
+        leaf_nodes = node.name.split('+')
         S.loc[i, leaf_nodes] = 1
-        node.name = '+'.join(leaf_nodes)
 
     S = S.values
     if add_zeros:
@@ -626,7 +656,8 @@ def map_mutations_Scite(tree, muts_in, errors):
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
 
-    return pd.DataFrame(M, index=muts_in.index)
+    cols = [j.name for i,j in sorted(node_map.items())] + ['FP']
+    return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
 def map_mutations_CellCoal(tree, read_data, errors, outg):
@@ -639,22 +670,23 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
 
     S, S_inv, node_map = _get_S(tree, cells)
 
-    gamma = np.log(errors[0]/2)
+    gamma = np.log(errors[0] / 2)
     gamma_not = np.log(1 - errors[0])
     eps = np.log(errors[1] / 3)
     eps_not = np.log(1 - errors[1])
 
-    eps_het = np.log(2/3 * errors[1])
-    eps_het_not = np.log(1 - 2/3 * errors[1])
-    eps_const = np.log(2)
+    eps_het = np.log(errors[1] / 3)
+    eps_het_not = np.log(1/2 - errors[1] / 3)
 
     wt_col = S.shape[0]
     M = np.zeros((reads.shape[0], wt_col))
+    clip_min = -60
 
     for i in tqdm(range(idx.size)):
         reads_i = reads[i]
         gt_i = gt[i]
         depth = reads_i.sum(axis=1)
+        log_depth = np.log(depth)
 
         # ref, !ref counts
         ref = reads_i[:,gt_i[0]]
@@ -667,24 +699,31 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         het_not = depth - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
-        clip_min = -200
-        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
-        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
+        p_count_dist_het = np.clip(
+            binom.logpmf(np.nan_to_num(alt), np.nan_to_num(het), 0.5), clip_min, 0)
+
+        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0) - log_depth
+        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0) - log_depth
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
-        p_count_dist = binom.logpmf(np.nan_to_num(alt), np.nan_to_num(depth), 0.5)
 
-        p_noADO = het * eps_het_not + het_not * eps_het - depth * eps_const
-        p_ADO = np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN)
+        p_noADO = np.clip(
+            het * eps_het_not + het_not * eps_het, clip_min, 0)
+        p_ADO = np.clip(
+            np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN), clip_min, 0)
 
-        p_het = np.logaddexp(gamma_not + p_noADO, p_ADO, where=noNAN)
+        # <TODO> why so much better if p_count_dist added to p_het (fully)?
+        p_het = np.logaddexp(gamma_not + p_noADO + p_count_dist_het, p_ADO, where=noNAN)
+        p_mut = np.logaddexp(p_het, p_alt, where=noNAN) - log_depth
 
-        probs_full = np.clip(S_inv * p_ref + S * p_het + S * p_count_dist, clip_min, 0)
+        probs_full = np.clip(S_inv * p_ref + S * p_mut, clip_min, 0)
         probs_br = np.nansum(probs_full, axis=1)
 
         probs_norm = _normalize_log_probs(probs_br)
         max_prob = probs_norm.max()
         best_nodes = np.argwhere(probs_br == np.max(probs_br)).flatten()
+
+        # if i == 1036: import pdb; pdb.set_trace()
         # Store for soft assignment
         M[i] = probs_norm
         # Hard assignment
@@ -704,21 +743,24 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
 
-    return pd.DataFrame(M_filtered, index=idx[~skip])
+    cols = [j.name for i,j in sorted(node_map.items())] + ['FP']
+
+    return pd.DataFrame(M_filtered, index=idx[~skip], columns=cols)
 
 
-def add_br_weigts(tree, errors):
+def add_br_weights(tree, errors, mut_probs):
     m = tree.count_terminals()
     n = 2 * m - 1
 
     # Get successor matrix
     nodes = [i for i in tree.find_clades()]
+    leaf_names = sorted([i.name for i in tree.get_terminals()])
+    leaf_map = {j: i for i, j in enumerate(leaf_names)}
 
     S = np.zeros((n, m), dtype=int)
     Y = np.zeros(n)
     for i, node in enumerate(nodes):
-        cells = [int(i[-4:]) - 1 for i in node.name.split('+')]
-        if cells[0] == 25 and len(cells) == 1: print(i)
+        cells = [leaf_map[i] for i in node.name.split('+')]
         S[i, cells] = 1
         Y[i] = node.mut_no_soft
 
@@ -753,6 +795,121 @@ def add_br_weigts(tree, errors):
             continue
         nodes[i].weights[2] = j # weight: soft
 
+    Y = pd.DataFrame(mut_probs.sum(axis=0), columns=['no'])
+    Y['uncert'] = (0.5 - (0.5 - mut_probs).abs()).sum(axis=0)
+    Y['uncert_norm'] = Y['uncert'] / (mut_probs.shape[0] * 0.5)
+    Y['uncert_rel'] = Y['uncert'] / Y['no']
+    for node in tree.find_elements(target=Phylo.Newick.Clade, order='level'):
+        if node == tree.root:
+            continue
+        Y.loc[node.name, 'tips'] = node.count_terminals()
+    Y.dropna(inplace=True)
+    Y['ADO'] = np.exp(Y['tips'] * errors[-1]) * Y['no']
+
+    # Add rank columns
+    uncert_sorted = np.sort(Y['uncert'].values)
+    ADO_sorted = np.sort(Y['ADO'].values)
+    for i, j in Y.iterrows():
+        uncert_r = np.argwhere(uncert_sorted == j.uncert).flatten()
+        Y.loc[i, 'rank_uncert'] = np.mean(uncert_r) + 1
+
+        ADO_r = np.argwhere(ADO_sorted == j.ADO).flatten()
+        Y.loc[i, 'rank_ADO'] = np.mean(ADO_r) + 1
+
+    Y['rank_sum_score'] = Y['rank_uncert'] + Y['rank_ADO']
+    sum_sorted = np.sort(Y['rank_sum_score'].values)
+    for i, j in Y.iterrows():
+        sum_r = np.argwhere(sum_sorted == j.rank_sum_score).flatten()
+        Y.loc[i, 'rank_sum'] = np.mean(sum_r) + 1
+
+    # Add rank-order centroid (ROC) weighting
+    # ROSZKOWSKA, E. RANK ORDERING CRITERIA WEIGHTING METHODS
+    #    – A COMPARATIVE OVERVIEW (2013) -- Eq. 9
+    def add_ROC(row_name, row, col, ROC_col):
+        same_rank = (Y[col] == row[col]).sum()
+        r = np.arange(1, Y.shape[0] + 1)
+        if same_rank > 1:
+            r_min = int(row[col] - same_rank / 2 + 0.5)
+            r_max = int(row[col] + same_rank / 2 - 0.5)
+            r_avg = 0
+            for k in range(r_min, r_max + 1):
+                r_avg += np.sum(1 / r[k - 1:])/ Y.shape[0]
+            ROC_weight = r_avg / same_rank
+        else:
+            ROC_weight = np.sum(1 / r[int(row[col] - 1):]) / Y.shape[0]
+        Y.loc[row_name, ROC_col] = ROC_weight
+
+
+    for i, j in Y.iterrows():
+        add_ROC(i, j, 'rank_ADO', 'ROC_ADO')
+        add_ROC(i, j, 'rank_uncert', 'ROC_uncert')
+        add_ROC(i, j, 'rank_sum', 'ROC_sum')
+
+    Y['ROC_uncert'] *= Y.shape[0]/2
+    Y['ROC_ADO'] *= Y.shape[0]/2
+    Y['weight_ROC'] = Y['ROC_uncert'] + Y['ROC_ADO']
+
+    for node in tree.find_elements(target=Phylo.Newick.Clade, order='level'):
+        if node == tree.root:
+            continue
+        node.weights[4] = Y.loc[node.name, 'ROC_sum']
+
+    # mut_probs_rel = mut_probs.copy()
+    # mut_probs_rel[mut_probs_rel < 1e-3] = np.nan
+
+    # # D = mut_probs.sum(axis=0)
+    # D = mut_probs_rel.mean(axis=0)
+    # # br_uncert_norm = br_uncert_cum / mut_probs.sum(axis=0)
+    # w_top_all = np.zeros((n, 4))
+    # helper = []
+    # nodes_sorted = tree.find_elements(target=Phylo.Newick.Clade, order='level')
+    # for i, node in enumerate([i for i in nodes_sorted][::-1]):
+    #     w_top = np.full(4, np.nan)
+    #     helper.append(node.name)
+    #     # Dropout on branch
+    #     w_top[0] = node.count_terminals()
+    #     # Dropout on neighboring branch
+    #     path = tree.get_path(node)
+    #     if len(path) > 1:
+    #         parent = tree.get_path(node)[-2]
+    #         neighbor = [i for i in parent.clades if i != node][0]
+    #         w_top[1] = neighbor.count_terminals()
+    #     elif len(path) == 1:
+    #         parent = tree.root
+    #         neighbor = [i for i in parent.clades if i != node][0]
+    #         w_top[1] = neighbor.count_terminals()
+
+    #     # Dropout on child branches
+    #     for j, k in enumerate(node.clades):
+    #         w_top[2 + j] = k.count_terminals()
+
+    #     w_top_p = 1 - np.exp(w_top * errors[-1])
+    #     w_top_all[i] = w_top_p
+    #     node.weights[3] = np.nanprod(w_top_p)
+
+    #     br_rel_muts = np.cumsum(np.sort(mut_probs[node.name].values)[::-1]) \
+    #             <= Y.loc[node.name, 'c']
+    #     br_rel_ids = np.argsort(mut_probs[node.name].values)[::-1][br_rel_muts]
+    #     try:
+    #         br_prob_uncert = np.mean(mut_probs_uncert[node.name].values[br_rel_ids])
+    #     except FloatingPointError:
+    #         br_prob_uncert = mut_probs_uncert[node.name].max()
+
+    #     try:
+    #         node.weights[4] = max(0, 1 - np.exp(w_top[0] * errors[-1]) # - br_prob_uncert)
+    #             - (1 - mut_probs_uncert.sum(axis=0) / Y[0])[node.name])
+    #     except:
+    #         import pdb; pdb.set_trace
+    #     Y.loc[node.name, 'w'] = br_prob_uncert
+    #     Y.loc[node.name, 'n'] = br_rel_ids.size
+    #     Y.loc[node.name, 'ADO'] = w_top_p[0]
+
+    # Y['z'] = Y['c'] / Y['n']
+    # Y['prod'] = Y['z'] * Y['ADO']
+    # Y['mean'] = Y[['z', 'ADO']].mean(axis=1)
+    # Y['prod_norm'] = 59 * Y['prod'] / Y['prod'].sum()
+    # Y['mean_norm'] = 59 * Y['mean'] / Y['prod'].sum()
+
 
 def add_true_muts(tree, df_true):
     # Add number of mutations to terminal nodes
@@ -766,22 +923,22 @@ def add_true_muts(tree, df_true):
         int_node.true_muts_node = child0.true_muts_node \
             .intersection(child1.true_muts_node)
         # child0.false_muts = int_node.true_muts_node.difference(int_node.true_muts)
-        child0.true_muts_br = child0.true_muts_node \
+        child0.muts_br_true = child0.true_muts_node \
             .difference(int_node.true_muts_node)
-        child0.false_muts_br = child0.muts_br.difference(child0.true_muts_br)
-        child0.missing_muts_br = child0.true_muts_br.difference(child0.muts_br)
-        child0.mut_no_true = len(child0.true_muts_br)
+        child0.muts_br_false = child0.muts_br.difference(child0.muts_br_true)
+        child0.muts_br_missing = child0.muts_br_true.difference(child0.muts_br)
+        child0.mut_no_true = len(child0.muts_br_true)
 
-        child1.true_muts_br = child1.true_muts_node \
+        child1.muts_br_true = child1.true_muts_node \
             .difference(int_node.true_muts_node)
-        child1.false_muts_br = child1.muts_br.difference(child1.true_muts_br)
-        child1.missing_muts_br = child1.true_muts_br.difference(child1.muts_br)
-        child1.mut_no_true = len(child1.true_muts_br)
+        child1.muts_br_false = child1.muts_br.difference(child1.muts_br_true)
+        child1.muts_br_missing = child1.muts_br_true.difference(child1.muts_br)
+        child1.mut_no_true = len(child1.muts_br_true)
 
-    tree.root.true_muts_br = tree.root.true_muts_node
-    tree.root.false_muts_br = tree.root.muts_br.difference(tree.root.true_muts_br)
-    tree.root.missing_muts_br = tree.root.true_muts_br.difference(tree.root.muts_br)
-    tree.root.mut_no_true = len(tree.root.true_muts_br)
+    tree.root.muts_br_true = tree.root.true_muts_node
+    tree.root.muts_br_false = tree.root.muts_br.difference(tree.root.muts_br_true)
+    tree.root.muts_br_missing = tree.root.muts_br_true.difference(tree.root.muts_br)
+    tree.root.mut_no_true = len(tree.root.muts_br_true)
 
 
 def get_sign(x):
@@ -800,11 +957,12 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     leaf_no = tree.count_terminals()
     br_no = 2 * leaf_no - 2
 
-    # Domensions: 0 soft assignment; 1 hard assignment
+    # Dimensions: 0 soft assignment; 1 hard assignment
     Y = np.zeros((2, br_no), dtype=float)
     init = np.zeros(br_no, dtype=float)
     weights = np.zeros((br_no, tree.root.weights.size), dtype=float)
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
+    constr_cols = []
 
     # Get nodes in reverse depth first order
     br_dist = []
@@ -823,7 +981,10 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             # Exit case: terminal node
             if len(node.clades) == 0:
                 break
-            if node.clades[0].count_terminals() >= node.clades[1].count_terminals():
+            w0 = node.clades[0].weights[0] * node.clades[0].mut_no_soft
+            w1 = node.clades[1].weights[1] * node.clades[1].mut_no_soft
+            # Chose traversal with higher weight
+            if w0 < w1:
                 traverse[br_cells[node.clades[0]]] = 1
                 node = node.clades[0]
             else:
@@ -862,10 +1023,12 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             # Assign new lambda to terminals
             add_node(int_node.clades[0], l_idx)
             init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
+            constr_cols.append(int_node.clades[0].name)
             node_idx += 1
 
             add_node(int_node.clades[1], l_idx)
             constr[l_idx, node_idx] = -1
+            constr_cols.append(int_node.clades[1].name)
 
         # One internal, one terminal node
         elif any(is_terminal):
@@ -873,11 +1036,13 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
             terminal = int_node.clades[is_terminal.index(True)]
             add_node(terminal, l_idx)
             init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
+            constr_cols.append(terminal.name)
             node_idx += 1
 
             # Assign lambda sum to internal
             internal = int_node.clades[is_terminal.index(False)]
             add_node(internal, l_idx, neighbor=terminal)
+            constr_cols.append(internal.name)
 
         # Both internal nodes
         else:
@@ -886,10 +1051,12 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
             add_node(shorter, l_idx)
             init[node_idx] = max(Y[0, node_idx] + pseudo_mut, LAMBDA_MIN)
+            constr_cols.append(shorter.name)
             node_idx += 1
 
             # Assign lambda sum to longer
             add_node(longer, l_idx, neighbor=shorter)
+            constr_cols.append(longer.name)
 
         init_val = np.dot(constr[l_idx], init)
 
@@ -908,13 +1075,16 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     assert (init >= LAMBDA_MIN).all(), \
         f'Init value smaller than min. distance: {init.min()}'
 
-    # Multi ply ADO weight with number of assignmed mutations (soft)
+    # Multi ply ADO weight with number of assigned mutations (soft)
     ADO_idx = 0
     weights[:, ADO_idx] = np.clip(
-        np.exp(np.log(weights[:,ADO_idx]) * Y[0]), 1e-3, None)
+       np.exp(np.log(weights[:,ADO_idx]) * Y[0]), 1e-3, None)
 
     # Normalize weights
     weights = weights ** fkt
+    # Drop zero weights
+    weights = weights[:,np.argwhere(weights.sum(axis=0) != 0).flatten()]
+
     weights_norm = weights.shape[0] * weights / weights.sum(axis=0)
     # Normalize for coloring: <= 1 to [0, 0.5], >1 to (0.5, 1]
     weights_norm_z = np.where(weights_norm <= 1,
@@ -934,7 +1104,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     else:
         Y_out = Y[0]
 
-    return Y_out, constr, init, weights_norm[:, ADO_idx]
+    return Y_out, constr, init, weights_norm, np.array(constr_cols)
 
 
 def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
@@ -1019,11 +1189,11 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     else:
         p_val = chi2.sf(LR, dof)
 
-    return ll_H0, ll_H1, LR, dof, on_bound, p_val
+    return ll_H0, ll_H1, LR, dof, on_bound, p_val, opt.x
 
 
-def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, weight_fkt,
-        exclude='', include=''):
+def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
+        weight_fkt=1, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
     alpha = 0.05
 
@@ -1046,22 +1216,16 @@ def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, weight_fkt,
         # add_true_muts(tree1, true_muts)
 
         for muts_type in use_true_muts:
-            if weight_fkt == 0:
-                Y, constr, init, weights = get_model_data(tree,
-                    pseudo_mut=0, true_data=muts_type, fkt=1)
-                weights = np.ones(Y.size)
-            else:
-                Y, constr, init, weights = get_model_data(tree,
-                    pseudo_mut=0, true_data=muts_type, fkt=weight_fkt)
+            Y, constr, init, weights, constr_cols = get_model_data(tree,
+                pseudo_mut=0, true_data=muts_type, fkt=weight_fkt)
 
-            import pdb; pdb.set_trace()
             model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
                 f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
                 f'{stats["MS"]}\t{stats["MS_T"]}'
 
             if np.any(Y != 0):
-                ll_H0, ll_H1, LR, dof, on_bound, p_val = \
-                    get_LRT_poisson(Y, constr, init, weights, short=True)
+                ll_H0, ll_H1, LR, dof, on_bound, p_val, Y_opt = \
+                    get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
 
                 if np.isnan(ll_H0):
                     continue
@@ -1071,6 +1235,42 @@ def run_poisson_tree_test(vcf_file, tree_file, out_file, paup_exe, weight_fkt,
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
+
+
+def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
+        weight_fkt=1, exclude='', include=''):
+    alpha = 0.05
+
+    muts, _s, reads, _ = get_mut_df(vcf_file, exclude, include)
+    tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
+    # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+
+    Y, constr, init, weights, constr_cols = get_model_data(tree, fkt=weight_fkt)
+
+    h0, h1, LR, dof, on_bound, p_val, _ = \
+        get_LRT_poisson(Y, constr, init, weights[:,0])
+    hyp = int(p_val < alpha)
+
+    path_strs = vcf_file.split(os.path.sep)
+    try:
+        clock_dir_no = path_strs.index('ClockTest')
+    except ValueError:
+        dataset = 'unknown'
+        subset = 'unknown'
+    else:
+        dataset = path_strs[clock_dir_no - 1]
+        subset = path_strs[clock_dir_no + 1]
+
+    out_str = f'{dataset}\t{subset}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
+            f'\t{dof}\t{p_val}\tH{hyp}'
+
+    print(out_str)
+    with open(out_file, 'w') as f_out:
+        f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write(out_str)
+    # NOTE: has to be here, otherwise subprocess calling script fails
+    print('success')
+
 
 
 def parse_args():
@@ -1084,9 +1284,11 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--weights', type=float, default=0,
+    parser.add_argument('-w', '--weights', type=float, default=1,
         help='Faktor for branch weighting. If <1: no weighting. If >=1: weights ' \
             'to the power of the value are used.')
+    parser.add_argument('-b', '--biological_data', action='store_true',
+        help='Test true data (isntead of simulation data).')
     args = parser.parse_args()
     return args
 
@@ -1098,7 +1300,7 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
-        run_poisson_tree_test(
+        run_poisson_tree_test_simulations(
             vcf_file=snakemake.input.vcf,
             tree_file=snakemake.input.tree,
             out_file=snakemake.output[0],
@@ -1113,12 +1315,23 @@ if __name__ == '__main__':
         if not args.output:
             args.output = os.path.join(os.path.dirname(args.vcf),
                 'poisson_tree.LRT.tsv')
-        run_poisson_tree_test(
-            vcf_file=args.vcf,
-            tree_file=args.tree,
-            out_file=args.output,
-            paup_exe=args.exe,
-            weight_fkt=args.weights,
-            exclude=args.exclude,
-            include=args.include,
-        )
+        if args.biological_data:
+            run_poisson_tree_test_biological(
+                vcf_file=args.vcf,
+                tree_file=args.tree,
+                out_file=args.output,
+                paup_exe=args.exe,
+                weight_fkt=args.weights,
+                exclude=args.exclude,
+                include=args.include,
+            )
+        else:
+            run_poisson_tree_test_simulations(
+                vcf_file=args.vcf,
+                tree_file=args.tree,
+                out_file=args.output,
+                paup_exe=args.exe,
+                weight_fkt=args.weights,
+                exclude=args.exclude,
+                include=args.include,
+            )

@@ -107,6 +107,24 @@ def simulate_poisson_dispersion(c=30, n=10000):
     return p_vals
 
 
+
+def plot_histogram(arr, bin_no=None, out_file=None):
+    if bin_no:
+        bin_no_in = bin_no
+    else:
+        bin_no_in = int(np.sqrt(len(arr)))
+
+    fig, ax = plt.subplots(figsize=(16, 12))
+    ax.hist(arr, bins=bin_no_in, range=(0, 1))
+    ax.set_ylabel(f'counts (n={arr.size})', fontsize=LABEL_FONTSIZE)
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
 def _plot_pvals(p_vals, bin_no=100):
     fig, ax = plt.subplots(figsize=(16, 12))
     ax.hist(p_vals, bins=bin_no, range=(0, 1))
