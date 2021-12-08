@@ -24,7 +24,7 @@ def run_poisson_disp(vcf_files, exe, out_dir):
         raise RuntimeError('Error in Poisson Dispersion: {}'.format(stderr))
 
 
-def run_poisson_tree(tree, vcf_file, exe, paup_exe, out_dir):
+def run_poisson_tree(tree, vcf_file, args):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -35,7 +35,7 @@ def run_poisson_tree(tree, vcf_file, exe, paup_exe, out_dir):
         dataset = path_strs[clock_dir_no - 1]
         subset = path_strs[clock_dir_no + 1]
 
-    out_file = os.path.join(out_dir, f'Poisson_tree_{tree}_{dataset}_{subset}.tsv')
+    out_file = os.path.join(args.out_dir, f'Poisson_tree_{tree}_{dataset}_{subset}.tsv')
     if tree == 'cellphy':
         tree_file = vcf_file + '.raxml.bestTree'
     elif tree == 'scite':
@@ -45,7 +45,8 @@ def run_poisson_tree(tree, vcf_file, exe, paup_exe, out_dir):
         raise RuntimeError(f'Unknown tree file: {tree}')
 
     cmmd = ' '.join(
-        ['python', exe, vcf_file, tree_file, '-o', out_file, '-e', paup_exe, '-b'])
+        ['python', args.exe_tree, vcf_file, tree_file, '-o', out_file,
+            '-e', args.exe_paup, '-b'])
     print('\nShell command:\n{}\n'.format(cmmd))
 
     poissonTree = subprocess.Popen(
@@ -96,6 +97,6 @@ if __name__ == '__main__':
     # -----------------------
 
     for vcf_file in vcf_files:
-        run_poisson_tree_cellphy(vcf_file, args.exe_tree, args.exe_paup, args.out_dir)
-        run_poisson_tree_scite(vcf_file, args.exe_tree, args.exe_paup, args.out_dir)
+        run_poisson_tree('cellphy', vcf_file, args)
+        run_poisson_tree('scite', vcf_file, args)
 
