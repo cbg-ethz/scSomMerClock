@@ -44,6 +44,10 @@ def run_poisson_tree(tree, vcf_file, args):
     else:
         raise RuntimeError(f'Unknown tree file: {tree}')
 
+    if not os.path.exists(tree_file):
+        print(f'!WARNING! Missing {tree: >7} tree file: {tree_file}')
+        return
+
     cmmd = ' '.join(
         ['python', args.exe_tree, vcf_file, tree_file, '-o', out_file,
             '-e', args.exe_paup, '-b'])
@@ -75,6 +79,8 @@ def parse_args():
         help='Poisson Dispersion exe.')
     parser.add_argument('-p', '--exe_paup', type=str,
         default='../paup4a168_ubuntu64', help='PAUP*  exe.')
+    parser.add_argument('-t', '--tests', choices=['both', 'tree', 'dispersion'],
+        default='both', help='Which tests to perform.')
     args = parser.parse_args()
     return args
 
@@ -87,8 +93,9 @@ if __name__ == '__main__':
 
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
-    # <TODO> uncomment
-    run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
+
+    if args.tests == 'both' or args.tests == 'dispersion':
+        run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
 
     # # <TODO> remove test case
     # test_vcf = '../data/Ni9/Ni8_cancer.vcf.gz'
@@ -96,7 +103,8 @@ if __name__ == '__main__':
     # run_poisson_tree('scite', test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
     # -----------------------
 
-    for vcf_file in vcf_files:
-        run_poisson_tree('cellphy', vcf_file, args)
-        run_poisson_tree('scite', vcf_file, args)
+    if args.tests == 'both' or args.tests == 'tree':
+        for vcf_file in vcf_files:
+            run_poisson_tree('cellphy', vcf_file, args)
+            run_poisson_tree('scite', vcf_file, args)
 
