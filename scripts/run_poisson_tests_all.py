@@ -24,7 +24,7 @@ def run_poisson_disp(vcf_files, exe, out_dir):
         raise RuntimeError('Error in Poisson Dispersion: {}'.format(stderr))
 
 
-def run_poisson_tree_cellphy(vcf_file, exe, paup_exe, out_dir):
+def run_poisson_tree(tree, vcf_file, exe, paup_exe, out_dir):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -35,8 +35,14 @@ def run_poisson_tree_cellphy(vcf_file, exe, paup_exe, out_dir):
         dataset = path_strs[clock_dir_no - 1]
         subset = path_strs[clock_dir_no + 1]
 
-    out_file = os.path.join(out_dir, f'Poisson_tree_{dataset}_{subset}.tsv')
-    tree_file = vcf_file + '.raxml.bestTree'
+    out_file = os.path.join(out_dir, f'Poisson_tree_{tree}_{dataset}_{subset}.tsv')
+    if tree == 'cellphy':
+        tree_file = vcf_file + '.raxml.bestTree'
+    elif tree == 'scite':
+        vcf_dir = os.path.dirname(vcf_file)
+        tree_file = os.path.join(vcf_dir, 'scite_dir', 'scite_tree_ml0.newick')
+    else:
+        raise RuntimeError(f'Unknown tree file: {tree}')
 
     cmmd = ' '.join(
         ['python', exe, vcf_file, tree_file, '-o', out_file, '-e', paup_exe, '-b'])
@@ -49,7 +55,7 @@ def run_poisson_tree_cellphy(vcf_file, exe, paup_exe, out_dir):
     poissonTree.wait()
     stdout = str(stdout)
 
-    if stderr:
+    if not 'success' in stdout and stderr:
         for i in stdout.split('\\n'):
             print(i)
         raise RuntimeError('Error in Poisson Tree: {}'.format(stderr))
@@ -81,11 +87,12 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
     # <TODO> uncomment
-    # run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
+    run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
 
-    # <TODO> remove test case
-    test_vcf = '../data/Ni9/Ni8_cancer.vcf.gz'
-    run_poisson_tree_cellphy(test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
+    # # <TODO> remove test case
+    # test_vcf = '../data/Ni9/Ni8_cancer.vcf.gz'
+    # run_poisson_tree('cellphy', test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
+    # run_poisson_tree('scite', test_vcf, args.exe_tree, args.exe_paup, args.out_dir)
     # -----------------------
 
     for vcf_file in vcf_files:

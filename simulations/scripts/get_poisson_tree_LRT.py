@@ -356,6 +356,7 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
     else:
         errors = get_xcoal_errors(FP, FN)
 
+
     if 'cellphy' in tree_file or tree_file.endswith('.raxml.bestTree') \
             or tree_file.endswith('.Mapped.raxml.mutationMapTree'):
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
@@ -405,6 +406,13 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
         errors = get_scite_errors(FP_fix, FN_fix)
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
+    # Initialize node attributes on tree
+    for i, node in enumerate(tree.find_clades()):
+        node.muts_br = set([])
+        node.mut_no_soft = 0
+        node.mut_no_hard = 0
+        node.weights = np.zeros(5, dtype=float)
+        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
 
     # Prune outgroup (of simulations)
     try:
@@ -468,7 +476,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     errors[3] = np.log(np.exp(errors[3]) + MS) # FN
     errors[0] = np.log(1 - np.exp(errors[3])) # TN
 
-    add_br_weights(tree, errors, muts.copy())
+    add_br_weights(tree, errors, M.copy())
 
     return tree, FP_ret, FN_ret, M
 
@@ -551,7 +559,6 @@ def add_cellphy_mutation_map(tree_file, paup_exe, muts):
 
     tree = get_rooted_tree(tree_old, paup_exe)
     for node in tree.find_clades():
-        node.name = '+'.join(sorted([i.name for i in node.get_terminals()]))
         node.mut_no_soft = node.branch_length
 
         try:
@@ -599,16 +606,11 @@ def _get_S(tree, cells, add_zeros=True):
     n = cells.size
     node_map = {}
     S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=cells)
-    # Initialize node attributes on tree and get leaf nodes of each internal node
+    # Get leaf nodes of each internal node
     for i, node in enumerate(tree.find_clades()):
         node_map[i] = node
-        node.muts_br = set([])
-        node.mut_no_soft = 0
-        node.mut_no_hard = 0
-        node.weights = np.zeros(5, dtype=float)
-        leaf_nodes = sorted([j.name for j in node.get_terminals()])
+        leaf_nodes = node.name.split('+')
         S.loc[i, leaf_nodes] = 1
-        node.name = '+'.join(leaf_nodes)
 
     S = S.values
     if add_zeros:
@@ -654,7 +656,8 @@ def map_mutations_Scite(tree, muts_in, errors):
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
 
-    return pd.DataFrame(M, index=muts_in.index)
+    cols = [j.name for i,j in sorted(node_map.items())] + ['FP']
+    return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
 def map_mutations_CellCoal(tree, read_data, errors, outg):
@@ -677,11 +680,13 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
 
     wt_col = S.shape[0]
     M = np.zeros((reads.shape[0], wt_col))
+    clip_min = -60
 
     for i in tqdm(range(idx.size)):
         reads_i = reads[i]
         gt_i = gt[i]
         depth = reads_i.sum(axis=1)
+        log_depth = np.log(depth)
 
         # ref, !ref counts
         ref = reads_i[:,gt_i[0]]
@@ -694,11 +699,11 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         het_not = depth - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
-        p_count_dist_het = binom.logpmf(np.nan_to_num(alt), np.nan_to_num(het), 0.5)
+        p_count_dist_het = np.clip(
+            binom.logpmf(np.nan_to_num(alt), np.nan_to_num(het), 0.5), clip_min, 0)
 
-        clip_min = -60
-        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0)
-        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0)
+        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0) - log_depth
+        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0) - log_depth
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
 
@@ -709,7 +714,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
 
         # <TODO> why so much better if p_count_dist added to p_het (fully)?
         p_het = np.logaddexp(gamma_not + p_noADO + p_count_dist_het, p_ADO, where=noNAN)
-        p_mut = np.logaddexp(p_het, p_alt, where=noNAN)
+        p_mut = np.logaddexp(p_het, p_alt, where=noNAN) - log_depth
 
         probs_full = np.clip(S_inv * p_ref + S * p_mut, clip_min, 0)
         probs_br = np.nansum(probs_full, axis=1)
@@ -739,6 +744,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg):
         node.mut_no_soft = soft_assigned[i]
 
     cols = [j.name for i,j in sorted(node_map.items())] + ['FP']
+
     return pd.DataFrame(M_filtered, index=idx[~skip], columns=cols)
 
 
@@ -1236,14 +1242,13 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     alpha = 0.05
 
     muts, _s, reads, _ = get_mut_df(vcf_file, exclude, include)
-    # tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
-    tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+    tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
+    # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
 
-    Y, constr, init, weights = get_model_data(tree, fkt=weight_fkt)
+    Y, constr, init, weights, constr_cols = get_model_data(tree, fkt=weight_fkt)
 
-    import pdb; pdb.set_trace()
     h0, h1, LR, dof, on_bound, p_val, _ = \
-        get_LRT_poisson(Y, constr, init, weights)
+        get_LRT_poisson(Y, constr, init, weights[:,0])
     hyp = int(p_val < alpha)
 
     path_strs = vcf_file.split(os.path.sep)
@@ -1257,12 +1262,14 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         subset = path_strs[clock_dir_no + 1]
 
     out_str = f'{dataset}\t{subset}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
-            f'\t{dof}\t{p_val}\t{hyp}'
+            f'\t{dof}\t{p_val}\tH{hyp}'
 
     print(out_str)
     with open(out_file, 'w') as f_out:
         f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str)
+    # NOTE: has to be here, otherwise subprocess calling script fails
+    print('success')
 
 
 
