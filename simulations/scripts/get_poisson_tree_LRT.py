@@ -406,13 +406,6 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
         errors = get_scite_errors(FP_fix, FN_fix)
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
-    # Initialize node attributes on tree
-    for i, node in enumerate(tree.find_clades()):
-        node.muts_br = set([])
-        node.mut_no_soft = 0
-        node.mut_no_hard = 0
-        node.weights = np.zeros(5, dtype=float)
-        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
 
     # Prune outgroup (of simulations)
     try:
@@ -421,6 +414,14 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
         outg_name = outg.name
     except (IndexError, AttributeError):
         outg_name = None
+
+    # Initialize node attributes on tree
+    for i, node in enumerate(tree.find_clades()):
+        node.muts_br = set([])
+        node.mut_no_soft = 0
+        node.mut_no_hard = 0
+        node.weights = np.zeros(5, dtype=float)
+        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
 
     if rates:
         return tree, outg_name, (FN, FP)
@@ -438,8 +439,11 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         FP_fix=FP_fix,
         rates=True
     )
+    if outg in reads[3]:
+        cell_idx = np.argwhere(reads[3] != outg).flatten()
+        reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
-    M = map_mutations_CellCoal(tree, reads, errors, outg, true_muts)
+    M = map_mutations_CellCoal(tree, reads, errors, true_muts)
     FN = errors[0]
     FP = errors[1]
     add_br_weights(tree, np.log([1 - FN, FP, 1 - FP, FN]), M.copy())
@@ -449,7 +453,6 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
 
 def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     # Get rooted tree from newick file (outg removed) and errors
-
     samples = muts.columns.values
     tree, outg, errors = get_tree(
         tree_file=tree_file,
@@ -649,13 +652,9 @@ def map_mutations_Scite(tree, muts_in, errors):
     return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
-def map_mutations_CellCoal(tree, read_data, errors, outg, true_muts):
+def map_mutations_CellCoal(tree, read_data, errors, true_muts):
     # Remove outgroup mutations
     idx, gt, reads, cells = read_data
-    if outg:
-        cell_idx = np.argwhere(cells != outg).flatten()
-        reads = reads[:,cell_idx,:]
-        cells = cells[cell_idx]
 
     S, S_inv, node_map = _get_S(tree, cells)
 
