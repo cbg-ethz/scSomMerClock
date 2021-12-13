@@ -444,8 +444,8 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         cell_idx = np.argwhere(reads[3] != outg).flatten()
         reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
-    MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
-        / (reads[0].size * reads[3].size)
+    MS = 0 #np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
+        #/ (reads[0].size * reads[3].size)
 
     M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
     add_br_weights(tree, FP, FN + MS, M.copy())
