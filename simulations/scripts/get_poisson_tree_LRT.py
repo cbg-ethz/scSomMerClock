@@ -392,10 +392,10 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         elif os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log_raw = f.read()
-            FN = max(1, float(
+            FN = max(LAMBDA_MIN, float(
                 re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1)))
-            FP = max(1, float(
+            FP = max(LAMBDA_MIN, float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1)))
         # For Scite, multiply by two as FN != ADO event if assuming binary data
