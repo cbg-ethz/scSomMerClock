@@ -392,12 +392,12 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         elif os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log_raw = f.read()
-            FN = float(
+            FN = max(1, float(
                 re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                    .group(1))
-            FP = float(
+                    .group(1)))
+            FP = max(1, float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                    .group(1))
+                    .group(1)))
         # For Scite, multiply by two as FN != ADO event if assuming binary data
         FN *= 2
         FP *= 2
@@ -444,8 +444,8 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         cell_idx = np.argwhere(reads[3] != outg).flatten()
         reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
-    MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
-        / (reads[0].size * reads[3].size)
+    MS = 0 #np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
+        #/ (reads[0].size * reads[3].size)
 
     M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
     add_br_weights(tree, FP, FN + MS, M.copy())
