@@ -15,43 +15,32 @@ def merge_LRT(in_files, out_file):
         new_df = pd.read_csv(in_file, sep='\t')
         df = df.append(new_df, ignore_index=True)
 
-    filter_muts = df['filtered'].unique()
-    use_true_muts = df['true_muts'].unique()
+    total = df.shape[0]
+    avg_row = np.full(df.shape[1], -1, dtype=float)
 
-    for filter_type in filter_muts:
-        for muts_type in use_true_muts:
-            total = df.shape[0]
-            avg_row = np.full(df.shape[1], -1, dtype=float)
+    try:
+        avg_row[1:-1] = df.iloc[:,1:-1].mean(axis=0).values
+    except:
+        import pdb; pdb.set_trace()
 
-            rel_df = df[(df['filtered'] == filter_type) \
-                & (df['true_muts'] == muts_type)]
-            try:
-                avg_row[3:-1] = rel_df.iloc[:,3:-1].mean(axis=0).values
-            except:
-                import pdb; pdb.set_trace()
+    model_total = df.dropna().shape[0]
+    df.loc[total] = avg_row
 
-            df.loc[total] = avg_row
-
-            model_total = rel_df.dropna().shape[0]
-            if clock:
-                try:
-                    avg_hyp = [f'{rel_df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
-                except KeyError:
-                    avg_hyp = [f'0/{model_total}']
-            else:
-                try:
-                    avg_hyp = [f'{rel_df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
-                except KeyError:
-                    avg_hyp = [f'0/{model_total}']
-            df.loc[total, 'filtered'] = int(filter_type)
-            df.loc[total, 'true_muts'] = int(muts_type)
-            df.iloc[total, -1] = avg_hyp
+    if clock:
+        try:
+            avg_hyp = [f'{df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
+        except KeyError:
+            avg_hyp = [f'0/{model_total}']
+    else:
+        try:
+            avg_hyp = [f'{df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
+        except KeyError:
+            avg_hyp = [f'0/{model_total}']
+    df.iloc[total, -1] = avg_hyp
 
     df.round(4).to_csv(out_file, sep='\t', index=False)
 
-    avg_row = df[(df['run'] == -1) & (df['filtered'] == True) \
-        & (df['true_muts'] == False)]
-    print(avg_row.iloc[0])
+    print(df.iloc[total])
 
     # try:
     #     from plotting import plot_test_statistic, generate_pval_plot

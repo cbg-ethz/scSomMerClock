@@ -33,8 +33,6 @@ def merge_summaries(in_files, out_file):
 
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
         if method == 'poissonTree':
-            new_df = new_df[(new_df['filtered'] == True) \
-                & (new_df['true_muts'] == False)]
             to_drop = [i for i in new_df.columns \
                 if 'nlopt' in i or 'multinomial' in i]
             new_df.drop(to_drop, inplace=True, axis=1)
