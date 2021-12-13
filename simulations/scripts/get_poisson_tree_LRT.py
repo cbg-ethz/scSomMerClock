@@ -444,8 +444,9 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         cell_idx = np.argwhere(reads[3] != outg).flatten()
         reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
-    MS = 0 #np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
-        #/ (reads[0].size * reads[3].size)
+    MS = 0
+    # MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
+    #     / (reads[0].size * reads[3].size)
 
     M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
     add_br_weights(tree, FP, FN + MS, M.copy())
@@ -664,6 +665,9 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
     eps = np.log(FP / 3)
     eps_not = np.log(1 - FP)
 
+    eps_het = np.log(FP / 2)
+    eps_not_het = np.log(FP / 2)
+
     # eps_het = np.log(FP / 3)
     # eps_het_not = np.log(1/2 - FP / 3)
 
@@ -760,8 +764,6 @@ def add_br_weights(tree, FP, FN, mut_probs):
     S_inv = 1 - S
 
     errors = np.log([1 - FN, FP, 1 - FP, FN])
-    errors_rev = np.array([errors[0], errors[3], errors[2], errors[1]])
-
     w = np.zeros((n + 1, n + 1))
 
     for i, y in enumerate(S):
@@ -778,12 +780,14 @@ def add_br_weights(tree, FP, FN, mut_probs):
         if i >= n:
             continue
 
-        nodes[i].odds = probs[i] / max(LAMBDA_MIN, (1 - probs[i]))
+        nodes[i].odds = probs_norm[i] / max(LAMBDA_MIN, (1 - probs_norm[i]))
         # weight: ADO
-        nodes[i].weights[0] = 1 - np.exp(y.sum() * errors[3] / 2 \
-            + (1 - y).sum() * errors[2]) \
-            ** (1 / max(1, np.log(nodes[i].mut_no_soft + 1)))
+        t = y.sum()
+        nodes[i].weights[0] = (1 - np.exp(t * errors[3] + (m - t) * errors[2])) \
+            ** max(1, nodes[i].mut_no_soft)
         nodes[i].weights[1] = probs_norm[i] # weight: topology
+
+        # import pdb; pdb.set_trace()
 
     for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
         if i == n:
