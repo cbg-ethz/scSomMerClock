@@ -399,8 +399,8 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1)))
         # For Scite, multiply by two as FN != ADO event if assuming binary data
-        FN *= 2
-        FP *= 2
+        # FN *= 2
+        # FP *= 2
         # errors = get_scite_errors(FP, FN)
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
