@@ -344,17 +344,18 @@ def get_scite_errors(FP, FN):
     return np.log(np.array([1 - FN, FP, 1 - FP, FN])) # TP, FP, TN, FN
 
 
-def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
-            rates=False):
+def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     try:
         FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
         + 0.01
         # TODO <NB> hardcoded seq error. Take from config/directory structure
         FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
     except:
-        errors = get_scite_errors(LAMBDA_MIN, LAMBDA_MIN)
-    else:
-        errors = get_xcoal_errors(FP, FN)
+        FP = LAMBDA_MIN
+        FN = LAMBDA_MIN
+    #     errors = get_scite_errors(LAMBDA_MIN, LAMBDA_MIN)
+    # else:
+    #     errors = get_xcoal_errors(FP, FN)
 
 
     if 'cellphy' in tree_file or tree_file.endswith('.raxml.bestTree') \
@@ -375,8 +376,8 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
                 LAMBDA_MIN)
         except AttributeError:
             pass
-        else:
-            errors = get_xcoal_errors(FP, FN)
+        # else:
+        #     errors = get_xcoal_errors(FP, FN)
 
     elif 'scite' in tree_file:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
@@ -397,23 +398,20 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
             FP = float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1))
-        errors = get_scite_errors(FP, FN)
+        # For Scite, multiply by two as FN != ADO event if assuming binary data
+        FN *= 2
+        FP *= 2
+        # errors = get_scite_errors(FP, FN)
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             br_length=True)
 
     if FP_fix and FN_fix:
-        errors = get_scite_errors(FP_fix, FN_fix)
+        FP = FP_fix
+        FN = FN_fix
+        # errors = get_scite_errors(FP_fix, FN_fix)
 
     tree = Phylo.read(StringIO(tree_str), 'newick')
-    # Initialize node attributes on tree
-    for i, node in enumerate(tree.find_clades()):
-        node.muts_br = set([])
-        node.mut_no_soft = 0
-        node.mut_no_hard = 0
-        node.weights = np.zeros(5, dtype=float)
-        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
-
     # Prune outgroup (of simulations)
     try:
         outg = [i for i in tree.find_clades() if i.name == 'healthycell'][0]
@@ -422,39 +420,44 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None,
     except (IndexError, AttributeError):
         outg_name = None
 
-    if rates:
-        return tree, outg_name, (FN, FP)
-    else:
-        return tree, outg_name, errors
+    # Initialize node attributes on tree
+    for i, node in enumerate(tree.find_clades()):
+        node.muts_br = set([])
+        node.mut_no_soft = 0
+        node.mut_no_hard = 0
+        node.weights = np.zeros(5, dtype=float)
+        node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
+
+    return tree, outg_name, FP, FN
 
 
 def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
             FP_fix=None):
-    tree, outg, errors = get_tree(
+    tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
         samples=reads[3],
         FN_fix=FN_fix,
         FP_fix=FP_fix,
-        rates=True
     )
+    if outg in reads[3]:
+        cell_idx = np.argwhere(reads[3] != outg).flatten()
+        reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
-    M = map_mutations_CellCoal(tree, reads, errors, outg, true_muts)
-    FN = errors[0]
-    FP = errors[1]
-    add_br_weights(tree, np.log([1 - FN, FP, 1 - FP, FN]), M.copy())
+    MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
+        / (reads[0].size * reads[3].size)
+
+    M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
+    add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
 
 
 def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
-    # Get rooted tree from newick file (outg removed) and errors
-
-    samples = muts.columns.values
-    tree, outg, errors = get_tree(
+    tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
-        samples=samples,
+        samples=muts.columns.values,
         FN_fix=FN_fix,
         FP_fix=FP_fix
     )
@@ -464,10 +467,12 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     # Remove mutations that were only present in outgroup
     muts = muts[muts.sum(axis=1) > 0]
 
-    M = map_mutations_Scite(tree, muts, errors)
-    add_br_weights(tree, errors, M.copy())
+    MS = muts.isna().sum().sum() / muts.size
 
-    return tree, np.exp(errors)[1], np.exp(errors)[3], M
+    M = map_mutations_Scite(tree, muts, FP, FN + MS)
+    add_br_weights(tree, FP, FN + MS, M.copy())
+
+    return tree, FP, FN, M
 
 
 def get_rooted_tree(tree_str, paup_exe):
@@ -608,7 +613,7 @@ def _get_S(tree, cells, add_zeros=True):
     return S, S_inv, node_map
 
 
-def map_mutations_Scite(tree, muts_in, errors):
+def map_mutations_Scite(tree, muts_in, FP, FN):
     S, S_inv, node_map = _get_S(tree, muts_in.columns)
 
     idx_map = muts_in.index.values
@@ -621,7 +626,7 @@ def map_mutations_Scite(tree, muts_in, errors):
     # het = np.where(nans, np.nan, het)
     # hom = np.where(muts_in == 2, 1, 0)
     # hom = np.where(nans, np.nan, hom)
-
+    errors = np.log([1 - FN, FP, 1 - FP, FN])
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in tqdm(enumerate(muts)):
         mut_data = np.stack([
@@ -634,7 +639,6 @@ def map_mutations_Scite(tree, muts_in, errors):
         probs_norm = _normalize_log_probs(probs)
         M[i] = probs_norm
 
-        max_prob = probs_norm.max()
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
         for best_node in best_nodes:
@@ -649,74 +653,66 @@ def map_mutations_Scite(tree, muts_in, errors):
     return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
-def map_mutations_CellCoal(tree, read_data, errors, outg, true_muts):
+def map_mutations_reads(tree, read_data, FP, FN, true_muts):
     # Remove outgroup mutations
     idx, gt, reads, cells = read_data
-    if outg:
-        cell_idx = np.argwhere(cells != outg).flatten()
-        reads = reads[:,cell_idx,:]
-        cells = cells[cell_idx]
 
     S, S_inv, node_map = _get_S(tree, cells)
 
-    gamma = np.log(errors[0] / 2)
-    gamma_not = np.log(1 - errors[0])
-    eps = np.log(errors[1] / 3)
-    eps_not = np.log(1 - errors[1])
+    gamma = np.log(FN / 2)
+    gamma_not = np.log(1 - FN)
+    eps = np.log(FP / 3)
+    eps_not = np.log(1 - FP)
 
-    eps_het = np.log(errors[1] / 3)
-    eps_het_not = np.log(1/2 - errors[1] / 3)
+    # eps_het = np.log(FP / 3)
+    # eps_het_not = np.log(1/2 - FP / 3)
 
     wt_col = S.shape[0]
     M = np.zeros((reads.shape[0], wt_col))
     skip = np.full(reads.shape[0], False)
-    clip_min = -800
+    clip_min = -400
+    # Get depth and reciproce of depth
+    depth = np.sum(reads, axis=2)
+    rec_depth = 1 / depth
 
     for i in tqdm(range(idx.size)):
-        reads_i = reads[i]
-        gt_i = gt[i]
-        depth = reads_i.sum(axis=1)
-        rec_depth = 1 / depth
-
         # ref, !ref counts
-        ref = reads_i[:,gt_i[0]]
-        ref_not = depth - ref
+        ref = reads[i][:,gt[i][0]]
+        ref_not = depth[i] - ref
         # alt, !alt counts
-        alt = reads_i[:,gt_i[1]]
-        alt_not = depth - alt
+        alt = reads[i][:,gt[i][1]]
+        alt_not = depth[i] - alt
         # ref|alt, !(ref|alt) counts
         het = ref + alt
-        het_not = depth - het
+        het_not = depth[i] - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
         # Clip to avoid that single cells outweights whole prob
         p_count_dist_het = np.clip(
             binom.logpmf(np.nan_to_num(alt), np.nan_to_num(het), 0.5), clip_min, 0)
 
-        p_ref = np.clip(ref * eps_not + ref_not * eps, clip_min, 0) * rec_depth
-        p_alt = np.clip(alt * eps_not + alt_not * eps, clip_min, 0) * rec_depth
+        p_ref = np.clip((ref * eps_not + ref_not * eps) * rec_depth[i], clip_min, 0)
+        p_alt = np.clip((alt * eps_not + alt_not * eps) * rec_depth[i], clip_min, 0)
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
 
+        # p_noADO = np.clip(
+        #     het * eps_het_not + het_not * eps_het, clip_min, 0) * rec_depth[i]
         p_noADO = np.clip(
-            het * eps_het_not + het_not * eps_het, clip_min, 0) * rec_depth
+            (het * eps_not + het_not * eps) * rec_depth[i], clip_min, 0)
         p_ADO = np.clip(
             np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN), clip_min, 0)
 
         # <TODO> why so much better if p_count_dist added to p_het (fully)?
-        p_het = np.logaddexp(gamma_not + p_noADO + p_count_dist_het, p_ADO, where=noNAN)
+        p_het = np.logaddexp(gamma_not + p_count_dist_het + p_noADO, p_ADO,
+            where=noNAN)
         p_mut = np.logaddexp(p_het, p_alt, where=noNAN)
 
-        probs_full = np.clip(S_inv * p_ref + S * p_mut, clip_min, 0)
-        probs = np.nansum(probs_full, axis=1)
-
+        probs = np.nansum(S_inv * p_ref + S * p_mut, axis=1)
         probs_norm = _normalize_log_probs(probs)
-        max_prob = probs_norm.max()
-        best_nodes = np.argwhere(probs == np.max(probs)).flatten()
-
-        # if S.shape[0] - 1 in best_nodes and true_muts.loc[idx[i],true_muts.columns[:-1]].sum() > 1: import pdb; pdb.set_trace()
-        # Store for soft assignment
+        # Soft assignment
         M[i] = probs_norm
         # Hard assignment
+        best_nodes = np.argwhere(probs == np.max(probs)).flatten()
         for best_node in sorted(best_nodes, reverse=True):
             try:
                 node_map[best_node].muts_br.add(idx[i])
@@ -728,7 +724,10 @@ def map_mutations_CellCoal(tree, read_data, errors, outg, true_muts):
                 # break
 
     # Remove muts where MLE contains full wt (outside of tree/all zero)
-    print(f'Mutations removed trough mapping to wt: {skip.sum()}')
+    print(f'Mutations where ML includes wt: {skip.sum()}')
+    # <TODO > Decide if to skip these mutations or not
+    skip = np.full(skip.size, False)
+    # ------------------------------------------------
     M_filtered = M[~skip]
 
     soft_assigned = M_filtered.sum(axis=0)
@@ -740,7 +739,7 @@ def map_mutations_CellCoal(tree, read_data, errors, outg, true_muts):
     return pd.DataFrame(M_filtered, index=idx[~skip], columns=cols)
 
 
-def add_br_weights(tree, errors, mut_probs):
+def add_br_weights(tree, FP, FN, mut_probs):
     m = tree.count_terminals()
     n = 2 * m - 1
 
@@ -760,6 +759,7 @@ def add_br_weights(tree, errors, mut_probs):
     S = np.vstack([S, np.zeros(m)])
     S_inv = 1 - S
 
+    errors = np.log([1 - FN, FP, 1 - FP, FN])
     errors_rev = np.array([errors[0], errors[3], errors[2], errors[1]])
 
     w = np.zeros((n + 1, n + 1))
@@ -779,7 +779,10 @@ def add_br_weights(tree, errors, mut_probs):
             continue
 
         nodes[i].odds = probs[i] / max(LAMBDA_MIN, (1 - probs[i]))
-        nodes[i].weights[0] = 1 - np.exp(y.sum() * errors[-1]) # weight: ADO
+        # weight: ADO
+        nodes[i].weights[0] = 1 - np.exp(y.sum() * errors[3] / 2 \
+            + (1 - y).sum() * errors[2]) \
+            ** (1 / max(1, np.log(nodes[i].mut_no_soft + 1)))
         nodes[i].weights[1] = probs_norm[i] # weight: topology
 
     for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
@@ -1069,8 +1072,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
     # Multi ply ADO weight with number of assigned mutations (soft)
     ADO_idx = 0
-    weights[:, ADO_idx] = np.clip(
-       np.exp(np.log(weights[:,ADO_idx]) * Y[0]), 1e-3, None)
+    # weights[:, ADO_idx] = np.clip(
+    #    np.exp(np.log(weights[:,ADO_idx]) * Y[0]), 1e-3, None)
 
     # Normalize weights
     weights = weights ** fkt
@@ -1188,50 +1191,35 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
-    alpha = 0.05
 
     cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
-    header_str = 'run\tfiltered\ttrue_muts\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
+    header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
     header_str += '\t'.join([f'{col}_poissonTree_{weight_fkt}' for col in cols])
     model_str = ''
 
-    filter_muts = [True]
-    use_true_muts = [False]
+    muts, true_muts, reads, stats = get_mut_df(vcf_file, exclude, include)
+    tree, _, _, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
+    add_true_muts(tree, true_muts)
 
-    for filter_type in filter_muts:
-        muts, true_muts, reads, stats = \
-            get_mut_df(vcf_file, exclude, include, filter=filter_type)
+    # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+    # add_true_muts(tree, true_muts)
 
-        tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
-        add_true_muts(tree, true_muts)
+    Y, constr, init, weights, constr_cols = get_model_data(tree,
+        true_data=False, fkt=weight_fkt)
+    ll_H0, ll_H1, LR, dof, on_bound, p_val, Y_opt = \
+        get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
+    hyp = int(p_val < 0.05)
 
-        # tree1, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
-        # add_true_muts(tree1, true_muts)
-
-        for muts_type in use_true_muts:
-            Y, constr, init, weights, constr_cols = get_model_data(tree,
-                pseudo_mut=0, true_data=muts_type, fkt=weight_fkt)
-
-            model_str += f'{run}\t{filter_type}\t{muts_type}\t{muts.shape[0]}\t' \
-                f'{stats["TP"]}\t{stats["FP"]}\t{stats["TN"]}\t{stats["FN"]}\t' \
-                f'{stats["MS"]}\t{stats["MS_T"]}'
-
-            if np.any(Y != 0):
-                ll_H0, ll_H1, LR, dof, on_bound, p_val, Y_opt = \
-                    get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
-
-                if np.isnan(ll_H0):
-                    continue
-                hyp = int(p_val < alpha)
-                model_str += f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t' \
-                    f'{dof+on_bound}\t{p_val:.2E}\tH{hyp}\n'
+    model_str += f'{run}\t{muts.shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
+        f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}' \
+        f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof+on_bound}\t' \
+        f'{p_val:.2E}\tH{hyp}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 
 
 def save_tree(tree, tree_out):
-
     int_nodes = 0
     for node in tree.find_clades():
         if node.is_terminal():

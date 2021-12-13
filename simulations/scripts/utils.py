@@ -283,7 +283,8 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
     stdout, stderr = paup.communicate()
     paup.wait()
 
-    assert stderr == b'', str(stdout) + '\n' + str(stderr)
+    if stderr != b'' or not 'tree saved to file ' in str(stdout):
+        raise RuntimeError(f'{stdout}\n{stderr}')
     
     with open(out_file.name, 'r') as f_tree:
         tree_new = f_tree.read().strip()
