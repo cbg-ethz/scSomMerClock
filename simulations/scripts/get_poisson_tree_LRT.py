@@ -36,10 +36,11 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
         file_stream = open(vcf_file, 'r')
 
     exclude = []
-    skip = 0
+    skip = np.zeros(3, dtype=int) # missing, no alt, filtered
     data = [[], []]
     idx =[[], []]
 
+    nan_filter = 1
     reads = []
     ref_gt = []
     with file_stream as f_in:
@@ -144,7 +145,11 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
             # skip lines without any call, neither true or false
             if not any(np.nansum(line_muts, axis=1) > 0):
-                skip += 1
+                skip[1] += 1
+                continue
+            # Skip lines with >50% missing values (mainly biological data)
+            if np.isnan(line_muts[1]).sum() > sample_no * nan_filter:
+                skip[0] += 1
                 continue
 
             # Check if called mutations are all the same
@@ -172,7 +177,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 ref_gt.append((MUT[line_cols[3]], alt_idx))
                 reads.append(line_reads)
             else:
-                skip += 1
+                skip[2] += 1
 
     muts = pd.DataFrame(data[0], index=idx[1], columns=sample_names)
     true_muts = pd.DataFrame(data[1], index=idx[1], columns=sample_names)
@@ -192,6 +197,9 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
         stats = get_stats(muts, true_muts, True, True)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
+
+    print(f'VCF rows skipped:\n\t{skip[0]: >5} (>f{nan_filter*100}% missing)\n\t'
+        f'{skip[1]: >5} (only wt)\n\t{skip[2]: >5} (filtered)')
 
     return muts, true_muts[include_id], read_data, stats
 
@@ -399,8 +407,8 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
                     .group(1)))
         # For Scite, multiply by two as FN != ADO event if assuming binary data
-        # FN *= 2
-        # FP *= 2
+        FN *= 2
+        FP *= 2
         # errors = get_scite_errors(FP, FN)
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
@@ -445,8 +453,8 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
 
     MS = 0
-    # MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
-    #     / (reads[0].size * reads[3].size)
+    MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
+        / (reads[0].size * reads[3].size)
 
     M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
     add_br_weights(tree, FP, FN + MS, M.copy())
@@ -468,9 +476,10 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     # Remove mutations that were only present in outgroup
     muts = muts[muts.sum(axis=1) > 0]
 
+    MS = 0
     MS = muts.isna().sum().sum() / muts.size
 
-    M = map_mutations_Scite(tree, muts, FP, FN + MS)
+    M = map_mutations_Scite(tree, muts, FP, FN / 2  + MS)
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
@@ -665,11 +674,8 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
     eps = np.log(FP / 3)
     eps_not = np.log(1 - FP)
 
-    eps_het = np.log(FP / 2)
-    eps_not_het = np.log(FP / 2)
-
-    # eps_het = np.log(FP / 3)
-    # eps_het_not = np.log(1/2 - FP / 3)
+    eps_het = np.log(2 * FP / 3)
+    eps_het_not = np.log(0.5 - FP / 3)
 
     wt_col = S.shape[0]
     M = np.zeros((reads.shape[0], wt_col))
@@ -699,10 +705,8 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
         # Get log pro for p(b|0,1) for het genotype
         noNAN = ~np.isnan(p_ref)
 
-        # p_noADO = np.clip(
-        #     het * eps_het_not + het_not * eps_het, clip_min, 0) * rec_depth[i]
         p_noADO = np.clip(
-            (het * eps_not + het_not * eps) * rec_depth[i], clip_min, 0)
+            (het * eps_het_not + het_not * eps_het) * rec_depth[i], clip_min, 0)
         p_ADO = np.clip(
             np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN), clip_min, 0)
 
@@ -763,7 +767,7 @@ def add_br_weights(tree, FP, FN, mut_probs):
     S = np.vstack([S, np.zeros(m)])
     S_inv = 1 - S
 
-    errors = np.log([1 - FN, FP, 1 - FP, FN])
+    errors = np.log([1 - FN / 2, FP, 1 - FP, FN /2])
     w = np.zeros((n + 1, n + 1))
 
     for i, y in enumerate(S):
@@ -787,8 +791,6 @@ def add_br_weights(tree, FP, FN, mut_probs):
             ** max(1, nodes[i].mut_no_soft)
         nodes[i].weights[1] = probs_norm[i] # weight: topology
 
-        # import pdb; pdb.set_trace()
-
     for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
         if i == n:
             continue
@@ -796,30 +798,34 @@ def add_br_weights(tree, FP, FN, mut_probs):
 
     Y = pd.DataFrame(mut_probs.sum(axis=0), columns=['no'])
     Y['uncert'] = (0.5 - (0.5 - mut_probs).abs()).sum(axis=0)
-    Y['uncert_norm'] = Y['uncert'] / (mut_probs.shape[0] * 0.5)
     Y['uncert_rel'] = Y['uncert'] / Y['no']
     for node in tree.find_elements(target=Phylo.Newick.Clade, order='level'):
         if node == tree.root:
             continue
         Y.loc[node.name, 'tips'] = node.count_terminals()
     Y.dropna(inplace=True)
-    Y['ADO'] = np.exp(Y['tips'] * errors[-1]) * Y['no']
+    Y['ADO'] = np.exp(Y['tips'] * errors[3] + (m - Y['tips']) * errors[2])
 
     # Add rank columns
-    uncert_sorted = np.sort(Y['uncert'].values)
+    r_col_1 = 'uncert_rel'
+    uncert_sorted = np.sort(Y[r_col_1].values)
     ADO_sorted = np.sort(Y['ADO'].values)
     for i, j in Y.iterrows():
-        uncert_r = np.argwhere(uncert_sorted == j.uncert).flatten()
+        uncert_r = np.argwhere(uncert_sorted == j[r_col_1]).flatten()
         Y.loc[i, 'rank_uncert'] = np.mean(uncert_r) + 1
 
         ADO_r = np.argwhere(ADO_sorted == j.ADO).flatten()
         Y.loc[i, 'rank_ADO'] = np.mean(ADO_r) + 1
 
     Y['rank_sum_score'] = Y['rank_uncert'] + Y['rank_ADO']
+    Y['rank_prod_score'] = Y['rank_uncert'] * Y['rank_ADO']
     sum_sorted = np.sort(Y['rank_sum_score'].values)
+    prod_sorted = np.sort(Y['rank_prod_score'].values)
     for i, j in Y.iterrows():
-        sum_r = np.argwhere(sum_sorted == j.rank_sum_score).flatten()
+        sum_r = np.argwhere(sum_sorted == j['rank_sum_score']).flatten()
         Y.loc[i, 'rank_sum'] = np.mean(sum_r) + 1
+        prod_r = np.argwhere(prod_sorted == j['rank_prod_score']).flatten()
+        Y.loc[i, 'rank_prod'] = np.mean(prod_r) + 1
 
     # Add rank-order centroid (ROC) weighting
     # ROSZKOWSKA, E. RANK ORDERING CRITERIA WEIGHTING METHODS
@@ -838,19 +844,19 @@ def add_br_weights(tree, FP, FN, mut_probs):
             ROC_weight = np.sum(1 / r[int(row[col] - 1):]) / Y.shape[0]
         Y.loc[row_name, ROC_col] = ROC_weight
 
-
     for i, j in Y.iterrows():
         add_ROC(i, j, 'rank_ADO', 'ROC_ADO')
         add_ROC(i, j, 'rank_uncert', 'ROC_uncert')
         add_ROC(i, j, 'rank_sum', 'ROC_sum')
+        add_ROC(i, j, 'rank_prod', 'ROC_prod')
 
-    Y['ROC_uncert'] *= Y.shape[0]/2
-    Y['ROC_ADO'] *= Y.shape[0]/2
-    Y['weight_ROC'] = Y['ROC_uncert'] + Y['ROC_ADO']
-
+    # Y['ROC_sum_norm'] = Y.shape[0] * Y['ROC_sum'] / Y['ROC_sum'].sum()
+    # Y['ROC_prod_norm'] = Y.shape[0] * Y['ROC_prod'] / Y['ROC_prod'].sum()
+    # import pdb; pdb.set_trace()
     for node in tree.find_elements(target=Phylo.Newick.Clade, order='level'):
         if node == tree.root:
             continue
+        node.weights[3] = Y.loc[node.name, 'ROC_prod']
         node.weights[4] = Y.loc[node.name, 'ROC_sum']
 
     # mut_probs_rel = mut_probs.copy()
@@ -1086,8 +1092,8 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
 
     weights_norm = weights.shape[0] * weights / weights.sum(axis=0)
     # Normalize for coloring: <= 1 to [0, 0.5], >1 to (0.5, 1]
-    weights_norm_z = np.where(weights_norm <= 1,
-        weights_norm / 2, (weights_norm - 1) / (weights_norm.max(axis=0) - 1))
+    weights_norm_z = np.where(weights_norm <= 1, weights_norm / 2,
+        (weights_norm - 1) / (weights_norm.max(axis=0) - 1 + LAMBDA_MIN))
 
     for node, i in br_cells.items():
         node.weights_norm = weights_norm[i]
@@ -1202,11 +1208,10 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
     model_str = ''
 
     muts, true_muts, reads, stats = get_mut_df(vcf_file, exclude, include)
-    tree, _, _, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
-    add_true_muts(tree, true_muts)
 
-    # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
-    # add_true_muts(tree, true_muts)
+    # tree, _, _, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
+    tree, _, _, M = get_tree_gt(tree_file, muts, paup_exe)
+    add_true_muts(tree, true_muts)
 
     Y, constr, init, weights, constr_cols = get_model_data(tree,
         true_data=False, fkt=weight_fkt)

@@ -28,6 +28,9 @@ tabix <VCF>.gz
 grep -E <PATTERN> ../../cellnames.txt > samples.txt
 bcftools view --samples-file samples.txt <VCF>.gz -O z -o <NEW_VCF>.gz
 
+# Keep only sides with >50% data
+bcftools filter -i 'F_PASS(GT!="mis") > 0.5' -O z -o <NEW_VCF>.gz <VCF>.gz
+
 # Print sample names in VCF
 bcftools query -l <VCF>
 

@@ -1,4 +1,4 @@
-/home/uvi/be/nbo/data/data/H65_Monica/ClockTest/all/all.filtered.vcf.gz
+/home/uvi/be/nbo/data/data/H65_Monica/ClockTest/all/H65_all_nanFilter.vcf.gz
 /home/uvi/be/nbo/data/data/H65_Monica/ClockTest/cancer/H65_cancer.vcf.gz
 /home/uvi/be/nbo/data/data/H65_Monica/ClockTest/normal/H65_normal.vcf.gz
 /home/uvi/be/nbo/data/data/Li55/ClockTest/all/all.filtered.vcf.gz
