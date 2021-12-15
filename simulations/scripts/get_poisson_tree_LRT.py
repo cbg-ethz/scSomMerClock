@@ -1246,8 +1246,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     alpha = 0.05
 
     muts, _s, reads, _ = get_mut_df(vcf_file, exclude, include)
-    tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
-    # tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+    # tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
+    tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
 
     Y, constr, init, weights, constr_cols = get_model_data(tree, fkt=weight_fkt)
 
