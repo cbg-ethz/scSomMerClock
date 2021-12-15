@@ -354,10 +354,11 @@ def get_scite_errors(FP, FN):
 
 def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     try:
-        FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
-        + 0.01
+        FP = max(float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+            .group(1)) + 0.01, LAMBDA_MIN)
         # TODO <NB> hardcoded seq error. Take from config/directory structure
-        FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
+        FN = max(float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1)),
+            LAMBDA_MIN)
     except:
         FP = LAMBDA_MIN
         FN = LAMBDA_MIN
