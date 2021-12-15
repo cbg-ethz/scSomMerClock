@@ -456,7 +456,7 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
     MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
         / (reads[0].size * reads[3].size)
 
-    M = map_mutations_reads(tree, reads, FP, FN + MS, true_muts)
+    M = map_mutations_reads(tree, reads, FP, FN, true_muts)
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
@@ -470,6 +470,8 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
         FN_fix=FN_fix,
         FP_fix=FP_fix
     )
+    FP /= 2
+    FN /= 2
 
     if outg in muts.columns:
         muts.drop(outg, axis=1, inplace=True)
@@ -479,7 +481,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     MS = 0
     MS = muts.isna().sum().sum() / muts.size
 
-    M = map_mutations_Scite(tree, muts, FP, FN / 2  + MS)
+    M = map_mutations_Scite(tree, muts, FP, FN)
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
@@ -652,8 +654,11 @@ def map_mutations_Scite(tree, muts_in, FP, FN):
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
         for best_node in best_nodes:
-            node_map[best_node].muts_br.add(idx_map[i])
-            node_map[best_node].mut_no_hard += 1 / best_nodes.size
+            try:
+                node_map[best_node].muts_br.add(idx_map[i])
+                node_map[best_node].mut_no_hard += 1 / best_nodes.size
+            except:
+                import pdb; pdb.set_trace()
 
     soft_assigned = M.sum(axis=0)
     for i, node in node_map.items():
