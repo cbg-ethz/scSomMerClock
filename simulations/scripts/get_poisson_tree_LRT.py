@@ -439,8 +439,9 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     return tree, outg_name, FP, FN
 
 
-def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
-            FP_fix=None):
+def get_tree_reads(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+    reads = call_data[2]
+
     tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
@@ -449,20 +450,28 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         FP_fix=FP_fix,
     )
     if outg in reads[3]:
+        # Remove outg cell
         cell_idx = np.argwhere(reads[3] != outg).flatten()
-        reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
+        # Remove loci where a mut was only called in the outg
+        mut_idx = np.argwhere(
+            (call_data[0].drop(outg, axis=1).sum(axis=1) > 0).values).flatten()
+        reads = (reads[0][mut_idx], reads[1][mut_idx],
+            reads[2][mut_idx][:,cell_idx,:], reads[3][cell_idx])
+        # Muts that were only called in outg
 
     MS = 0
     MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
         / (reads[0].size * reads[3].size)
 
-    M = map_mutations_reads(tree, reads, FP, FN, true_muts)
+    M = map_mutations_reads(tree, reads, FP, FN + MS, call_data[1])
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
 
 
-def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
+def get_tree_gt(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+    muts = call_data[0]
+
     tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
@@ -473,6 +482,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     FP /= 2
     FN /= 2
 
+
     if outg in muts.columns:
         muts.drop(outg, axis=1, inplace=True)
     # Remove mutations that were only present in outgroup
@@ -481,7 +491,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     MS = 0
     MS = muts.isna().sum().sum() / muts.size
 
-    M = map_mutations_Scite(tree, muts, FP, FN)
+    M = map_mutations_gt(tree, muts, FP, FN + MS)
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
@@ -625,7 +635,7 @@ def _get_S(tree, cells, add_zeros=True):
     return S, S_inv, node_map
 
 
-def map_mutations_Scite(tree, muts_in, FP, FN):
+def map_mutations_gt(tree, muts_in, FP, FN):
     S, S_inv, node_map = _get_S(tree, muts_in.columns)
 
     idx_map = muts_in.index.values
@@ -1212,11 +1222,11 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
     header_str += '\t'.join([f'{col}_poissonTree_{weight_fkt}' for col in cols])
     model_str = ''
 
-    muts, true_muts, reads, stats = get_mut_df(vcf_file, exclude, include)
+    call_data = get_mut_df(vcf_file, exclude, include)
 
-    # tree, _, _, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
-    tree, _, _, M = get_tree_gt(tree_file, muts, paup_exe)
-    add_true_muts(tree, true_muts)
+    # tree, _, _, M = get_tree_reads(tree_file, call_data, paup_exe)
+    tree, _, _, M = get_tree_gt(tree_file, call_data, paup_exe)
+    add_true_muts(tree, call_data[1])
 
     Y, constr, init, weights, constr_cols = get_model_data(tree,
         true_data=False, fkt=weight_fkt)
@@ -1224,7 +1234,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
     hyp = int(p_val < 0.05)
 
-    model_str += f'{run}\t{muts.shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
+    stats = call_data[3]
+    model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
         f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}' \
         f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof+on_bound}\t' \
         f'{p_val:.2E}\tH{hyp}\n'
@@ -1250,9 +1261,9 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     alpha = 0.05
 
-    muts, _s, reads, _ = get_mut_df(vcf_file, exclude, include)
-    # tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
-    tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+    call_data = get_mut_df(vcf_file, exclude, include)
+    # tree, FP, FN, M = get_tree_reads(tree_file, call_data, paup_exe)
+    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe)
 
     Y, constr, init, weights, constr_cols = get_model_data(tree, fkt=weight_fkt)
 
