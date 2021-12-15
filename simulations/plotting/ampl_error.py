@@ -100,6 +100,7 @@ def parse_args():
     parser.add_argument('-k', type=int, default='', help='# alt reads')
     parser.add_argument('-n', type=int, help='# total reads.')
     parser.add_argument('-a', type=float, default=0.001, help='Ampl. error rate.')
+
     args = parser.parse_args()
     return args
 

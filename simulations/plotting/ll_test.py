@@ -50,7 +50,7 @@ def calc_G10N_likelihood(reads, eps=None, delta=None, gamma=None):
     x = np.array(list(ll_GT.values()))
     ll_norm = _normalize_log(x)
     ll_norm_0 = ll_norm - ll_norm.max()
-    return ll_norm_0.round(2)
+    return ll_norm_0.round(2), x
 
 
 def _normalize_log(probs):
@@ -101,12 +101,12 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    ll = calc_G10N_likelihood(args.read_counts,
+    ll, ll_raw = calc_G10N_likelihood(args.read_counts,
         eps=args.epsilon, delta=args.delta, gamma=args.gamma)
-
+    print(np.exp(ll_raw * 1/ np.sum(args.read_counts)).sum())
     A = ['A', 'C', 'G', 'T']
     i = 0
     for i1, A1 in enumerate(A):
         for i2, A2 in enumerate(A[i1:]):
-            print(f'{A1}|{A2}:\t{ll[i]:7.2f}\t({np.floor(-10 * ll[i]):4.0f})')
+            print(f'{A1}|{A2}:\t{ll[i]: >8.2f}\t({ll_raw[i]: >8.2f})')
             i += 1
