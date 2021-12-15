@@ -1108,7 +1108,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     weights_norm = weights.shape[0] * weights / weights.sum(axis=0)
     # Normalize for coloring: <= 1 to [0, 0.5], >1 to (0.5, 1]
     weights_norm_z = np.where(weights_norm <= 1, weights_norm / 2,
-        (weights_norm - 1) / (weights_norm.max(axis=0) - 1 + LAMBDA_MIN))
+        (weights_norm - 1 + LAMBDA_MIN) / (weights_norm.max(axis=0) - 1 + LAMBDA_MIN))
 
     for node, i in br_cells.items():
         node.weights_norm = weights_norm[i]
@@ -1217,7 +1217,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
 
-    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
+    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
     header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
     header_str += '\t'.join([f'{col}_poissonTree_{weight_fkt}' for col in cols])
     model_str = ''
@@ -1235,10 +1235,11 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
     hyp = int(p_val < 0.05)
 
     stats = call_data[3]
+    weight_str = ",".join([str(i) for i in weights[:,0].round(3)])
     model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
         f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}' \
         f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof+on_bound}\t' \
-        f'{p_val:.2E}\tH{hyp}\n'
+        f'{p_val:.2E}\tH{hyp}\t{weight_str}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
