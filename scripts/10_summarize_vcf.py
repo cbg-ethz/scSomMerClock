@@ -312,12 +312,9 @@ def get_call_summary(rec, sample_maps, depth, quality):
     for sample_id, sample in rec.samples.iteritems():
         alg, sample_map_id = get_call_ids(sample_id, sample_maps)
 
-        # Skip all genotypes except: 0/1 | 1/1 | 0/2
-        if not sample['GT'][1]:
-            if sample['GT'][0] == 0 and alg < 2:
-                sc_calls[sample_map_id, alg] = 0
+        # Skip missing data
+        if sample['GT'][0] == None:
             continue
-
         # Skip read depth below threshold
         if sum(sample['AD']) < depth:
             continue
@@ -342,7 +339,10 @@ def get_call_summary(rec, sample_maps, depth, quality):
                     if sample['PL'][0] - PL_max < quality:
                         continue           
                 
-            sc_calls[sample_map_id, alg] = 1
+            if sample['GT'][0] == 0 and sample['GT'][1] == 0:
+                sc_calls[sample_map_id, alg] = 0
+            else:
+                sc_calls[sample_map_id, alg] = 1
 
     return sc_calls, snv_bulk, snv_germline
 
