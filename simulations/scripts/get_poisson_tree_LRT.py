@@ -354,10 +354,11 @@ def get_scite_errors(FP, FN):
 
 def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     try:
-        FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file).group(1)) \
-        + 0.01
+        FP = max(float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+            .group(1)) + 0.01, LAMBDA_MIN)
         # TODO <NB> hardcoded seq error. Take from config/directory structure
-        FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
+        FN = max(float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1)),
+            LAMBDA_MIN)
     except:
         FP = LAMBDA_MIN
         FN = LAMBDA_MIN
@@ -439,8 +440,9 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     return tree, outg_name, FP, FN
 
 
-def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
-            FP_fix=None):
+def get_tree_reads(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+    reads = call_data[2]
+
     tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
@@ -449,20 +451,28 @@ def get_tree_reads(tree_file, reads, paup_exe, true_muts=None, FN_fix=None,
         FP_fix=FP_fix,
     )
     if outg in reads[3]:
+        # Remove outg cell
         cell_idx = np.argwhere(reads[3] != outg).flatten()
-        reads = (reads[0], reads[1], reads[2][:,cell_idx,:], reads[3][cell_idx])
+        # Remove loci where a mut was only called in the outg
+        mut_idx = np.argwhere(
+            (call_data[0].drop(outg, axis=1).sum(axis=1) > 0).values).flatten()
+        reads = (reads[0][mut_idx], reads[1][mut_idx],
+            reads[2][mut_idx][:,cell_idx,:], reads[3][cell_idx])
+        # Muts that were only called in outg
 
     MS = 0
     MS = np.isnan(reads[2].sum(axis=2)).sum(axis=1).sum() \
         / (reads[0].size * reads[3].size)
 
-    M = map_mutations_reads(tree, reads, FP, FN, true_muts)
+    M = map_mutations_reads(tree, reads, FP, FN + MS, call_data[1])
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
 
 
-def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
+def get_tree_gt(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+    muts = call_data[0]
+
     tree, outg, FP, FN = get_tree(
         tree_file=tree_file,
         paup_exe=paup_exe,
@@ -473,6 +483,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     FP /= 2
     FN /= 2
 
+
     if outg in muts.columns:
         muts.drop(outg, axis=1, inplace=True)
     # Remove mutations that were only present in outgroup
@@ -481,7 +492,7 @@ def get_tree_gt(tree_file, muts, paup_exe, FN_fix=None, FP_fix=None):
     MS = 0
     MS = muts.isna().sum().sum() / muts.size
 
-    M = map_mutations_Scite(tree, muts, FP, FN)
+    M = map_mutations_gt(tree, muts, FP, FN + MS)
     add_br_weights(tree, FP, FN + MS, M.copy())
 
     return tree, FP, FN, M
@@ -625,7 +636,7 @@ def _get_S(tree, cells, add_zeros=True):
     return S, S_inv, node_map
 
 
-def map_mutations_Scite(tree, muts_in, FP, FN):
+def map_mutations_gt(tree, muts_in, FP, FN):
     S, S_inv, node_map = _get_S(tree, muts_in.columns)
 
     idx_map = muts_in.index.values
@@ -1098,7 +1109,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False, fkt=1):
     weights_norm = weights.shape[0] * weights / weights.sum(axis=0)
     # Normalize for coloring: <= 1 to [0, 0.5], >1 to (0.5, 1]
     weights_norm_z = np.where(weights_norm <= 1, weights_norm / 2,
-        (weights_norm - 1) / (weights_norm.max(axis=0) - 1 + LAMBDA_MIN))
+        (weights_norm - 1 + LAMBDA_MIN) / (weights_norm.max(axis=0) - 1 + LAMBDA_MIN))
 
     for node, i in br_cells.items():
         node.weights_norm = weights_norm[i]
@@ -1207,16 +1218,16 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
 
-    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis']
+    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
     header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
     header_str += '\t'.join([f'{col}_poissonTree_{weight_fkt}' for col in cols])
     model_str = ''
 
-    muts, true_muts, reads, stats = get_mut_df(vcf_file, exclude, include)
+    call_data = get_mut_df(vcf_file, exclude, include)
 
-    # tree, _, _, M = get_tree_reads(tree_file, reads, paup_exe, true_muts)
-    tree, _, _, M = get_tree_gt(tree_file, muts, paup_exe)
-    add_true_muts(tree, true_muts)
+    # tree, _, _, M = get_tree_reads(tree_file, call_data, paup_exe)
+    tree, _, _, M = get_tree_gt(tree_file, call_data, paup_exe)
+    add_true_muts(tree, call_data[1])
 
     Y, constr, init, weights, constr_cols = get_model_data(tree,
         true_data=False, fkt=weight_fkt)
@@ -1224,10 +1235,12 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
         get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
     hyp = int(p_val < 0.05)
 
-    model_str += f'{run}\t{muts.shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
+    stats = call_data[3]
+    weight_str = ",".join([str(i) for i in weights[:,0].round(3)])
+    model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
         f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}' \
         f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof+on_bound}\t' \
-        f'{p_val:.2E}\tH{hyp}\n'
+        f'{p_val:.2E}\tH{hyp}\t{weight_str}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
@@ -1250,9 +1263,9 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         weight_fkt=1, exclude='', include=''):
     alpha = 0.05
 
-    muts, _s, reads, _ = get_mut_df(vcf_file, exclude, include)
-    # tree, FP, FN, M = get_tree_reads(tree_file, reads, paup_exe)
-    tree, FP, FN, M = get_tree_gt(tree_file, muts, paup_exe)
+    call_data = get_mut_df(vcf_file, exclude, include)
+    # tree, FP, FN, M = get_tree_reads(tree_file, call_data, paup_exe)
+    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe)
 
     Y, constr, init, weights, constr_cols = get_model_data(tree, fkt=weight_fkt)
 

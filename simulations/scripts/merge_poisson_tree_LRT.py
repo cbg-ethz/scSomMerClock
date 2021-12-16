@@ -18,25 +18,23 @@ def merge_LRT(in_files, out_file):
     total = df.shape[0]
     avg_row = np.full(df.shape[1], -1, dtype=float)
 
-    try:
-        avg_row[1:-1] = df.iloc[:,1:-1].mean(axis=0).values
-    except:
-        import pdb; pdb.set_trace()
+    avg_row[1:-2] = df.iloc[:,1:-2].mean(axis=0).values
+    avg_row[-1] = np.nan
 
     model_total = df.dropna().shape[0]
     df.loc[total] = avg_row
 
     if clock:
         try:
-            avg_hyp = [f'{df.iloc[:,-1].value_counts()["H0"]}/{model_total}']
+            avg_hyp = [f'{df.iloc[:,-2].value_counts()["H0"]}/{model_total}']
         except KeyError:
             avg_hyp = [f'0/{model_total}']
     else:
         try:
-            avg_hyp = [f'{df.iloc[:,-1].value_counts()["H1"]}/{model_total}']
+            avg_hyp = [f'{df.iloc[:,-2].value_counts()["H1"]}/{model_total}']
         except KeyError:
             avg_hyp = [f'0/{model_total}']
-    df.iloc[total, -1] = avg_hyp
+    df.iloc[total, -2] = avg_hyp
 
     df.round(4).to_csv(out_file, sep='\t', index=False)
 
