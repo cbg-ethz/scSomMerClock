@@ -55,23 +55,26 @@ if __name__ == '__main__':
                         'all.all_chr.filtered.vcf')
                     # Zip and index
                     if data_filter == 'all':
-                        unzip_file = vcf_file.replace('.gz', '')
-                        shutil.copyfile(monica_file, unzip_file)
-                        zip_cmd = f'bgzip {unzip_file} && tabix {vcf_file}'
-                        run_bash(zip_cmd)
+                        if not os.path.exists(vcf_file):
+                            unzip_file = vcf_file.replace('.gz', '')
+                            shutil.copyfile(monica_file, unzip_file)
+                            zip_cmd = f'bgzip {unzip_file} && tabix {vcf_file}'
+                            run_bash(zip_cmd)
                     # Filter
                     else:
-                        base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
-                        flt_val = float(data_filter[:2]) / 100
-                        flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") > {flt_val}\' -O z -o {vcf_file} {base_file}'
-                        run_bash(flt_cmd)
+                        if not os.path.exists(vcf_file):
+                            base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
+                            flt_val = float(data_filter[:2]) / 100
+                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") > {flt_val}\' -O z -o {vcf_file} {base_file}'
+                            run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
-                    base_file = os.path.join(base_dir, data_dir, 'ClockTest',
-                        'all', vcf_file)
-                    sample_file = os.path.join(vcf_dir, 'samples.txt')
-                    cp_cmd = f"bcftools view --samples-file {sample_file} -O z " \
-                        "-o {vcf_file} {base_file}"
+                    if not os.path.exists(vcf_file):
+                        base_file = os.path.join(base_dir, data_dir, 'ClockTest',
+                            'all', vcf_file)
+                        sample_file = os.path.join(vcf_dir, 'samples.txt')
+                        cp_cmd = f"bcftools view --samples-file {sample_file} -O z " \
+                            "-o {vcf_file} {base_file}"
 
                 # Infer trees
                 cellphy_cmd = f"sbatch -t 720 -p amd-shared --qos amd-shared " \
