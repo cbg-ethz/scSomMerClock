@@ -5,7 +5,9 @@ import shutil
 import subprocess
 
 
+monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
 base_dir = '/home/uvi/be/nbo/data/data/'
+
 data_dirs = {
     'H65_Monica': ['all', 'cancer', 'normal'],
     'Li55': ['all', 'cancer', 'normal'],
@@ -19,7 +21,7 @@ data_dirs = {
     'W55': ['all', 'cancer', 'normal'],
     'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_CA', 'normal',
         'polyps'],
-    'Wu63': ['all', 'cancer', 'cancer_polyp', 'normal', 'polyps'],
+    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
     'X25': ['all', 'cancer', 'normal']
 }
 data_filters = ['all', '33nanFilter', '50nanFilter']
@@ -27,7 +29,9 @@ data_filters = ['all', '33nanFilter', '50nanFilter']
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
-monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
+
+scite_time = 600
+cellphy_time = 300
 
 
 def run_bash(cmd):
@@ -42,10 +46,13 @@ def run_bash(cmd):
 
 
 if __name__ == '__main__':
+    # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
+        # Iterate sub sets
         for sub_dir in sub_dirs:
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
+            # Iterate nan filters
             for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
@@ -66,7 +73,8 @@ if __name__ == '__main__':
                         if not os.path.exists(vcf_file):
                             base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
-                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") > {flt_val}\' -O z -o {vcf_file} {base_file}'
+                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
+                                f'> {flt_val}\' -O z -o {vcf_file} {base_file}'
                             run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
@@ -76,13 +84,14 @@ if __name__ == '__main__':
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f"bcftools view --samples-file {sample_file} -O z " \
                             "-o {vcf_file} {base_file}"
+                        run_bash(cp_cmd)
 
                 tree_cmds = []
 
                 cellphy_out = vcf_file + '.raxml.bestTree'
                 if not os.path.exists(cellphy_out):
                     tree_cmds.append(
-                        f"sbatch -t 720 -p amd-shared --qos amd-shared " \
+                        f"sbatch -t {cellphy_time} -p amd-shared --qos amd-shared " \
                         f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
                         f"{vcf_file}'"
                     )
@@ -91,7 +100,7 @@ if __name__ == '__main__':
                     f'{data_set}.{data_filter}_ml0.newick')
                 if not os.path.exists(scite_out):
                     tree_cmds.append(
-                        f"sbatch -t 1440 -p amd-shared --qos amd-shared " \
+                        f"sbatch -t {scite_time} -p amd-shared --qos amd-shared " \
                         f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
                         f"-s 1000000 --verbose -p {data_set}.{data_filter} {vcf_file}'"
                     )
