@@ -19,7 +19,7 @@ data_dirs = {
     'W55': ['all', 'cancer', 'normal'],
     'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_CA', 'normal',
         'polyps'],
-    'Wu63': ['all', 'cancer', 'cancer_polyp', 'normal', 'polyps'],
+    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
     'X25': ['all', 'cancer', 'normal']
 }
 data_filters = ['all', '33nanFilter', '50nanFilter']
@@ -42,10 +42,13 @@ def run_bash(cmd):
 
 
 if __name__ == '__main__':
+    # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
+        # Iterate sub sets
         for sub_dir in sub_dirs:
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
+            # Iterate nan filters
             for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
@@ -66,7 +69,8 @@ if __name__ == '__main__':
                         if not os.path.exists(vcf_file):
                             base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
-                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") > {flt_val}\' -O z -o {vcf_file} {base_file}'
+                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
+                                f'> {flt_val}\' -O z -o {vcf_file} {base_file}'
                             run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
@@ -76,6 +80,7 @@ if __name__ == '__main__':
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f"bcftools view --samples-file {sample_file} -O z " \
                             "-o {vcf_file} {base_file}"
+                        run_bash(cp_cmd)
 
                 tree_cmds = []
 
