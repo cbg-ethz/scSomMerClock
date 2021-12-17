@@ -5,7 +5,9 @@ import shutil
 import subprocess
 
 
+monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
 base_dir = '/home/uvi/be/nbo/data/data/'
+
 data_dirs = {
     'H65_Monica': ['all', 'cancer', 'normal'],
     'Li55': ['all', 'cancer', 'normal'],
@@ -27,7 +29,9 @@ data_filters = ['all', '33nanFilter', '50nanFilter']
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
-monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
+
+scite_time = 600
+cellphy_time = 300
 
 
 def run_bash(cmd):
@@ -87,7 +91,7 @@ if __name__ == '__main__':
                 cellphy_out = vcf_file + '.raxml.bestTree'
                 if not os.path.exists(cellphy_out):
                     tree_cmds.append(
-                        f"sbatch -t 720 -p amd-shared --qos amd-shared " \
+                        f"sbatch -t {cellphy_time} -p amd-shared --qos amd-shared " \
                         f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
                         f"{vcf_file}'"
                     )
@@ -96,7 +100,7 @@ if __name__ == '__main__':
                     f'{data_set}.{data_filter}_ml0.newick')
                 if not os.path.exists(scite_out):
                     tree_cmds.append(
-                        f"sbatch -t 1440 -p amd-shared --qos amd-shared " \
+                        f"sbatch -t {scite_time} -p amd-shared --qos amd-shared " \
                         f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
                         f"-s 1000000 --verbose -p {data_set}.{data_filter} {vcf_file}'"
                     )
