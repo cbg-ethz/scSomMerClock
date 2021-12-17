@@ -31,13 +31,14 @@ monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/
 
 
 def run_bash(cmd):
-    print(f'Running: {cmd}')
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
+    print(f'Running: {cmd}')
     print(str(stdout), str(stderr))
+    print('\n')
 
 
 if __name__ == '__main__':
