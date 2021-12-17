@@ -79,8 +79,7 @@ if __name__ == '__main__':
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file):
-                        base_file = os.path.join(base_dir, data_dir, 'ClockTest',
-                            'all', vcf_file)
+                        base_file = os.path.join(base_dir, data_dir, 'ClockTest', 'all', vcf_file)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                             f'-O z -o {vcf_file} {base_file}'
