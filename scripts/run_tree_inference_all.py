@@ -31,13 +31,14 @@ monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/
 
 
 def run_bash(cmd):
-    print(f'Running: {cmd}')
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
+    print(f'Running: {cmd}')
     print(str(stdout), str(stderr))
+    print('\n')
 
 
 if __name__ == '__main__':
@@ -76,13 +77,24 @@ if __name__ == '__main__':
                         cp_cmd = f"bcftools view --samples-file {sample_file} -O z " \
                             "-o {vcf_file} {base_file}"
 
-                # Infer trees
-                cellphy_cmd = f"sbatch -t 720 -p amd-shared --qos amd-shared " \
-                    f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
-                    f"{vcf_file}'"
-                scite_cmd = f"sbatch -t 1440 -p amd-shared --qos amd-shared " \
-                    f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
-                    f"-s 1000000 --verbose -p {data_set}.{data_filter} {vcf_file}'"
+                tree_cmds = []
 
-                for cmd in [cellphy_cmd, scite_cmd]:
+                cellphy_out = vcf_file + '.raxml.bestTree'
+                if not os.path.exists(cellphy_out):
+                    tree_cmds.append(
+                        f"sbatch -t 720 -p amd-shared --qos amd-shared " \
+                        f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
+                        f"{vcf_file}'"
+                    )
+
+                scite_out = os.path.join(vcf_dir, 'scite_dir',
+                    f'{data_set}.{data_filter}_ml0.newick')
+                if not os.path.exists(scite_out):
+                    tree_cmds.append(
+                        f"sbatch -t 1440 -p amd-shared --qos amd-shared " \
+                        f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
+                        f"-s 1000000 --verbose -p {data_set}.{data_filter} {vcf_file}'"
+                    )
+
+                for cmd in tree_cmds:
                     run_bash(cmd)
