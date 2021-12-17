@@ -8,8 +8,8 @@ import numpy as np
 from utils import get_sample_dict_from_vcf
 
 
-def run_scite_subprocess(vcf_file, exe, steps, out_dir, fd=0.001, ad=0.2,
-        include='', exclude='', verbose=False):
+def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
+        ad=0.2, include='', exclude='', verbose=False):
     if not os.path.exists(exe):
         raise RuntimeError(
             'SCITE not compiled: run "g++ *.cpp -o SCITE -std=c++11" inside '
@@ -31,20 +31,25 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, fd=0.001, ad=0.2,
         data_list.append([int(i) for i in cell_data])
     data = np.array(data_list).T
 
-    data_file = os.path.join(out_dir, 'SCITE{}.csv'.format(run_no))
+    data_file = os.path.join(out_dir, '{}SCITE{}.csv'.format(prefix, run_no))
     np.savetxt(data_file, data.astype(int), delimiter=' ', newline='\n', fmt='%d')
     no_muts, no_cells = data.shape
 
-    mut_file = os.path.join(out_dir, 'muts.txt')
+    mut_file = os.path.join(out_dir, '{}muts.txt'.format(prefix))
     if not os.path.exists(mut_file):
         with open(mut_file, 'w') as f_mut:
             f_mut.write('\n'.join(['m{}'.format(i) for i in range(no_muts)]))
 
-    out_file = os.path.join(out_dir, 'scite_tree{}'.format(run_no))
+    if not prefix:
+        out_prefix = 'scite_tree{}'.format(run_no)
+    else:
+        out_prefix = prefix
+    out_files = os.path.join(out_dir, out_prefix)
+
     cmmd = ' '.join(
         [exe, '-i', data_file, '-transpose', '-r 1', '-n', str(no_muts),
         '-m', str(no_cells), '-l', str(steps), '-fd', str(fd), '-ad', str(ad),
-        '-e 0.1', '-z', '-a',  '-o', out_file, '-names', mut_file,
+        '-e 0.1', '-z', '-a',  '-o', out_files, '-names', mut_file,
         '-max_treelist_size 1']
     )
 
@@ -64,7 +69,7 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, fd=0.001, ad=0.2,
             print(i)
         raise RuntimeError('SCITE Error: {}'.format(stderr))
 
-    with open('{}.log'.format(out_file), 'w') as f:
+    with open('{}.log'.format(out_files), 'w') as f:
         f.write(stdout)
 
     os.remove(data_file)
@@ -76,6 +81,8 @@ def parse_args():
     parser.add_argument('input', type=str, help='Input vcf file')
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory.')
+    parser.add_argument('-p', '--prefix', type=str, default='',
+        help='Output file prefixe.')
     parser.add_argument('-s', '--steps', type=int, default=500000,
         help='Number of mcmc steps. Default=500000.')
     parser.add_argument('-e', '--exe', type=str, help='Path to scite exe.')
@@ -112,6 +119,7 @@ if __name__ == '__main__':
             exe=args.exe,
             steps=args.steps,
             out_dir=args.out_dir,
+            prefix=args.prefix,
             fd=args.FP,
             ad=args.FN,
             include=args.include,
