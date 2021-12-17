@@ -40,8 +40,10 @@ def run_bash(cmd):
     )
     stdout, stderr = subp.communicate()
     subp.wait()
+
     print(f'Running: {cmd}')
-    print(str(stdout), str(stderr))
+    if not cmd.startswith('sbatch'):
+        print(str(stdout), str(stderr))
     print('\n')
 
 
