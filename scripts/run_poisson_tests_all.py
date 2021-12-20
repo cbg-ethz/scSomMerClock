@@ -65,7 +65,7 @@ def run_poisson_tree(tree, vcf_file, args, only_name=False):
 
 def merge_datasets(disp_file, tree_files, out_dir):
     if disp_file:
-        df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1])
+        df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1, 2])
         df_disp.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
         df_disp.columns = [f'{i}.dispersion' for i in df_disp.columns]
 
@@ -76,7 +76,7 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 print(f'!WARNING! Missing tree file: {tree_file}')
                 continue
             tree = os.path.basename(tree_file).split('_')[2]
-            df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1])
+            df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
             df_tree.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
             df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
