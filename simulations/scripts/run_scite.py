@@ -72,9 +72,6 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
     with open('{}.log'.format(out_files), 'w') as f:
         f.write(stdout)
 
-    os.remove(data_file)
-    # rm -f {out_dir}/{filter_dir}/scite_dir/scite_tree.{wildcards.run}_*.gv
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
