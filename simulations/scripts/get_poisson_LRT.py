@@ -136,14 +136,17 @@ def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
     out_str = ''
     for in_file in sorted(in_files):
         path_strs = in_file.split(os.path.sep)
-        try:
+         try:
             clock_dir_no = path_strs.index('ClockTest')
         except ValueError:
             dataset = 'unknown'
             subset = 'unknown'
+            filters = 'unknown'
         else:
-            dataset = path_strs[clock_dir_no - 1]
             subset = path_strs[clock_dir_no + 1]
+            file_ids = path_strs[-1].split('.')
+            dataset = file_ids[0]
+            filters = file_ids[1]
 
         muts = np.array(get_muts_per_cell(in_file, excl, incl))
         mean_muts = muts.mean()
@@ -159,11 +162,11 @@ def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
         else:
             hyp = 'H0'
 
-        out_str += f'{dataset}\t{subset}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
+        out_str += f'{dataset}\t{subset}\t{filters}\t{h0:0>5.3f}\t{h1:0>5.3f}\t{LR:0>5.3f}' \
             f'\t{dof}\t{p_val}\t{hyp}\n'
     print(out_str)
     with open(out_file, 'w') as f_out:
-        f_out.write('dataset\tsubset\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write('dataset\tsubset\tfilters\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str.rstrip())
 
 

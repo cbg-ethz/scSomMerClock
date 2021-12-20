@@ -34,12 +34,15 @@ def run_poisson_tree(tree, vcf_file, args, only_name=False):
     except ValueError:
         dataset = 'unknown'
         subset = 'unknown'
+        filters = 'unknown'
     else:
-        dataset = path_strs[clock_dir_no - 1]
         subset = path_strs[clock_dir_no + 1]
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
 
     out_file = os.path.join(args.out_dir,
-        f'Poisson_tree_{tree}_{dataset}_{subset}.tsv')
+        f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
     if only_name:
         return out_file
 

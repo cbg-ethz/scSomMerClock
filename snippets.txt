@@ -26,7 +26,7 @@ ls <Pattern> | sed 's/^/-I /' | tr '\n' ' '
 bgzip <VCF>
 tabix <VCF>.gz
 grep -E <PATTERN> ../../cellnames.txt > samples.txt
-bcftools view --samples-file samples.txt <VCF>.gz -O z -o <NEW_VCF>.gz
+bcftools view --samples-file samples.txt -O z -o <NEW_VCF>.gz <VCF>.gz
 
 # Keep only sides with >50% data
 bcftools filter -i 'F_PASS(GT!="mis") > 0.5' -O z -o <NEW_VCF>.gz <VCF>.gz
@@ -38,7 +38,7 @@ bcftools query -l <VCF>
 sed -i.bak $'s/\ta\t/\tA\t/g' <VCF>
 
 # run cellphy on slurm cluster
-sbatch -t 720 -p amd-shared --qos amd-shared --mem 1G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'
+sbatch -t 720 -p amd-shared --qos amd-shared --mem 2G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'
 
 # run scite on slurm cluster
-sbatch -t 720 -p amd-shared --qos amd-shared --mem 6G --wrap 'python3 /home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py -e /home/uvi/be/nbo/infSCITE/infSCITE  --verbose /home/uvi/be/nbo/data/data/<VCF>.gz'
+sbatch -t 1440 -p amd-shared --qos amd-shared --mem 10G --wrap 'python3 /home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py -e /home/uvi/be/nbo/infSCITE/infSCITE -s 1000000 --verbose -p <PREFIX> /home/uvi/be/nbo/data/data/<VCF>.gz'
