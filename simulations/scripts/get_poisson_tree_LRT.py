@@ -108,6 +108,8 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 # Set filtered genotypes to nan
                 if gt == '.|.':
                     line_muts[0:2, s_i] = np.nan
+                    line_reads[s_i] = np.full(4, np.nan)
+                    continue
                 elif gt == '0|0': # Wildtype
                     pass
                 # Check if gt is mutation
@@ -490,7 +492,8 @@ def get_tree_gt(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
     muts = muts[muts.sum(axis=1) > 0]
 
     MS = 0
-    MS = muts.isna().sum().sum() / muts.size
+    # Make sure that at FN + MS is max. 0.8
+    MS = min(muts.isna().sum().sum() / muts.size, 1 - FN - 0.2)
 
     M = map_mutations_gt(tree, muts, FP, FN + MS)
     add_br_weights(tree, FP, FN + MS, M.copy())
@@ -696,19 +699,20 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
     wt_col = S.shape[0]
     M = np.zeros((reads.shape[0], wt_col))
     skip = np.full(reads.shape[0], False)
-    clip_min = -400
+    clip_min = -50
     # Get depth and reciproce of depth
     depth = np.sum(reads, axis=2)
     rec_depth = 1 / depth
+    # rec_depth = np.ones(depth.size)
 
     for i in tqdm(range(idx.size)):
-        # ref, !ref counts
+        # counts: ref, !ref
         ref = reads[i][:,gt[i][0]]
         ref_not = depth[i] - ref
-        # alt, !alt counts
+        # counts: alt, !alt
         alt = reads[i][:,gt[i][1]]
         alt_not = depth[i] - alt
-        # ref|alt, !(ref|alt) counts
+        # counts: ref|alt, !(ref|alt)
         het = ref + alt
         het_not = depth[i] - het
         # Get log prob p(b|0,0) for wt and p(b|1,1) homoyzgous genotypes
@@ -726,13 +730,13 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
         p_ADO = np.clip(
             np.logaddexp(gamma + p_ref, gamma + p_alt, where=noNAN), clip_min, 0)
 
-        # <TODO> why so much better if p_count_dist added to p_het (fully)?
         p_het = np.logaddexp(gamma_not + p_count_dist_het + p_noADO, p_ADO,
             where=noNAN)
         p_mut = np.logaddexp(p_het, p_alt, where=noNAN)
 
         probs = np.nansum(S_inv * p_ref + S * p_mut, axis=1)
         probs_norm = _normalize_log_probs(probs)
+
         # Soft assignment
         M[i] = probs_norm
         # Hard assignment
@@ -783,7 +787,7 @@ def add_br_weights(tree, FP, FN, mut_probs):
     S = np.vstack([S, np.zeros(m)])
     S_inv = 1 - S
 
-    errors = np.log([1 - FN / 2, FP, 1 - FP, FN /2])
+    errors = np.log([1 - FN, FP, 1 - FP, FN])
     w = np.zeros((n + 1, n + 1))
 
     for i, y in enumerate(S):
@@ -1199,6 +1203,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
             * weights)
 
     dof = Y.size - constr.shape[0]
+    import pdb; pdb.set_trace()
     LR = -2 * (ll_H0 - ll_H1)
 
     on_bound = np.sum(opt.x <= LAMBDA_MIN ** 0.5)
@@ -1279,18 +1284,21 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     except ValueError:
         dataset = 'unknown'
         subset = 'unknown'
+        filters = 'unknown'
     else:
-        dataset = path_strs[clock_dir_no - 1]
         subset = path_strs[clock_dir_no + 1]
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
 
-    out_str = f'{dataset}\t{subset}\t{FN:.4f}\t{FP:.4f}\t{h0:0>5.3f}\t' \
+    out_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t{h0:0>5.3f}\t' \
         f'{h1:0>5.3f}\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
     save_tree(tree, tree_file + 'mapped.newick')
 
     print(out_str)
     with open(out_file, 'w') as f_out:
-        f_out.write('dataset\tsubset\tFN\tFP' \
+        f_out.write('dataset\tsubset\tfilters\tFN\tFP' \
             '\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
         f_out.write(out_str)
     # NOTE: has to be here, otherwise subprocess calling script fails
