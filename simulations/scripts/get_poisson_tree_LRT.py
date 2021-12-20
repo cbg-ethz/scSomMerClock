@@ -1202,8 +1202,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
         ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
             * weights)
 
-    dof = Y.size - constr.shape[0]
-    import pdb; pdb.set_trace()
+    dof = weights.sum() - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
 
     on_bound = np.sum(opt.x <= LAMBDA_MIN ** 0.5)
