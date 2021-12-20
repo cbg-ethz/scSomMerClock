@@ -807,8 +807,11 @@ def add_br_weights(tree, FP, FN, mut_probs):
         nodes[i].odds = probs_norm[i] / max(LAMBDA_MIN, (1 - probs_norm[i]))
         # weight: ADO
         t = y.sum()
-        nodes[i].weights[0] = (1 - np.exp(t * errors[3] + (m - t) * errors[2])) \
-            ** np.clip(nodes[i].mut_no_soft, 1, 1000)
+        try:
+            nodes[i].weights[0] = (1 - np.exp(t * errors[3] + (m - t) * errors[2])) \
+                ** np.clip(nodes[i].mut_no_soft, 1, 1000)
+        except FloatingPointError:
+            nodes[i].weights[0] = LAMBDA_MIN
         nodes[i].weights[1] = probs_norm[i] # weight: topology
 
     for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
