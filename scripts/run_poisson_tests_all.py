@@ -7,7 +7,7 @@ import subprocess
 
 
 def run_bash(cmd):
-    bsub = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 2G --wrap '{cmd}'"
+    bsub = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G --wrap '{cmd}'"
 
     subp = subprocess.Popen(bsub,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -72,7 +72,8 @@ def merge_datasets(disp_file, tree_files, out_dir):
     if tree_files:
         df_trees = pd.DataFrame()
         for tree_file in tree_files:
-            if not tree_file:
+            if not tree_file or not os.path.exists(tree_file):
+                print(f'!WARNING! Missing tree file: {tree_file}')
                 continue
             tree = os.path.basename(tree_file).split('_')[2]
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1])
