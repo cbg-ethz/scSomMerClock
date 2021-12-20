@@ -7,7 +7,7 @@ import subprocess
 
 
 def run_bash(cmd):
-    bsub = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 2G --wrap {cmd}"
+    bsub = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 2G --wrap '{cmd}'"
 
     subp = subprocess.Popen(bsub,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
