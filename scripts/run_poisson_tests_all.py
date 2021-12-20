@@ -93,11 +93,14 @@ def merge_datasets(disp_file, tree_files, out_dir):
             df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
             if dataset in df_trees.index:
-                df_trees = pd.concat([df_trees, df_tree], axis=1)
+                try:
+                    df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
+                except KeyError:
+                    df_trees = pd.concat([df_trees, df_tree], axis=1)
             else:
                 try:
                     df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
-                except:
+                except KeyError:
                     df_trees = df_tree
 
     if disp_file and tree_files:
