@@ -1141,7 +1141,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 
     if short:
         ll_H1 = np.sum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
-        for i in [10000, 1000, 100, 10, 1]:
+        for i in [10000, 1000, 100, 10, 1, 0.1]:
             scale_fac = (ll_H1 // i) * i
             if scale_fac != 0:
                 break
