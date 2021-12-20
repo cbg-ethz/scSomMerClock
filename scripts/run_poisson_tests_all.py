@@ -81,7 +81,8 @@ def merge_datasets(disp_file, tree_files, out_dir):
             df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
             if dataset in df_trees.index:
-                df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
+                df = df_disp.merge(df_trees, how='outer', left_index=True,
+                    right_index=True)
             else:
                 df_trees = df_trees.append(df_tree)
 
