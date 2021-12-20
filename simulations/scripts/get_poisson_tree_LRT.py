@@ -808,7 +808,7 @@ def add_br_weights(tree, FP, FN, mut_probs):
         # weight: ADO
         t = y.sum()
         nodes[i].weights[0] = (1 - np.exp(t * errors[3] + (m - t) * errors[2])) \
-            ** max(1, nodes[i].mut_no_soft)
+            ** np.clip(nodes[i].mut_no_soft, 1, 1000)
         nodes[i].weights[1] = probs_norm[i] # weight: topology
 
     for i, j in enumerate(1 - np.abs(w.sum(axis=0) - 1)):
