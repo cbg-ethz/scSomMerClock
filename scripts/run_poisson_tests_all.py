@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import numpy as np
 import os
 import pandas as pd
 import subprocess
@@ -95,7 +96,8 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 df_trees = df_trees.merge(df_tree, how='outer', left_index=True,
                     right_index=True)
             else:
-                df_trees = df_trees.append(df_tree)
+                df_trees.loc[dataset] = np.nan
+                df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
 
     if disp_file and tree_files:
         df = df_disp.merge(df_trees, left_index=True, right_index=True)
