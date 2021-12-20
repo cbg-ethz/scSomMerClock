@@ -27,7 +27,7 @@ def run_bash(cmd_raw, bsub=True):
 
 def run_poisson_disp(vcf_files, exe, out_dir, replace):
     out_file = os.path.join(out_dir, 'Poisson_dispersion_all.tsv')
-    if not arg.replace and os.path.exists(out_file):
+    if not replace and os.path.exists(out_file):
         return
     cmd = f'python {exe} {" ".join(vcf_files)} -o {out_file} -b'
     run_bash(cmd)
@@ -52,14 +52,15 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
     if only_name:
         return out_file
 
-    if not arg.replace and os.path.exists(out_file):
+    if not replace and os.path.exists(out_file):
         return
 
     if tree == 'cellphy':
         tree_file = vcf_file + '.raxml.bestTree'
     elif tree == 'scite':
         vcf_dir = os.path.dirname(vcf_file)
-        tree_file = os.path.join(vcf_dir, 'scite_dir', 'scite_tree_ml0.newick')
+        tree_file = os.path.join(vcf_dir, 'scite_dir',
+            f'{dataset}.{filters}_ml0.newick')
     else:
         raise RuntimeError(f'Unknown tree file: {tree}')
 
