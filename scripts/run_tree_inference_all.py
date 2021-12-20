@@ -47,7 +47,20 @@ def run_bash(cmd):
     print('\n')
 
 
+def print_masterlist():
+    for data_dir, sub_dirs in data_dirs.items():
+        data_set = data_dir.replace('_Monica', '')
+        for sub_dir in sub_dirs:
+            vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
+            for data_filter in data_filters:
+                vcf_name = f'{data_set}.{data_filter}.vcf.gz'
+                print(os.path.join(vcf_dir, vcf_name))
+
+
 if __name__ == '__main__':
+    print_masterlist()
+    exit()
+
     # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
@@ -108,4 +121,5 @@ if __name__ == '__main__':
                     )
 
                 for cmd in tree_cmds:
+                    print(f'Running: {cmd}')
                     run_bash(cmd)

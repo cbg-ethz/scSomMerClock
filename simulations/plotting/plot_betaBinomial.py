@@ -38,6 +38,8 @@ def plot_betabinomial(mean, var, bins=0, density=False):
         fig, ax = plt.subplots(1, 1)
         ax.hist(r, density=True, histtype='stepfilled')
 
+    print(f'Beta: {beta.mean(a, b):.2f} =/- {beta.std(a, b):.3f}')
+
     plt.show()
     plt.close()
 
