@@ -178,7 +178,7 @@ def parse_args():
     parser.add_argument('-i', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
     parser.add_argument('-b', '--biological_data', action='store_true',
-        help='Test true data (isntead of simulation data).')
+        help='Test true data (instead of simulation data).')
     args = parser.parse_args()
     return args
 
