@@ -96,7 +96,6 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 df_trees = pd.concat([df_trees, df_tree], axis=1)
             else:
                 try:
-                    df_trees.loc[dataset] = np.nan
                     df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
                 except:
                     df_trees = df_tree
