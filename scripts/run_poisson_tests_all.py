@@ -6,28 +6,34 @@ import pandas as pd
 import subprocess
 
 
-def run_bash(cmd):
-    bsub = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G --wrap '{cmd}'"
+def run_bash(cmd_raw, bsub=True):
+    if bsub:
+        cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
+            f"--wrap '{cmd_raw}'"
+    else:
+        cmd = cmd_raw
 
-    subp = subprocess.Popen(bsub,
+    subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
 
     print(f'Running: {cmd}')
-    if not cmd.startswith('sbatch'):
+    if not bsub:
         print(str(stdout), str(stderr))
     print('\n')
 
 
-def run_poisson_disp(vcf_files, exe, out_dir):
+def run_poisson_disp(vcf_files, exe, out_dir, replace):
     out_file = os.path.join(out_dir, 'Poisson_dispersion_all.tsv')
+    if not arg.replace and os.path.exists(out_file):
+        return
     cmd = f'python {exe} {" ".join(vcf_files)} -o {out_file} -b'
     run_bash(cmd)
 
 
-def run_poisson_tree(tree, vcf_file, args, only_name=False):
+def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -46,6 +52,9 @@ def run_poisson_tree(tree, vcf_file, args, only_name=False):
     if only_name:
         return out_file
 
+    if not arg.replace and os.path.exists(out_file):
+        return
+
     if tree == 'cellphy':
         tree_file = vcf_file + '.raxml.bestTree'
     elif tree == 'scite':
@@ -60,7 +69,8 @@ def run_poisson_tree(tree, vcf_file, args, only_name=False):
 
     cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} ' \
         f'-e {args.exe_paup} -b'
-    run_bash(cmd)
+
+    run_bash(cmd, bsub)
 
 
 def merge_datasets(disp_file, tree_files, out_dir):
@@ -117,6 +127,10 @@ def parse_args():
         default='../paup4a168_ubuntu64', help='PAUP*  exe.')
     parser.add_argument('-t', '--tests', choices=['both', 'tree', 'dispersion'],
         default='both', help='Which tests to perform.')
+    parser.add_argument('-l', '--local', action='store_false',
+        help='Run locally instead of HPC.')
+    parser.add_argument('-r', '--replace', action='store_true',
+        help='Overwrite already existing files.')
     args = parser.parse_args()
     return args
 
@@ -132,12 +146,14 @@ if __name__ == '__main__':
 
     if args.mode == 'run':
         if args.tests == 'both' or args.tests == 'dispersion':
-            run_poisson_disp(vcf_files, args.exe_disp, args.out_dir)
+            run_poisson_disp(vcf_files, args.exe_disp, args.out_dir, args.replace)
 
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
-                run_poisson_tree('cellphy', vcf_file, args)
-                run_poisson_tree('scite', vcf_file, args)
+                run_poisson_tree('cellphy', vcf_file, args, args.replace,
+                    bsub=args.local)
+                run_poisson_tree('scite', vcf_file, args, args.replace,
+                    bsub=args.local)
     else:
         if args.tests == 'both' or args.tests == 'dispersion':
             disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
@@ -147,8 +163,10 @@ if __name__ == '__main__':
         tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
-                tree_files.append(run_poisson_tree('cellphy', vcf_file, args, True))
-                tree_files.append(run_poisson_tree('scite', vcf_file, args, True))
+                tree_files.append(run_poisson_tree('cellphy', vcf_file, args,
+                    args.replace, only_name=True))
+                tree_files.append(run_poisson_tree('scite', vcf_file, args,
+                    args.replace, only_name=True))
         merge_datasets(disp_file, tree_files, args.out_dir)
 
 
