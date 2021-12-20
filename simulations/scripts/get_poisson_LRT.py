@@ -136,7 +136,7 @@ def test_poisson_biological(in_files, out_file, excl='', incl='', alpha=0.05):
     out_str = ''
     for in_file in sorted(in_files):
         path_strs = in_file.split(os.path.sep)
-         try:
+        try:
             clock_dir_no = path_strs.index('ClockTest')
         except ValueError:
             dataset = 'unknown'
