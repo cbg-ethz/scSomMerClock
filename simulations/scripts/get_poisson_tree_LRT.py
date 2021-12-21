@@ -436,7 +436,7 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         node.muts_br = set([])
         node.mut_no_soft = 0
         node.mut_no_hard = 0
-        node.weights = np.zeros(5, dtype=float)
+        node.weights = np.zeros(6, dtype=float)
         node.name = '+'.join(sorted([j.name for j in node.get_terminals()]))
 
     return tree, outg_name, FP, FN
@@ -875,12 +875,13 @@ def add_br_weights(tree, FP, FN, mut_probs):
 
     # Y['ROC_sum_norm'] = Y.shape[0] * Y['ROC_sum'] / Y['ROC_sum'].sum()
     # Y['ROC_prod_norm'] = Y.shape[0] * Y['ROC_prod'] / Y['ROC_prod'].sum()
-    # import pdb; pdb.set_trace()
+    linspace_weights = np.linspace(0, 2, Y.shape[0])
     for node in tree.find_elements(target=Phylo.Newick.Clade, order='level'):
         if node == tree.root:
             continue
         node.weights[3] = Y.loc[node.name, 'ROC_prod']
         node.weights[4] = Y.loc[node.name, 'ROC_sum']
+        node.weights[5] = linspace_weights[int(Y.loc[node.name, 'rank_prod']) - 1]
 
     # mut_probs_rel = mut_probs.copy()
     # mut_probs_rel[mut_probs_rel < 1e-3] = np.nan

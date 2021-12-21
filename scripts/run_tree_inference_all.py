@@ -19,7 +19,7 @@ data_dirs = {
     'S21_P2': ['all', 'cancer', 'left'],
     'W32_Monica': ['all', 'aneuploid', 'cancer', 'haploid', 'normal'],
     'W55': ['all', 'cancer', 'normal'],
-    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_CA', 'normal',
+    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
         'polyps'],
     'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
     'X25': ['all', 'cancer', 'normal']
