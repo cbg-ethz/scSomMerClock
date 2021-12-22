@@ -48,18 +48,22 @@ def run_bash(cmd):
 
 
 def print_masterlist():
+    out_str = ''
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
         for sub_dir in sub_dirs:
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
             for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}.vcf.gz'
-                print(os.path.join(vcf_dir, vcf_name))
+                out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
+    out_file = 'vcf_masterlist.txt'
+        with open(out_file, 'w') as f:
+            f.write(out_str)
 
 if __name__ == '__main__':
+    replace = True
     print_masterlist()
-    exit()
 
     # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
@@ -74,18 +78,20 @@ if __name__ == '__main__':
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
+                    # monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
+                    #     'all.all_chr.filtered.vcf')
                     monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
-                        'all.all_chr.filtered.vcf')
+                        f'{data_set}_ado_filtered.vcf')
                     # Zip and index
                     if data_filter == 'all':
-                        if not os.path.exists(vcf_file):
+                        if not os.path.exists(vcf_file) or replace:
                             unzip_file = vcf_file.replace('.gz', '')
                             shutil.copyfile(monica_file, unzip_file)
                             zip_cmd = f'bgzip {unzip_file} && tabix {vcf_file}'
                             run_bash(zip_cmd)
                     # Filter
                     else:
-                        if not os.path.exists(vcf_file):
+                        if not os.path.exists(vcf_file) or replace:
                             base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
                             flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
@@ -93,7 +99,7 @@ if __name__ == '__main__':
                             run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
-                    if not os.path.exists(vcf_file):
+                    if not os.path.exists(vcf_file) or replace:
                         base_file = os.path.join(base_dir, data_dir, 'ClockTest',
                             'all', vcf_name)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
@@ -104,7 +110,7 @@ if __name__ == '__main__':
                 tree_cmds = []
 
                 cellphy_out = vcf_file + '.raxml.bestTree'
-                if not os.path.exists(cellphy_out):
+                if not os.path.exists(cellphy_out) or replace:
                     tree_cmds.append(
                         f"sbatch -t {cellphy_time} -p amd-shared --qos amd-shared " \
                         f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
@@ -113,7 +119,7 @@ if __name__ == '__main__':
 
                 scite_out = os.path.join(vcf_dir, 'scite_dir',
                     f'{data_set}.{data_filter}_ml0.newick')
-                if not os.path.exists(scite_out):
+                if not os.path.exists(scite_out) or replace:
                     tree_cmds.append(
                         f"sbatch -t {scite_time} -p amd-shared --qos amd-shared " \
                         f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
