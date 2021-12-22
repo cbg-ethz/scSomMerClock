@@ -58,8 +58,8 @@ def print_masterlist():
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
     out_file = 'vcf_masterlist.txt'
-        with open(out_file, 'w') as f:
-            f.write(out_str)
+    with open(out_file, 'w') as f:
+        f.write(out_str)
 
 if __name__ == '__main__':
     replace = True
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                         if not os.path.exists(vcf_file) or replace:
                             unzip_file = vcf_file.replace('.gz', '')
                             shutil.copyfile(monica_file, unzip_file)
-                            zip_cmd = f'bgzip {unzip_file} && tabix {vcf_file}'
+                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}'
                             run_bash(zip_cmd)
                     # Filter
                     else:
