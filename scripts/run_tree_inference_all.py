@@ -87,7 +87,8 @@ if __name__ == '__main__':
                         if not os.path.exists(vcf_file) or replace:
                             unzip_file = vcf_file.replace('.gz', '')
                             shutil.copyfile(monica_file, unzip_file)
-                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}'
+                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
+                                f'&& chmod 755 {vcf_file}'
                             run_bash(zip_cmd)
                     # Filter
                     else:
@@ -95,7 +96,8 @@ if __name__ == '__main__':
                             base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
                             flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
-                                f'> {flt_val}\' -O z -o {vcf_file} {base_file}'
+                                f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
+                                f'&& chmod 755 {vcf_file}'
                             run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
@@ -104,7 +106,8 @@ if __name__ == '__main__':
                             'all', vcf_name)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                            f'--force-samples -O z -o {vcf_file} {base_file}'
+                            f'--force-samples -O z -o {vcf_file} {base_file} ' \
+                            f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd)
 
                 tree_cmds = []
