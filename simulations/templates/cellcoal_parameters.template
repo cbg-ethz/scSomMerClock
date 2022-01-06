@@ -77,7 +77,7 @@
     [print replicates in individual folders] v
     [print consensus IUPAC haplotypes] [x]
     [results folder name] o{out_dir}
-    [user tree file] [Tusertree.0001]
+    [user tree file] {tree_file}
     [user genome file] [Uusergenome.fas]
     
 [OTHER]

@@ -7,7 +7,7 @@ import tempfile
 import subprocess
 
 
-def get_out_dir(config):
+def get_out_dir(config, bulk=False):
     if config['cellcoal']['model'].get('branch_rate_var', 0):
         model = 'clock{}'.format(config['cellcoal']['model']['branch_rate_var'])
     else:
@@ -41,8 +41,12 @@ def get_out_dir(config):
     else:
         out_dir = config['static']['out_dir']
 
-    sim_dir = os.path.join(out_dir, 'res_{}_{}_{}' \
-        .format(model, sim_scWGA, sim_NGS))
+    if bulk:
+        depth = int(config['cellcoal']['model']['no_cells'] \
+            * config['cellcoal']['NGS']['seq_cov'])
+        sim_dir = os.path.join(out_dir, f'res_{model}_bulk{depth}x')
+    else:
+        sim_dir = os.path.join(out_dir, f'res_{model}_{sim_scWGA}_{sim_NGS}')
 
     filter_dir =  'minDP{}-minGQ{}'.format(
         config.get('SNP_filter', {}).get('depth', 1),

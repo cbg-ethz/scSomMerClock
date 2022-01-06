@@ -1,0 +1,64 @@
+static:
+  out_dir: 
+
+cellcoal:
+  exe: ../../cellcoal/bin/cellcoal-1.2.0
+  parameter: templates/cellcoal_parameters.template
+  no_rep: 1
+  model:
+    no_cells: 1000
+    no_sites: 10000
+    pop_size: 10000
+    no_muts:
+    mut_rate: 0.000001
+    germline_rate: 0.0005
+    branch_rate_var:   # empty for clock, e.g. 1 for non-clock
+    outgroup_branch_length: 1
+    binary_alphabet: False
+  scWGA:
+    errors: False
+    ADO_rate: 0.2
+    doublet_rate: [0.02, 0.01]
+    ampl_error: [0.001, 1e-8, 0]
+  NGS:
+    seq_cov: 0.1
+    errors: True
+    seq_overdis: 0
+    seq_error: 0.01
+  output:
+    tree: True
+    full_GT: False
+    true_haplotypes: False
+
+monovar:
+  run: False
+  exe: ../../MonoVar_NB/src/monovar.py
+
+SNP_filter:
+  depth: 10
+  quality: 5
+  singletons: False
+
+tree:
+  cellcoal:
+    run: True
+  scite:
+    run: False
+    exe: ../../infSCITE/infSCITE
+    steps: 10000
+  cellphy:
+    run: False
+    exe: ../../cellphy/cellphy.sh
+    command: FAST
+
+poisson:
+  dispersion: True
+  tree: True
+  tree_weights: [1]
+
+paup:
+  run: False
+  learn_tree: False
+  exe: ../../paup4a168_ubuntu64
+
+scheduler:

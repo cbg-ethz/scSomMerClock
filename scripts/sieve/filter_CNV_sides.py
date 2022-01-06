@@ -42,9 +42,6 @@ def filter_CNVs(snp_in, cells_in, cnv_in, file_out):
                         f_out.write(line)
 
 
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-snp', type=str, help='DataFilter candidate sites.')

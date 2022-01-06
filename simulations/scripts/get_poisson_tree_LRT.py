@@ -668,11 +668,8 @@ def map_mutations_gt(tree, muts_in, FP, FN):
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
 
         for best_node in best_nodes:
-            try:
-                node_map[best_node].muts_br.add(idx_map[i])
-                node_map[best_node].mut_no_hard += 1 / best_nodes.size
-            except:
-                import pdb; pdb.set_trace()
+            node_map[best_node].muts_br.add(idx_map[i])
+            node_map[best_node].mut_no_hard += 1 / best_nodes.size
 
     soft_assigned = M.sum(axis=0)
     for i, node in node_map.items():
@@ -1239,6 +1236,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
 
     Y, constr, init, weights, constr_cols = get_model_data(tree,
         true_data=False, fkt=weight_fkt)
+    save_tree(tree, tree_file + 'mapped.newick')
+
     ll_H0, ll_H1, LR, dof, on_bound, p_val, Y_opt = \
         get_LRT_poisson(Y, constr, init, weights[:,0], short=True)
     hyp = int(p_val < 0.05)
@@ -1260,7 +1259,7 @@ def save_tree(tree, tree_out):
         if node.is_terminal():
             node.name = f'{node.name}[w:{node.weights_norm[0]:.4f}]'
         else:
-            node.name = f'{int_nodes}[w:{node.weights_norm[0]:.4f}]'
+            node.name = f'node{int_nodes}[w:{node.weights_norm[0]:.4f}]'
             int_nodes += 1
         node.branch_length = node.mut_no_soft
 
@@ -1320,10 +1319,10 @@ def parse_args():
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
     parser.add_argument('-w', '--weights', type=float, default=1,
-        help='Faktor for branch weighting. If <1: no weighting. If >=1: weights ' \
+        help='Factor for branch weighting. If <1: no weighting. If >=1: weights ' \
             'to the power of the value are used.')
     parser.add_argument('-b', '--biological_data', action='store_true',
-        help='Test true data (isntead of simulation data).')
+        help='Test true data (instead of simulation data).')
     args = parser.parse_args()
     return args
 

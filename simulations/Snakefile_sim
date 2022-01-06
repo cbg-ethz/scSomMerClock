@@ -8,6 +8,8 @@ SCRIPT_DIR = 'scripts'
 MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
+BULK = config['cellcoal']['model']['no_cells'] > 100 \
+    and config['cellcoal']['NGS']['seq_cov'] < 1
 
 scheduler = config.get('scheduler', None)
 tree_weights = config.get('poisson', {}).get('tree_weights', [0])
@@ -17,7 +19,7 @@ tree_weights = list(set([0 if i < 1 else i for i in tree_weights]))
 
 # if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
 #     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
-out_dir, filter_dir = get_out_dir(config)
+out_dir, filter_dir = get_out_dir(config, BULK)
 base_dir = os.path.join(out_dir, filter_dir)
 
 def get_final_files(wildcards):
@@ -25,7 +27,6 @@ def get_final_files(wildcards):
     # if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
     #     files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}')
     #         for i in RUNS]
-
     for tree in TREES:
         if config.get('paup', {}).get('run', False):
             files.append(os.path.join(base_dir, f'paup_dir_{tree}',
@@ -52,23 +53,27 @@ def get_final_files(wildcards):
     return files
 
 
-rule all:
-    input:
-        os.path.join(base_dir, 'final_summary.tsv'),
+if BULK:
+    rule all:
+        input:
+            os.path.join(out_dir, 'bulk_summary.tsv')
+else:
+    rule all:
+        input:
+            os.path.join(base_dir, 'final_summary.tsv'),
 
-
-rule merge_summary_files:
-    input:
-        get_final_files
-    output:
-        os.path.join(base_dir, 'final_summary.tsv')
-    envmodules:
-        'pandas/1.0.1-python-3.7.7',
-    resources:
-        mem_mb = 4096,
-        runtime = 20,
-    script:
-        f'{SCRIPT_DIR}/merge_summaries.py'
+    rule merge_summary_files:
+        input:
+            get_final_files
+        output:
+            os.path.join(base_dir, 'final_summary.tsv')
+        envmodules:
+            'pandas/1.0.1-python-3.7.7',
+        resources:
+            mem_mb = 4096,
+            runtime = 20,
+        script:
+            f'{SCRIPT_DIR}/merge_summaries.py'
 
 
 # ------------------------------- CELLCOAL -------------------------------------
@@ -105,6 +110,76 @@ rule run_cellcoal:
         'cat sims >> {out_dir}/log && ' #rm sims && '
         'mv {input.cellcoal} {out_dir}/config_cellcoal && '
         'mv {input.snakemake} {out_dir}/config_snakemake'
+
+
+# --------------------------------- BULK ---------------------------------------
+
+# rule run_cellcoal_with_tree:
+#     input:
+#         tree = os.path.join(out_dir, 'trees_dir', 'trees.{run}'),
+#     output:
+#         cellcoal = 'cellcoal_parameters.{run}'
+#     params:
+#         template = config['cellcoal'] \
+#             .get('parameter', 'cellcoal_parameters.template'),
+#         out_dir = os.path.join(out_dir, 'bulk'),
+#         bulk = True,
+#     resources:
+#         mem_mb = 1024
+#     script:
+#         f'{SCRIPT_DIR}/get_cellcoal_config.py'
+
+
+# rule run_cellcoal_bulk:
+#     input:
+#         cellcoal = 'cellcoal_parameters.{run}'
+#     output:
+#         vcf = os.path.join(out_dir, 'bulk', 'vcf_dir', 'vcf.{run}')
+#     resources:
+#         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500),
+#         runtime = 180,
+#     params:
+#         exe = config['cellcoal']['exe'],
+#     shell:
+#         'mkdir -p {out_dir}/bulk/configs/ && '
+#         'mkdir -p {out_dir}/bulk/vaf_dir/ &&'
+#         '{params.exe} -F{input.cellcoal} > {out_dir}/bulk/simlog.{wildcards.run} '
+#         '2> sims.{wildcards.run} && '
+#         'cat sims.{wildcards.run} >> {out_dir}/bulk/configs/log.{wildcards.run} && '
+#         'mv {out_dir}/bulk/cellcoal.{wildcards.run}/vcf_dir/vcf.0001 {output.vcf} && '
+#         'rm sims.{wildcards.run} && rm -r {out_dir}/bulk/cellcoal.{wildcards.run} &&'
+#         'mv {input.cellcoal} {out_dir}/bulk/configs/config_cellcoal.{wildcards.run}'
+
+
+rule VCF_to_VAF:
+    input:
+        vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
+    output:
+        vaf = os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
+    script:
+        f'{SCRIPT_DIR}/VCF_to_VAF.py'
+
+
+rule run_mobster:
+    input:
+        os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
+    output:
+        os.path.join(out_dir, 'vaf_dir', 'vaf.{run}.mobster')
+    params:
+        depth = config['cellcoal']['model']['no_cells'] \
+            * config['cellcoal']['NGS']['seq_cov']
+    shell:
+        '{SCRIPT_DIR}/williams2016.R {input} {output} --depth {params.depth}'
+
+
+rule merge_mobster:
+    input:
+        expand(os.path.join(out_dir, 'vaf_dir', 'vaf.{run}.mobster'), \
+            run=RUNS)
+    output:
+        os.path.join(out_dir, 'bulk_summary.tsv')
+    script:
+        f'{SCRIPT_DIR}/merge_bulk_summaries.py'
 
 
 # -------------------------- DATA POSTPROCESSING -------------------------------
