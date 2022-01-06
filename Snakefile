@@ -6,7 +6,7 @@ import os
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
+SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts', 'processing')
 MODELS = ['clock', 'noClock']
 workdir: DATA_DIR
 
@@ -692,7 +692,7 @@ rule ADO_calculation:
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        'python {params.base_dir}/scripts/ADO_calculation.py {input} '
+        'python {params.base_dir}/scripts/processing/ADO_calculation.py {input} '
         '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
         '-o {output}'
 
@@ -717,7 +717,7 @@ rule create_bed:
         genome = os.path.join(RES_PATH, 
             config['specific'].get('WES_target_genome', '-1'))
     shell:
-        '{params.base_dir}/scripts/QC_cov.sh -i {input} -o {output} '
+        '{params.base_dir}/scripts/processing/QC_cov.sh -i {input} -o {output} '
         '--seq {params.seq} -e {params.target} -g {params.genome}'
 
 
@@ -732,4 +732,4 @@ rule QC_sequencing:
     params:
         base_dir = BASE_DIR,
     shell:
-        'python {params.base_dir}/scripts/QC_coverage.py {input} -o "./"'
+        'python {params.base_dir}/scripts/processing/QC_coverage.py {input} -o "./"'

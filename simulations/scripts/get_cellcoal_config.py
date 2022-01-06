@@ -5,19 +5,33 @@ import re
 import yaml
 
 
-def get_cellcoal_config(config, template_file, out_dir):
+def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False):
     with open(template_file, 'r') as f:
         templ = f.read()
 
     model = config['cellcoal']['model']
 
-    templ = re.sub('{no_rep}', str(config['cellcoal'].get('no_rep', 10)), templ) 
-    templ = re.sub('{no_cells}', str(model.get('no_cells', 30)), templ)
     templ = re.sub('{no_sites}', str(model.get('no_sites', 10000)), templ)
     templ = re.sub('{pop_size}', str(model.get('pop_size', 10000)), templ)
     templ = re.sub('{out_dir}', out_dir, templ)
-    templ = re.sub('{seq_cov}',
-        str(config['cellcoal'].get('NGS', {}).get('seq_cov', 20)), templ)
+    if bulk:
+        rep_no = 1
+        cell_no = model.get('no_cells', 30) + 1
+        cell_depth = int(config['bulk'].get('depth', 100) / model['no_cells'])
+        if config['bulk'].get('depth', 100) % model['no_cells'] != 0:
+            cell_depth += 1
+        tree_flag = ''
+    else:
+        rep_no = config['cellcoal'].get('no_rep', 10)
+        cell_no = model.get('no_cells', 30)
+        cell_depth = config['cellcoal'].get('NGS', {}).get('seq_cov', 20)
+        tree_flag = '6'
+
+    templ = re.sub('{no_rep}', str(rep_no), templ)
+    templ = re.sub('{seq_cov}', str(cell_depth), templ)
+    templ = re.sub('{no_cells}', str(cell_no), templ)
+    templ = re.sub('{out_tree}', tree_flag, templ)
+
     templ = re.sub('{outgroup_branch_length}',
         str(model.get('outgroup_branch_length', 1)), templ)
 
@@ -47,7 +61,7 @@ def get_cellcoal_config(config, template_file, out_dir):
         templ = re.sub('{alphabet}', '1', templ)
 
     scWGA = config['cellcoal']['scWGA']
-    if scWGA.get('errors', False):
+    if scWGA.get('errors', False) and not bulk:
         if isinstance(scWGA['ADO_rate'], float):
             templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"]}', templ)
             templ = re.sub('{ADO_rate_var}', '', templ)
@@ -65,18 +79,20 @@ def get_cellcoal_config(config, template_file, out_dir):
             f'B{scWGA["doublet_rate"][0]} {scWGA["doublet_rate"][1]}', templ)
     else:
         templ = re.sub('{ADO_rate}', '', templ)
+        templ = re.sub('{ADO_rate_var}', '', templ)
         templ = re.sub('{ampl_error}', '', templ)
         templ = re.sub('{doublet_rate}', '', templ)
 
     NGS = config['cellcoal']['NGS']
-    if NGS.get('errors', False):
-        templ = re.sub('{seq_overdis}', f'V{NGS["seq_overdis"]}', templ)
+    if NGS.get('errors', False) and not bulk:
+        if NGS["seq_overdis"] > 0:
+            templ = re.sub('{seq_overdis}', f'V{NGS["seq_overdis"]}', templ)
+        else:
+            templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', f'E{NGS["seq_error"]}', templ)
     else:
         templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', '', templ)
-
-    templ = re.sub('{out_tree}', '6', templ)
 
     if config['cellcoal'].get('output', {}).get('observed_haplotype', False):
         templ = re.sub('{out_full_hap}', '4', templ)
@@ -88,16 +104,22 @@ def get_cellcoal_config(config, template_file, out_dir):
     else:
         templ = re.sub('{out_true_hap}', '', templ)
 
+    if user_tree:
+        templ = re.sub('{tree_file}', f'T{user_tree}', templ)
+    else:
+        templ = re.sub('{tree_file}', '', templ)
+
     return templ
 
 
 if __name__ == '__main__':
     if not 'snakemake' in globals():
         raise IOError('Script only works with snakemake object')
-    
-    cc_config = get_cellcoal_config(snakemake.config, snakemake.params.template,
-        snakemake.params.out_dir)
-    with open(snakemake.output.cellcoal, 'w') as f:
-        f.write(cc_config)
+
+    cc_config = get_cellcoal_config(snakemake.config,
+        snakemake.params.template, snakemake.params.out_dir)
     with open(snakemake.output.snakemake, 'w') as f_yaml:
         yaml.dump(snakemake.config, f_yaml)
+
+    with open(snakemake.output.cellcoal, 'w') as f:
+        f.write(cc_config)

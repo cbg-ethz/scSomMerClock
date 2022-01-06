@@ -6,7 +6,7 @@ import os
 BASE_DIR = workflow.basedir
 DATA_DIR = config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts')
+SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts', 'sieve')
 OUT_DIR = 'Sieve'
 
 if config['specific'].get('out_path', ''):
