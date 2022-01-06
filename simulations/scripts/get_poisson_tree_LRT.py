@@ -390,7 +390,7 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         # else:
         #     errors = get_xcoal_errors(FP, FN)
 
-    elif 'scite' in tree_file:
+    elif 'scite' in tree_file or tree_file.endswith('_ml0.newick'):
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples, br_length=True)
         # Get ML error rates from log file
@@ -430,6 +430,11 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         outg_name = outg.name
     except (IndexError, AttributeError):
         outg_name = None
+
+    # Remove terminals that are not in vcf (discrepancy vcf and newick)
+    for node in tree.get_terminals():
+        if node.name not in samples:
+            tree.prune(node)
 
     # Initialize node attributes on tree
     for i, node in enumerate(tree.find_clades()):
