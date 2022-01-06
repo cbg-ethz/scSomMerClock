@@ -64,6 +64,10 @@ def run_phlogeny_plotting(args):
                     f'{data_set}.{filters}_ml0.newickmapped.newick'))
 
                 for tree, in_file in [scite, cellphy]:
+                    if not os.path.exists(in_file):
+                        print(f'Missing Tree file: {in_file}')
+                        continue
+
                     out_file = os.path.join(args.out_dir,
                         f'Phylogeny_{tree}_{data_set}_{sub_dir}_{filters}.pdf')
                     if not os.path.exists(out_file) or args.replace:
