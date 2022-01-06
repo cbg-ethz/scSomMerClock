@@ -59,9 +59,9 @@ def run_phlogeny_plotting(args):
                 vcf_name = f'{data_set}.{filters}.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
-                cellphy = ('cellphy', vcf_file + '.raxml.bestTree')
+                cellphy = ('cellphy', vcf_file + '.raxml.bestTreemapped.newick')
                 scite = ('scite', os.path.join(vcf_dir, 'scite_dir',
-                    f'{data_set}.{filters}_ml0.newick'))
+                    f'{data_set}.{filters}_ml0.newickmapped.newick'))
 
                 for tree, in_file in [scite, cellphy]:
                     out_file = os.path.join(args.out_dir,
