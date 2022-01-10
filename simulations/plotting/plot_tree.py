@@ -37,11 +37,15 @@ def plot_tree(in_file, out_file=None):
         tree_str = f.read().strip()
 
     t = Tree(tree_str, format=1, quoted_node_names=True)
+
     weight_map = []
     for node in t.traverse():
         weight = float(re.search('.*\[w:(-?\d+\.\d+)\]' ,node.name).group(1))
         if weight == -1:
             node.dist = 0
+        # Add 1 psydocount: required for circular plotting
+        else:
+            node.dist += 1
         node.name = re.search('(.*)\[w:-?\d+\.\d+\]' ,node.name).group(1)
         node.support = weight
         weight_map.append((node, weight))
@@ -67,7 +71,7 @@ def plot_tree(in_file, out_file=None):
 
 
     ts = TreeStyle()
-    ts.mode = 'c' # c = circular, r = rectangular
+    ts.mode = 'r' # c = circular, r = rectangular
     ts.rotation = 90
     ts.show_leaf_name = True
     ts.show_branch_support = True
