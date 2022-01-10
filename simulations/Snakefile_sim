@@ -12,10 +12,9 @@ BULK = config['cellcoal']['model']['no_cells'] > 100 \
     and config['cellcoal']['NGS']['seq_cov'] < 1
 
 scheduler = config.get('scheduler', None)
-tree_weights = config.get('poisson', {}).get('tree_weights', [0])
-if isinstance(tree_weights, (int, float)):
-    tree_weights = [tree_weights]
-tree_weights = list(set([0 if i < 1 else i for i in tree_weights]))
+w_maxs = config.get('poisson', {}).get('w_max', [99])
+if isinstance(w_maxs, (int, float)):
+    w_maxs = [w_maxs]
 
 # if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
 #     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
@@ -34,9 +33,9 @@ def get_final_files(wildcards):
 
         if config.get('poisson', {}).get('tree', False) or \
                 config.get('poisson', {}).get('run', False):
-            for tree_weight in tree_weights:
+            for w_max in w_maxs:
                 files.append(os.path.join(base_dir,
-                    f'poissonTree_{tree_weight}_{tree}',
+                    f'poissonTree_wMax{w_max}_{tree}',
                     'poissonTree.summary.tsv'))
 
         if config.get('sieve', {}).get('run', False):
@@ -469,7 +468,7 @@ rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
-        os.path.join(base_dir, 'poissonTree_{tree_weight}_{tree}',
+        os.path.join(base_dir, 'poissonTree_wMax{w_max}_{tree}',
             'poissonTree.{run}.LRT.txt')
     conda:
         ''
@@ -482,6 +481,7 @@ rule run_poisson_tree:
     resources:
         mem_mb = 1024,
         runtime = 30,
+        scratch='scratch'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
@@ -492,10 +492,10 @@ rule run_poisson_tree:
 
 rule merge_poisson_tree:
     input:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree_weight}}_{{tree}}',
+        expand(os.path.join(base_dir, 'poissonTree_wMax{{w_max}}_{{tree}}',
             'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
-        os.path.join(base_dir, 'poissonTree_{tree_weight}_{tree}',
+        os.path.join(base_dir, 'poissonTree_wMax{w_max}_{tree}',
             f'poissonTree.summary.tsv')
     conda:
         ''

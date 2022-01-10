@@ -419,7 +419,7 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
     return tree, outg_name, FP, FN
 
 
-def get_tree_reads(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+def get_tree_reads(tree_file, call_data, paup_exe, w_max, FN_fix=None, FP_fix=None):
     reads = call_data[2]
 
     tree, outg, FP, FN = get_tree(
@@ -444,12 +444,12 @@ def get_tree_reads(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
         / (reads[0].size * reads[3].size)
 
     M = map_mutations_reads(tree, reads, FP, FN + MS, call_data[1])
-    add_br_weights(tree, FP, FN + MS, M.copy())
+    add_br_weights(tree, FP, FN + MS, w_max)
 
     return tree, FP, FN, M
 
 
-def get_tree_gt(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
+def get_tree_gt(tree_file, call_data, paup_exe, w_max, FN_fix=None, FP_fix=None):
     muts = call_data[0]
 
     tree, outg, FP, FN = get_tree(
@@ -471,7 +471,7 @@ def get_tree_gt(tree_file, call_data, paup_exe, FN_fix=None, FP_fix=None):
     MS = min(muts.isna().sum().sum() / muts.size, 1 - FN - 0.2)
 
     M = map_mutations_gt(tree, muts, FP, FN + MS)
-    add_br_weights(tree, FP, FN + MS, M.copy())
+    add_br_weights(tree, FP, FN + MS, w_max)
 
     return tree, FP, FN, M
 
@@ -640,52 +640,34 @@ def map_mutations_reads(tree, read_data, FP, FN, true_muts):
     return pd.DataFrame(M_filtered, index=idx[~skip], columns=cols)
 
 
-def add_br_weights(tree, FP, FN, mut_probs):
+def add_br_weights(tree, FP, FN, w_max):
     m = tree.count_terminals()
     n = 2 * m - 1
 
     # Get successor matrix
-
     nodes = [i for i in tree.find_clades()]
     leaf_names = sorted([i.name for i in tree.get_terminals()])
     leaf_map = {j: i for i, j in enumerate(leaf_names)}
 
-    T = np.zeros(m)
-    for i, cell_name in enumerate(leaf_names):
-        leaf_node = [i for i in tree.find_elements(cell_name)][0]
-        T[i] = leaf_node.mut_no_soft_total
-
     S = np.zeros((n, m), dtype=int)
-    Y = np.zeros(n)
     for i, node in enumerate(nodes):
         cells = [leaf_map[i] for i in node.name.split('+')]
         S[i, cells] = 1
-        Y[i] = node.mut_no_soft
 
     # Add zero line for wildtype probabilities
     S = np.vstack([S, np.zeros(m)])
     S_inv = 1 - S
 
-    errors = np.log([1 - FN, FP, 1 - FP, FN])
+    l_TN = np.log(1 - FP)
+    l_FN = np.log(FN)
     weights = np.zeros((n, 3), dtype=float)
-    w = np.zeros((n + 1, n + 1))
 
     for i, y in enumerate(S):
-        data = np.stack([
-            np.nansum(S * y, axis=1), # TP
-            np.nansum(S_inv * y, axis=1), # FP
-            np.nansum(S_inv * (1 - y), axis=1), # TN
-            np.nansum(S * (1 - y), axis=1), # FN,
-        ])
-        probs = np.dot(errors, data)
-        probs_norm = _normalize_log_probs(probs)
-
-        w[i] = probs_norm
         if i >= n:
             continue
 
         t = y.sum()
-        p_ADO = np.exp(t * errors[3] + (m - t) * errors[2])
+        p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
         p_noADO = 1 - p_ADO
         # weight: ADO
         try:
@@ -693,14 +675,11 @@ def add_br_weights(tree, FP, FN, mut_probs):
         except FloatingPointError:
             weights[i, 0] = LAMBDA_MIN
 
-        w_max = 99
-        # odds ratio
+        # weight: odds ratio
         weights[i, 1] = min(w_max, p_noADO / p_ADO)
-        # inv variance
+        # weight: inv variance
         weights[i, 2] = min(w_max, 1 / (p_noADO * p_ADO))
 
-    # Drop zero weights
-    weights = weights[:,np.argwhere(weights.sum(axis=0) != 0).flatten()]
     # Drop root weight
     root_id = np.argmax(S.sum(axis=1))
     weights = np.delete(weights, root_id, axis=0)
@@ -982,36 +961,30 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     devi = ((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights) \
         - ((Y * np.log(opt.x) - opt.x) * weights)
 
-    return ll_H0, ll_H1, LR, dof, on_bound, p_val, zip(opt.x, devi)
+    return LR, dof, on_bound, p_val, zip(opt.x, devi)
 
 
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
-        use_weights=True, exclude='', include=''):
+        w_max=99, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
-    if not use_weights:
-        weight_str = 'noWeights'
-    else:
-        weight_str = ''
 
-    cols = ['H0', 'H1', '-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
+    cols = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
     header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
-    header_str += '\t'.join([f'{col}_poissonTree_{weight_str}' for col in cols])
+    header_str += '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
     model_str = ''
 
     call_data = get_mut_df(vcf_file, exclude, include)
 
     # tree, _, _, M = get_tree_reads(tree_file, call_data, paup_exe)
-    tree, _, _, M = get_tree_gt(tree_file, call_data, paup_exe)
+    tree, _, _, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
     add_true_muts(tree, call_data[1])
 
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree,
         true_data=False)
-    if not use_weights:
-        weights_norm = np.ones(weights_norm.shape)
 
     # save_tree(tree, tree_file + 'mapped.newick')
 
-    ll_H0, ll_H1, LR, dof, on_bound, p_val, Y_opt = \
+    LR, dof, on_bound, p_val, Y_opt = \
         get_LRT_poisson(Y, constr, init, weights_norm[:,2], short=True)
     hyp = int(p_val < 0.05)
 
@@ -1022,9 +995,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
     stats = call_data[3]
     weight_str = ",".join([str(i) for i in weights_norm[:,0].round(3)])
     model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
-        f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}' \
-        f'\t{ll_H0:0>5.2f}\t{ll_H1:0>5.2f}\t{LR:0>5.2f}\t{dof+on_bound}\t' \
-        f'{p_val:.2E}\tH{hyp}\t{weight_str}\n'
+        f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}\t' \
+        f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\t{weight_str}\n'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
@@ -1054,18 +1026,16 @@ def save_tree(tree, tree_out):
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
-        use_weights=True, exclude='', include=''):
+        w_max=99, exclude='', include=''):
     alpha = 0.05
 
     call_data = get_mut_df(vcf_file, exclude, include)
     # tree, FP, FN, M = get_tree_reads(tree_file, call_data, paup_exe)
-    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe)
+    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
 
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
-    if not use_weights:
-        weights_norm = np.ones(weights_norm.shape)
 
-    h0, h1, LR, dof, on_bound, p_val, _ = \
+    LR, dof, on_bound, p_val, _ = \
         get_LRT_poisson(Y, constr, init, weights_norm[:,2])
     hyp = int(p_val < alpha)
 
@@ -1082,15 +1052,15 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         dataset = file_ids[0]
         filters = file_ids[1]
 
-    out_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t{h0:0>5.3f}\t' \
-        f'{h1:0>5.3f}\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
+    out_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t' \
+        f'{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
     save_tree(tree, tree_file + 'mapped.newick')
 
     print(out_str)
     with open(out_file, 'w') as f_out:
-        f_out.write('dataset\tsubset\tfilters\tFN\tFP' \
-            '\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
+        f_out.write('dataset\tsubset\tfilters\tFN\tFP\t-2logLR\tdof\tp-value\t' \
+            'hypothesis\n')
         f_out.write(out_str)
     # NOTE: has to be here, otherwise subprocess calling script fails
     print('success')
@@ -1107,8 +1077,8 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-nw', '--no_weights', action='store_false',
-        help='Switch of branch weighting')
+    parser.add_argument('-w', '--w_max', dtype=float, default=99,
+        help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
     args = parser.parse_args()
@@ -1122,17 +1092,12 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
-        if float(snakemake.wildcards.tree_weight) < 1:
-            use_weights = False
-        else:
-            use_weights = True
-
         run_poisson_tree_test_simulations(
             vcf_file=snakemake.input.vcf,
             tree_file=snakemake.input.tree,
             out_file=snakemake.output[0],
             paup_exe=snakemake.params.paup_exe,
-            use_weights=use_weights,
+            w_max=float(snakemake.wildcards.w_max),
             exclude=snakemake.params.exclude,
             include=snakemake.params.include
         )
@@ -1148,7 +1113,7 @@ if __name__ == '__main__':
                 tree_file=args.tree,
                 out_file=args.output,
                 paup_exe=args.exe,
-                use_weights=args.no_weights,
+                w_max=args.no_weights,
                 exclude=args.exclude,
                 include=args.include,
             )
@@ -1158,7 +1123,7 @@ if __name__ == '__main__':
                 tree_file=args.tree,
                 out_file=args.output,
                 paup_exe=args.exe,
-                use_weights=args.no_weights,
+                w_max=args.no_weights,
                 exclude=args.exclude,
                 include=args.include,
             )

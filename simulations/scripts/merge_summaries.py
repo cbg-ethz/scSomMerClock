@@ -43,6 +43,15 @@ def merge_summaries(in_files, out_file):
 
         df = pd.concat([df, new_df], axis=1)
 
+    snv_cols = [i for i in df.columns if i.startswith('SNVs_')]
+    dof_cols = [i for i in df.columns if i.startswith('dof_')]
+    col_drop = [i for i in df.columns \
+        if i.startswith('H0_') or i.startswith('H1_')]
+    df['dof'] = df[dof_cols[0]]
+    df['#SNV'] = df[snv_cols[0]]
+    df.drop(snv_cols + col_drop + dof_cols, inplace=True, axis=1)
+    df = df[['dof', '#SNV'] + list(df.columns[:-2])]
+
     df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
 
