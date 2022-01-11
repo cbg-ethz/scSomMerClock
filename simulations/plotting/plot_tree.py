@@ -73,7 +73,7 @@ def plot_tree(in_file, out_file=None):
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
     ts.rotation = 90
-    ts.show_leaf_name = True
+    ts.show_leaf_name = False
     ts.show_branch_support = True
     ts.show_branch_length = True
     ts.margin_left = 0
