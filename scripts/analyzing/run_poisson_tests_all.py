@@ -89,7 +89,8 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 continue
             tree = os.path.basename(tree_file).split('_')[2]
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
-            df_tree.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
+            drop_cols = [i for i in ['H0', 'H1', 'hypothesis'] if i in df.columns]
+            df_tree.drop(drop_cols, axis=1, inplace=True)
             df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
             if dataset in df_trees.index:
