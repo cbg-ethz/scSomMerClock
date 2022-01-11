@@ -79,9 +79,9 @@
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.all.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.33nanFilter.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.50nanFilter.vcf.gz
-/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.all.vcf.gz
-/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.33nanFilter.vcf.gz
-/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_CA/Wu61.50nanFilter.vcf.gz
+/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C_CA/Wu61.all.vcf.gz
+/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C_CA/Wu61.33nanFilter.vcf.gz
+/home/uvi/be/nbo/data/data/Wu61/ClockTest/cancer_C_CA/Wu61.50nanFilter.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/normal/Wu61.all.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/normal/Wu61.33nanFilter.vcf.gz
 /home/uvi/be/nbo/data/data/Wu61/ClockTest/normal/Wu61.50nanFilter.vcf.gz
