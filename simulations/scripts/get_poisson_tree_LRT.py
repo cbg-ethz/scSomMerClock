@@ -1082,7 +1082,7 @@ if __name__ == '__main__':
                 tree_file=args.tree,
                 out_file=args.output,
                 paup_exe=args.exe,
-                w_max=args.no_weights,
+                w_max=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
             )
@@ -1092,7 +1092,7 @@ if __name__ == '__main__':
                 tree_file=args.tree,
                 out_file=args.output,
                 paup_exe=args.exe,
-                w_max=args.no_weights,
+                w_max=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
             )
