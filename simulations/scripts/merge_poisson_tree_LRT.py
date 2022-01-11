@@ -18,6 +18,8 @@ def merge_LRT(in_files, out_file):
     total = df.shape[0]
     avg_row = np.full(df.shape[1], -1, dtype=float)
 
+
+
     avg_row[1:-2] = df.iloc[:,1:-2].mean(axis=0).values
     avg_row[-1] = np.nan
 

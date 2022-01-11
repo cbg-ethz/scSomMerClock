@@ -2,10 +2,7 @@
 
 import os
 import re
-import copy
 import gzip
-import tempfile
-import subprocess
 from io import StringIO
 
 import numpy as np
@@ -14,12 +11,10 @@ np.set_printoptions(suppress=True)
 import pandas as pd
 from scipy.stats.distributions import chi2
 from scipy.special import binom as binomCoeff
-from scipy.optimize import minimize, Bounds, LinearConstraint
-from scipy.stats import poisson, multinomial, betabinom, binom
+from scipy.optimize import minimize
 
 from Bio import Phylo
 from tqdm import tqdm
-import nlopt
 
 from utils import change_newick_tree_root
 
@@ -157,12 +152,15 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             # Check if called mutations are all the same
             alts, alt_counts = np.unique(diff_muts, return_counts=True)
 
+            # No mutation called
             if alts.size == 0:
                 data[0].append(line_muts[0] + line_muts[1])
+                alt_idx = MUT[line_cols[4].split(',')[0]] # Take first alt, doesnt matter
             # Two different single mutations: skip
             elif alts.size == 2 and all(alt_counts == 1):
                 data[0].append(np.where(np.isnan(line_muts[0]), np.nan, 0))
                 line_cols[6] = 'ISA_violation'
+            # one single mutation
             else:
                 ab_alt = alts[np.argmax(alt_counts)]
                 het = np.where(line_muts[0] == ab_alt, 1, 0)
@@ -192,11 +190,11 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if filter:
         muts = muts.loc[idx[0], include_id]
         reads = np.array(reads)[:,include_idx]
-        stats = get_stats(muts, true_muts.loc[idx[0], include_id], True, True)
+        stats = get_stats(muts, true_muts.loc[idx[0], include_id])
     else:
         muts = muts[include_id]
         reads = np.array(reads)
-        stats = get_stats(muts, true_muts, True, True)
+        stats = get_stats(muts, true_muts)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
 
@@ -206,7 +204,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     return muts, true_muts[include_id], read_data, stats
 
 
-def get_stats(df, true_df, binary=True, verbose=False, per_cell=False):
+def get_stats(df, true_df, binary=True, per_cell=False, verbose=False):
     if binary:
         df = df.replace(2, 1)
         true_df = true_df.replace(2, 1)
@@ -254,6 +252,7 @@ def get_stats(df, true_df, binary=True, verbose=False, per_cell=False):
 
 
 def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=0):
+    import copy
     import matplotlib.pyplot as plt
     from matplotlib import cm
 
@@ -336,27 +335,27 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=0):
 
 
 def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
+    # Extract data from tree file paths
     try:
         FP = max(float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-            .group(1)) + 0.01, LAMBDA_MIN)
-        # TODO <NB> hardcoded seq error. Take from config/directory structure
+            .group(1)) + 0.01, LAMBDA_MIN) # + 0.01 = Seq. error
         FN = max(float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1)),
             LAMBDA_MIN)
-    except:
+    except AttributeError:
         FP = LAMBDA_MIN
         FN = LAMBDA_MIN
 
-
-    if 'cellphy' in tree_file or tree_file.endswith('.raxml.bestTree') \
-            or tree_file.endswith('.Mapped.raxml.mutationMapTree'):
+    if tree_file.endswith('.raxml.bestTree') \
+            or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
+            or 'cellphy' in tree_file:
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True,
             br_length=True)
 
         log_file = tree_file.replace('.mutationMapTree', '.log') \
             .replace('.bestTree', '.log')
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                log = f.read().strip()
+        with open(log_file, 'r') as f:
+            log = f.read().strip()
+
         try:
             FP = max(float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1)),
                 LAMBDA_MIN)
@@ -365,7 +364,7 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
         except AttributeError:
             pass
 
-    elif 'scite' in tree_file or tree_file.endswith('_ml0.newick'):
+    elif tree_file.endswith('_ml0.newick') or 'scite' in tree_file:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             sample_names=samples, br_length=True)
         # Get ML error rates from log file
@@ -386,7 +385,6 @@ def get_tree(tree_file, paup_exe, samples=[], FN_fix=None, FP_fix=None):
                     .group(1)))
         # For Scite, multiply by two as FN != ADO event if assuming binary data
         FN *= 2
-        FP *= 2
     else:
         tree_str, _ = change_newick_tree_root(tree_file, paup_exe, root=False,
             br_length=True)
@@ -459,7 +457,6 @@ def get_tree_gt(tree_file, call_data, paup_exe, w_max, FN_fix=None, FP_fix=None)
         FN_fix=FN_fix,
         FP_fix=FP_fix
     )
-    FP /= 2
     FN /= 2
 
     if outg in muts.columns:
@@ -520,10 +517,6 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
     muts_inv = 1 - muts
 
-    # het = np.where(muts_in == 1, 1, 0)
-    # het = np.where(nans, np.nan, het)
-    # hom = np.where(muts_in == 2, 1, 0)
-    # hom = np.where(nans, np.nan, hom)
     errors = np.log([1 - FN, FP, 1 - FP, FN])
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in tqdm(enumerate(muts)):
@@ -557,6 +550,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
 
 
 def map_mutations_reads(tree, read_data, FP, FN, true_muts):
+    from scipy.stats import binom
     # Remove outgroup mutations
     idx, gt, reads, cells = read_data
 
@@ -660,7 +654,7 @@ def add_br_weights(tree, FP, FN, w_max):
 
     l_TN = np.log(1 - FP)
     l_FN = np.log(FN)
-    weights = np.zeros((n, 3), dtype=float)
+    weights = np.zeros((n, 2), dtype=float)
 
     for i, y in enumerate(S):
         if i >= n:
@@ -669,16 +663,11 @@ def add_br_weights(tree, FP, FN, w_max):
         t = y.sum()
         p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
         p_noADO = 1 - p_ADO
-        # weight: ADO
-        try:
-            weights[i, 0] = p_noADO ** max(nodes[i].mut_no_soft, 1)
-        except FloatingPointError:
-            weights[i, 0] = LAMBDA_MIN
 
         # weight: odds ratio
-        weights[i, 1] = min(w_max, p_noADO / p_ADO)
+        weights[i, 0] = min(w_max, p_noADO / p_ADO)
         # weight: inv variance
-        weights[i, 2] = min(w_max, 1 / (p_noADO * p_ADO))
+        weights[i, 1] = min(w_max, 1 / (p_noADO * p_ADO))
 
     # Drop root weight
     root_id = np.argmax(S.sum(axis=1))
@@ -876,34 +865,17 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
     return Y_out, constr, init, weights_norm, np.array(constr_cols)
 
 
-def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
-            alg='trust-constr'):
+def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
+    ll_H1 = np.sum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
+    for i in [10000, 1000, 100, 10, 1, 0.1]:
+        scale_fac = (ll_H1 // i) * i
+        if scale_fac != 0:
+            break
 
-    if weights.size == 0:
-        weights = np.ones(Y.size)
-
-    if short:
-        ll_H1 = np.sum((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights)
-        for i in [10000, 1000, 100, 10, 1, 0.1]:
-            scale_fac = (ll_H1 // i) * i
-            if scale_fac != 0:
-                break
-
-        def fun_opt(l, Y):
-            return -np.nansum(
-                (Y * np.log(np.where(l > LAMBDA_MIN, l, np.nan)) - l) * weights) \
-                / scale_fac
-    else:
-        Y = Y.round()
-        init = init.round()
-        ll_H1 = np.sum(poisson.logpmf(Y, Y) * weights)
-        for i in [100, 10, 1]:
-            scale_fac = (-ll_H1 // i) * i
-            if scale_fac != 0:
-                break
-        def fun_opt(l, Y):
-            l[:] = np.clip(l, LAMBDA_MIN, None)
-            return -np.sum(poisson.logpmf(Y, l) * weights) / scale_fac
+    def fun_opt(l, Y):
+        return -np.nansum(
+            (Y * np.log(np.where(l > LAMBDA_MIN, l, np.nan)) - l) * weights) \
+            / scale_fac
 
     def fun_jac(l, Y):
         return -(Y / np.clip(l, LAMBDA_MIN, None) - 1) * weights / scale_fac
@@ -939,12 +911,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
     if np.sum(np.abs(opt.x - Y)) < 1e-6:
         print('WARNING: init values unchanged -> optimization likely failed.')
 
-    if short:
-        ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
-    else:
-        ll_H0 = np.sum(poisson.logpmf(Y, np.clip(opt.x, LAMBDA_MIN, None))\
-            * weights)
-
+    ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
     dof = weights.sum() - constr.shape[0]
     LR = -2 * (ll_H0 - ll_H1)
 
@@ -965,7 +932,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), short=True,
 
 
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
-        w_max=99, exclude='', include=''):
+        w_max=101, exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
 
     cols = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
@@ -976,7 +943,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
     call_data = get_mut_df(vcf_file, exclude, include)
 
     # tree, _, _, M = get_tree_reads(tree_file, call_data, paup_exe)
-    tree, _, _, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
+    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
     add_true_muts(tree, call_data[1])
 
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree,
@@ -984,8 +951,9 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
 
     # save_tree(tree, tree_file + 'mapped.newick')
 
+    # weights: 0 = odds ratio, 1 = variance
     LR, dof, on_bound, p_val, Y_opt = \
-        get_LRT_poisson(Y, constr, init, weights_norm[:,2], short=True)
+        get_LRT_poisson(Y, constr, init, weights_norm[:,1])
     hyp = int(p_val < 0.05)
 
     # add_opt_values_to_tree(tree, dict(zip(Y, Y_opt)))
@@ -1026,7 +994,7 @@ def save_tree(tree, tree_out):
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
-        w_max=99, exclude='', include=''):
+        w_max=101, exclude='', include=''):
     alpha = 0.05
 
     call_data = get_mut_df(vcf_file, exclude, include)
@@ -1036,7 +1004,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
     LR, dof, on_bound, p_val, _ = \
-        get_LRT_poisson(Y, constr, init, weights_norm[:,2])
+        get_LRT_poisson(Y, constr, init, weights_norm[:,1])
     hyp = int(p_val < alpha)
 
     path_strs = vcf_file.split(os.path.sep)
@@ -1052,16 +1020,17 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
         dataset = file_ids[0]
         filters = file_ids[1]
 
-    out_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t' \
+    model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t' \
         f'{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
     save_tree(tree, tree_file + 'mapped.newick')
 
-    print(out_str)
+    header_str = 'dataset\tsubset\tfilters\tFN\tFP\t-2logLR\tdof\tp-value\t' \
+        'hypothesis'
     with open(out_file, 'w') as f_out:
-        f_out.write('dataset\tsubset\tfilters\tFN\tFP\t-2logLR\tdof\tp-value\t' \
-            'hypothesis\n')
-        f_out.write(out_str)
+        f_out.write(f'{header_str}\n{model_str}')
+
+    print(model_str)
     # NOTE: has to be here, otherwise subprocess calling script fails
     print('success')
 
@@ -1077,7 +1046,7 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--w_max', dtype=float, default=99,
+    parser.add_argument('-w', '--w_max', type=float, default=999,
         help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')

@@ -38,28 +38,45 @@ vis_names = {
 }
 
 
-def generate_pval_plot(in_file, out_file=None):
+colors = {
+    'Poisson Dispersion':  '#994EA3', # purple
+    'PAUP* + True Tree': '#4FAF4A', # green
+    'PAUP* + CellPhy Tree': '#177512', # darker green
+    'PAUP* + SCITE Tree': '#AAE3A7', #  lighter green
+}
+
+poisson_colors = { # red, blue, orange
+    'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
+    'CellPhy Tree': ['#8C0000', '#094D85', '#9B4D00'], # darker
+    'SCITE Tree': ['#F04949', '#84B5DE', '#FFB164'] #brigher
+}
+
+
+def generate_pval_plot(in_file, out_file=None, skip_poisson=False):
     df_in = pd.read_csv(in_file, sep='\t', engine='python', index_col='run',
         skipfooter=1)
 
     df = pd.DataFrame(columns=['P-value', 'Method'])
     df_lambda = pd.DataFrame(columns=['Lambda', 'Tree'])
-    for rel_col in [i for i in df_in.columns if 'p-value' in i]:
+    for rel_col in sorted([i for i in df_in.columns if 'p-value' in i]):
         df_new = pd.DataFrame(df_in[rel_col]).rename({rel_col: 'P-value'}, axis=1)
         rel_col_short = rel_col.lower().replace('p-value_', '')
 
         try:
             method, tree = rel_col_short.split('.')
         except ValueError:
+            if skip_poisson:
+                continue
             method = 'poissondisp'
             method_full = vis_names[method]
         else:
             method = method.split('_')[0]
             method_full = f'{vis_names[method]} + {vis_names[tree]}'
             if method == 'poissontree':
-                weights = int(rel_col_short.split('.')[0].split('_')[1])
-                if weights == 0:
-                    method_full += ' + unweighted'
+                weights = rel_col_short.split('.')[0].split('_')[1] \
+                    .replace('wmax', '')
+                method_full += r' + $w_{max}$ = ' + weights
+                colors[method_full] = poisson_colors[vis_names[tree]].pop()
 
         df_new['Method'] = method_full
         df = df.append(df_new, ignore_index=True)
@@ -85,35 +102,13 @@ def generate_pval_plot(in_file, out_file=None):
             'ytick.major.size':  TICK_FONTSIZE,
         })
 
-    colors = {
-        'Poisson Dispersion': '#1F78B4', # dark blue
-        'PAUP* + True Tree': '#076302', # dark green
-        'PAUP* + CellPhy Tree': '#33A02C', # lighter green
-        'PAUP* + SCITE Tree': '#7ED479', # even lighter green
-        'Poisson Tree + True Tree': '#8B0000', # dark red
-        'Poisson Tree + CellPhy Tree': '#E31A1C', # ligther red
-        'Poisson Tree + SCITE Tree': '#FF7575', # even lighter red
-        'Poisson Tree + True Tree + unweighted': '#9B4D00', # dark orange
-        'Poisson Tree + CellPhy Tree + unweighted': '#FF7F00', # ligther orange
-        'Poisson Tree + SCITE Tree + unweighted': '#FFB164', # even lighter orange
-        # 'SCITE': '#F6577C',
-        # 'CellPhy': '#47AF09',
-        # 'True': '#153386',
-    }
-    plot_pvals(df, out_file, colors)
+    plot_pvals(df, out_file)
     if not df_lambda.empty:
         plot_test_statistic(df_lambda, out_file, colors)
 
 
-def plot_pvals(df, out_file, colors):
-    methods = df.Method.unique()
-    hue_order_def = ['Poisson Dispersion',
-        'PAUP* + True Tree', 'PAUP* + CellPhy Tree', 'PAUP* + SCITE Tree',
-        'Poisson Tree + True Tree', 'Poisson Tree + CellPhy Tree',
-        'Poisson Tree + SCITE Tree', 'Poisson Tree + True Tree + unweighted',
-        'Poisson Tree + CellPhy Tree + unweighted',
-        'Poisson Tree + SCITE Tree + unweighted']
-    hue_order = [i for i in hue_order_def if i in methods]
+def plot_pvals(df, out_file):
+    hue_order = sorted(df.Method.unique())
 
     fig = plt.figure(figsize=(9, 3))
     gs = GridSpec(1, 4)
@@ -224,28 +219,8 @@ def _get_title(in_file):
         title += 'No Clock '
 
     try:
-        wga_error = re.search('WGA(0\.?\d*)', in_file).group(1)
-        if float(wga_error) > 0.1:
-            title += '- High Errors '
-        elif float(wga_error) > 0:
-            title += '- Low Errors'
-        elif float(wga_error) == 0:
-            title += '- No Errors'
-    except AttributeError:
-        pass
-
-    try:
-        filter_DP = re.search('minDP(\d+)', in_file).group(1)
-        filter_GQ = re.search('minGQ(\d+)', in_file).group(1)
-        filter_singleton = 'noSingletons' in in_file
-        if int(filter_DP) == 0 and int(filter_GQ) == 0 and not filter_singleton:
-            title += ' - No Filters'
-        else:
-            title += f' - Filters (DP$\geq {filter_DP}$, GQ$\geq {filter_GQ}$'
-            if filter_singleton:
-                title += ', no Singletons)'
-            else:
-                title += ')'
+        ADO_error = re.search('WGA(0\.?\d*)', in_file).group(1)
+        title += f'- ADO = {ADO_error} '
     except AttributeError:
         pass
 
@@ -257,6 +232,8 @@ def parse_args():
     parser.add_argument('-i', '--input', type=str, help='Input file.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
+    parser.add_argument('-spd', '--skip_poisson', action='store_true',
+        help='Skip Poisson distribution test.')
     args = parser.parse_args()
     return args
 
@@ -271,8 +248,8 @@ if __name__ == '__main__':
         for in_file in sorted(rel_files):
             out_file = f'{in_file}.pdf'
             print(f'Processing: {in_file}')
-            generate_pval_plot(in_file, out_file)
+            generate_pval_plot(in_file, out_file, args.skip_poisson)
     else:
         if not args.output:
             args.output = f'{args.input}.pdf'
-        generate_pval_plot(args.input, args.output)
+        generate_pval_plot(args.input, args.output, args.skip_poisson)
