@@ -106,7 +106,7 @@ rule run_cellcoal:
     shell:
         'mkdir -p {out_dir} && '
         '{params.exe} -F{input} > {out_dir}/log 2> sims && '
-        'cat sims >> {out_dir}/log && ' #rm sims && '
+        'cat sims >> {out_dir}/log && rm sims && '
         'mv {input.cellcoal} {out_dir}/config_cellcoal && '
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
@@ -238,7 +238,7 @@ rule postprocess_vcf:
 #         f'{SCRIPT_DIR}/convert_haplotype_to_vcf.py'
 
 
-def get_nex_input(wildcards):
+def get_repl_data(wildcards):
     if config.get('monovar', {}).get('run', False):
         vcf_in_file = 'vcf.{wildcards.run}.monovar.final' \
             .format(wildcards=wildcards)
@@ -260,89 +260,11 @@ def get_nex_input(wildcards):
 
     return {'tree': tree, 'vcf': vcf}
 
-
-rule vcf_to_nex:
-    input:
-        unpack(get_nex_input)
-    output:
-        temp(expand(os.path.join(base_dir, 'nxs_dir_{{tree}}',
-            'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
-    resources:
-        mem_mb = 1024,
-        runtime = 30,
-    params:
-        ss = config.get('mrbayes', {}).get('ss', False),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-        exclude = config.get('poisson', {}).get('exclude', ''),
-        include = config.get('poisson', {}).get('include', ''),
-    script:
-        f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
-
-
-# ------------------------------- MONOVAR --------------------------------------
-
-rule vcf_to_mpileup:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
-    output:
-        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt'),
-        s_types = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleTypes.txt')
-    resources:
-        mem_mb = 4096
-    script:
-        f'{SCRIPT_DIR}/convert_vcf_to_pileup.py'
-
-
-rule run_monovar:
-    input:
-        pileup = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.mpileup'),
-        samples = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.SampleNames.txt')
-    output:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
-    threads: 2
-    resources:
-        mem_mb = 4096 if scheduler == 'lsf' else 2 * 4096
-    conda: 'envs/monovar.yaml'
-    envmodules:
-        'scipy/1.4.1-python-3.7.7',
-        'pysam/0.16.0.1-python-3.7.7'
-    params:
-        exe = config.get('monovar', {}).get('exe', '')
-    shell:
-        'python {params.exe} -i {input.pileup} -s {input.samples} -o {output} '
-        '-m {threads} --CF_flag 0 --min_read_depth 1'
-
-
-rule postprocess_monovar:
-    input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.{run}.monovar.vcf')
-    output:
-        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.monovar.final')
-    envmodules:
-        'numpy/1.18.1-python-3.7.7',
-    params:
-        dp = config.get('SNP_filter', {}).get('depth', 1),
-        gq = config.get('SNP_filter', {}).get('quality', 0),
-        singletons = config.get('SNP_filter', {}).get('singletons', False),
-    script:
-        f'{SCRIPT_DIR}/postprocess_vcf.py'
-
-
 # -------------------------------- SCITE ---------------------------------------
-
-def get_tree_inference_input(wildcards):
-    if config.get('monovar', {}).get('run', False):
-        vcf_in_file = 'vcf.{wildcards.run}.monovar.vcf.final' \
-            .format(wildcards=wildcards)
-    else:
-        vcf_in_file = 'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards)
-    return os.path.join(base_dir, 'vcf_dir', vcf_in_file)
-
 
 rule run_scite:
     input:
-        get_tree_inference_input
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     output:
         os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
@@ -361,7 +283,7 @@ rule run_scite:
 
 rule run_cellphy:
     input:
-        get_tree_inference_input
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     output:
         os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
@@ -384,6 +306,24 @@ rule run_cellphy:
 
 # -------------------------------- PAUP ----------------------------------------
 
+rule vcf_to_nex:
+    input:
+        unpack(get_repl_data)
+    output:
+        temp(expand(os.path.join(base_dir, 'nxs_dir_{{tree}}',
+            'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
+    resources:
+        mem_mb = 1024,
+        runtime = 30,
+    params:
+        ss = config.get('mrbayes', {}).get('ss', False),
+        paup_exe = config.get('paup', {}).get('exe', 'paup'),
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
+    script:
+        f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
+
+
 rule run_PAUP:
     input:
         os.path.join(base_dir, 'nxs_dir_{tree}', 'nxs.{run}.0.{model}')
@@ -403,24 +343,10 @@ rule run_PAUP:
         'rm {params.prefix}/paup.{wildcards.run}.{wildcards.model}.log'
 
 
-def get_paup_input(wildcards):
-    if config.get('paup', {}).get('learn_tree', False):
-        models = ['clock']
-    else:
-        models = MODELS
-
-    in_files = []
-    for model in models:
-        for run in RUNS:
-            in_files.append(os.path.join(base_dir,
-                'paup_dir_{wildcards.tree}'.format(wildcards=wildcards),
-                f'paup.{run}.0.{model}.PAUP.score'))
-    return in_files
-
-
 rule merge_paup_results:
     input:
-        get_paup_input
+        expand(os.path.join(base_dir, 'paup_dir_{{tree}}',
+            'paup.{run}.0.{model}.PAUP.score'), model=MODELS, run=RUNS)
     output:
         os.path.join(base_dir, 'paup_dir_{tree}', 'paup.summary.tsv')
     conda: 'envs/monovar.yaml'
@@ -436,17 +362,9 @@ rule merge_paup_results:
 
 # ------------------------------- POISSON --------------------------------------
 
-def get_poisson_input(wildcards):
-    vcf_dir = os.path.join(base_dir, 'vcf_dir')
-    if config.get('monovar', {}).get('run', False):
-        return [os.path.join(vcf_dir, f'vcf.{i}.monovar.final') for i in RUNS]
-    else:
-        return [os.path.join(vcf_dir, f'vcf.{i}.final.gz') for i in RUNS]
-
-
 rule run_poisson:
     input:
-        get_poisson_input
+        expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'), run=RUNS)
     output:
         os.path.join(base_dir, 'poissonDisp.summary.tsv')
     conda:
@@ -468,7 +386,7 @@ rule run_poisson:
 
 rule run_poisson_tree:
     input:
-        unpack(get_nex_input)
+        unpack(get_repl_data)
     output:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
             'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)

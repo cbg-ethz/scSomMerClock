@@ -1,6 +1,0 @@
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - openmpi=4.0.5
-  - mrbayes=3.2.7

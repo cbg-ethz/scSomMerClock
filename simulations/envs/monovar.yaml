@@ -1,7 +1,0 @@
-channels:
-  - bioconda
-  - anaconda
-  - conda-forge
-dependencies:
-  - pysam=0.16.0.1
-  - scipy=1.6.3

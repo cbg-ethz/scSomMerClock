@@ -312,6 +312,9 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', w_idx=0):
     elif br_length == 'mut_no_opt':
         for i in tree.find_clades():
             i.branch_length = i.mut_no_opt
+    elif br_length == 'mut_no_true':
+        for i in tree.find_clades():
+            i.branch_length = i.mut_no_true
     else:
         raise RuntimeError(f'Unknown branch length parameter: {br_length}')
 
@@ -663,10 +666,10 @@ def add_br_weights(tree, FP, FN, w_max):
         p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
         p_noADO = 1 - p_ADO
 
-        # weight: odds ratio
-        weights[i, 0] = min(w_max, p_noADO / p_ADO)
-        # weight: inv variance
-        weights[i, 1] = min(w_max, 1 / (p_noADO * p_ADO))
+        # weight 0: inv variance
+        weights[i, 0] = min(w_max, 1 / (p_noADO * p_ADO))
+        # weight 1: odds ratio
+        weights[i, 1] = min(w_max, p_noADO / p_ADO)
 
     # Drop root weight
     root_id = np.argmax(S.sum(axis=1))
@@ -952,8 +955,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files, paup_exe,
 
         # save_tree(tree, tree_file + 'mapped.newick')
 
-        # weights: 0 = odds ratio, 1 = variance
-        w_idx = 1
+        # weights: 0 = variance, 1 = odds ratio,
+        w_idx = 0
         LR, dof, on_bound, p_val, Y_opt = \
             get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
         hyp = int(p_val < 0.05)
@@ -972,8 +975,13 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files, paup_exe,
         with open(out_file, 'w') as f_out:
             f_out.write(f'{header_str}\n{model_str}')
 
+    # add_opt_values_to_tree(tree, Y, Y_opt)
+    # show_tree(tree, br_length='length')
+    # import pdb; pdb.set_trace()
 
-def add_opt_values_to_tree(tree, Y_map):
+
+def add_opt_values_to_tree(tree, Y, Y_opt):
+    Y_map = dict(zip(Y, Y_opt))
     for node in tree.find_clades():
         if tree.root == node:
             node.mut_no_opt = -1
@@ -982,7 +990,7 @@ def add_opt_values_to_tree(tree, Y_map):
             node.deviation_opt = Y_map[node.mut_no_soft][1]
 
 
-def save_tree(tree, tree_out, w_idx=1):
+def save_tree(tree, tree_out, w_idx=0):
     int_nodes = 0
     for node in tree.find_clades():
         if node.is_terminal():
@@ -1004,8 +1012,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
 
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
-    # weights: 0 = odds ratio, 1 = variance
-    w_idx = 1
+    # weights: 0 = variance, 1 = odds ratio
+    w_idx = 0
     LR, dof, on_bound, p_val, _ = \
         get_LRT_poisson(Y, constr, init, weights_norm[:,w_idx])
     hyp = int(p_val < 0.05)
