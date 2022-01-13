@@ -8,8 +8,14 @@ import subprocess
 
 
 def get_out_dir(config, bulk=False):
-    if config['cellcoal']['model'].get('branch_rate_var', 0):
-        model = 'clock{}'.format(config['cellcoal']['model']['branch_rate_var'])
+    if config['cellcoal']['model'].get('branch_rate_switch', None):
+        switches = config['cellcoal']['model']['branch_rate_switch']
+        if not isinstance(switches, list):
+            switches = [switches]
+        switch_str = ','.join(f'1x{i:.1f}' for i in switches)
+        model = f'clock{switch_str}'
+    elif config['cellcoal']['model'].get('branch_rate_var', 0):
+        model = f'clock{config["cellcoal"]["model"]["branch_rate_var"]}'
     else:
         model = 'clock0'
 

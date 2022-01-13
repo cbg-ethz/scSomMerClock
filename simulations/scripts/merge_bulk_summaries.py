@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def merge_bulk_summaries(in_files, out_file):
-    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+    clock = '_clock0_' in out_file
     df = pd.DataFrame([], columns=['R^2_pVal', 'area_pVal', 's_Bayes'])
 
     for i, in_file in enumerate(sorted(in_files)):

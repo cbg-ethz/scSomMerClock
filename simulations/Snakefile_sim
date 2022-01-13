@@ -12,7 +12,7 @@ BULK = config['cellcoal']['model']['no_cells'] > 100 \
     and config['cellcoal']['NGS']['seq_cov'] < 1
 
 scheduler = config.get('scheduler', None)
-w_maxs = config.get('poisson', {}).get('w_max', [99])
+w_maxs = config.get('poisson', {}).get('w_max', [999])
 if isinstance(w_maxs, (int, float)):
     w_maxs = [w_maxs]
 
@@ -215,6 +215,8 @@ rule postprocess_vcf:
         'numpy/1.18.1-python-3.7.7',
     resources:
         runtime = 30,
+        scratch='scratch',
+    group: 'vcf'
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
@@ -468,8 +470,8 @@ rule run_poisson_tree:
     input:
         unpack(get_nex_input)
     output:
-        os.path.join(base_dir, 'poissonTree_wMax{w_max}_{tree}',
-            'poissonTree.{run}.LRT.txt')
+        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+            'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)
     conda:
         ''
     envmodules:
@@ -492,8 +494,8 @@ rule run_poisson_tree:
 
 rule merge_poisson_tree:
     input:
-        expand(os.path.join(base_dir, 'poissonTree_wMax{{w_max}}_{{tree}}',
-            'poissonTree.{run}.LRT.txt'), run=RUNS)
+        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+            'poissonTree.{run}.wMax{{w_max}}.LRT.txt'), run=RUNS)
     output:
         os.path.join(base_dir, 'poissonTree_wMax{w_max}_{tree}',
             f'poissonTree.summary.tsv')

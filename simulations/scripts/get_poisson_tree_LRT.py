@@ -251,7 +251,7 @@ def get_stats(df, true_df, binary=True, per_cell=False, verbose=False):
         'MS_T': MS_T}
 
 
-def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=0):
+def show_tree(tree, dendro=False, br_length='mut_no_soft', w_idx=0):
     import copy
     import matplotlib.pyplot as plt
     from matplotlib import cm
@@ -274,21 +274,21 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=0):
 
     if true_mut and weights and opt_mut:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}>{c.mut_no_opt:.0f}\n' \
-            f'({c.mut_no_true},w{c.weights_norm[col_id]:.2f})'
+            f'({c.mut_no_true},w{c.weights_norm[w_idx]:.2f})'
     elif true_mut and weights:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}\n' \
-            f'({c.mut_no_true},w{c.weights_norm[col_id]:.2f})'
+            f'({c.mut_no_true},w{c.weights_norm[w_idx]:.2f})'
     elif true_mut and opt_mut:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}>{c.mut_no_opt:.0f}\n' \
             f'({c.mut_no_true})'
     elif weights and opt_mut:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}\n' \
-            f'({c.mut_no_true},w{c.weights_norm[col_id]:.2f})'
+            f'({c.mut_no_true},w{c.weights_norm[w_idx]:.2f})'
     elif true_mut:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}\n({c.mut_no_true})'
     elif weights:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}\n' \
-            '(w{c.weights_norm[col_id]:.2f})'
+            '(w{c.weights_norm[w_idx]:.2f})'
     elif opt_mut:
         br_labels = lambda c: f'{c.mut_no_soft:.1f}>{c.mut_no_opt:.0f}'
     else:
@@ -297,7 +297,7 @@ def show_tree(tree, dendro=False, br_length='mut_no_soft', col_id=0):
     try:
         cmap =cm.get_cmap('RdYlBu_r')
         for i in tree.find_clades():
-            i.color = [int(j * 255) for j in cmap(i.weights_norm_z[col_id])[:3]]
+            i.color = [int(j * 255) for j in cmap(i.weights_norm_z[w_idx])[:3]]
     except AttributeError:
         pass
 
@@ -466,7 +466,6 @@ def get_tree_gt(tree_file, call_data, paup_exe, w_max, FN_fix=None, FP_fix=None)
 
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts.isna().sum().sum() / muts.size, 1 - FN - 0.2)
-
     M = map_mutations_gt(tree, muts, FP, FN + MS)
     add_br_weights(tree, FP, FN + MS, w_max)
 
@@ -931,43 +930,47 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
     return LR, dof, on_bound, p_val, zip(opt.x, devi)
 
 
-def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, paup_exe,
-        w_max=101, exclude='', include=''):
+def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files, paup_exe,
+        w_maxs=[999], exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
-
     cols = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
-    header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
-    header_str += '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
-    model_str = ''
 
     call_data = get_mut_df(vcf_file, exclude, include)
-
     # tree, _, _, M = get_tree_reads(tree_file, call_data, paup_exe)
-    tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
-    add_true_muts(tree, call_data[1])
 
-    Y, constr, init, weights_norm, constr_cols = get_model_data(tree,
-        true_data=False)
+    if not isinstance(w_maxs, list):
+        w_maxs = [w_maxs]
+    if not isinstance(out_files, list):
+        out_files = [out_files]
 
-    # save_tree(tree, tree_file + 'mapped.newick')
+    for w_max, out_file in zip(w_maxs, out_files):
+        tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
+        add_true_muts(tree, call_data[1])
 
-    # weights: 0 = odds ratio, 1 = variance
-    LR, dof, on_bound, p_val, Y_opt = \
-        get_LRT_poisson(Y, constr, init, weights_norm[:,1])
-    hyp = int(p_val < 0.05)
+        Y, constr, init, weights_norm, constr_cols = get_model_data(tree,
+            true_data=False)
 
-    # add_opt_values_to_tree(tree, dict(zip(Y, Y_opt)))
-    # show_tree(tree, br_length='mut_no_opt')
-    # import pdb; pdb.set_trace()
+        # save_tree(tree, tree_file + 'mapped.newick')
 
-    stats = call_data[3]
-    weight_str = ",".join([str(i) for i in weights_norm[:,0].round(3)])
-    model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
-        f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}\t' \
-        f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\t{weight_str}\n'
+        # weights: 0 = odds ratio, 1 = variance
+        w_idx = 1
+        LR, dof, on_bound, p_val, Y_opt = \
+            get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
+        hyp = int(p_val < 0.05)
 
-    with open(out_file, 'w') as f_out:
-        f_out.write(f'{header_str}\n{model_str}')
+        header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
+        header_str += '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
+        model_str = ''
+
+        stats = call_data[3]
+        weight_str = ",".join([str(i) for i in weights_norm[:,w_idx].round(3)])
+
+        model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
+            f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}\t' \
+            f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\t{weight_str}\n'
+
+        with open(out_file, 'w') as f_out:
+            f_out.write(f'{header_str}\n{model_str}')
 
 
 def add_opt_values_to_tree(tree, Y_map):
@@ -979,13 +982,13 @@ def add_opt_values_to_tree(tree, Y_map):
             node.deviation_opt = Y_map[node.mut_no_soft][1]
 
 
-def save_tree(tree, tree_out):
+def save_tree(tree, tree_out, w_idx=1):
     int_nodes = 0
     for node in tree.find_clades():
         if node.is_terminal():
-            node.name = f'{node.name}[w:{node.weights_norm[0]:.2f}]'
+            node.name = f'{node.name}[w:{node.weights_norm[w_idx]:.2f}]'
         else:
-            node.name = f'node{int_nodes}[w:{node.weights_norm[0]:.2f}]'
+            node.name = f'node{int_nodes}[w:{node.weights_norm[w_idx]:.2f}]'
             int_nodes += 1
         node.branch_length = node.mut_no_soft
 
@@ -994,18 +997,18 @@ def save_tree(tree, tree_out):
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
-        w_max=101, exclude='', include=''):
-    alpha = 0.05
-
+        w_max=999, exclude='', include=''):
     call_data = get_mut_df(vcf_file, exclude, include)
     # tree, FP, FN, M = get_tree_reads(tree_file, call_data, paup_exe)
     tree, FP, FN, M = get_tree_gt(tree_file, call_data, paup_exe, w_max)
 
     Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
+    # weights: 0 = odds ratio, 1 = variance
+    w_idx = 1
     LR, dof, on_bound, p_val, _ = \
-        get_LRT_poisson(Y, constr, init, weights_norm[:,1])
-    hyp = int(p_val < alpha)
+        get_LRT_poisson(Y, constr, init, weights_norm[:,w_idx])
+    hyp = int(p_val < 0.05)
 
     path_strs = vcf_file.split(os.path.sep)
     try:
@@ -1023,7 +1026,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, paup_exe,
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}\t' \
         f'{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
-    save_tree(tree, tree_file + 'mapped.newick')
+    save_tree(tree, tree_file + 'mapped.newick', w_idx)
 
     header_str = 'dataset\tsubset\tfilters\tFN\tFP\t-2logLR\tdof\tp-value\t' \
         'hypothesis'
@@ -1039,14 +1042,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('vcf', type=str, help='SNP file in vcf format')
     parser.add_argument('tree', type=str, help='Tree file in newick format')
-    parser.add_argument('-o', '--output', type=str, default='',
-        help='Output file.')
-    parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
+    parser.add_argument('-o', '--output', type=str, default='', nargs='+',
+        help='Output file(s). 1 file per w_max value')
+    parser.add_argument('-e', '--exe', type=str,
+        default='../../paup4a168_ubuntu64', help='Path to PAUP exe.')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--w_max', type=float, default=999,
+    parser.add_argument('-w', '--w_max', type=float, default=999, nargs='+',
         help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
@@ -1061,12 +1065,17 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
+        w_maxs = []
+        for out_file in snakemake.output:
+            file_name = os.path.basename(out_file)
+            w_maxs.append(
+                float(re.search('wMax(\d+[\.\d]*)\.LRT', file_name).group(1)))
         run_poisson_tree_test_simulations(
             vcf_file=snakemake.input.vcf,
             tree_file=snakemake.input.tree,
-            out_file=snakemake.output[0],
+            out_files=snakemake.output,
             paup_exe=snakemake.params.paup_exe,
-            w_max=float(snakemake.wildcards.w_max),
+            w_maxs=w_maxs,
             exclude=snakemake.params.exclude,
             include=snakemake.params.include
         )
@@ -1074,15 +1083,14 @@ if __name__ == '__main__':
         import argparse
         args = parse_args()
         if not args.output:
-            args.output = os.path.join(os.path.dirname(args.vcf),
-                'poisson_tree.LRT.tsv')
+            args.output = args.vcf + '.poissonTree_LRT.tsv'
         if args.biological_data:
             run_poisson_tree_test_biological(
                 vcf_file=args.vcf,
                 tree_file=args.tree,
-                out_file=args.output,
+                out_files=args.output,
                 paup_exe=args.exe,
-                w_max=args.w_max,
+                w_maxs=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
             )
@@ -1090,9 +1098,9 @@ if __name__ == '__main__':
             run_poisson_tree_test_simulations(
                 vcf_file=args.vcf,
                 tree_file=args.tree,
-                out_file=args.output,
+                out_files=args.output,
                 paup_exe=args.exe,
-                w_max=args.w_max,
+                w_maxs=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
             )

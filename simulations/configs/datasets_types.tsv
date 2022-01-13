@@ -1,0 +1,14 @@
+Dataset Name,path to final vcf,Normal,Comment
+H65,H65_Monica/QC/all.filtered.vcf,BGI_LN-[0-9]+,BGI_LC-[0-9]+ is cancer; *-T1 are multicell samples and need to be removed
+Li55,Li55/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,BGI_BN-[0-9]+,
+W32,W32_Monica/QC/all.filtered.vcf,TNBC_n[0-9]+,a[0-9]+ and h[0-9]+ are cancer cells; a is aneuploid; h is hypoploid
+W55,W55/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,n[0-9]+,
+Wu61,Wu61/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,CRC0907-N\d, *-C[0-9]+; *-CA-[0-9]+ are different regions; *-N[0-9]+ normal; *-XR-[0-9]+ polyps
+Wu63,Wu63/QC/all.filtered.vcf,N[0-9]+,1C-\d+;[1|2]CA-\d+ are cancer;XR-?[0-1]+ are polyps
+X25,X25/QC/all.filtered.vcf,BGI_RN-*,
+Ni8,Ni8_Monica/Ni8/QC/all.filtered.vcf,P01L01E, Leukocyte
+Lo-P1,Lo-P1/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,all,neurons
+Lo-P2,Lo-P2/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,all,neurons
+Lo-P3,Lo-P3/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,all,neurons
+S21_P1,S21_P1/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,all cancer,
+S21_P2,S21_P2/Calls/Filter/Final/QC/all.all_chr.filtered.vcf,P2_\w0,P2_[L|R] are cancer from left|right side of prostate
