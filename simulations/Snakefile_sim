@@ -239,13 +239,8 @@ rule postprocess_vcf:
 
 
 def get_repl_data(wildcards):
-    if config.get('monovar', {}).get('run', False):
-        vcf_in_file = 'vcf.{wildcards.run}.monovar.final' \
-            .format(wildcards=wildcards)
-    else:
-        vcf_in_file = 'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards)
-
-    vcf = os.path.join(base_dir, 'vcf_dir', vcf_in_file)
+    vcf = os.path.join(base_dir, 'vcf_dir',
+        'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards))
 
     if wildcards.tree == 'cellphy':
         tree = os.path.join(base_dir, 'cellphy_dir',
@@ -349,7 +344,6 @@ rule merge_paup_results:
             'paup.{run}.0.{model}.PAUP.score'), model=MODELS, run=RUNS)
     output:
         os.path.join(base_dir, 'paup_dir_{tree}', 'paup.summary.tsv')
-    conda: 'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
     resources:
@@ -367,8 +361,6 @@ rule run_poisson:
         expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'), run=RUNS)
     output:
         os.path.join(base_dir, 'poissonDisp.summary.tsv')
-    conda:
-        'envs/monovar.yaml'
     envmodules:
         'scipy/1.4.1-python-3.7.7',
     resources:
