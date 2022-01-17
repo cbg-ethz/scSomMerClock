@@ -56,7 +56,7 @@ def run_bash(cmd_raw, bsub=True, time=30, mem=2):
     print(f'Running: {cmd}')
     if not cmd.startswith('sbatch'):
         print(str(stdout), str(stderr))
-    if str(stderr) != '' and not KEEP_GOING:
+    if str(stderr) != b'' and not KEEP_GOING:
         exit()
     print('\n')
 
