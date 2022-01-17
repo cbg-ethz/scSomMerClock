@@ -32,6 +32,8 @@ cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
+MODULE_STR = ''
+
 scite_time = 600
 scite_mem = 10
 cellphy_time = 300
