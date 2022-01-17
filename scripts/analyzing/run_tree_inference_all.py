@@ -76,7 +76,7 @@ def print_masterlist():
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--local', action='store_false',
+    parser.add_argument('-l', '--local', action='store_true',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
@@ -87,7 +87,6 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    replace = True
     print_masterlist()
 
     # Iterate data sets
