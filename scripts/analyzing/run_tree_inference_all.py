@@ -10,20 +10,20 @@ monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/
 base_dir = '/home/uvi/be/nbo/data/data/'
 
 data_dirs = {
-    'H65_Monica': ['cancer'],
-    'Li55': ['BGI_BN-2', 'normal'],
+    'H65_Monica': ['all', 'cancer'],
+    'Li55': ['all', 'BGI_BN-2', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
-    'Ni8_Monica': ['cancer'],
+    'Ni8_Monica': ['all', 'cancer'],
     'S21_P1': ['all'],
     'S21_P2': ['all', 'cancer', 'left'],
-    'W32_Monica': ['aneuploid', 'cancer', 'haploid', 'normal'],
-    'W55': ['cancer', 'normal'],
-    'Wu61': ['cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
+    'W32_Monica': ['all', 'aneuploid', 'cancer', 'haploid', 'normal'],
+    'W55': ['all', 'cancer', 'normal'],
+    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
         'polyps'],
-    'Wu63': ['cancer', 'cancer_polyps', 'normal', 'polyps'],
-    'X25': ['cancer', 'normal']
+    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
+    'X25': ['all', 'cancer', 'normal']
 }
 data_filters = ['all', '33nanFilter'] #, '50nanFilter']
 
@@ -123,6 +123,8 @@ if __name__ == '__main__':
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(zip_cmd, False)
+
+                        continue
                     # Filter
                     else:
                         if not os.path.exists(vcf_file) or args.replace:
@@ -143,8 +145,8 @@ if __name__ == '__main__':
                             f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd, False)
 
-                tree_cmds = []
 
+                tree_cmds = []
                 cellphy_out = vcf_file + '.raxml.bestTree'
                 if not os.path.exists(cellphy_out) or args.replace:
                     tree_cmds.append(
