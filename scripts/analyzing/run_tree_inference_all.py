@@ -39,6 +39,8 @@ scite_mem = 10
 cellphy_time = 300
 cellphy_mem = 2
 
+KEEP_GOING = FALSE
+
 
 def run_bash(cmd_raw, bsub=True, time=60, mem=2):
     if bsub:
@@ -56,6 +58,8 @@ def run_bash(cmd_raw, bsub=True, time=60, mem=2):
     print(f'Running: {cmd}')
     if not cmd.startswith('sbatch'):
         print(str(stdout), str(stderr))
+    if str(stderr) != '' and not KEEP_GOING:
+        exit()
     print('\n')
 
 
@@ -80,12 +84,15 @@ def parse_args():
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
+    parser.add_argument('-k', '--keep_going', action='store_true',
+        help='Dont exit on errors.')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
+    KEEP_GOING = args.keep_going
 
     print_masterlist()
 
