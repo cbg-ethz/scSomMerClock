@@ -48,8 +48,6 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         dataset = file_ids[0]
         filters = file_ids[1]
 
-    out_file = os.path.join(args.out_dir,
-        f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
     if only_name:
         return out_file
 
@@ -69,8 +67,15 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         print(f'!WARNING! Missing {tree: >7} tree file: {tree_file}')
         return
 
-    cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} ' \
-        f'-e {args.exe_paup} -b'
+    w_max = np.arange(100, 1001, 100)
+    w_max_str = " ".join([str(i) for i in w_max])
+
+    out_files = ' '.join([os.path.join(args.out_dir,
+            f'Poisson_tree_{tree}_w{i}_{dataset}_{subset}_{filters}.tsv') \
+        for i in w_max])
+
+    cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_files} ' \
+        f'-e {args.exe_paup} -w {w_max_str} -b'
 
     run_bash(cmd, bsub)
 

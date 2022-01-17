@@ -5,13 +5,11 @@ from scripts.utils import get_out_dir
 
 SCRIPT_DIR = 'scripts'
 
-MODELS = ['clock', 'noClock']
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
 BULK = config['cellcoal']['model']['no_cells'] > 100 \
     and config['cellcoal']['NGS']['seq_cov'] < 1
 
-scheduler = config.get('scheduler', None)
 w_maxs = config.get('poisson', {}).get('w_max', [999])
 if isinstance(w_maxs, (int, float)):
     w_maxs = [w_maxs]
@@ -215,7 +213,7 @@ rule postprocess_vcf:
         'numpy/1.18.1-python-3.7.7',
     resources:
         runtime = 30,
-        scratch='scratch',
+#        scratch='scratch',
     group: 'vcf'
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
@@ -300,6 +298,8 @@ rule run_cellphy:
 
 
 # -------------------------------- PAUP ----------------------------------------
+
+MODELS = ['clock', 'noClock']
 
 rule vcf_to_nex:
     input:
@@ -392,12 +392,11 @@ rule run_poisson_tree:
     resources:
         mem_mb = 1024,
         runtime = 30,
-        scratch='scratch'
+#        scratch='scratch'
     group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
     script:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
 

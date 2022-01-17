@@ -9,23 +9,24 @@ monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/
 base_dir = '/home/uvi/be/nbo/data/data/'
 
 data_dirs = {
-    'H65_Monica': ['all', 'cancer', 'normal'],
-    'Li55': ['all', 'cancer', 'normal'],
+    'H65_Monica': ['cancer'],
+    'Li55': ['BGI_BN-2', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
-    'Ni8_Monica': ['all', 'cancer'],
+    'Ni8_Monica': ['cancer'],
     'S21_P1': ['all'],
     'S21_P2': ['all', 'cancer', 'left'],
-    'W32_Monica': ['all', 'aneuploid', 'cancer', 'haploid', 'normal'],
-    'W55': ['all', 'cancer', 'normal'],
-    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
+    'W32_Monica': ['aneuploid', 'cancer', 'haploid', 'normal'],
+    'W55': ['cancer', 'normal'],
+    'Wu61': ['cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
         'polyps'],
-    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
-    'X25': ['all', 'cancer', 'normal']
+    'Wu63': ['cancer', 'cancer_polyps', 'normal', 'polyps'],
+    'X25': ['cancer', 'normal']
 }
-data_filters = ['all', '33nanFilter', '50nanFilter']
+data_filters = ['all', '33nanFilter'] #, '50nanFilter']
 
+WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
@@ -73,7 +74,9 @@ if __name__ == '__main__':
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
             # Iterate nan filters
             for data_filter in data_filters:
-                vcf_name = f'{data_set}.{data_filter}.vcf.gz'
+                vcf_raw_name = f'{data_set}.{data_filter}.vcf'
+                vcf_raw_file = os.path.join(vcf_dir, vcf_raw_name)
+                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
                 # Copy file from monicas dir
@@ -82,11 +85,13 @@ if __name__ == '__main__':
                     #     'all.all_chr.filtered.vcf')
                     monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
                         f'{data_set}_ado_filtered.vcf')
-                    # Zip and index
+                    # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or replace:
+                            shutil.copyfile(monica_file, vcf_raw_file)
+                            wt_col_cmd = 'python {WT_col_script} -i {vcf_raw_file}'
+
                             unzip_file = vcf_file.replace('.gz', '')
-                            shutil.copyfile(monica_file, unzip_file)
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(zip_cmd)
