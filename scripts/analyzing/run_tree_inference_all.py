@@ -39,7 +39,7 @@ scite_mem = 10
 cellphy_time = 300
 cellphy_mem = 2
 
-KEEP_GOING = FALSE
+KEEP_GOING = False
 
 
 def run_bash(cmd_raw, bsub=True, time=60, mem=2):
