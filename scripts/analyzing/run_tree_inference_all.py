@@ -151,7 +151,7 @@ if __name__ == '__main__':
                 cellphy_out = vcf_file + '.raxml.bestTree'
                 if not os.path.exists(cellphy_out) or args.replace:
                     tree_cmds.append(
-                        (f"{cellphy_exe} SEARCH -r -t 1 -z -l {vcf_file}'",
+                        (f"{cellphy_exe} SEARCH -r -t 1 -z -l {vcf_file}",
                             cellphy_time, cellphy_mem)
                     )
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
                 if not os.path.exists(scite_out) or args.replace:
                     tree_cmds.append(
                         (f"python3 {scite_script} -e {scite_exe} -s 1000000 " \
-                            f"--verbose -p {data_set}.{data_filter} {vcf_file}'",
+                            f"--verbose -p {data_set}.{data_filter} {vcf_file}",
                         scite_time, scite_mem)
                     )
 
