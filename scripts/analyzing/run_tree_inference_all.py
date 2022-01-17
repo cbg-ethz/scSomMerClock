@@ -40,7 +40,7 @@ cellphy_mem = 2
 KEEP_GOING = False
 
 
-def run_bash(cmd_raw, bsub=True, time=60, mem=2):
+def run_bash(cmd_raw, bsub=True, time=30, mem=2):
     if bsub:
         cmd = f"sbatch -t {time} -p amd-shared --qos amd-shared --mem {mem}G " \
             f"--wrap '{cmd_raw}'"
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                             unzip_file = vcf_file.replace('.gz', '')
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
                                 f'&& chmod 755 {vcf_file}'
-                            run_bash(zip_cmd)
+                            run_bash(zip_cmd, False)
                     # Filter
                     else:
                         if not os.path.exists(vcf_file) or args.replace:
@@ -131,7 +131,7 @@ if __name__ == '__main__':
                             flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
                                 f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
                                 f'&& chmod 755 {vcf_file}'
-                            run_bash(flt_cmd)
+                            run_bash(flt_cmd, False)
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
@@ -141,7 +141,7 @@ if __name__ == '__main__':
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                             f'--force-samples -O z -o {vcf_file} {base_file} ' \
                             f'&& chmod 755 {vcf_file}'
-                        run_bash(cp_cmd)
+                        run_bash(cp_cmd, False)
 
                 tree_cmds = []
 
