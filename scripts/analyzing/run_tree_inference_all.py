@@ -32,8 +32,6 @@ cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
-MODULE_STR = ''
-
 scite_time = 600
 scite_mem = 10
 cellphy_time = 300
@@ -45,7 +43,7 @@ KEEP_GOING = False
 def run_bash(cmd_raw, bsub=True, time=60, mem=2):
     if bsub:
         cmd = f"sbatch -t {time} -p amd-shared --qos amd-shared --mem {mem}G " \
-            f"--wrap '{MODULE_STR}; {cmd_raw}'"
+            f"--wrap '{cmd_raw}'"
     else:
         cmd = cmd_raw
 
