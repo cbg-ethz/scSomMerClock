@@ -160,5 +160,4 @@ if __name__ == '__main__':
                     if args.local:
                         run_bash(cmd, False)
                     else:
-                        print(f'Running: {cmd}')
                         run_bash(cmd, True, time, mem)
