@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -32,10 +33,18 @@ scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
 scite_time = 600
+scite_mem = 10
 cellphy_time = 300
+cellphy_mem = 2
 
 
-def run_bash(cmd):
+def run_bash(cmd_raw, bsub=True, time=60, mem=2):
+    if bsub:
+        cmd = f"sbatch -t {time} -p amd-shared --qos amd-shared --mem {mem}G " \
+            f"--wrap '{MODULE_STR}; {cmd_raw}'"
+    else:
+        cmd = cmd_raw
+
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -62,7 +71,20 @@ def print_masterlist():
     with open(out_file, 'w') as f:
         f.write(out_str)
 
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--local', action='store_false',
+        help='Run locally instead of HPC.')
+    parser.add_argument('-r', '--replace', action='store_true',
+        help='Overwrite already existing files.')
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == '__main__':
+    args = parse_args()
+
     replace = True
     print_masterlist()
 
@@ -87,7 +109,7 @@ if __name__ == '__main__':
                         f'{data_set}_ado_filtered.vcf')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
-                        if not os.path.exists(vcf_file) or replace:
+                        if not os.path.exists(vcf_file) or args.replace:
                             shutil.copyfile(monica_file, vcf_raw_file)
                             wt_col_cmd = 'python {WT_col_script} -i {vcf_raw_file}'
 
@@ -97,7 +119,7 @@ if __name__ == '__main__':
                             run_bash(zip_cmd)
                     # Filter
                     else:
-                        if not os.path.exists(vcf_file) or replace:
+                        if not os.path.exists(vcf_file) or args.replace:
                             base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
                             flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
@@ -106,7 +128,7 @@ if __name__ == '__main__':
                             run_bash(flt_cmd)
                 # Copy file from 'all' dir
                 else:
-                    if not os.path.exists(vcf_file) or replace:
+                    if not os.path.exists(vcf_file) or args.replace:
                         base_file = os.path.join(base_dir, data_dir, 'ClockTest',
                             'all', vcf_name)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
@@ -118,22 +140,24 @@ if __name__ == '__main__':
                 tree_cmds = []
 
                 cellphy_out = vcf_file + '.raxml.bestTree'
-                if not os.path.exists(cellphy_out) or replace:
+                if not os.path.exists(cellphy_out) or args.replace:
                     tree_cmds.append(
-                        f"sbatch -t {cellphy_time} -p amd-shared --qos amd-shared " \
-                        f"--mem 2G --wrap '{cellphy_exe} SEARCH -r -t 1 -z -l " \
-                        f"{vcf_file}'"
+                        (f"{cellphy_exe} SEARCH -r -t 1 -z -l {vcf_file}'",
+                            cellphy_time, cellphy_mem)
                     )
 
                 scite_out = os.path.join(vcf_dir, 'scite_dir',
                     f'{data_set}.{data_filter}_ml0.newick')
-                if not os.path.exists(scite_out) or replace:
+                if not os.path.exists(scite_out) or args.replace:
                     tree_cmds.append(
-                        f"sbatch -t {scite_time} -p amd-shared --qos amd-shared " \
-                        f"--mem 10G --wrap 'python3 {scite_script} -e {scite_exe} " \
-                        f"-s 1000000 --verbose -p {data_set}.{data_filter} {vcf_file}'"
+                        (f"python3 {scite_script} -e {scite_exe} -s 1000000 " \
+                            f"--verbose -p {data_set}.{data_filter} {vcf_file}'",
+                        scite_time, scite_mem)
                     )
 
-                for cmd in tree_cmds:
-                    print(f'Running: {cmd}')
-                    run_bash(cmd)
+                for cmd, time, mem in tree_cmds:
+                    if args.local:
+                        run_bash(cmd, False)
+                    else:
+                        print(f'Running: {cmd}')
+                        run_bash(cmd, True, time, mem)
