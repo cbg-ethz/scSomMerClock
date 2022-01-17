@@ -117,7 +117,7 @@ if __name__ == '__main__':
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
                             shutil.copyfile(monica_file, vcf_raw_file)
-                            wt_col_cmd = 'python {WT_col_script} -i {vcf_raw_file}'
+                            wt_col_cmd = f'python {WT_col_script} -i {vcf_raw_file}'
                             run_bash(wt_col_cmd, False)
 
                             unzip_file = vcf_file.replace('.gz', '')
