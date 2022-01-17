@@ -91,7 +91,7 @@ def get_muts_per_cell(vcf_file, exclude, include):
 
 def test_poisson_simulation(in_files, out_file,
             exclude='', include='', alpha=0.05):
-    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+    clock = '_clock0_' in out_file
     exclude += '|healthycell'
 
     avg = [[], [], [], [], 0]

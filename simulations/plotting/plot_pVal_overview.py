@@ -16,6 +16,22 @@ from matplotlib.transforms import ScaledTranslation
 from scipy.stats import chi2
 
 
+TICK_FONTSIZE = 8
+LABEL_FONTSIZE = 8
+sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
+sns.set_context('paper',
+    rc={'font.size': TICK_FONTSIZE,
+        'axes.titlesize': LABEL_FONTSIZE,
+        'axes.labelsize': LABEL_FONTSIZE,
+        'axes.titlesize': LABEL_FONTSIZE,
+        'axes.labelticksize': LABEL_FONTSIZE,
+        'lines.linewidth': 1,
+        'legend.fontsize': LABEL_FONTSIZE,
+        'legend.title_fontsize':  LABEL_FONTSIZE,
+        'xtick.major.size':  TICK_FONTSIZE*2,
+        'ytick.major.size':  TICK_FONTSIZE,
+    })
+
 COLORS = [
      # Blue     # Green    # Red      # Orange   # Purple
     '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
@@ -23,10 +39,6 @@ COLORS = [
     '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
     '#FFFF99', '#B15928', #ugly
 ]
-
-TICK_FONTSIZE = 8
-LABEL_FONTSIZE = 8
-
 vis_names = {
     'poissondisp': 'Poisson Dispersion',
     'paup': 'PAUP*',
@@ -36,15 +48,12 @@ vis_names = {
     'scite': 'SCITE Tree',
     'cellphy': 'CellPhy Tree',
 }
-
-
 colors = {
     'Poisson Dispersion':  '#994EA3', # purple
     'PAUP* + True Tree': '#4FAF4A', # green
     'PAUP* + CellPhy Tree': '#177512', # darker green
     'PAUP* + SCITE Tree': '#AAE3A7', #  lighter green
 }
-
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
     'CellPhy Tree': ['#8C0000', '#094D85', '#9B4D00'], # darker
@@ -88,20 +97,6 @@ def generate_pval_plot(in_file, out_file=None, skip_poisson=False):
             df_lambda_new['Tree'] = vis_names[tree]
             df_lambda = df_lambda.append(df_lambda_new, ignore_index=True)
 
-    sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-    sns.set_context('paper',
-        rc={'font.size': TICK_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelsize': LABEL_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelticksize': LABEL_FONTSIZE,
-            'lines.linewidth': 1,
-            'legend.fontsize': LABEL_FONTSIZE,
-            'legend.title_fontsize':  LABEL_FONTSIZE,
-            'xtick.major.size':  TICK_FONTSIZE*2,
-            'ytick.major.size':  TICK_FONTSIZE,
-        })
-
     plot_pvals(df, out_file)
     if not df_lambda.empty:
         plot_test_statistic(df_lambda, out_file, colors)
@@ -129,7 +124,7 @@ def plot_pvals(df, out_file):
     # axc1 = dp.axes[0][0]
     # fig = dp.fig
 
-    ax1.set_ylim([-5, None])
+    ax1.set_ylim([min(-4), None])
     ax1.set_xlim([0, 1])
     ax1.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
 

@@ -22,7 +22,7 @@ def get_LRT(in_files, out_file, cell_no, alpha=0.05):
             scores[run] ={'clock': -1, 'noClock': -1}
         scores[run][model] = score
 
-    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+    clock = '_clock0_' in out_file
 
     out_str = ''
     avg = [[], [], [], [], [], 0]

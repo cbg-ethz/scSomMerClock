@@ -133,3 +133,6 @@ logs/*
 simulations/results_*
 simulations/res_*
 *.snakemake
+simulations/debugging
+simulations/results
+poisson_tests_all

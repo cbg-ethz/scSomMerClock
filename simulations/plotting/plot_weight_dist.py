@@ -15,6 +15,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.transforms import ScaledTranslation
 from scipy.stats import chi2
+from matplotlib.colors import to_rgba
 
 
 COLORS = [
@@ -25,8 +26,8 @@ COLORS = [
     '#FFFF99', '#B15928', #ugly
 ]
 
-TICK_FONTSIZE = 8
-LABEL_FONTSIZE = 8
+TICK_FONTSIZE = 16
+LABEL_FONTSIZE = 16
 
 vis_names = {'cellcoal': 'True', 'scite': 'SCITE', 'cellphy': 'CellPhy'}
 colors = {
@@ -34,9 +35,9 @@ colors = {
     'CellPhy': (0.443, 0.396, 0.776),
     'SCITE': (0.02, 0.604, 0.173)
 }
+colors = {101: '#FF7F00', r'$(\gamma + \beta)$ 1000': '#377DB8', 999: '#E41A1A'}
 
 def generate_weights_plot(in_files, out_file=None):
-
     data = {}
     legend_elements = []
     for i, in_file in enumerate(in_files):
@@ -47,12 +48,18 @@ def generate_weights_plot(in_files, out_file=None):
         for run_weights in weights_raw:
             weights.append(np.array(run_weights.split(','), dtype=float))
 
-        _, tree, weight, _, _ = os.path.basename(in_file).split('.')
-        label = vis_names[tree]
+        _, wMax_raw, tree, = in_file.split(os.sep)[-2].split('_')
+        wMax = int(wMax_raw.replace('wMax', ''))
+
+        ADO = float(re.search('WGA(0[\.\d]*)', in_file).group(1))
+        if np.isclose(wMax, 1000 * ADO, atol=5):
+            label = r'$(\gamma + \beta)$ 1000'
+        else:
+            label = wMax
 
         data[label] = np.array(weights).flatten()
 
-        legend_elements.append(Patch(fc=(*colors[label], 0.5),
+        legend_elements.append(Patch(fc=to_rgba(colors[label], 0.5),
             ec=colors[label], label=label, linewidth=1))
 
     sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
@@ -70,17 +77,15 @@ def generate_weights_plot(in_files, out_file=None):
         })
 
     # Same as p-value plot for easy manual merging
-    fig = plt.figure(figsize=(9, 3))
-    gs = GridSpec(1, 4)
-    ax = fig.add_subplot(gs[0, 0:2])
+    fig, ax = plt.subplots(figsize=(15, 9))
 
-    dp = sns.histplot(data,
+    sns.histplot(data,
         element='poly', stat='density', kde=False,
         common_norm=False, fill=True,
         bins=100, multiple='dodge',
         kde_kws={'cut': 0, 'clip': (0, 1)},
         line_kws={'lw': 3, 'alpha': 0.75},
-        palette=colors, alpha=0.4,
+        alpha=0.4, palette=colors,
         legend=False, ax=ax
     )
     ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
@@ -89,10 +94,11 @@ def generate_weights_plot(in_files, out_file=None):
     plt.legend(handles=legend_elements, title='Tree:', bbox_to_anchor=(1.1, 1),
         loc='upper left', borderaxespad=0.)
 
-    fig.subplots_adjust(left=0.075, bottom=0.25, right=0.7, top=0.75, wspace=0.75)
+    fig.subplots_adjust(left=0.11, bottom=0.15, right=0.75, top=0.95)
 
     if not out_file:
-        out_file = os.path.join(os.path.dirname(in_files[0]), 'PoissonTree_weights.pdf')
+        out_dir = os.sep.join(in_file.split(os.sep)[:-2])
+        out_file = os.path.join(out_dir, 'PoissonTree_weights.pdf')
     fig.savefig(out_file, dpi=300)
     plt.close()
 
@@ -109,6 +115,9 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    in_files = [os.path.join(args.input, i) for i in os.listdir(args.input) \
-        if i.startswith('poissonTree') and i.endswith('.tsv')]
+    in_files = []
+    for res_dir in os.listdir(args.input):
+        if res_dir.startswith('poissonTree'):
+            in_files.append(
+                os.path.join(args.input, res_dir, 'poissonTree.summary.tsv'))
     generate_weights_plot(in_files, args.output)

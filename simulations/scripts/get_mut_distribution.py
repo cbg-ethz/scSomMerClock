@@ -170,7 +170,6 @@ def show_pvals(p_vals):
     plt.close()
 
 
-
 def get_mut_distribution(vcf_files, tree_files, out_file, paup_exe, exclude='', include=''):
     Ys = []
     for i, vcf_file in enumerate(vcf_files):

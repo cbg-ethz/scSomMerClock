@@ -14,6 +14,7 @@
     [root branch length ratio] k0.5
     [outgroup branch length ratio] q{outgroup_branch_length}
     [rate variation among branches] {branch_rate_var}
+    [tree rate switches] {rate_switches}
 
 [MUTATION MODEL]
     [alphabet binary:0 DNA:1] b{alphabet}

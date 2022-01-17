@@ -9,7 +9,7 @@ import pandas as pd
 def merge_LRT(in_files, out_file):
     df = pd.DataFrame()
 
-    clock = re.search('clock(\d+.?\d*)_', out_file).group(1) == '0'
+    clock = '_clock0_' in out_file
 
     for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
@@ -17,8 +17,6 @@ def merge_LRT(in_files, out_file):
 
     total = df.shape[0]
     avg_row = np.full(df.shape[1], -1, dtype=float)
-
-
 
     avg_row[1:-2] = df.iloc[:,1:-2].mean(axis=0).values
     avg_row[-1] = np.nan

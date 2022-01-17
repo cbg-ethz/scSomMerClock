@@ -50,6 +50,15 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False
     else:
         templ = re.sub('{branch_rate_var}', '', templ)
 
+    if model.get('branch_rate_switch', None):
+        switches = model['branch_rate_switch']
+        if not isinstance(switches, list):
+            switches = [switches]
+        switch_str = f'N{len(switches)} {" ".join([f"{i:.1f}" for i in switches])}'
+        templ = re.sub('{rate_switches}', switch_str, templ)
+    else:
+        templ = re.sub('{rate_switches}', '', templ)
+
     if model.get('germline_rate', 0.0) > 0:
         templ = re.sub('{germline_rate}', f'c{model["germline_rate"]}', templ)
     else:

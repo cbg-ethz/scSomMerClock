@@ -8,8 +8,14 @@ import subprocess
 
 
 def get_out_dir(config, bulk=False):
-    if config['cellcoal']['model'].get('branch_rate_var', 0):
-        model = 'clock{}'.format(config['cellcoal']['model']['branch_rate_var'])
+    if config['cellcoal']['model'].get('branch_rate_switch', None):
+        switches = config['cellcoal']['model']['branch_rate_switch']
+        if not isinstance(switches, list):
+            switches = [switches]
+        switch_str = ','.join(f'1x{i:.1f}' for i in switches)
+        model = f'clock{switch_str}'
+    elif config['cellcoal']['model'].get('branch_rate_var', 0):
+        model = f'clock{config["cellcoal"]["model"]["branch_rate_var"]}'
     else:
         model = 'clock0'
 
@@ -223,7 +229,6 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
         for i, s_i in enumerate(sorted(nodes)):
             if i < cells:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
-                repl = sample_names[i]
                 if br_length:
                     repl = '{}:0.1'.format(sample_names[i])
                 else:
