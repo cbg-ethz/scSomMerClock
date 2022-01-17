@@ -118,6 +118,7 @@ if __name__ == '__main__':
                         if not os.path.exists(vcf_file) or args.replace:
                             shutil.copyfile(monica_file, vcf_raw_file)
                             wt_col_cmd = 'python {WT_col_script} -i {vcf_raw_file}'
+                            run_bash(wt_col_cmd, False)
 
                             unzip_file = vcf_file.replace('.gz', '')
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
