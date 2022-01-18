@@ -61,7 +61,7 @@ def run_bash(cmd_raw, bsub=True, time=30, mem=2):
     print('\n')
 
 
-def print_masterlist():
+def print_masterlist(out_file='vcf_masterlist.txt'):
     out_str = ''
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
@@ -71,7 +71,6 @@ def print_masterlist():
                 vcf_name = f'{data_set}.{data_filter}.vcf.gz'
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
-    out_file = 'vcf_masterlist.txt'
     with open(out_file, 'w') as f:
         f.write(out_str)
 
@@ -86,6 +85,8 @@ def parse_args():
         help='Dont exit on errors.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
+    parser.add_argument('-m', '--master', default='', type=str,
+        help='Print master file list to file.')
     args = parser.parse_args()
     return args
 
@@ -94,7 +95,10 @@ if __name__ == '__main__':
     args = parse_args()
     KEEP_GOING = args.keep_going
 
-    print_masterlist()
+    if args.master:
+        print_masterlist(args.master)
+    if args.check:
+        all_exist = True
 
     # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
@@ -112,6 +116,7 @@ if __name__ == '__main__':
                 if args.check:
                     if not os.path.exists(vcf_file):
                         print(f'Missing: {vcf_file}')
+                        all_exist = False
                     continue
 
                 # Copy file from monicas dir
@@ -176,3 +181,6 @@ if __name__ == '__main__':
                         run_bash(cmd, False)
                     else:
                         run_bash(cmd, True, time, mem)
+
+    if args.check and all_exist:
+        print('All tree files exist')
