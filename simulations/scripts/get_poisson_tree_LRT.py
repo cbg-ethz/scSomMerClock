@@ -796,7 +796,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
 
 
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
-        w_maxs=[999], exclude='', include=''):
+        w_maxs=[1000], exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
     cols = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
 
@@ -840,7 +840,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
-        w_maxs=999, exclude='', include=''):
+        w_maxs=[1000], exclude='', include=''):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
