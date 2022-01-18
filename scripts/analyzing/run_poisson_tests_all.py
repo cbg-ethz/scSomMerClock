@@ -7,12 +7,15 @@ import pandas as pd
 import subprocess
 
 
+MODULE_STR = 'module load ete'
+
+
 def run_bash(cmd_raw, bsub=True):
     if bsub:
         cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
-            f"--wrap '{cmd_raw}'"
+            f"--wrap '{MODULE_STR} {cmd_raw}'"
     else:
-        cmd = cmd_raw
+        cmd = f'{MODULE_STR} {cmd_raw}'
 
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
