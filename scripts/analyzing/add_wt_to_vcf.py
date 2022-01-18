@@ -25,7 +25,7 @@ def add_outg_sample(vcf_file, out_file, outg_name):
                 if line.startswith('#'):
                     # Safe column headers
                     if line.startswith('#CHROM'):
-                        f_out.write(line.strip() + '\t{outg_name}\n')
+                        f_out.write(line.strip() + f'\t{outg_name}\n')
                     else:
                         f_out.write(line)
                     continue

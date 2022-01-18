@@ -70,7 +70,7 @@ def print_masterlist(out_file='vcf_masterlist.txt'):
                 continue
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
             for data_filter in data_filters:
-                vcf_name = f'{data_set}.{data_filter}.vcf.gz'
+                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
     with open(out_file, 'w') as f:
