@@ -26,13 +26,13 @@ data_dirs = {
 }
 data_filters = ['all', '33nanFilter', '50nanFilter']
 
-MODULE_STR = 'module load ete'
+MODULE_STR = 'module load ete;'
 
 
 def run_bash(cmd_raw, bsub=True):
     if bsub:
         cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
-            f"--wrap '{MODULE_STR}; {cmd_raw}'"
+            f"--wrap '{MODULE_STR} {cmd_raw}'"
     else:
         cmd = cmd_raw
 
