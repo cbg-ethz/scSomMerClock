@@ -75,7 +75,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         for i in w_max])
 
     cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_files} ' \
-        f'-e {args.exe_paup} -w {w_max_str} -b'
+        f'-w {w_max_str} -b'
 
     run_bash(cmd, bsub)
 
@@ -135,8 +135,6 @@ def parse_args():
     parser.add_argument('-ed', '--exe_disp', type=str,
         default='simulations/scripts/get_poisson_LRT.py',
         help='Poisson Dispersion exe.')
-    parser.add_argument('-p', '--exe_paup', type=str,
-        default='../paup4a168_ubuntu64', help='PAUP*  exe.')
     parser.add_argument('-t', '--tests', choices=['both', 'tree', 'dispersion'],
         default='both', help='Which tests to perform.')
     parser.add_argument('-l', '--local', action='store_false',
