@@ -23,10 +23,10 @@ def run_bash(cmd_raw, bsub=True):
     stdout, stderr = subp.communicate()
     subp.wait()
 
-    print(f'Running: {cmd}')
+    print(f'Running:\n{cmd}')
     if not bsub:
         print(str(stdout), str(stderr))
-    print('\n')
+    print()
 
 
 def run_poisson_disp(vcf_files, exe, out_dir, replace, bsub):
