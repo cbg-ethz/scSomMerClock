@@ -84,6 +84,8 @@ def parse_args():
         help='Overwrite already existing files.')
     parser.add_argument('-k', '--keep_going', action='store_true',
         help='Dont exit on errors.')
+    parser.add_argument('-c', '--check', action='store_true',
+        help='Check only if files exist, do not run anything.')
     args = parser.parse_args()
     return args
 
@@ -106,6 +108,11 @@ if __name__ == '__main__':
                 vcf_raw_file = os.path.join(vcf_dir, vcf_raw_name)
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
+
+                if args.check:
+                    if not os.path.exists(vcf_file):
+                        print(f'Missing: {vcf_file}')
+                    continue
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
