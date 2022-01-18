@@ -49,11 +49,13 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         filters = file_ids[1]
 
     w_max = np.arange(100, 1001, 100)
-    w_max_str = " ".join([str(i) for i in w_max])
+    w_max_str = ' '.join([str(i) for i in w_max])
 
-    out_files = ' '.join([os.path.join(args.out_dir,
+
+    out_files = [os.path.join(args.out_dir,
             f'Poisson_tree_{tree}_w{i}_{dataset}_{subset}_{filters}.tsv') \
-        for i in w_max])
+        for i in w_max]
+    out_files_str = ' '.join(out_files)
 
     if only_name:
         return out_files
@@ -62,6 +64,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         out_files = [i for i in out_files if not os.path.exists(out_files)]
         if len(out_files) == 0:
             return
+        out_files_str = ' '.join(out_files)
 
     if tree == 'cellphy':
         tree_file = vcf_file + '.raxml.bestTree'
@@ -76,7 +79,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         print(f'!WARNING! Missing {tree: >7} tree file: {tree_file}')
         return
 
-    cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_files} ' \
+    cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_files_str} ' \
         f'-w {w_max_str} -b'
 
     run_bash(cmd, bsub)
