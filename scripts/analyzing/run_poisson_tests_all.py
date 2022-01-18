@@ -7,7 +7,7 @@ import pandas as pd
 import subprocess
 
 
-MODULE_STR = 'module load ete'
+MODULE_STR = 'module load ete;'
 
 
 def run_bash(cmd_raw, bsub=True):
