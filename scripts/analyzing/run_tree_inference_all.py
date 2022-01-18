@@ -143,7 +143,7 @@ if __name__ == '__main__':
                     # Filter
                     else:
                         if not os.path.exists(vcf_file) or args.replace:
-                            base_file = os.path.join(vcf_dir, f'{data_set}.all.vcf.gz')
+                            base_file = os.path.join(vcf_dir, f'{data_set}.all_outg.vcf.gz')
                             flt_val = float(data_filter[:2]) / 100
                             flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
                                 f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \

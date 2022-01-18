@@ -73,7 +73,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
     elif tree == 'scite':
         vcf_dir = os.path.dirname(vcf_file)
         tree_file = os.path.join(vcf_dir, 'scite_dir',
-            f'{dataset}.{filters}_ml0.newick')
+            f'{dataset}.{filters}_outg_ml0.newick')
     else:
         raise RuntimeError(f'Unknown tree file: {tree}')
 
