@@ -51,7 +51,6 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
     w_max = np.arange(100, 1001, 100)
     w_max_str = ' '.join([str(i) for i in w_max])
 
-
     out_files = [os.path.join(args.out_dir,
             f'Poisson_tree_{tree}_w{i}_{dataset}_{subset}_{filters}.tsv') \
         for i in w_max]
@@ -61,7 +60,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
         return out_files
 
     if not replace:
-        out_files = [i for i in out_files if not os.path.exists(out_files)]
+        out_files = [i for i in out_files if not os.path.exists(i)]
         if len(out_files) == 0:
             return
         out_files_str = ' '.join(out_files)
