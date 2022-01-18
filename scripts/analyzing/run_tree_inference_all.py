@@ -11,7 +11,7 @@ base_dir = '/home/uvi/be/nbo/data/data/'
 
 data_dirs = {
     'H65_Monica': ['all', 'cancer'],
-    'Li55': ['all', 'BGI_BN-2', 'normal'],
+    'Li55': ['all', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
