@@ -29,12 +29,12 @@ def run_bash(cmd_raw, bsub=True):
     print('\n')
 
 
-def run_poisson_disp(vcf_files, exe, out_dir, replace):
+def run_poisson_disp(vcf_files, exe, out_dir, replace, bsub):
     out_file = os.path.join(out_dir, 'Poisson_dispersion_all.tsv')
     if not replace and os.path.exists(out_file):
         return
     cmd = f'python {exe} {" ".join(vcf_files)} -o {out_file} -b'
-    run_bash(cmd)
+    run_bash(cmd, bsub)
 
 
 def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
@@ -163,7 +163,8 @@ if __name__ == '__main__':
 
     if args.mode == 'run':
         if args.tests == 'both' or args.tests == 'dispersion':
-            run_poisson_disp(vcf_files, args.exe_disp, args.out_dir, args.replace)
+            run_poisson_disp(vcf_files, args.exe_disp, args.out_dir,
+                args.replace, args.local)
 
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
