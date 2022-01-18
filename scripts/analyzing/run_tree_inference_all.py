@@ -170,11 +170,11 @@ if __name__ == '__main__':
                     )
 
                 scite_out = os.path.join(vcf_dir, 'scite_dir',
-                    f'{data_set}.{data_filter}_ml0.newick')
+                    f'{data_set}.{data_filter}_outg_ml0.newick')
                 if not os.path.exists(scite_out) or args.replace:
                     tree_cmds.append(
                         (f"python3 {scite_script} -e {scite_exe} -s 1000000 " \
-                            f"--verbose -p {data_set}.{data_filter} {vcf_file}",
+                            f"--verbose -p {data_set}.{data_filter}_outg {vcf_file}",
                         scite_time, scite_mem)
                     )
 
