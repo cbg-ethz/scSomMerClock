@@ -104,7 +104,9 @@ def merge_datasets(disp_file, tree_files, out_dir):
             tree = os.path.basename(tree_file).split('_')[2]
             weight = os.path.basename(tree_file).split('_')[3].lstrip('w')
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
-            drop_cols = [i for i in df_tree.columns if 'hypothesis' in i]
+            drop_cols = [i for i in df_tree.columns \
+                if 'hypothesis' in i or '-2logLR' in i]
+
             df_tree.drop(drop_cols, axis=1, inplace=True)
             df_tree.columns = [f'{i}.tree.{tree}.{weight}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name

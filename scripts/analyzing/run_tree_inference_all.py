@@ -100,7 +100,8 @@ if __name__ == '__main__':
     if args.master:
         print_masterlist(args.master)
     if args.check:
-        all_exist = True
+        vcf_exist = True
+        tree_exist = True
 
     # Iterate data sets
     for data_dir, sub_dirs in data_dirs.items():
@@ -115,10 +116,20 @@ if __name__ == '__main__':
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
+                cellphy_out = vcf_file + '.raxml.bestTree'
+                scite_out = os.path.join(vcf_dir, 'scite_dir',
+                    f'{data_set}.{data_filter}_outg_ml0.newick')
+
                 if args.check:
                     if not os.path.exists(vcf_file):
                         print(f'Missing: {vcf_file}')
                         all_exist = False
+                    if not os.path.exists(cellphy_out):
+                        print(f'Missing: {cellphy_out}')
+                        tree_exist = False
+                    if not path.exists(scite_out):
+                        print(f'Missing: {scite_out}')
+                        tree_exist = False
                     continue
 
                 # Copy file from monicas dir
@@ -162,15 +173,12 @@ if __name__ == '__main__':
 
 
                 tree_cmds = []
-                cellphy_out = vcf_file + '.raxml.bestTree'
                 if not os.path.exists(cellphy_out) or args.replace:
                     tree_cmds.append(
                         (f"{cellphy_exe} SEARCH -r -t 1 -z -l {vcf_file}",
                             cellphy_time, cellphy_mem)
                     )
 
-                scite_out = os.path.join(vcf_dir, 'scite_dir',
-                    f'{data_set}.{data_filter}_outg_ml0.newick')
                 if not os.path.exists(scite_out) or args.replace:
                     tree_cmds.append(
                         (f"python3 {scite_script} -e {scite_exe} -s 1000000 " \
@@ -184,5 +192,7 @@ if __name__ == '__main__':
                     else:
                         run_bash(cmd, True, time, mem)
 
-    if args.check and all_exist:
+    if args.check and vcf_exist:
+        print('All vcf files exist')
+    if args.check and tree_exist:
         print('All tree files exist')
