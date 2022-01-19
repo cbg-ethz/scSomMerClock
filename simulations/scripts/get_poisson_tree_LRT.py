@@ -311,7 +311,6 @@ def show_tree(tree, out_file, w_idx=0):
         except:
             tree.render(out_file, dpi=300, w=183, units="mm")
             print(f'Simple Tree written to: {out_file}')
-
     else:
         tree.show(tree_style=ts)
 
@@ -866,7 +865,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
     w_cols = ['-2logLR', 'dof', 'p-value', 'hypothesis']
 
     call_data = get_mut_df(vcf_file, exclude, include)
-    for w_max, out_file in zip(w_maxs, out_files):
+    for w_max in w_maxs:
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max)
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
@@ -884,7 +883,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
 
-    with open(out_file, 'w') as f_out:
+    summary_file = re.sub('(?<=_)w\d+_', '', out_files[0])
+    with open(summary_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 
     # NOTE: has to be here, otherwise subprocess calling script fails
@@ -896,7 +896,8 @@ def parse_args():
     parser.add_argument('vcf', type=str, help='SNP file in vcf format')
     parser.add_argument('tree', type=str, help='Tree file in newick format')
     parser.add_argument('-o', '--output', type=str, default='', nargs='+',
-        help='Output file(s). 1 file per w_max value')
+        help='Output file(s). 1 file per w_max for simulations, '\
+            '1 file for biological data')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
