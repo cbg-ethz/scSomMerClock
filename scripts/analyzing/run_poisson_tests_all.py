@@ -211,13 +211,12 @@ if __name__ == '__main__':
         merge_datasets(disp_file, poisson_tree_files, args.out_dir)
 
     else:
-        comp_dir = f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed'
-        os.mkdir(os.path.join(args.out_dir, comp_dir))
+        comp_dir = os.path.join(args.out_dir,
+            f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
         print(f'Writing files to: {comp_dir}.tar.gz')
 
-        summary_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
-        shutil.copyfile(summary_file,
-            os.path.join(args.out_dir, comp_dir, 'Summary_biological_data.tsv'))
+        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
+        tar.add(os.path.join(args.out_dir, 'Summary_biological_data.tsv'))
 
         poisson_tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
@@ -226,12 +225,8 @@ if __name__ == '__main__':
         for poisson_tree_file in poisson_tree_files:
             if not 'w500' in poisson_tree_file:
                 continue
-            base_name = os.path.basename(poisson_tree_file)
-            shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
-                os.path.join(args.out_dir, comp_dir, base_name + '_w500_mapped.png'))
+            tar.add(poisson_tree_file + '_w500_mapped.png')
 
-        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
-        tar.add(comp_dir)
         tar.close()
 
 
