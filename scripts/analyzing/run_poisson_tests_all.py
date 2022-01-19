@@ -191,9 +191,9 @@ if __name__ == '__main__':
                 filters = file_ids[1]
 
                 tree_files.append(os.path.join(args.out_dir,
-                    f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv')
-                tree_files.append(args.out_dir,
-                    f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv')
+                    f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv'))
+                tree_files.append(os.path.join(args.out_dir,
+                    f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv'))
         merge_datasets(disp_file, tree_files, args.out_dir)
 
     else:
