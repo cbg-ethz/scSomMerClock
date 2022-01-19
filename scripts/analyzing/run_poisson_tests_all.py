@@ -212,7 +212,7 @@ if __name__ == '__main__':
                 continue
             base_name = os.path.basename(tree_file)
             shutil.copyfile(tree_file + '_w500_mapped.png',
-                os.path.join(args.out_dir, comp_dir, base_name + '_w500_mapped.png')
+                os.path.join(args.out_dir, comp_dir, base_name + '_w500_mapped.png'))
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
