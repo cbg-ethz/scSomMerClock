@@ -137,9 +137,9 @@ def get_poisson_tree_files(vcf_files):
         filters = file_ids[1]
 
         files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv'))
+            f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}.tsv'))
         files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv'))
+            f'Poisson_tree_scite_{dataset}_{subset}_{filters}.tsv'))
     return files
 
 
