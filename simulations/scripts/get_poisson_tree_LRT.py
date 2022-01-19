@@ -288,6 +288,7 @@ def show_tree(tree, out_file, w_idx=0):
     ts.margin_bottom = 0
     ts.root_opening_factor = 0
     ts.optimal_scale_level = 'full'
+    # ts.force_topology = True
 
     if out_file:
         ts.show_border = True
@@ -304,7 +305,11 @@ def show_tree(tree, out_file, w_idx=0):
 
         ts.legend.add_face(ImgFace(cmap_file, width = 600), column=0)
         ts.legend_position = 4
-        tree.render(out_file, tree_style=ts, dpi=300, w=183, units="mm")
+        try:
+            tree.render(out_file, tree_style=ts, dpi=300, w=183, units="mm")
+            print(f'Tree written to: {out_file}')
+        except:
+            print(f'Cannot write tree: {out_file}')
     else:
         tree.show(tree_style=ts)
 
