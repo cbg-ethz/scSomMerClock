@@ -126,6 +126,34 @@ def merge_datasets(disp_file, tree_files, out_dir):
     df.to_csv(out_file, sep='\t')
 
 
+def get_poisson_tree_files(vcf_files):
+    files = []
+    for vcf_file in vcf_files:
+        path_strs = vcf_file.split(os.path.sep)
+        clock_dir_no = path_strs.index('ClockTest')
+        subset = path_strs[clock_dir_no + 1]
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
+
+        files.append(os.path.join(args.out_dir,
+            f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv'))
+        files.append(os.path.join(args.out_dir,
+            f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv'))
+    return files
+
+
+def get_summary_files(vcf_files):
+    files = []
+    for vcf_file in vcf_files:
+        path_strs = vcf_file.split(os.path.sep)
+        clock_dir_no = path_strs.index('ClockTest')
+        subset = path_strs[clock_dir_no + 1]
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=str,  help='vcf master file')
@@ -148,22 +176,6 @@ def parse_args():
         help='Overwrite already existing files.')
     args = parser.parse_args()
     return args
-
-
-def get_tree_files(vcf_files):
-    files = []
-    for vcf_file in vcf_files:
-        path_strs = vcf_file.split(os.path.sep)
-        subset = path_strs[clock_dir_no + 1]
-        file_ids = path_strs[-1].split('.')
-        dataset = file_ids[0]
-        filters = file_ids[1]
-
-        files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv'))
-        files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv'))
-    return files
 
 
 if __name__ == '__main__':
@@ -192,10 +204,10 @@ if __name__ == '__main__':
         else:
             disp_file = None
 
-        tree_files = []
+        poisson_tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
-            tree_files.extend(get_tree_files(vcf_files))
-        merge_datasets(disp_file, tree_files, args.out_dir)
+            poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
+        merge_datasets(disp_file, poisson_tree_files, args.out_dir)
 
     else:
         comp_dir = f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed'
@@ -206,15 +218,15 @@ if __name__ == '__main__':
         shutil.copyfile(summary_file,
             os.path.join(args.out_dir, comp_dir, 'Summary_biological_data.tsv'))
 
-        tree_files = []
+        poisson_tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
-            tree_files.extend(get_tree_files(vcf_files))
+            poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
 
-        for tree_file in tree_files:
-            if not 'w500' in tree_file:
+        for poisson_tree_file in poisson_tree_files:
+            if not 'w500' in poisson_tree_file:
                 continue
-            base_name = os.path.basename(tree_file)
-            shutil.copyfile(tree_file + '_w500_mapped.png',
+            base_name = os.path.basename(poisson_tree_file)
+            shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
                 os.path.join(args.out_dir, comp_dir, base_name + '_w500_mapped.png'))
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
