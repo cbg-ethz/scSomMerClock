@@ -127,7 +127,7 @@ if __name__ == '__main__':
                     if not os.path.exists(cellphy_out):
                         print(f'Missing: {cellphy_out}')
                         tree_exist = False
-                    if not path.exists(scite_out):
+                    if not os.path.exists(scite_out):
                         print(f'Missing: {scite_out}')
                         tree_exist = False
                     continue
