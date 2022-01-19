@@ -14,7 +14,6 @@ from scipy.special import binom as binomCoeff
 from scipy.optimize import minimize
 
 from ete3 import Tree
-from tqdm import tqdm
 
 
 LAMBDA_MIN = 1e-6
@@ -495,7 +494,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
 
     errors = np.log([1 - FN, FP, 1 - FP, FN])
     M = np.zeros((muts_in.shape[0], S.shape[0]))
-    for i, mut in tqdm(enumerate(muts)):
+    for i, mut in enumerate(muts):
         mut_data = np.stack([
             np.nansum(S * mut, axis=1), # TP
             np.nansum(S_inv * mut, axis=1), # FP
