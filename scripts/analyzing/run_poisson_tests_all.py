@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import datetime
 import numpy as np
 import os
 import pandas as pd
 import subprocess
+import tarfile
 
 
 MODULE_STR = 'module load ete;'
@@ -100,9 +102,11 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 print(f'!WARNING! Missing tree file: {tree_file}')
                 continue
             tree = os.path.basename(tree_file).split('_')[2]
+            weight = os.path.basename(tree_file).split('_')[3].lstrip('w')
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
-            df_tree.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
-            df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
+            drop_cols = [i for i in df_tree.columns if 'hypothesis' in i]
+            df_tree.drop(drop_cols, axis=1, inplace=True)
+            df_tree.columns = [f'{i}.tree.{tree}.{weight}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
             if dataset in df_trees.index:
                 try:
@@ -134,8 +138,9 @@ def parse_args():
     parser.add_argument('-i', '--input', type=str,  help='vcf master file')
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
-    parser.add_argument('-m', '--mode', type=str, choices=['run', 'merge'],
-        default='run', help='Which task to do: run (on hpc)|merge')
+    parser.add_argument('-m', '--mode', type=str,
+        choices=['run', 'merge', 'compress'],
+        default='run', help='Which task to do: run (on hpc)|merge|compress')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
@@ -172,7 +177,7 @@ if __name__ == '__main__':
                     bsub=args.local)
                 run_poisson_tree('scite', vcf_file, args, args.replace,
                     bsub=args.local)
-    else:
+    elif args.mode == 'merge':
         if args.tests == 'both' or args.tests == 'dispersion':
             disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
         else:
@@ -181,10 +186,38 @@ if __name__ == '__main__':
         tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
-                tree_files.extend(run_poisson_tree('cellphy', vcf_file, args,
-                    args.replace, only_name=True))
-                tree_files.extend(run_poisson_tree('scite', vcf_file, args,
-                    args.replace, only_name=True))
+                tree_files.append(run_poisson_tree('cellphy', vcf_file, args,
+                    args.replace, only_name=True)[-1])
+                tree_files.append(run_poisson_tree('scite', vcf_file, args,
+                    args.replace, only_name=True)[-1])
         merge_datasets(disp_file, tree_files, args.out_dir)
+    else:
+        comp_dir = f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed'
+        os.mkdir(os.path.join(args.out_dir, comp_dir))
+        print(f'Writing files to: {comp_dir}.tar.gz')
+
+        summary_file = os.path.join(out_dir, 'Summary_biological_data.tsv')
+        shutil.copyfile(summary_file,
+            os.path.join(args.out_dir, comp_dir, 'Summary_biological_data.tsv'))
+
+        tree_files = []
+        if args.tests == 'both' or args.tests == 'tree':
+            for vcf_file in vcf_files:
+                tree_files.append(run_poisson_tree('cellphy', vcf_file, args,
+                    args.replace, only_name=True))
+                tree_files.append(run_poisson_tree('scite', vcf_file, args,
+                    args.replace, only_name=True))
+        for tree_file in tree_files:
+            if not 'w500' in tree_file:
+                continue
+            base_name = os.path.basename(tree_file)
+            shutil.copyfile(tree_file + '_w500_mapped.png',
+                os.path.join(args.out_dir, comp_dir, base_name + '_w500_mapped.png')
+
+        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
+        tar.add(comp_dir)
+        tar.close()
+
+
 
 
