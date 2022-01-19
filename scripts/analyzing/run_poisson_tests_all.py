@@ -39,7 +39,7 @@ def run_poisson_disp(vcf_files, exe, out_dir, replace, bsub):
     run_bash(cmd, bsub)
 
 
-def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
+def run_poisson_tree(tree, vcf_file, args, replace, bsub=True):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -60,9 +60,6 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True, only_name=False):
             f'Poisson_tree_{tree}_w{i}_{dataset}_{subset}_{filters}.tsv') \
         for i in w_max]
     out_files_str = ' '.join(out_files)
-
-    if only_name:
-        return out_files
 
     if not replace:
         out_files = [i for i in out_files if not os.path.exists(i)]
@@ -106,7 +103,6 @@ def merge_datasets(disp_file, tree_files, out_dir):
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
             drop_cols = [i for i in df_tree.columns \
                 if 'hypothesis' in i or '-2logLR' in i]
-
             df_tree.drop(drop_cols, axis=1, inplace=True)
             df_tree.columns = [f'{i}.tree.{tree}.{weight}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
@@ -188,11 +184,18 @@ if __name__ == '__main__':
         tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
-                tree_files.append(run_poisson_tree('cellphy', vcf_file, args,
-                    args.replace, only_name=True)[-1])
-                tree_files.append(run_poisson_tree('scite', vcf_file, args,
-                    args.replace, only_name=True)[-1])
+                path_strs = vcf_file.split(os.path.sep)
+                subset = path_strs[clock_dir_no + 1]
+                file_ids = path_strs[-1].split('.')
+                dataset = file_ids[0]
+                filters = file_ids[1]
+
+                tree_files.append(os.path.join(args.out_dir,
+                    f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}_outg.tsv')
+                tree_files.append(args.out_dir,
+                    f'Poisson_tree_scite_{dataset}_{subset}_{filters}_outg.tsv')
         merge_datasets(disp_file, tree_files, args.out_dir)
+
     else:
         comp_dir = f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed'
         os.mkdir(os.path.join(args.out_dir, comp_dir))
