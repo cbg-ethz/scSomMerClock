@@ -309,7 +309,9 @@ def show_tree(tree, out_file, w_idx=0):
             tree.render(out_file, tree_style=ts, dpi=300, w=183, units="mm")
             print(f'Tree written to: {out_file}')
         except:
-            print(f'Cannot write tree: {out_file}')
+            tree.render(out_file, dpi=300, w=183, units="mm")
+            print(f'Simple Tree written to: {out_file}')
+
     else:
         tree.show(tree_style=ts)
 
