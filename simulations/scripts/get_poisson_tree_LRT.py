@@ -72,7 +72,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
                 continue
             elif line.strip() == '':
                 continue
-            import pdb; pdb.set_trace()
+
             # VCF records
             line_cols = line.strip().split('\t')
             # dims: 0 het, 1 hom, 2 true
