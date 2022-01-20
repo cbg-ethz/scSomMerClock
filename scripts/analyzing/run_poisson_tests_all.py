@@ -281,11 +281,13 @@ if __name__ == '__main__':
             new_name = old_name \
                 .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '.cellphy') \
                 .replace('_outg_ml0.newick_w500_mapped.png', '.scite')
-            import pdb; pdb.set_trace()
+
             dataset, filters, tree = new_name.split('.')
             new_name = f'{dataset}_{path_parts[-2]}_{filters}_{tree}.png'
             new_file = os.path.join(comp_dir, new_name)
-            print(f'Copying: {old_file}')
+            if not os.path.exists(old_file):
+                print(f'\tMissing file: {old_file}')
+                continue
             run_bash(f'cp {old_file} {new_file}', False)
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
