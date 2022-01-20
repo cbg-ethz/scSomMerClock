@@ -216,6 +216,8 @@ if __name__ == '__main__':
         print(f'Writing files to: {comp_dir}.tar.gz')
         os.mkdir(comp_dir)
 
+        print('Copying: '\
+            f'{os.path.join(args.out_dir, "Summary_biological_data.tsv")}')
         shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
             os.path.join(comp_dir, 'Summary_biological_data.tsv'))
 
@@ -226,7 +228,7 @@ if __name__ == '__main__':
         for poisson_tree_file in poisson_tree_files:
             if not 'w500' in poisson_tree_file:
                 continue
-
+            print(f'Copying: {poisson_tree_file + "_w500_mapped.png"}')
             shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
                 os.path.join(comp_dir, poisson_tree_file + '_w500_mapped.png'))
 
