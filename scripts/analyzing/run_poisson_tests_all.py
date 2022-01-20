@@ -160,6 +160,7 @@ def merge_datasets(disp_file, tree_files, out_dir):
     dof_cols = [i for i in df.columns if 'dof' in i]
     df.rename({dof_cols[0]: 'dof'}, axis=1, inplace=True)
     df.drop(dof_cols[1:], axis=1, inplace=True)
+    df.sort_index(inplace=True)
 
     out_file = os.path.join(out_dir, 'Summary_biological_data.tsv')
     df.to_csv(out_file, sep='\t')
