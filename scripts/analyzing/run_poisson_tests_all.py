@@ -226,8 +226,6 @@ if __name__ == '__main__':
             poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
 
         for poisson_tree_file in poisson_tree_files:
-            if not 'w500' in poisson_tree_file:
-                continue
             print(f'Copying: {poisson_tree_file + "_w500_mapped.png"}')
             shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
                 os.path.join(comp_dir, poisson_tree_file + '_w500_mapped.png'))
