@@ -216,7 +216,7 @@ if __name__ == '__main__':
         print(f'Writing files to: {comp_dir}.tar.gz')
 
         shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
-            os.path.join(args.out_dir, comp_dir, 'Summary_biological_data.tsv'))
+            os.path.join(comp_dir, 'Summary_biological_data.tsv'))
 
         poisson_tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
@@ -227,8 +227,7 @@ if __name__ == '__main__':
                 continue
 
             shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
-                os.path.join(args.out_dir, comp_dir,
-                    poisson_tree_file + '_w500_mapped.png'))
+                os.path.join(comp_dir, poisson_tree_file + '_w500_mapped.png'))
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
