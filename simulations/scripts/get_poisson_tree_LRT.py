@@ -248,17 +248,19 @@ def get_stats(df, true_df, binary=True, per_cell=False, verbose=False):
         'MS_T': MS_T}
 
 
-def show_tree(tree, out_file, w_idx=0):
+def show_tree(tree, out_file='', w_idx=0):
     from ete3 import TreeStyle, NodeStyle, ImgFace
     import matplotlib.pyplot as plt
     from matplotlib import cm
     from matplotlib.colors import rgb2hex
 
     cmap =cm.get_cmap('RdYlBu_r')
-    weights = []
-    for node in tree.traverse():
+    weights = np.zeros(2 * len(tree) - 1)
+    lengths = np.zeros(2 * len(tree) - 1)
+    for i, node in enumerate(tree.iter_descendants()):
         node.support = node.weights_norm[w_idx]
-        weights.append(node.support)
+        weights[i] = node.support
+        lengths[i] = node.dist
         if node.weights_norm_z[w_idx] == -1:
             color_hex = '#000000'
         else:
@@ -271,13 +273,14 @@ def show_tree(tree, out_file, w_idx=0):
         style["vt_line_width"] = 4
         style["hz_line_width"] = 4
         node.img_style = style
-    weights = np.array(weights)
     root = tree.get_tree_root().children[0]
-    root.dist = 0
+    root.dist = 1
 
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
-    ts.rotation = 90
+    # ts.arc_span = 180
+    # ts.root_opening_factor = 0.1
+    # ts.rotation = 90
     ts.show_leaf_name = True
     ts.show_branch_support = True
     ts.show_branch_length = True
@@ -285,30 +288,39 @@ def show_tree(tree, out_file, w_idx=0):
     ts.margin_right = 0
     ts.margin_top = 0
     ts.margin_bottom = 0
-    ts.root_opening_factor = 0
-    ts.optimal_scale_level = 'full'
+    # ts.optimal_scale_level = 'full'
     # ts.force_topology = True
 
-    if out_file:
-        ts.show_border = True
-        # Plot cMap to file
-        cmap_file = os.path.splitext(out_file)[0] + '.cmap.png'
-        colors = cmap(np.arange(cmap.N))
-        fig, ax = plt.subplots(figsize=(6, 2),
-            subplot_kw=dict(xticks=[0, 5, 10], yticks=[]))
-        cax = ax.imshow([colors], extent=[0, 10, 0, 1])
-        ax.set_xticklabels([f'{weights[weights >= 0].min():.2f}', f'{1:.2f}',
-            f'{weights.max():.2f}'])
-        fig.subplots_adjust(left=0.05, bottom=0, right=0.95, top=1)
-        fig.savefig(cmap_file, dpi=300)
+    leaves = tree.get_leaves()
+    leaf_root_dist = np.zeros(len(leaves))
+    for i, node in enumerate(leaves):
+        while node:
+           leaf_root_dist[i] += node.dist
+           node = node.up
+    h = (max(leaf_root_dist) - min(leaf_root_dist)) / 400
+    # ts.scale = 1 / max(leaf_root_dist) * 5
 
-        ts.legend.add_face(ImgFace(cmap_file, width = 600), column=0)
-        ts.legend_position = 4
+    if out_file:
+        # ts.show_border = True
+        # Plot cMap to file
+        # cmap_file = os.path.splitext(out_file)[0] + '.cmap.png'
+        # colors = cmap(np.arange(cmap.N))
+        # fig, ax = plt.subplots(figsize=(5, 1),
+        #     subplot_kw=dict(xticks=[0, 5, 10], yticks=[]))
+        # cax = ax.imshow([colors], extent=[0, 10, 0, 1])
+        # ax.set_xticklabels([f'{weights[weights >= 0].min():.2f}', f'{1:.2f}',
+        #     f'{weights.max():.2f}'],fontsize=24)
+        # fig.subplots_adjust(left=0.1, bottom=0, right=0.9, top=1.5)
+        # fig.savefig(cmap_file, dpi=300)
+
+        # ts.legend.add_face(ImgFace(cmap_file, height=40), column=0)
+        # ts.legend_position = 4
+
         try:
-            tree.render(out_file, tree_style=ts, dpi=300, w=183, units="mm")
+            tree.render(out_file, tree_style=ts, w=1200, units='px')
             print(f'Tree written to: {out_file}')
         except:
-            tree.render(out_file, dpi=300, w=183, units="mm")
+            tree.render(out_file, dpi=300, h=h, units='mm')
             print(f'Simple Tree written to: {out_file}')
     else:
         tree.show(tree_style=ts)
@@ -405,7 +417,7 @@ def read_tree(tree_file, samples=[]):
 
     # Initialize node attributes on tree
     weight_no = 2
-    for i, node in enumerate(tree.traverse()):
+    for i, node in enumerate(tree.iter_descendants()):
         node.add_features(
             in_length=node.dist,
             muts_br=set([]),
@@ -466,10 +478,10 @@ def _normalize_log_probs(probs, return_normal=True):
         return probs_norm
 
 
-def _get_S(tree, cells, add_zeros=True):
-    n = cells.size
+def map_mutations_gt(tree, muts_in, FP, FN):
+    n = muts_in.shape[1]
     node_map = {}
-    S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=cells)
+    S = pd.DataFrame(data=np.zeros((2 * n - 1, n)), columns=muts_in.columns)
     # Get leaf nodes of each internal node
     for i, node in enumerate(tree.iter_descendants()):
         node_map[i] = node
@@ -477,14 +489,8 @@ def _get_S(tree, cells, add_zeros=True):
         S.loc[i, leaf_nodes] = 1
 
     S = S.values
-    if add_zeros:
-        S = np.vstack([S, np.zeros(n)])
+    S = np.vstack([S, np.zeros(n)])
     S_inv = 1 - S
-    return S, S_inv, node_map
-
-
-def map_mutations_gt(tree, muts_in, FP, FN):
-    S, S_inv, node_map = _get_S(tree, muts_in.columns)
 
     idx_map = muts_in.index.values
     nans = np.isnan(muts_in).values
@@ -533,29 +539,21 @@ def add_br_weights(tree, FP, FN, w_max):
         cells = [leaf_map[i] for i in node.name.split('+')]
         S[i, cells] = 1
 
-    # Add zero line for wildtype probabilities
-    S = np.vstack([S, np.zeros(m)])
-    S_inv = 1 - S
-
     l_TN = np.log(1 - FP)
     l_FN = np.log(FN)
     weights = np.zeros((n, 2), dtype=float)
 
-    for i, y in enumerate(S):
-        if i >= n:
-            continue
+    t = S.sum(axis=1)
+    p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
+    p_noADO = 1 - p_ADO
 
-        t = y.sum()
-        p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
-        p_noADO = 1 - p_ADO
-
-        # weight 0: inv variance
-        weights[i, 0] = min(w_max, 1 / (p_noADO * p_ADO))
-        # weight 1: odds ratio
-        weights[i, 1] = min(w_max, p_noADO / p_ADO)
+    # weight 0: inv variance
+    weights[:,0] = np.clip(1 / (p_noADO * p_ADO), None, w_max)
+    # weight 1: odds ratio
+    weights[:,1] = np.clip(p_noADO / p_ADO, None, w_max)
 
     # Drop root weight
-    root_id = np.argmax(S.sum(axis=1))
+    root_id = np.argwhere(t == m).flatten()[0]
     weights = np.delete(weights, root_id, axis=0)
     nodes.remove(nodes[root_id])
 
@@ -624,7 +622,7 @@ def get_model_data(tree, pseudo_mut=0, true_data=False):
     # Dimensions: 0 soft assignment; 1 hard assignment
     Y = np.zeros((2, br_no), dtype=float)
     init = np.zeros(br_no, dtype=float)
-    weights_norm = np.zeros((br_no, tree.weights.size), dtype=float)
+    weights_norm = np.zeros((br_no, tree.get_tree_root().children[0].weights.size))
     constr = np.zeros((leaf_no - 1, br_no), dtype=int)
     constr_cols = []
     br_cells = {}
@@ -781,7 +779,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
         print('WARNING: init values unchanged -> optimization likely failed.')
 
     ll_H0 = np.nansum((Y * np.log(opt.x) - opt.x) * weights)
-    dof = weights.sum() - constr.shape[0]
+    dof = round(weights.sum() - constr.shape[0])
     LR = -2 * (ll_H0 - ll_H1)
 
     on_bound = np.sum(opt.x <= LAMBDA_MIN ** 0.5)
