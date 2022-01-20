@@ -242,8 +242,11 @@ if __name__ == '__main__':
 
         for plot_file in plot_files:
             print(f'Copying: {plot_file + "_w500_mapped.png"}')
-            shutil.copyfile(plot_file + '_w500_mapped.png',
-                os.path.join(comp_dir, plot_file + '_w500_mapped.png'))
+            try:
+                shutil.copyfile(plot_file + '_w500_mapped.png',
+                    os.path.join(comp_dir, plot_file + '_w500_mapped.png'))
+            except FileNotFoundError:
+                print('\t!WARNING! - Missing')
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
