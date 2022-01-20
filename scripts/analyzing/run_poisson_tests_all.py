@@ -278,12 +278,19 @@ if __name__ == '__main__':
         for old_file in get_plot_files(vcf_files):
             path_parts = old_file.split(os.path.sep)
             old_name = path_parts[-1]
-            new_name = old_name \
-                .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '.cellphy') \
-                .replace('_outg_ml0.newick_w500_mapped.png', '.scite')
+            if 'scite' in path_parts:
+                tree == 'scite'
+                subset = path_parts[-3]
+                new_name = old_name \
+                    .replace('_outg_ml0.newick_w500_mapped.png', '')
+            else:
+                tree == 'cellphy'
+                subset = path_parts[-2]
+                new_name = old_name \
+                    .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
 
-            dataset, filters, tree = new_name.split('.')
-            new_name = f'{dataset}_{path_parts[-2]}_{filters}_{tree}.png'
+            dataset, filters = new_name.split('.')
+            new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
             new_file = os.path.join(comp_dir, new_name)
             if not os.path.exists(old_file):
                 print(f'\tMissing file: {old_file}')
