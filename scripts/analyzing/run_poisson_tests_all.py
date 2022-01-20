@@ -16,9 +16,9 @@ MODULE_STR = 'module load ete;'
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
         cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
-            f"--wrap '{MODULE_STR} {cmd_raw}'"
+            f"--wrap '{module_str} {cmd_raw}'"
     else:
-        cmd = f'{MODULE_STR} {cmd_raw}'
+        cmd = f'{module_str} {cmd_raw}'
 
     print(f'Running:\n{cmd}')
     subp = subprocess.Popen(cmd,
