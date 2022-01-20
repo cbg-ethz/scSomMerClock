@@ -121,7 +121,6 @@ def run_plotting(vcf_files, args):
             run_bash(cmd, args.local)
 
 
-
 def merge_datasets(disp_file, tree_files, out_dir):
     if disp_file:
         df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1, 2])
@@ -135,12 +134,11 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 print(f'!WARNING! Missing tree file: {tree_file}')
                 continue
             tree = os.path.basename(tree_file).split('_')[2]
-            weight = os.path.basename(tree_file).split('_')[3].lstrip('w')
             df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
             drop_cols = [i for i in df_tree.columns \
                 if 'hypothesis' in i or '-2logLR' in i]
             df_tree.drop(drop_cols, axis=1, inplace=True)
-            df_tree.columns = [f'{i}.tree.{tree}.{weight}' for i in df_tree.columns]
+            df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
             dataset = df_tree.iloc[0].name
             if dataset in df_trees.index:
                 try:
@@ -151,7 +149,7 @@ def merge_datasets(disp_file, tree_files, out_dir):
                 try:
                     df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
                 except KeyError:
-                    df_trees = df_tree
+                    df_trees = df_trees.append(df_tree)
 
     if disp_file and tree_files:
         df = df_disp.merge(df_trees, left_index=True, right_index=True)
