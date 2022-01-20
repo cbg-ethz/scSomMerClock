@@ -93,9 +93,6 @@ def run_plotting(vcf_files, args):
 
         w_max = 500
 
-        out_file = os.path.join(args.out_dir,
-            f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
-
         cellphy_tree = vcf_file + '.raxml.bestTree'
         cellphy_plot = cellphy_tree + f'_w{w_max}_mapped.png'
         if os.path.exists(cellphy_plot) and not args.replace:
