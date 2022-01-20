@@ -49,20 +49,19 @@ elif isinstance(dataFilter_cfg, str):
             dataFilters['master'] = dataFilter_cfg
 
 
-def get_all_files(wildcards):
-    files = []
-    if config['sieve'].get('sciphi', {}).get('run', False):
-        files.append(os.path.join(OUT_DIR, 'SciPhi_merged.tsv'))
-    if config['sieve'].get('dataFilter', {}).get('run', False):
-        for filter_name in dataFilters.keys():
-            files.append(os.path.join(OUT_DIR, filter_name,
-                'dataFilter_merged.tsv'))
-    return files
+
+final_files = []
+if config['sieve'].get('sciphi', {}).get('run', False):
+    final_files.append(os.path.join(OUT_DIR, 'SciPhi_merged.tsv'))
+if config['sieve'].get('dataFilter', {}).get('run', False):
+    final_files.append(os.path.join(OUT_DIR, '{dataFilter}',
+        'dataFilter_merged.tsv'))
+print(final_files)
 
 
 rule all:
     input:
-        get_all_files
+        expand(os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv'), dataFilter=dataFilters.keys())
 
 
 if 'CRC08' in DATA_DIR or 'CRC09' in DATA_DIR:
@@ -171,8 +170,8 @@ rule run_dataFilter:
 
 rule concatenate_dataFilter:
     input:
-        expand(os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter.{chr}.tsv'),
-            chr=CHROM, dataFilter=dataFilters.keys())
+        expand(os.path.join(OUT_DIR, '{{dataFilter}}', 'dataFilter.{chr}.tsv'),
+            chr=CHROM)
     output:
         os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv')
     resources:
