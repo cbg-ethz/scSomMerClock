@@ -272,23 +272,23 @@ if __name__ == '__main__':
 
         old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
         new_file = os.path.join(comp_dir, os.path.basename(old_file))
-        print('Copying: {old_file}')
         run_bash(f'cp {old_file} {new_file}', False, '')
 
         for old_file in get_plot_files(vcf_files):
             path_parts = old_file.split(os.path.sep)
             old_name = path_parts[-1]
-            if 'scite' in path_parts:
+            if 'scite_dir' in path_parts:
                 tree = 'scite'
                 subset = path_parts[-3]
                 new_name = old_name \
                     .replace('_outg_ml0.newick_w500_mapped.png', '')
+                              _outg_ml0.newick_w500_mapped.png
             else:
                 tree = 'cellphy'
                 subset = path_parts[-2]
                 new_name = old_name \
                     .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
-            print(new_name)
+
             dataset, filters = new_name.split('.')
             new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
             new_file = os.path.join(comp_dir, new_name)
