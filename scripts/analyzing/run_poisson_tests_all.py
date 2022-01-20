@@ -91,6 +91,9 @@ def run_plotting(vcf_files, args):
         dataset = file_ids[0]
         filters = file_ids[1]
 
+        if subset == 'all':
+            continue
+
         w_max = 500
 
         cellphy_tree = vcf_file + '.raxml.bestTree'
