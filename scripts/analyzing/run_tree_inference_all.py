@@ -166,7 +166,7 @@ if __name__ == '__main__':
                             'all', vcf_name)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                            f'--force-samples -O z -o {vcf_file} {base_file} ' \
+                            f'{vcf_file} {base_file} ' \
                             f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd, False)
 
