@@ -94,7 +94,7 @@ def run_plotting(vcf_files, args):
         w_max = 500
 
         cellphy_tree = vcf_file + '.raxml.bestTree'
-        cellphy_plot = cellphy_tree + f'_w{w_max}_mapped.png'
+        cellphy_plot = cellphy_tree + f'_w{w_max:.0f}_mapped.png'
         if os.path.exists(cellphy_plot) and not args.replace:
             print(f'\tTree file exists: {cellphy_plot}')
         elif not os.path.exists(cellphy_tree):
@@ -107,7 +107,7 @@ def run_plotting(vcf_files, args):
         vcf_dir = os.path.dirname(vcf_file)
         scite_tree = os.path.join(vcf_dir, 'scite_dir',
             f'{dataset}.{filters}_ml0.newick')
-        scite_plot = scite_tree + f'_w{w_max}_mapped.png'
+        scite_plot = scite_tree + f'_w{w_max:.0f}_mapped.png'
         if os.path.exists(scite_plot) and not args.replace:
             print(f'\tTree file exists: {scite_plot}')
         elif not os.path.exists(scite_tree):
