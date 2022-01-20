@@ -238,7 +238,7 @@ if __name__ == '__main__':
 
         plot_files = []
         if args.tests == 'both' or args.tests == 'tree':
-            poisson_tree_files.extend(get_plot_files(vcf_files))
+            plot_files.extend(get_plot_files(vcf_files))
 
         for plot_file in plot_files:
             print(f'Copying: {plot_file + "_w500_mapped.png"}')
