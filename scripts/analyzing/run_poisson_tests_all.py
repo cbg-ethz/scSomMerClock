@@ -13,7 +13,7 @@ import tarfile
 MODULE_STR = 'module load ete;'
 
 
-def run_bash(cmd_raw, bsub=True):
+def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
         cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
             f"--wrap '{MODULE_STR} {cmd_raw}'"
@@ -37,7 +37,7 @@ def run_poisson_disp(vcf_files, args):
     if not args.replace and os.path.exists(out_file):
         return
     cmd = f'python {args.exe_disp} {" ".join(vcf_files)} -o {out_file} -b'
-    run_bash(cmd, args.local)
+    run_bash(cmd, args.local, '')
 
 
 def run_poisson_tree(tree, vcf_file, args):
@@ -273,7 +273,7 @@ if __name__ == '__main__':
         old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
         new_file = os.path.join(comp_dir, os.path.basename(old_file))
         print('Copying: {old_file}')
-        run_bash(f'cp {old_file} {new_file}', False)
+        run_bash(f'cp {old_file} {new_file}', False, '')
 
         for old_file in get_plot_files(vcf_files):
             path_parts = old_file.split(os.path.sep)
@@ -288,14 +288,14 @@ if __name__ == '__main__':
                 subset = path_parts[-2]
                 new_name = old_name \
                     .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
-
+            print(new_name)
             dataset, filters = new_name.split('.')
             new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
             new_file = os.path.join(comp_dir, new_name)
             if not os.path.exists(old_file):
                 print(f'\tMissing file: {old_file}')
                 continue
-            run_bash(f'cp {old_file} {new_file}', False)
+            run_bash(f'cp {old_file} {new_file}', False, '')
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
