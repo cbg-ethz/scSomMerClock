@@ -20,13 +20,13 @@ def run_bash(cmd_raw, bsub=True):
     else:
         cmd = f'{MODULE_STR} {cmd_raw}'
 
+    print(f'Running:\n{cmd}')
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
 
-    print(f'Running:\n{cmd}')
     if not bsub:
         print(str(stdout), str(stderr))
     print()
@@ -97,6 +97,8 @@ def run_plotting(vcf_files, args):
         cellphy_plot = cellphy_tree + f'_w{w_max}_mapped.png'
         if os.path.exists(cellphy_plot) and not args.replace:
             print(f'\tTree file exists: {cellphy_plot}')
+        elif not os.path.exists(cellphy_tree):
+            print(f'\tMissing tree file: {cellphy_tree}')
         else:
             cmd = f'python {args.exe_tree} {vcf_file} {cellphy_tree} -w {w_max} ' \
                 f'-b -p'
@@ -108,6 +110,8 @@ def run_plotting(vcf_files, args):
         scite_plot = scite_tree + f'_w{w_max}_mapped.png'
         if os.path.exists(scite_plot) and not args.replace:
             print(f'\tTree file exists: {scite_plot}')
+        elif not os.path.exists(scite_tree):
+            print(f'\tMissing tree file: {scite_tree}')
         else:
             cmd = f'python {args.exe_tree} {vcf_file} {scite_tree} -w {w_max} ' \
                 f'-b -p'
