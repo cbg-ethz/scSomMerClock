@@ -211,7 +211,7 @@ def parse_args():
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
     parser.add_argument('-m', '--mode', type=str,
-        choices=['run', 'merge', 'compress'],
+        choices=['run', 'merge', 'compress', 'plot'],
         default='run', help='Which task to do: run|merge|compress|plot')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
