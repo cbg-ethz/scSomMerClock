@@ -47,13 +47,13 @@ def run_bash(cmd_raw, bsub=True, time=30, mem=2):
     else:
         cmd = cmd_raw
 
+    print(f'Running: {cmd}')
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
 
-    print(f'Running: {cmd}')
     if not cmd.startswith('sbatch'):
         print(str(stdout), str(stderr))
     if stderr != b'' and not KEEP_GOING:
