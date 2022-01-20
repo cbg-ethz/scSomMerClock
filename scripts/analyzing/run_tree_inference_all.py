@@ -149,8 +149,6 @@ if __name__ == '__main__':
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(zip_cmd, False)
-
-                        continue
                     # Filter
                     else:
                         if not os.path.exists(vcf_file) or args.replace:
@@ -160,6 +158,7 @@ if __name__ == '__main__':
                                 f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(flt_cmd, False)
+                    continue
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
