@@ -4,8 +4,16 @@
 /home/uvi/be/nbo/data/data/Li55/ClockTest/cancer/Li55.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Li55/ClockTest/normal/Li55.all_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Li55/ClockTest/normal/Li55.33nanFilter_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P1/ClockTest/all/Lo-P1.all_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P1/ClockTest/all/Lo-P1.33nanFilter_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P2/ClockTest/all/Lo-P2.all_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P2/ClockTest/all/Lo-P2.33nanFilter_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P3/ClockTest/all/Lo-P3.all_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Lo-P3/ClockTest/all/Lo-P3.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Ni8_Monica/ClockTest/cancer/Ni8.all_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Ni8_Monica/ClockTest/cancer/Ni8.33nanFilter_outg.vcf.gz
+/home/uvi/be/nbo/data/data/S21_P1/ClockTest/all/S21_P1.all_outg.vcf.gz
+/home/uvi/be/nbo/data/data/S21_P1/ClockTest/all/S21_P1.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P2/ClockTest/cancer/S21_P2.all_outg.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P2/ClockTest/cancer/S21_P2.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/S21_P2/ClockTest/left/S21_P2.all_outg.vcf.gz
