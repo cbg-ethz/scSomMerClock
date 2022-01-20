@@ -154,7 +154,7 @@ def get_plot_files(vcf_files):
 
         files.append(vcf_file + '.raxml.bestTree')
         files.append(os.path.join(os.path.dirname(vcf_file), 'scite_dir',
-            f'{dataset}.{filters}_outg_ml0.newick'))
+            f'{dataset}.{filters}_ml0.newick'))
     return files
 
 
