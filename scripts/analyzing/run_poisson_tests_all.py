@@ -85,7 +85,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True):
 def merge_datasets(disp_file, tree_files, out_dir):
     if disp_file:
         df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1, 2])
-        df_disp.drop(['H0', 'H1', 'hypothesis'], axis=1, inplace=True)
+        df_disp.drop(['H0', 'H1', 'hypothesis', '-2logLR'], axis=1, inplace=True)
         df_disp.columns = [f'{i}.dispersion' for i in df_disp.columns]
 
     if tree_files:
@@ -215,8 +215,8 @@ if __name__ == '__main__':
             f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
         print(f'Writing files to: {comp_dir}.tar.gz')
 
-        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
-        tar.add(os.path.join(args.out_dir, 'Summary_biological_data.tsv'))
+        shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
+            os.path.join(args.out_dir, comp_dir, 'Summary_biological_data.tsv'))
 
         poisson_tree_files = []
         if args.tests == 'both' or args.tests == 'tree':
@@ -225,8 +225,13 @@ if __name__ == '__main__':
         for poisson_tree_file in poisson_tree_files:
             if not 'w500' in poisson_tree_file:
                 continue
-            tar.add(poisson_tree_file + '_w500_mapped.png')
 
+            shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
+                os.path.join(args.out_dir, comp_dir,
+                    poisson_tree_file + '_w500_mapped.png'))
+
+        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
+        tar.add(comp_dir)
         tar.close()
 
 
