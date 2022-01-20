@@ -98,7 +98,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
         mem_mb = 32768 * (1 + config['cellcoal'].get('no_rep', 10) // 500),
-        runtime = 180,
+        runtime = 300,
     params:
         exe = config['cellcoal']['exe'],
     shell:
