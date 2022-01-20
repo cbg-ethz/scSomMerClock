@@ -128,7 +128,8 @@ if __name__ == '__main__':
                             or (subdir == 'all' and len(sub_dirs) > 1):
                         print(f'\tMissing cellphy tree:\t{cellphy_out}')
                         tree_exist = False
-                    if not os.path.exists(scite_out) and sub_dir != 'all':
+                    if not os.path.exists(scite_out) and sub_dir != 'all' \
+                            or (subdir == 'all' and len(sub_dirs) > 1):
                         print(f'\tMissing scite tree:\t{scite_out}')
                         tree_exist = False
                     continue
