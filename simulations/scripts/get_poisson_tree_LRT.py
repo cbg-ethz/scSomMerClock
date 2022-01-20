@@ -878,7 +878,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
         if w_max == 500 or plot_only:
-            show_tree(tree, tree_file + f'_w{w_max}_mapped.png', w_idx)
+            show_tree(tree, tree_file + f'_w{w_max:.0f}_mapped.png', w_idx)
 
     if plot_only:
         exit()
@@ -904,7 +904,7 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--w_max', type=float, default=999, nargs='+',
+    parser.add_argument('-w', '--w_max', type=float, default=1000, nargs='+',
         help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
