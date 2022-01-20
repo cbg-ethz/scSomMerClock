@@ -66,7 +66,7 @@ def print_masterlist(out_file='vcf_masterlist.txt'):
     for data_dir, sub_dirs in data_dirs.items():
         data_set = data_dir.replace('_Monica', '')
         for sub_dir in sub_dirs:
-            if sub_dir == 'all' and len(sub_dirs) != 0:
+            if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
             vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
             for data_filter in data_filters:
