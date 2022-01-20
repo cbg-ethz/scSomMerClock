@@ -189,9 +189,9 @@ def get_plot_files(vcf_files):
         dataset = file_ids[0]
         filters = file_ids[1]
 
-        files.append(vcf_file + '.raxml.bestTree')
+        files.append(vcf_file + '.raxml.bestTree_w500_mapped.png')
         files.append(os.path.join(os.path.dirname(vcf_file), 'scite_dir',
-            f'{dataset}.{filters}_ml0.newick'))
+            f'{dataset}.{filters}_ml0.newick_w500_mapped.png'))
     return files
 
 
@@ -265,25 +265,15 @@ if __name__ == '__main__':
         print(f'Writing files to: {comp_dir}.tar.gz')
         os.mkdir(comp_dir)
 
-        print('Copying: '\
-            f'{os.path.join(args.out_dir, "Summary_biological_data.tsv")}')
-        shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
-            os.path.join(comp_dir, 'Summary_biological_data.tsv'))
+        old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
+        new_file = os.path.join(comp_dir, os.path.basename(old_file))
+        print('Copying: {old_file}')
+        run_bash(f'cp {old_file} {new_file}', False)
 
-        plot_files = []
-        if args.tests == 'both' or args.tests == 'tree':
-            plot_files.extend(get_plot_files(vcf_files))
-
-        for plot_file in plot_files:
-            print(f'Copying: {plot_file + "_w500_mapped.png"}')
-            try:
-                shutil.copyfile(plot_file + '_w500_mapped.png',
-                    os.path.join(comp_dir, plot_file + '_w500_mapped.png'))
-            except FileNotFoundError:
-                print('\t!WARNING! - Missing')
-            except shutil.SameFileError:
-                print(f'\t!WARNING! - Double: {plot_file + "_w500_mapped.png"} -' \
-                    f' {os.path.join(comp_dir, plot_file + "_w500_mapped.png")}')
+        for old_file in get_plot_files(vcf_files):
+            new_file = os.path.join(comp_dir, os.path.basename(old_file))
+            print(f'Copying: {old_file}')
+            run_bash(f'cp {old_file} {new_file}', False)
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
