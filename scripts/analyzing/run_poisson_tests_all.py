@@ -214,6 +214,7 @@ if __name__ == '__main__':
         comp_dir = os.path.join(args.out_dir,
             f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
         print(f'Writing files to: {comp_dir}.tar.gz')
+        os.mkdir(comp_dir)
 
         shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
             os.path.join(comp_dir, 'Summary_biological_data.tsv'))
