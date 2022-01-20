@@ -1,5 +1,7 @@
 /home/uvi/be/nbo/data/data/H65_Monica/ClockTest/cancer/H65.all_outg.vcf.gz
 /home/uvi/be/nbo/data/data/H65_Monica/ClockTest/cancer/H65.33nanFilter_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Li55/ClockTest/cancer/Li55.all_outg.vcf.gz
+/home/uvi/be/nbo/data/data/Li55/ClockTest/cancer/Li55.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Li55/ClockTest/normal/Li55.all_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Li55/ClockTest/normal/Li55.33nanFilter_outg.vcf.gz
 /home/uvi/be/nbo/data/data/Ni8_Monica/ClockTest/cancer/Ni8.all_outg.vcf.gz
