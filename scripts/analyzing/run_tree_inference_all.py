@@ -158,7 +158,8 @@ if __name__ == '__main__':
                                 f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(flt_cmd, False)
-                    continue
+                    if and len(sub_dirs) > 1:
+                        continue
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
