@@ -158,7 +158,6 @@ def get_plot_files(vcf_files):
     return files
 
 
-
 def get_summary_files(vcf_files):
     files = []
     for vcf_file in vcf_files:
@@ -247,6 +246,9 @@ if __name__ == '__main__':
                     os.path.join(comp_dir, plot_file + '_w500_mapped.png'))
             except FileNotFoundError:
                 print('\t!WARNING! - Missing')
+            except shutil.SameFileError:
+                print(f'\t!WARNING! - Double: {plot_file + "_w500_mapped.png"} -' \
+                    f' {os.path.join(comp_dir, plot_file + "_w500_mapped.png")}')
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
