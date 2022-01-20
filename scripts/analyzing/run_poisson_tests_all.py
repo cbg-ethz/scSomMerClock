@@ -32,15 +32,15 @@ def run_bash(cmd_raw, bsub=True):
     print()
 
 
-def run_poisson_disp(vcf_files, exe, out_dir, replace, bsub):
-    out_file = os.path.join(out_dir, 'Poisson_dispersion_all.tsv')
-    if not replace and os.path.exists(out_file):
+def run_poisson_disp(vcf_files, args):
+    out_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
+    if not args.replace and os.path.exists(out_file):
         return
-    cmd = f'python {exe} {" ".join(vcf_files)} -o {out_file} -b'
-    run_bash(cmd, bsub)
+    cmd = f'python {args.exe_disp} {" ".join(vcf_files)} -o {out_file} -b'
+    run_bash(cmd, args.local)
 
 
-def run_poisson_tree(tree, vcf_file, args, replace, bsub=True):
+def run_poisson_tree(tree, vcf_file, args):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -60,7 +60,7 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True):
     out_file = os.path.join(args.out_dir,
         f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
 
-    if os.path.exists(out_file) and not replace:
+    if os.path.exists(out_file) and not args.replace:
         return
 
     if tree == 'cellphy':
@@ -79,7 +79,43 @@ def run_poisson_tree(tree, vcf_file, args, replace, bsub=True):
     cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} ' \
         f'-w {w_max_str} -b'
 
-    run_bash(cmd, bsub)
+    run_bash(cmd, args.local)
+
+
+def run_plotting(vcf_files, args):
+    for vcf_file in vcf_files:
+        path_strs = vcf_file.split(os.path.sep)
+        clock_dir_no = path_strs.index('ClockTest')
+        subset = path_strs[clock_dir_no + 1]
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
+
+        w_max = 500
+
+        out_file = os.path.join(args.out_dir,
+            f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
+
+        cellphy_tree = vcf_file + '.raxml.bestTree'
+        cellphy_plot = cellphy_tree + f'_w{w_max}_mapped.png'
+        if os.path.exists(cellphy_plot) and not args.replace:
+            print(f'\tTree file exists: {cellphy_plot}')
+        else:
+            cmd = f'python {args.exe_tree} {vcf_file} {cellphy_tree} -w {w_max} ' \
+                f'-b -p'
+            run_bash(cmd, args.local)
+
+        vcf_dir = os.path.dirname(vcf_file)
+        scite_tree = os.path.join(vcf_dir, 'scite_dir',
+            f'{dataset}.{filters}_ml0.newick')
+        scite_plot = scite_tree + f'_w{w_max}_mapped.png'
+        if os.path.exists(scite_plot) and not args.replace:
+            print(f'\tTree file exists: {scite_plot}')
+        else:
+            cmd = f'python {args.exe_tree} {vcf_file} {scite_tree} -w {w_max} ' \
+                f'-b -p'
+            run_bash(cmd, args.local)
+
 
 
 def merge_datasets(disp_file, tree_files, out_dir):
@@ -176,7 +212,7 @@ def parse_args():
         default='poisson_tests_all', help='Output file.')
     parser.add_argument('-m', '--mode', type=str,
         choices=['run', 'merge', 'compress'],
-        default='run', help='Which task to do: run (on hpc)|merge|compress')
+        default='run', help='Which task to do: run|merge|compress|plot')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
@@ -204,15 +240,12 @@ if __name__ == '__main__':
 
     if args.mode == 'run':
         if args.tests == 'both' or args.tests == 'dispersion':
-            run_poisson_disp(vcf_files, args.exe_disp, args.out_dir,
-                args.replace, args.local)
+            run_poisson_disp(vcf_files, args)
 
         if args.tests == 'both' or args.tests == 'tree':
             for vcf_file in vcf_files:
-                run_poisson_tree('cellphy', vcf_file, args, args.replace,
-                    bsub=args.local)
-                run_poisson_tree('scite', vcf_file, args, args.replace,
-                    bsub=args.local)
+                run_poisson_tree('cellphy', vcf_file, args)
+                run_poisson_tree('scite', vcf_file, args)
     elif args.mode == 'merge':
         if args.tests == 'both' or args.tests == 'dispersion':
             disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
@@ -223,7 +256,8 @@ if __name__ == '__main__':
         if args.tests == 'both' or args.tests == 'tree':
             poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
         merge_datasets(disp_file, poisson_tree_files, args.out_dir)
-
+    elif args.mode == 'plot':
+        run_plotting(vcf_files, args)
     else:
         comp_dir = os.path.join(args.out_dir,
             f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')

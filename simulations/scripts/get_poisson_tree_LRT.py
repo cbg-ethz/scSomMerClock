@@ -845,7 +845,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
-        w_maxs=[1000], exclude='', include=''):
+        w_maxs=[1000], plot_only=False, exclude='', include=''):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -877,8 +877,11 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
-        if w_max == 500:
-            show_tree(tree, tree_file + '_w500_mapped.png', w_idx)
+        if w_max == 500 or plot_only:
+            show_tree(tree, tree_file + f'_w{w_max}_mapped.png', w_idx)
+
+    if plot_only:
+        exit()
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
 
@@ -905,6 +908,8 @@ def parse_args():
         help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
+    parser.add_argument('-p', '--plotting', action='store_true',
+        help='Plot phylogeny of biological data only.')
     args = parser.parse_args()
     return args
 
@@ -940,6 +945,7 @@ if __name__ == '__main__':
                 tree_file=args.tree,
                 out_files=args.output,
                 w_maxs=args.w_max,
+                plot_only=args.plotting,
                 exclude=args.exclude,
                 include=args.include,
             )
