@@ -144,6 +144,21 @@ def get_poisson_tree_files(vcf_files):
     return files
 
 
+def get_plot_files(vcf_files):
+    files = []
+    for vcf_file in vcf_files:
+        path_strs = vcf_file.split(os.path.sep)
+        file_ids = path_strs[-1].split('.')
+        dataset = file_ids[0]
+        filters = file_ids[1]
+
+        files.append(vcf_file + '.raxml.bestTree')
+        files.append(os.path.join(os.path.dirname(vcf_file), 'scite_dir',
+            f'{dataset}.{filters}_ml0.newick'))
+    return files
+
+
+
 def get_summary_files(vcf_files):
     files = []
     for vcf_file in vcf_files:
@@ -221,14 +236,14 @@ if __name__ == '__main__':
         shutil.copyfile(os.path.join(args.out_dir, 'Summary_biological_data.tsv'),
             os.path.join(comp_dir, 'Summary_biological_data.tsv'))
 
-        poisson_tree_files = []
+        plot_files = []
         if args.tests == 'both' or args.tests == 'tree':
-            poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
+            poisson_tree_files.extend(get_plot_files(vcf_files))
 
-        for poisson_tree_file in poisson_tree_files:
-            print(f'Copying: {poisson_tree_file + "_w500_mapped.png"}')
-            shutil.copyfile(poisson_tree_file + '_w500_mapped.png',
-                os.path.join(comp_dir, poisson_tree_file + '_w500_mapped.png'))
+        for plot_file in plot_files:
+            print(f'Copying: {plot_file + "_w500_mapped.png"}')
+            shutil.copyfile(plot_file + '_w500_mapped.png',
+                os.path.join(comp_dir, plot_file + '_w500_mapped.png'))
 
         tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
         tar.add(comp_dir)
