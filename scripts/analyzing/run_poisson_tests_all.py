@@ -271,7 +271,15 @@ if __name__ == '__main__':
         run_bash(f'cp {old_file} {new_file}', False)
 
         for old_file in get_plot_files(vcf_files):
-            new_file = os.path.join(comp_dir, os.path.basename(old_file))
+            path_parts = old_file.split(os.path.sep)
+            old_name = path_parts[-1]
+            new_name = old_name \
+                .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '.cellphy') \
+                .replace('_outg_ml0.newick_w500_mapped.png', '.scite')
+            dataset, filters, tree = new_name.split('.')
+            new_name = f'{dataset}_{path_parts[-2]}_{filters}_{tree}.png'
+            import pdb; pdb.set_trace()
+            new_file = os.path.join(comp_dir, new_name)
             print(f'Copying: {old_file}')
             run_bash(f'cp {old_file} {new_file}', False)
 
