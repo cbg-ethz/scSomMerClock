@@ -282,7 +282,6 @@ if __name__ == '__main__':
                 subset = path_parts[-3]
                 new_name = old_name \
                     .replace('_outg_ml0.newick_w500_mapped.png', '')
-                              _outg_ml0.newick_w500_mapped.png
             else:
                 tree = 'cellphy'
                 subset = path_parts[-2]
