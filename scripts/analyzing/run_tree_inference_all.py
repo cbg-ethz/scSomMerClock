@@ -122,13 +122,13 @@ if __name__ == '__main__':
 
                 if args.check:
                     if not os.path.exists(vcf_file):
-                        print(f'Missing: {vcf_file}')
+                        print(f'\tMissing vcf: {vcf_file}')
                         all_exist = False
                     if not os.path.exists(cellphy_out) and sub_dir != 'all':
-                        print(f'Missing: {cellphy_out}')
+                        print(f'\tMissing cellphy tree: {cellphy_out}')
                         tree_exist = False
                     if not os.path.exists(scite_out) and sub_dir != 'all':
-                        print(f'Missing: {scite_out}')
+                        print(f'\tMissing scite tree: {scite_out}')
                         tree_exist = False
                     continue
 
