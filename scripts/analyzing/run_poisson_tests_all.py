@@ -188,6 +188,8 @@ def get_plot_files(vcf_files):
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
+        if 'all' in filters:
+            continue
 
         files.append(vcf_file + '.raxml.bestTree_w500_mapped.png')
         files.append(os.path.join(os.path.dirname(vcf_file), 'scite_dir',
@@ -276,9 +278,9 @@ if __name__ == '__main__':
             new_name = old_name \
                 .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '.cellphy') \
                 .replace('_outg_ml0.newick_w500_mapped.png', '.scite')
+            import pdb; pdb.set_trace()
             dataset, filters, tree = new_name.split('.')
             new_name = f'{dataset}_{path_parts[-2]}_{filters}_{tree}.png'
-            import pdb; pdb.set_trace()
             new_file = os.path.join(comp_dir, new_name)
             print(f'Copying: {old_file}')
             run_bash(f'cp {old_file} {new_file}', False)
