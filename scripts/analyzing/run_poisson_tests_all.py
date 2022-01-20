@@ -279,12 +279,12 @@ if __name__ == '__main__':
             path_parts = old_file.split(os.path.sep)
             old_name = path_parts[-1]
             if 'scite' in path_parts:
-                tree == 'scite'
+                tree = 'scite'
                 subset = path_parts[-3]
                 new_name = old_name \
                     .replace('_outg_ml0.newick_w500_mapped.png', '')
             else:
-                tree == 'cellphy'
+                tree = 'cellphy'
                 subset = path_parts[-2]
                 new_name = old_name \
                     .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
