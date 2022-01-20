@@ -188,7 +188,7 @@ def get_plot_files(vcf_files):
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
-        if 'all' in filters:
+        if 'all' in path_str[-2]:
             continue
 
         files.append(vcf_file + '.raxml.bestTree_w500_mapped.png')
