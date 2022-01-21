@@ -187,6 +187,8 @@ rule generate_overview_file:
     output:
         stats = os.path.join(base_dir, 'data_overview.tsv'),
         ADO = os.path.join(base_dir, 'ADO_overview.tsv')
+    resources:
+        runtime = 30
     params:
         no_cells = config['cellcoal']['model']['no_cells'],
     run:
@@ -212,7 +214,7 @@ rule postprocess_vcf:
     envmodules:
         'numpy/1.18.1-python-3.7.7',
     resources:
-        runtime = 30,
+        runtime = 120,
 #        scratch='scratch',
     group: 'vcf'
     params:
