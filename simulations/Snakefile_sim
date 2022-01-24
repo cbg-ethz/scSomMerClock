@@ -90,7 +90,8 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
-        mem_mb = 16384 * (1 + config['cellcoal']['no_rep'] // 500) * (BULK + 1),
+        mem_mb = 16384 \
+            * min(4, (1 + config['cellcoal']['no_rep'] // 500) * (BULK + 1)),
         runtime = 1200 if BULK else 300,
     params:
         exe = config['cellcoal']['exe'],
