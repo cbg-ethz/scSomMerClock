@@ -10,7 +10,7 @@ TREES = [i for i,j in config['tree'].items() if j['run']]
 BULK = config['cellcoal']['model']['no_cells'] > 100 \
     and config['cellcoal']['NGS']['seq_cov'] < 1
 
-w_maxs = config.get('poisson', {}).get('w_max', [999])
+w_maxs = config.get('poisson', {}).get('w_max', [1000])
 if isinstance(w_maxs, (int, float)):
     w_maxs = [w_maxs]
 
@@ -264,7 +264,7 @@ rule run_scite:
         os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
         mem_mb = 6144,
-        runtime = lambda wildcards, attempt: attempt * 480,
+        runtime = lambda wildcards, attempt: attempt * 1080,
     envmodules:
         'numpy/1.18.1-python-3.7.7'
     params:
@@ -283,8 +283,8 @@ rule run_cellphy:
         os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
     resources:
-        mem_mb = 1024,
-        runtime =  lambda wildcards, attempt: attempt * 300,
+        mem_mb = 2048,
+        runtime =  lambda wildcards, attempt: attempt * 600,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
