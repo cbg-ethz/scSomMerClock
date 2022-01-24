@@ -101,8 +101,8 @@ rule run_cellcoal:
         exe = config['cellcoal']['exe'],
     shell:
         'mkdir -p {out_dir} && '
-        '{params.exe} -F{input} > sims 2>&1 && '
-        'mv sims {out_dir}/log && '
+        '{params.exe} -F{input} > cellcoal.out 2>&1 && '
+        'mv cellcoal.out {out_dir}/cellcoal.out && '
         'mv {input.cellcoal} {out_dir}/config_cellcoal && '
         'mv {input.snakemake} {out_dir}/config_snakemake'
 
