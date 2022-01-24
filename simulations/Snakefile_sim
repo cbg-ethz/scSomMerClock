@@ -14,16 +14,11 @@ w_maxs = config.get('poisson', {}).get('w_max', [1000])
 if isinstance(w_maxs, (int, float)):
     w_maxs = [w_maxs]
 
-# if isinstance(config.get('mrbayes', {}).get('ngen', None), (int, float)):
-#     config['mrbayes']['ngen'] = [config['mrbayes']['ngen']]
 out_dir, filter_dir = get_out_dir(config, BULK)
 base_dir = os.path.join(out_dir, filter_dir)
 
 def get_final_files(wildcards):
     files = []
-    # if config['cellcoal'].get('output', {}).get('true_haplotypes', False):
-    #     files += [os.path.join(out_dir, 'true_haplotypes_dir', f'true_vcf.{i}')
-    #         for i in RUNS]
     for tree in TREES:
         if config.get('paup', {}).get('run', False):
             files.append(os.path.join(base_dir, f'paup_dir_{tree}',
@@ -95,7 +90,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'), run=RUNS),
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
-        mem_mb = 8192 * (1 + config['cellcoal']['no_rep'] // 500) * (BULK + 1),
+        mem_mb = 16384 * (1 + config['cellcoal']['no_rep'] // 500) * (BULK + 1),
         runtime = 300,
     params:
         exe = config['cellcoal']['exe'],
