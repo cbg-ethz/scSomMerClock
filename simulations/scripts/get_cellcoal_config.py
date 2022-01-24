@@ -5,7 +5,7 @@ import re
 import yaml
 
 
-def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False):
+def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
     with open(template_file, 'r') as f:
         templ = f.read()
 
@@ -14,18 +14,11 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False
     templ = re.sub('{no_sites}', str(model.get('no_sites', 10000)), templ)
     templ = re.sub('{pop_size}', str(model.get('pop_size', 10000)), templ)
     templ = re.sub('{out_dir}', out_dir, templ)
-    if bulk:
-        rep_no = 1
-        cell_no = model.get('no_cells', 30) + 1
-        cell_depth = int(config['bulk'].get('depth', 100) / model['no_cells'])
-        if config['bulk'].get('depth', 100) % model['no_cells'] != 0:
-            cell_depth += 1
-        tree_flag = ''
-    else:
-        rep_no = config['cellcoal'].get('no_rep', 10)
-        cell_no = model.get('no_cells', 30)
-        cell_depth = config['cellcoal'].get('NGS', {}).get('seq_cov', 20)
-        tree_flag = '6'
+
+    rep_no = config['cellcoal'].get('no_rep', 10)
+    cell_no = model.get('no_cells', 30)
+    cell_depth = config['cellcoal'].get('NGS', {}).get('seq_cov', 20)
+    tree_flag = '6'
 
     templ = re.sub('{no_rep}', str(rep_no), templ)
     templ = re.sub('{seq_cov}', str(cell_depth), templ)
@@ -70,7 +63,7 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False
         templ = re.sub('{alphabet}', '1', templ)
 
     scWGA = config['cellcoal']['scWGA']
-    if scWGA.get('errors', False) and not bulk:
+    if scWGA.get('errors', False):
         if isinstance(scWGA['ADO_rate'], float):
             templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"]}', templ)
             templ = re.sub('{ADO_rate_var}', '', templ)
@@ -93,7 +86,7 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree='', bulk=False
         templ = re.sub('{doublet_rate}', '', templ)
 
     NGS = config['cellcoal']['NGS']
-    if NGS.get('errors', False) and not bulk:
+    if NGS.get('errors', False):
         if NGS["seq_overdis"] > 0:
             templ = re.sub('{seq_overdis}', f'V{NGS["seq_overdis"]}', templ)
         else:
