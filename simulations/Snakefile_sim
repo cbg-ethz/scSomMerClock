@@ -24,7 +24,7 @@ def get_final_files(wildcards):
             files.append(os.path.join(base_dir, f'paup_dir_{tree}',
                 'paup.summary.tsv'))
 
-        if config.get('poisson', {}).get('tree', False) or \
+        if config.get('poisson', {}).get('tree', True) or \
                 config.get('poisson', {}).get('run', False):
             for w_max in w_maxs:
                 files.append(os.path.join(base_dir,
@@ -183,17 +183,6 @@ rule postprocess_vcf:
         singletons = config.get('SNP_filter', {}).get('singletons', False),
     script:
         f'{SCRIPT_DIR}/postprocess_vcf.py'
-
-
-# rule get_true_GT:
-#     input:
-#         os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
-#     output:
-#         os.path.join(out_dir, 'true_haplotypes_dir', 'true_vcf.{run}')
-#     resources:
-#         mem_mb = 4096
-#     script:
-#         f'{SCRIPT_DIR}/convert_haplotype_to_vcf.py'
 
 
 def get_repl_data(wildcards):
