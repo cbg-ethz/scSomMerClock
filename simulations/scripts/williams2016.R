@@ -29,8 +29,18 @@ s <- neutralitytest(
 
 # Run mobster test
 library(mobster)
+
 fit = mobster_fit(data)
-evo <- evolutionary_parameters(fit)
+evo <- function(fit){
+    tryCatch(
+        expr = {
+            return(evolutionary_parameters(fit))
+        },
+        error = function(e){
+            return(NA)
+        }
+    )
+}
 
 # Safe both outputs
 sink(argv$out_path)
