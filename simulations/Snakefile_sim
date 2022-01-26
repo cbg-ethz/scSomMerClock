@@ -121,7 +121,7 @@ rule run_mobster:
     output:
         os.path.join(out_dir, 'vaf_dir', 'vaf.{run}.mobster')
     resources:
-        mem_mb = 6144,
+        mem_mb = 12288,
         runtime = 120,
     params:
         depth = config['cellcoal']['model']['no_cells'] \
