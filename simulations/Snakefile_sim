@@ -120,8 +120,9 @@ rule run_mobster:
         os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
     output:
         os.path.join(out_dir, 'vaf_dir', 'vaf.{run}.mobster')
-    envmodules:
-        'pandas/1.0.1-python-3.7.7',
+    resources:
+        mem_mb = 6144,
+        runtime = 120,
     params:
         depth = config['cellcoal']['model']['no_cells'] \
             * config['cellcoal']['NGS']['seq_cov']
