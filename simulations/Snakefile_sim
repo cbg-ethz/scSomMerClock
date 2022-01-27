@@ -230,7 +230,7 @@ rule run_cellphy:
             'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
     resources:
         mem_mb = 2048,
-        runtime =  lambda wildcards, attempt: attempt * 600,
+        runtime =  lambda wildcards, attempt: attempt * 720,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4
     params:
