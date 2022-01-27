@@ -138,4 +138,6 @@ if __name__ == '__main__':
     with open(out_file, 'w') as f:
         f.write(out_str)
 
+    if 'snakemake' in globals():
+        os.remove(snakemake.input.vcf)
     # show_VAF_dist(vafs)
