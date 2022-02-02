@@ -187,18 +187,18 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if filter:
         muts = muts.loc[idx[0], include_id]
         reads = np.array(reads)[:,include_idx]
-        stats = get_stats(muts, true_muts.loc[idx[0], include_id])
+        # stats = get_stats(muts, true_muts.loc[idx[0], include_id])
     else:
         muts = muts[include_id]
         reads = np.array(reads)
-        stats = get_stats(muts, true_muts)
+        # stats = get_stats(muts, true_muts)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
 
-    print(f'VCF rows skipped:\n\t{skip[0]: >5} (>f{nan_filter*100}% missing)\n\t'
-        f'{skip[1]: >5} (only wt)\n\t{skip[2]: >5} (filtered)')
+    # print(f'VCF rows skipped:\n\t{skip[0]: >5} (>f{nan_filter*100}% missing)\n\t'
+    #     f'{skip[1]: >5} (only wt)\n\t{skip[2]: >5} (filtered)')
 
-    return muts, true_muts[include_id], read_data, stats
+    return muts, true_muts[include_id], read_data
 
 
 def get_stats(df, true_df, binary=True, per_cell=False, verbose=False):
@@ -801,7 +801,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
         w_maxs=[1000], exclude='', include=''):
     run = os.path.basename(vcf_file).split('.')[1]
-    cols = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
+    cols = ['FN', 'FP', '-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
 
     call_data = get_mut_df(vcf_file, exclude, include)
 
@@ -814,25 +814,20 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max)
         add_true_muts(tree, call_data[1])
 
-        Y, constr, init, weights_norm, constr_cols = get_model_data(tree,
-            true_data=False)
+        Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
         # weights: 0 = variance, 1 = odds ratio,
         w_idx = 0
         LR, dof, on_bound, p_val, Y_opt = \
             get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
 
-        hyp = int(p_val < 0.05)
-        header_str = 'run\tSNVs\tTP\tFP\tTN\tFN\tMS\tMS_T\t'
-        header_str += '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
-        model_str = ''
+        header_str = 'run\t' \
+            + '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
 
-        stats = call_data[3]
         weight_str = ",".join([str(i) for i in weights_norm[:,w_idx].round(3)])
 
-        model_str += f'{run}\t{call_data[0].shape[0]}\t{stats["TP"]}\t{stats["FP"]}\t' \
-            f'{stats["TN"]}\t{stats["FN"]}\t{stats["MS"]}\t{stats["MS_T"]}\t' \
-            f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\tH{hyp}\t{weight_str}\n'
+        model_str = f'{run}\t{FN:.4f}\t{FP:.6f}\t{LR:0>5.2f}\t{dof+on_bound}\t'\
+            f'{p_val:.2E}\tH{int(p_val < 0.05)}\t{weight_str}\n'
 
         with open(out_file, 'w') as f_out:
             f_out.write(f'{header_str}\n{model_str}')

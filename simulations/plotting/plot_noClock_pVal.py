@@ -23,8 +23,8 @@ sns.set_context('paper',
         'lines.linewidth': 1,
         'legend.fontsize': LABEL_FONTSIZE,
         'legend.title_fontsize':  LABEL_FONTSIZE,
-        'xtick.major.size':  TICK_FONTSIZE*2,
-        'ytick.major.size':  TICK_FONTSIZE,
+        'xtick.major.size':  2,
+        'ytick.major.size':  2,
 })
 
 colors = {
@@ -103,25 +103,44 @@ def plot_wmax_pval(in_file, out_file='', wMax_show=[]):
     if wMax_show:
         df = df[df['wMax'].isin(wMax_show)]
 
-    for i in [1, 2, 3, 4, 5]:
-        if out_file:
-            out_file_cells = os.path.splitext(out_file)[0] + f'_>{i}cells.png'
-        else:
-            out_file_cells = ''
-
-        title = r'$\geq$' + f' {i} cells affected'
-        plot_pVal_dist(df[df['aff. cells'] >= i], out_file=out_file_cells, title=title)
-
-
-def plot_pVal_dist(df, out_file='', title=''):
+    min_cells = np.array([1, 2, 3, 4, 5])
     wMax_vals = df['wMax'].unique()
     wMax_vals.sort()
 
-    fig = plt.figure(figsize=(4, wMax_vals.size + 1))
-    gs = GridSpec(wMax_vals.size, 1, figure=fig)
+    fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=min_cells.size,
+        figsize=(3 * min_cells.size, wMax_vals.size + 1))
 
-    for i, j in enumerate(wMax_vals):
-        ax = fig.add_subplot(gs[i, 0])
+    for i, min_cell in enumerate(min_cells):
+        if i == 0:
+            col_type = 'first'
+        elif i == min_cells.size - 1:
+            col_type = 'last'
+        elif i == np.floor(min_cells.size / 2):
+            col_type = 'middle'
+        else:
+            col_type = 'intermediate'
+
+        plot_pVal_dist(df[df['aff. cells'] >= min_cell], wMax_vals, axes[:,i],
+            col_type, min_cell)
+
+        header = r'$\geq$' + f'{min_cell} cells\naffected'
+        axes[0,i].annotate(header, xy=(0.5, 1), xytext=(0, 5),
+            xycoords='axes fraction', textcoords='offset points',
+            size='large', ha='center', va='baseline')
+
+    fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
+        hspace=0.5, wspace=0.5)
+
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_pVal_dist(df, wMax, axes, column_type, min_cell):
+    for i, j in enumerate(wMax):
+        ax = axes[i]
         dp = sns.histplot(df[df['wMax'] == j], x='P-value', hue='Tree',
             element='poly', stat='probability', kde=False,
             common_norm=False, fill=False,
@@ -141,33 +160,32 @@ def plot_pVal_dist(df, out_file='', title=''):
         ax.set_xlim((0, 1))
         ax.set_ylim((0, 1))
 
-        ax2 = plt.twinx()
-        if j >= 0:
-            ax2.set_ylabel(f'wMax\n= {j:.0f}', fontsize=8)
-        else:
-            ax2.set_ylabel('Poisson\nDispersion', fontsize=8)
-        ax2.set_yticks([])
-
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
-        if i < wMax_vals.size -1:
+        if i < wMax.size - 1:
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
-        if i != np.floor(wMax_vals.size / 2):
-            ax.set_ylabel('')
+        if column_type == 'first':
+            if i != np.floor(wMax.size / 2):
+                ax.set_ylabel('')
+            else:
+                ax.set_ylabel(f'Probability', fontsize=LABEL_FONTSIZE)
         else:
-            ax.set_ylabel(f'Probability', fontsize=LABEL_FONTSIZE)
+            ax.set_ylabel('')
 
-    if title:
-        fig.suptitle(title, fontsize=LABEL_FONTSIZE)
+        if column_type == 'middle' and i == wMax.size - 1:
+            ax.set_xlabel('P-value', fontsize=LABEL_FONTSIZE)
+        else:
+            ax.set_xlabel('')
 
-    fig.subplots_adjust(left=0.25, bottom=0.1, right=0.9, top=0.9, hspace=0.53)
-    if out_file:
-        fig.savefig(out_file, dpi=300)
-    else:
-        plt.show()
-    plt.close()
+        if column_type == 'last':
+            ax2 = ax.twinx()
+            if j >= 0:
+                ax2.set_ylabel(f'\nwMax\n= {j:.0f}', fontsize=12)
+            else:
+                ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
+            ax2.set_yticks([])
 
 
 def parse_args():

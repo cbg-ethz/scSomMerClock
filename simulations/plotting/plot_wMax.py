@@ -8,24 +8,27 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 
 
-TICK_FONTSIZE = 16
-LABEL_FONTSIZE = 16
+FONTSIZE = 16
+
 sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-sns.set_context('paper',
-    rc={'font.size': TICK_FONTSIZE,
-        'axes.titlesize': LABEL_FONTSIZE,
-        'axes.labelsize': LABEL_FONTSIZE,
-        'axes.titlesize': LABEL_FONTSIZE,
-        'axes.labelticksize': LABEL_FONTSIZE,
-        'lines.linewidth': 1,
-        'legend.fontsize': LABEL_FONTSIZE,
-        'legend.title_fontsize':  LABEL_FONTSIZE,
-        'xtick.major.size':  TICK_FONTSIZE*2,
-        'ytick.major.size':  TICK_FONTSIZE,
-})
+sns.set_context('paper')
+#     rc={'font.size': FONTSIZE,
+#         'axes.labelsize': 'medium',
+#         'axes.titlesize': 'large',
+#         'xtick.labelsize': 'medium',
+#         'ytick.labelsize': 'medium',
+#         'legend.fontsize': 'medium',
+#         'legend.title_fontsize': 'large',
+#         'axes.labelticksize': 50,
+#         'lines.linewidth': 1,
+#         'xtick.major.size':  6,
+#         'ytick.major.size':  6,
+#         'lines.markersize': 6.0,
+# })
 
 COLORS = [
      # Blue     # Green    # Red      # Orange   # Purple
@@ -56,7 +59,7 @@ poisson_colors = { # red, blue, orange
 }
 
 
-def plot_wmax_pval(in_dir, out_file=''):
+def plot_wmax_pval2(in_dir, out_file=''):
     df = pd.DataFrame(columns=['ADO rate', 'wMax', 'False pos. [%]'])
     for res_dir in os.listdir(in_dir):
         if not res_dir.startswith('res_clock0') or 'bulk' in res_dir:
@@ -91,6 +94,80 @@ def plot_wmax_pval(in_dir, out_file=''):
     plt.close()
 
 
+def plot_wmax_pval(in_dir, out_file='', bulk=False):
+    df = pd.DataFrame(columns=['ADO rate', 'wMax', 'tree', 'significant'])
+    cmap =cm.get_cmap('viridis_r')
+
+    for res_file in os.listdir(in_dir):
+        if  not res_file.startswith('res_clock0'):
+            continue
+
+        if bulk and not 'bulk' in res_file:
+            continue
+        elif not bulk and 'bulk' in res_file:
+            continue
+
+        try:
+            ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
+        except:
+            import pdb; pdb.set_trace()
+        new_df = pd.read_csv(os.path.join(in_dir, res_file), sep='\t', index_col=0)
+        avg_row = new_df.loc[-1]
+        new_df.drop(-1, inplace=True)
+
+        for col, content in new_df.items():
+            if not 'poissonTree' in col or not 'p-value' in col:
+                continue
+            try:
+                wMax = int(re.search('_wMax([\.\d]*)\.', col).group(1))
+            except AttributeError:
+                continue
+            tree = col.split('.')[-1]
+            sig = (content < 0.05).mean()
+
+            df.loc[df.shape[0]] = [ADO, wMax, tree, sig]
+            # if ADO * 1000 == wMax:
+            #     df.loc[df.shape[0]] = [ADO, -1, tree, sig]
+
+    trees = df['tree'].unique()
+    fig, axes = plt.subplots(nrows=trees.size, ncols=1,
+        figsize=(6, 2 * trees.size))
+
+    for i, tree in enumerate(trees):
+        ax = axes[i]
+        if i == trees.size - 1:
+            legend_type = 'full'
+        else:
+            legend_type = False
+
+        sns.lineplot(data=df[df['tree'] == tree], x='ADO rate', y='significant',
+            hue='wMax', ax=ax, lw=2, palette=cmap, marker='o',
+            legend=legend_type
+        )
+        ax.set_ylabel(r'p-values $\leq$ 0.05 [%]')
+        ax.axhline(0.05, ls='--', color='red', lw=2)
+        ax.set_ylim((-0.05, 1.05))
+
+        if i != trees.size - 1:
+            ax.set_xticklabels([])
+            ax.set_xlabel(None)
+
+        ax2 = ax.twinx()
+        ax2.set_ylabel(f'Tree: {tree}')
+        ax2.set_yticks([])
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.get_legend().remove()
+    ax.legend(handles, labels, ncol=2, bbox_to_anchor=(1.1, 1), # right, top
+        frameon=True, title="wMax")
+
+    fig.subplots_adjust(left=0.1, bottom=0.1, right=0.65, top=0.95, wspace=0.75)
+    if out_file:
+        fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
+    plt.close()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -98,6 +175,8 @@ def parse_args():
         help='Base dir for results.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
+    parser.add_argument('-b', '--bulk', action='store_true',
+        help='Consider only bulk file.')
     args = parser.parse_args()
     return args
 
@@ -105,4 +184,4 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    plot_wmax_pval(args.input, args.output)
+    plot_wmax_pval(args.input, args.output, args.bulk)

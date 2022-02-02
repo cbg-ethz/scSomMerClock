@@ -26,17 +26,8 @@ def get_final_files(wildcards):
 
         if config.get('poisson', {}).get('tree', True) or \
                 config.get('poisson', {}).get('run', False):
-            for w_max in w_maxs:
-                files.append(os.path.join(base_dir,
-                    f'poissonTree_wMax{w_max}_{tree}',
-                    'poissonTree.summary.tsv'))
-
-        if config.get('sieve', {}).get('run', False):
-            files.append(os.path.join(out_dir, 'sieve_dir',
-                f'sieve_{tree}.summary.tsv'))
-        if config.get('mrbayes', {}).get('run', False):
-            files.append(os.path.join(base_dir, f'mrbayes_dir_{tree}',
-                'mrbayes.summary.tsv'))
+            files.append(os.path.join(base_dir, f'poissonTree_{tree}',
+                    f'poissonTree.summary.tsv'))
 
     if config.get('poisson', {}).get('dispersion', False) or \
                 config.get('poisson', {}).get('run', False):
@@ -91,7 +82,7 @@ rule run_cellcoal:
         expand(os.path.join(out_dir, 'trees_dir', 'trees.{run}'), run=RUNS),
     resources:
         mem_mb = 16384 \
-            * min(5, (1 + config['cellcoal']['no_rep'] // 500) * (BULK + 1)),
+            * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
         runtime = 1200 if BULK else 300,
     params:
         exe = config['cellcoal']['exe'],
@@ -320,7 +311,7 @@ rule run_poisson:
 # --------------------------- POISSON TREE -------------------------------------
 
 
-rule run_poisson_tree:
+rule run_poissonTree:
     input:
         unpack(get_repl_data)
     output:
@@ -341,13 +332,26 @@ rule run_poisson_tree:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
 
 
-rule merge_poisson_tree:
+rule merge_poissonTree_weight:
     input:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
             'poissonTree.{run}.wMax{{w_max}}.LRT.txt'), run=RUNS)
     output:
-        os.path.join(base_dir, 'poissonTree_wMax{w_max}_{tree}',
-            f'poissonTree.summary.tsv')
+        os.path.join(base_dir, 'poissonTree_{tree}',
+            'poissonTree.summary.wMax{w_max}.tsv')
+    resources:
+        mem_mb = 2048,
+    script:
+        f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
+
+
+rule merge_poissonTree_tree:
+    input:
+        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+            'poissonTree.summary.wMax{w_max}.tsv'), w_max=w_maxs)
+    output:
+        os.path.join(base_dir, 'poissonTree_{tree}',
+            'poissonTree.summary.tsv')
     resources:
         mem_mb = 2048,
     script:
