@@ -132,6 +132,7 @@ dmypy.json
 logs/*
 simulations/results_*
 simulations/res_*
+simulations/configs
 *.snakemake
 simulations/debugging
 simulations/results

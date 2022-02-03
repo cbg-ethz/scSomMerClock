@@ -6,57 +6,8 @@ import re
 
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib import cm
 
-
-
-FONTSIZE = 16
-
-sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-sns.set_context('paper')
-#     rc={'font.size': FONTSIZE,
-#         'axes.labelsize': 'medium',
-#         'axes.titlesize': 'large',
-#         'xtick.labelsize': 'medium',
-#         'ytick.labelsize': 'medium',
-#         'legend.fontsize': 'medium',
-#         'legend.title_fontsize': 'large',
-#         'axes.labelticksize': 50,
-#         'lines.linewidth': 1,
-#         'xtick.major.size':  6,
-#         'ytick.major.size':  6,
-#         'lines.markersize': 6.0,
-# })
-
-COLORS = [
-     # Blue     # Green    # Red      # Orange   # Purple
-    '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
-    '#A6CEE3', '#B2DF8A', '#FB9A99', '#FDBF6F', '#CAB2D6', # light
-    '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
-    '#FFFF99', '#B15928', #ugly
-]
-vis_names = {
-    'poissondisp': 'Poisson Dispersion',
-    'paup': 'PAUP*',
-    'poissontree': 'Poisson Tree',
-    'cellcoal': 'True Tree',
-    '-': '-',
-    'scite': 'SCITE Tree',
-    'cellphy': 'CellPhy Tree',
-}
-colors = {
-    'Poisson Dispersion':  '#994EA3', # purple
-    'PAUP* + True Tree': '#4FAF4A', # green
-    'PAUP* + CellPhy Tree': '#177512', # darker green
-    'PAUP* + SCITE Tree': '#AAE3A7', #  lighter green
-}
-poisson_colors = { # red, blue, orange
-    'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
-    'CellPhy Tree': ['#8C0000', '#094D85', '#9B4D00'], # darker
-    'SCITE Tree': ['#F04949', '#84B5DE', '#FFB164'] #brigher
-}
+from defaults import *
 
 
 def plot_wmax_pval2(in_dir, out_file=''):
@@ -153,7 +104,7 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
             ax.set_xlabel(None)
 
         ax2 = ax.twinx()
-        ax2.set_ylabel(f'Tree: {tree}')
+        ax2.set_ylabel(vis_names[tree])
         ax2.set_yticks([])
 
     handles, labels = ax.get_legend_handles_labels()
@@ -163,7 +114,7 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
 
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.65, top=0.95, wspace=0.75)
     if out_file:
-        fig.savefig(out_file, dpi=300)
+        fig.savefig(out_file, dpi=DPI)
     else:
         plt.show()
     plt.close()

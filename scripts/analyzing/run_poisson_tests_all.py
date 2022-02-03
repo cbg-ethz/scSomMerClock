@@ -130,7 +130,7 @@ def merge_datasets(disp_file, tree_files, out_dir):
     if tree_files:
         df_trees = pd.DataFrame()
         for tree_file in tree_files:
-            if not tree_file or not os.path.exists(tree_file):
+            if not os.path.exists(tree_file):
                 print(f'!WARNING! Missing tree file: {tree_file}')
                 continue
             tree = os.path.basename(tree_file).split('_')[2]

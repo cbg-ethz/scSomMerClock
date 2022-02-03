@@ -42,9 +42,11 @@ def merge_LRT_weight(in_files, out_file):
 
 def merge_LRT_tree(in_files, out_file):
     file_map = [(int(i.split('.')[-2].replace('wMax', '')), i) for i in in_files]
-
     for i, (_, in_file) in enumerate(sorted(file_map)):
         new_df = pd.read_csv(in_file, sep='\t', index_col=0)
+        # Backward compatibility
+        new_df.drop(['SNVs', 'TP', 'FP', 'TN', 'FN', 'MS', 'MS_T'],
+            axis=1, errors='ignore', inplace=True)
         if i == 0:
             df = new_df
         else:

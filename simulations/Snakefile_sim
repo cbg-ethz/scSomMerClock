@@ -319,10 +319,9 @@ rule run_poissonTree:
             'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)
     envmodules:
         'ete/3.1.2',
-    threads: 1
     resources:
         mem_mb = 1024,
-        runtime = 30,
+        runtime = 15,
 #        scratch='scratch'
     group: 'treeTest'
     params:
