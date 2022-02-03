@@ -13,8 +13,12 @@ def merge_summaries(in_files, out_file):
         new_df.rename(index={'Avg.': '-1'}, inplace=True)
         new_df.index = new_df.index.astype(int)
 
-        if os.path.basename(in_file).split('.')[0] == 'poissonDisp':
+        base_name = os.path.basename(in_file)
+        if base_name.split('.')[0] == 'poissonDisp':
             new_df.columns = [f'{i}_poissonDisp' for i in new_df.columns]
+        elif base_name.startswith('poissonTree'):
+            tree = in_file.split(os.sep)[-2].split('_')[-1]
+            new_df.columns = [f'{i}_{tree}' for i in new_df.columns]
 
         df = pd.concat([df, new_df], axis=1)
 
