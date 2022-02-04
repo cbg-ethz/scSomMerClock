@@ -48,9 +48,9 @@ def get_out_dir(config, bulk=False):
         out_dir = config['static']['out_dir']
 
     if bulk:
-        depth = int(config['cellcoal']['model']['no_cells'] \
-            * config['cellcoal']['NGS']['seq_cov'])
-        sim_dir = os.path.join(out_dir, f'res_{model}_bulk{depth}x')
+        cells = config['cellcoal']['model']['no_cells']
+        depth = int(cells * config['cellcoal']['NGS']['seq_cov'])
+        sim_dir = os.path.join(out_dir, f'res_{model}_bulk{depth}x_n{cells}')
     else:
         sim_dir = os.path.join(out_dir, f'res_{model}_{sim_scWGA}_{sim_NGS}')
 

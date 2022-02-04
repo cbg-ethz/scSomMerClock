@@ -7,8 +7,8 @@ SCRIPT_DIR = 'scripts'
 
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
-BULK = config['cellcoal']['model']['no_cells'] > 100 \
-    and config['cellcoal']['NGS']['seq_cov'] < 1
+BULK = config['cellcoal']['model']['no_cells'] >= 100 \
+    and config['cellcoal']['NGS']['seq_cov'] <= 1
 
 w_maxs = config.get('poisson', {}).get('w_max', [1000])
 if isinstance(w_maxs, (int, float)):
