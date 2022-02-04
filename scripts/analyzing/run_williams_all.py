@@ -26,7 +26,7 @@ DEPTH = {
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
-        cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
+        cmd = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 8G " \
             f"--wrap '{module_str} {cmd_raw}'"
     else:
         cmd = f'{module_str} {cmd_raw}'
