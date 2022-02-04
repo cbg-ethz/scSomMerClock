@@ -118,7 +118,7 @@ rule run_mobster:
         depth = config['cellcoal']['model']['no_cells'] \
             * config['cellcoal']['NGS']['seq_cov']
     shell:
-        '{SCRIPT_DIR}/williams2016.R {input} {output} --depth {params.depth}'
+        '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
 
 
 rule merge_mobster:
@@ -319,6 +319,7 @@ rule run_poissonTree:
             'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)
     envmodules:
         'ete/3.1.2',
+    threads: 1
     resources:
         mem_mb = 1024,
         runtime = 15,
