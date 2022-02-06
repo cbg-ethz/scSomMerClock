@@ -194,7 +194,7 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        vafs, out_str = vcf_to_vaf(snakemake.input.vcf)
+        vafs, out_str = vcf_to_vaf_sc(snakemake.input.vcf)
         with open(snakemake.output.vaf, 'w') as f:
             f.write(out_str)
         os.remove(snakemake.input.vcf)
