@@ -7,7 +7,8 @@ import pandas as pd
 
 def merge_bulk_summaries(in_files, out_file):
     clock = '_clock0_' in out_file
-    df = pd.DataFrame([], columns=['R^2_pVal', 'area_pVal', 's_Bayes'])
+    cols = ['R^2_pVal', 'area_pVal', 's_Bayes']
+    df = pd.DataFrame([], columns=cols)
 
     for i, in_file in enumerate(sorted(in_files)):
         run_no = f'{i+1:0>4}'
@@ -27,6 +28,12 @@ def merge_bulk_summaries(in_files, out_file):
                         log_lines[j + 1].strip().split(' ')[-1])
 
     df.index.name = 'run'
+
+    for col in cols:
+        if col == 's_Bayes':
+            df.loc[-1, col] = df[col].mean()
+        else:
+            df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
     df.to_csv(out_file, sep='\t', index=True)
 
 
