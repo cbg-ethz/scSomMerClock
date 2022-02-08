@@ -197,7 +197,6 @@ if __name__ == '__main__':
         vafs, out_str = vcf_to_vaf_sc(snakemake.input.vcf)
         with open(snakemake.output.vaf, 'w') as f:
             f.write(out_str)
-        os.remove(snakemake.input.vcf)
     else:
         args = parse_args()
         if args.output:

@@ -116,9 +116,10 @@ rule run_mobster:
         runtime = 120,
     params:
         depth = config['cellcoal']['model']['no_cells'] \
-            * config['cellcoal']['NGS']['seq_cov']
+            * config['cellcoal']['NGS']['seq_cov'],
     shell:
         '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
+        ' && rm {out_dir}/vcf_dir/vcf.{wildcards.run}'
 
 
 rule merge_mobster:

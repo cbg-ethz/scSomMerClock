@@ -74,6 +74,8 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
             except AttributeError:
                 continue
             tree = col.split('.')[-1]
+            if not tree in vis_names:
+                tree = col.split('_')[-1]
             sig = (content < 0.05).mean()
 
             df.loc[df.shape[0]] = [ADO, wMax, tree, sig]
@@ -122,7 +124,7 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=str, default='.',
+    parser.add_argument('input', type=str, default='.',
         help='Base dir for results.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
