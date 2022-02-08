@@ -322,7 +322,7 @@ rule run_poissonTree:
     threads: 1
     resources:
         mem_mb = 1024,
-        runtime = lambda wildcards, attempt: attempt * 15,
+        runtime = lambda wildcards, attempt: attempt * 30,
     group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
