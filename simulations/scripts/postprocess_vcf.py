@@ -113,9 +113,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                             np.array(s_rec[3].split(','), dtype=float).argmax()]
                         gt = sorted([bases[gt_raw[0]], bases[gt_raw[1]]])
 
-                    if gt == [-1, -1]:
-                        stats[4] += 1
-                    elif (tgt[1] > 0) and (gt[1] > 0): #TP
+                    if (tgt[1] > 0) and (gt[1] > 0): #TP
                         stats[0] += 1
                     elif (tgt[1] == 0) and (gt[1] > 0): #FP
                         stats[1] += 1
@@ -123,6 +121,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         stats[2] += 1
                     elif (tgt[1] > 0) and (gt[1] == 0): # FN
                         stats[3] += 1
+                    elif gt == [-1, -1]:
+                        stats[4] += 1
                     else:
                         raise RuntimeError('Unknown case for stats update')
 

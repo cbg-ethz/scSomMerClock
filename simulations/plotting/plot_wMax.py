@@ -58,10 +58,8 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
         elif not bulk and 'bulk' in res_file:
             continue
 
-        try:
-            ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
-        except:
-            import pdb; pdb.set_trace()
+        ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
+
         new_df = pd.read_csv(os.path.join(in_dir, res_file), sep='\t', index_col=0)
         avg_row = new_df.loc[-1]
         new_df.drop(-1, inplace=True)
@@ -81,6 +79,11 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
             df.loc[df.shape[0]] = [ADO, wMax, tree, sig]
             # if ADO * 1000 == wMax:
             #     df.loc[df.shape[0]] = [ADO, -1, tree, sig]
+
+        if (df[(df['ADO rate'] == ADO) & (df['wMax'] == 1)].size == 0) \
+                & ((df['ADO rate'] == ADO).sum() > 0):
+            for tree in ['cellcoal', 'cellphy', 'scite']:
+                df.loc[df.shape[0]] = [ADO, 1, tree, 1]
 
     trees = df['tree'].unique()
     fig, axes = plt.subplots(nrows=trees.size, ncols=1,
@@ -112,7 +115,7 @@ def plot_wmax_pval(in_dir, out_file='', bulk=False):
     handles, labels = ax.get_legend_handles_labels()
     ax.get_legend().remove()
     ax.legend(handles, labels, ncol=2, bbox_to_anchor=(1.1, 1), # right, top
-        frameon=True, title="wMax")
+        frameon=True, title=r'$w_{max}$')
 
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.65, top=0.95, wspace=0.75)
     if out_file:
@@ -136,5 +139,4 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-
     plot_wmax_pval(args.input, args.output, args.bulk)

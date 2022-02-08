@@ -146,7 +146,7 @@ rule generate_overview_file:
         no_cells = config['cellcoal']['model']['no_cells'],
     run:
         cols = ['run', 'muts_cells', 'muts_outgrp', 'muts_false',
-            'sides', 'TP-sides', 'FP_sides', 'TN_sides', 'FN_sides', 'MS_sides']
+            'sides', 'TP_sides', 'FP_sides', 'TN_sides', 'FN_sides', 'MS_sides']
         with open(output.stats, 'w') as f:
             f.write('\t'.join(cols) + '\n')
 
@@ -166,7 +166,6 @@ rule postprocess_vcf:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     resources:
         runtime = 120,
-#        scratch='scratch',
     group: 'vcf'
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
@@ -323,8 +322,7 @@ rule run_poissonTree:
     threads: 1
     resources:
         mem_mb = 1024,
-        runtime = 15,
-#        scratch='scratch'
+        runtime = lambda wildcards, attempt: attempt * 15,
     group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
