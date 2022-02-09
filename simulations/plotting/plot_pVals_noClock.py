@@ -79,7 +79,7 @@ def plot_affected_cells(df, out_file):
     plt.close()
 
 
-def plot_wmax_pval(in_file, out_file='', wMax_show=[]):
+def plot_pvals_clock(in_file, out_file='', wMax_show=[]):
     df_in = pd.read_csv(in_file, sep='\t', index_col=0)
     df_in.drop([-1], inplace=True)
     rel_cols = ['aff. cells'] + [i for i in df_in.columns if 'p-value' in i]
@@ -121,7 +121,7 @@ def plot_wmax_pval(in_file, out_file='', wMax_show=[]):
             col_type = 'intermediate'
 
         df_plot = df[df['aff. cells'] >= min_cell]
-        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], col_type, min_cell)
+        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], col_type)
 
         wMax_max = df_plot['wMax'].value_counts().index[0]
         n = ((df_plot['Tree'] == 'cellcoal') & (df_plot['wMax'] == wMax_max)) \
@@ -142,7 +142,7 @@ def plot_wmax_pval(in_file, out_file='', wMax_show=[]):
     plt.close()
 
 
-def plot_pVal_dist(df, wMax, axes, column_type, min_cell):
+def plot_pVal_dist(df, wMax, axes, column_type):
     hue_order = ['-', 'cellcoal', 'cellphy', 'scite']
     for i, j in enumerate(wMax):
         ax = axes[i]
@@ -211,7 +211,7 @@ def plot_pVal_dist(df, wMax, axes, column_type, min_cell):
         if column_type == 'last':
             ax2 = ax.twinx()
             if j >= 0:
-                ax2.set_ylabel(f'\nwMax\n= {j:.0f}', fontsize=12)
+                ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
             else:
                 ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
             ax2.set_yticks([])
@@ -231,4 +231,4 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    plot_wmax_pval(args.input, args.output, args.wMax)
+    plot_pvals_clock(args.input, args.output, args.wMax)

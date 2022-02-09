@@ -11,7 +11,7 @@
     [death rate] [L0.1]
 
 [GENEALOGY MODIFIERS]
-    [root branch length ratio] k0.5
+    [root branch length ratio] k{root_branch_length}
     [outgroup branch length ratio] q{outgroup_branch_length}
     [rate variation among branches] {branch_rate_var}
     [tree rate switches] {rate_switches}

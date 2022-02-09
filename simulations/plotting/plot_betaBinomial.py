@@ -2,20 +2,8 @@
 
 import argparse
 from scipy.stats import beta
-import seaborn as sns
-import matplotlib.pyplot as plt
 
-
-COLORS = [
-    '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
-    '#A6CEE3', '#B2DF8A', '#FB9A99', '#FDBF6F', '#CAB2D6', #light
-    '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
-    '#FFFF99', '#B15928', #ugly
-]
-
-TICK_FONTSIZE = 8
-LABEL_FONTSIZE = 8
-
+from defaults import *
 
 
 def plot_betabinomial(mean, var, bins=0, density=False):

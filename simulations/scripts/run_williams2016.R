@@ -13,6 +13,8 @@ p <- add_argument(p, '--fmax', default = 0.25, help =
     'Maximum VAF frequency (float)')
 p <- add_argument(p, '--cellularity', default = 1,
     help = 'Cellularity of sample (float)')
+p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
+
 argv <- parse_args(p)
 
 data <- read.csv(argv$in_path, sep = "\t")
@@ -27,10 +29,28 @@ s <- neutralitytest(
     cellularity = argv$cellularity,
 )
 
+if (argv$plot) {
+    library(ggplot2)
+    out.file1 = paste(as.character(argv$in_path), '_neutralitytestr.png', sep = '')
+    gout1 <- plot_all(s)
+    ggsave(out.file1,
+        plot = gout1,
+        devic = 'png',
+        width = 12,
+        height = 4,
+        units = 'in',
+        dpi = 300,
+        bg = 'white'
+    )
+}
+
 # Run mobster test
 library(mobster)
 
-fit = mobster_fit(data)
+fit = mobster_fit(
+    data,
+    K = 1
+)
 evo <- function(fit){
     tryCatch(
         expr = {
@@ -41,6 +61,22 @@ evo <- function(fit){
         }
     )
 }
+
+if (argv$plot) {
+    out.file2 = paste(as.character(argv$in_path), '_mobster.png', sep = '')
+    gout2 <- plot(fit$best)
+    ggsave(out.file2,
+        plot = gout2,
+        devic = 'png',
+        width = 12,
+        height = 4,
+        units = 'in',
+        dpi = 300,
+        bg = 'white'
+    )
+}
+
+
 
 # Safe both outputs
 sink(argv$out_path)

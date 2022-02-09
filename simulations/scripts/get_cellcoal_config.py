@@ -28,6 +28,9 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
     templ = re.sub('{outgroup_branch_length}',
         str(model.get('outgroup_branch_length', 1)), templ)
 
+    templ = re.sub('{root_branch_length}',
+        str(model.get('root_branch_length', 0.5)), templ)
+
     if model.get('no_muts', None):
         templ = re.sub('{no_muts}', f'j{model["no_muts"]}', templ)
     else:

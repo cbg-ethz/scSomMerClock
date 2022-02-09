@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import re
-import seaborn as sns
 
-
-TICK_FONTSIZE = 16
-LABEL_FONTSIZE = 20
-
-COLORS = [
-    '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
-    '#A6CEE3', '#B2DF8A', '#FB9A99', '#FDBF6F', '#CAB2D6', #light
-    '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
-    '#FFFF99', '#B15928', #ugly
-]
+from defaults import *
 
 
 def generate_ADO_mut_plot(ADO_file, data_file, out_dir):
@@ -46,11 +35,11 @@ def generate_ADO_mut_plot(ADO_file, data_file, out_dir):
     fig, ax = plt.subplots(figsize=(16, 12))
     plt.plot(plot_data[0], plot_data[1], marker='x', lw=0)
 
-    ax.set_ylabel('# Mutations', fontsize=LABEL_FONTSIZE)
-    ax.set_xlabel(f'mean ADO rate', fontsize=LABEL_FONTSIZE)
-    ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
-    ax.tick_params(axis='both', which='minor', labelsize=TICK_FONTSIZE)
-    plt.title(title_str, fontsize=LABEL_FONTSIZE)
+    ax.set_ylabel('# Mutations')
+    ax.set_xlabel(f'mean ADO rate')
+    ax.tick_params(axis='both', which='major')
+    ax.tick_params(axis='both', which='minor')
+    plt.title(title_str)
 
     out_file = os.path.join(out_dir, f'ADO_mut_scatter.png')
     fig.savefig(out_file, dpi=300)
@@ -79,20 +68,6 @@ def generate_est_scatter_plot(est_file, ADO_file, pVal_file, out_dir):
         .rename({'p-value_poissonTree_1.cellphy': 'P-value',
             'CellPhy_FN': 'FN_estimated'}, axis=1)
 
-    sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-    sns.set_context('paper',
-        rc={'font.size': TICK_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelsize': LABEL_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelticksize': LABEL_FONTSIZE,
-            'lines.linewidth': 2,
-            'legend.fontsize': LABEL_FONTSIZE,
-            'legend.title_fontsize':  LABEL_FONTSIZE,
-            'xtick.major.size':  TICK_FONTSIZE*2,
-            'ytick.major.size':  TICK_FONTSIZE,
-        })
-
     plot_ADO_est(df_scite, os.path.join(out_dir, 'FN_estimate_scite.png'))
     plot_ADO_est(df_cellphy, os.path.join(out_dir, 'FN_estimate_cellphy.png'))
 
@@ -111,14 +86,9 @@ def plot_ADO_est(df, out_file):
 
     cax = fig.add_axes([ax.get_position().x1 - 0.05, 0.15, 0.03, 0.7])
     cbar = ax.figure.colorbar(sm, cax=cax)
-    cbar.ax.tick_params(labelsize=LABEL_FONTSIZE)
-    cbar.ax.set_ylabel('P-value', rotation=90, fontsize=LABEL_FONTSIZE)
-
-    ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
-    ax.tick_params(axis='both', which='minor', labelsize=TICK_FONTSIZE)
+    cbar.ax.set_ylabel('P-value', rotation=90)
 
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.8, top=0.9, hspace=0.33)
-    fig.suptitle(_get_title(out_file), fontsize=LABEL_FONTSIZE*1.25)
 
     if out_file:
         fig.savefig(out_file, dpi=300)

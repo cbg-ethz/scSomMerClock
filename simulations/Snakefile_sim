@@ -321,7 +321,7 @@ rule run_poissonTree:
         'ete/3.1.2',
     threads: 1
     resources:
-        mem_mb = 1024,
+        mem_mb = 768,
         runtime = lambda wildcards, attempt: attempt * 30,
     group: 'treeTest'
     params:

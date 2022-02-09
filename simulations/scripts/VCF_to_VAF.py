@@ -24,7 +24,6 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
     vafs = []
     # Compatible with mobster dN/dS calculation
     out_str = 'chrom\tfrom\tref\talt\tDP\talt_count\tVAF'
-
     with file_stream as f_in:
         for line in f_in:
             try:
@@ -64,7 +63,6 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
             elem_ids = line_cols[8].split(':')
 
             reads = np.zeros(4, dtype=float) # Order: ACGT
-
             for s_i, s_rec in enumerate(line_cols[9:]):
                 if s_i in exclude:
                     continue
@@ -77,17 +75,24 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
 
                 reads += np.array(s_read, dtype=float)
 
-            DP = reads.sum()
-            for alt_id, alt_count in enumerate(reads):
+            for alt_id in np.argsort(reads)[::-1][:2]:
                 if alt_id == MUT[line_cols[3]]:
                     continue
+                alt_count = reads[alt_id]
+                if alt_count <= 2:
+                    continue
+
+                DP = reads.sum()
+                alt_count = reads[alt_id]
                 alt = MUT_REV[alt_id]
                 vaf = alt_count / DP
+
                 if vaf >= fmin and vaf < fmax:
                     out_str += f'\n{line_cols[0]}\t{line_cols[1]}\t' \
                         f'{line_cols[3]}\t{alt}\t{DP}\t{alt_count}\t{vaf:.6f}'
                     vafs.append(vaf)
 
+    # show_VAF_dist(vafs)
     return np.array(vafs), out_str
 
 
@@ -112,7 +117,6 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
                     vafs = [[] for i in sample_names]
                     out_str = ['chrom\tfrom\tref\talt\tDP\talt_count\tVAF'] \
                         * len(sample_names)
-                    cnt = np.zeros(len(sample_names))
                 continue
             elif line.strip() == '':
                 continue
@@ -126,10 +130,7 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
 
             for s_i, s_rec in enumerate(line_cols[9:]):
                 s_rec_elms = s_rec.split(':')
-                # Skip wt
-                if s_rec_elms[0] == '0/0' or s_rec_elms[0] == '0|0':
-                    continue
-                cnt[s_i] += 1
+
                 try:
                     alt_count = s_rec_elms[ad_id].split(',')[1]
                     DP = int(s_rec_elms[depth_id])
@@ -142,6 +143,10 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
                     alt_count = s_rec_elms[ad_id].split(',')[1]
                     DP = int(s_rec_elms[depth_id])
                     vaf = float(s_rec_elms[vaf_id])
+
+                # Skip wt
+                if s_rec_elms[0] == '0/0' or s_rec_elms[0] == '0|0':
+                    continue
 
                 if vaf >= fmin and vaf < fmax and DP >= dmin:
                     out_str[s_i] += f'\n{line_cols[0]}\t{line_cols[1]}\t' \
@@ -163,7 +168,7 @@ def show_VAF_dist(arr):
         arr = np.array(arr)
 
     fig, ax = plt.subplots(figsize=(16, 12))
-    ax.hist(arr, bins=100, range= (0, 1))
+    ax.hist(arr, bins=100, range=(0, 1))
     ax.set_ylabel(f'counts (n={arr.size})', fontsize=20)
     ax.set_xlabel(f'VAF', fontsize=20)
     fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, hspace=0.5)
