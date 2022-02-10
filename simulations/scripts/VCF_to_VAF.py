@@ -79,7 +79,7 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
                 if alt_id == MUT[line_cols[3]]:
                     continue
                 alt_count = reads[alt_id]
-                if alt_count <= 2:
+                if alt_count <= 1:
                     continue
 
                 DP = reads.sum()

@@ -33,7 +33,10 @@ def merge_bulk_summaries(in_files, out_file):
         if col == 's_Bayes':
             df.loc[-1, col] = df[col].mean()
         else:
-            df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
+            if clock:
+                df.loc[-1, col] = f'{(df[col] >= 0.05).sum()}/{(df[col].notna()).sum()}'
+            else:
+                df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
     df.to_csv(out_file, sep='\t', index=True)
 
 

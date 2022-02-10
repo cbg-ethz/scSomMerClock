@@ -7,13 +7,14 @@ p <- add_argument(p, 'in_path', help = 'Input vcf file (str)')
 p <- add_argument(p, 'out_path', help = 'output log file (str)')
 p <- add_argument(p, '--depth', default = NULL,
     help = 'Sequencing depth (float)')
-p <- add_argument(p, '--fmin', default = 0.01,
+p <- add_argument(p, '--fmin', default = NULL,
     help = 'Minimum VAF frequency (float)')
-p <- add_argument(p, '--fmax', default = 0.25, help =
+p <- add_argument(p, '--fmax', default = NULL, help =
     'Maximum VAF frequency (float)')
 p <- add_argument(p, '--cellularity', default = 1,
     help = 'Cellularity of sample (float)')
 p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
+p <- add_argument(p, '--stdout', flag = TRUE, help = 'Print summary to stdout')
 
 argv <- parse_args(p)
 
@@ -21,13 +22,20 @@ data <- read.csv(argv$in_path, sep = "\t")
 
 # Run old Williams et al. 2016 frequentist test
 library(neutralitytestr)
-s <- neutralitytest(
-    data$VAF,
-    read_depth = as.numeric(argv$depth),
-    fmin = argv$fmin,
-    fmax = argv$fmax,
-    cellularity = argv$cellularity,
-)
+
+if (is.numeric(argv$fmin) & is.numeric(argv$fmax)) {
+    s <- neutralitytest(
+        data$VAF,
+        fmin = argv$fmin,
+        fmax = argv$fmax,
+    )
+} else {
+    s <- neutralitytest(
+        data$VAF,
+        read_depth = as.numeric(argv$depth),
+        cellularity = argv$cellularity,
+    )
+}
 
 if (argv$plot) {
     library(ggplot2)
@@ -49,7 +57,7 @@ library(mobster)
 
 fit = mobster_fit(
     data,
-    K = 1
+    K = 1,
 )
 evo <- function(fit){
     tryCatch(
@@ -76,10 +84,10 @@ if (argv$plot) {
     )
 }
 
-
-
 # Safe both outputs
-sink(argv$out_path)
+if (!argv$stdout) {
+    sink(argv$out_path)
+}
 cat('MOBSTER Population Genetics statistics:\n')
 print(data.frame(evo))
 cat('\n\n')
