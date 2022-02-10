@@ -89,6 +89,6 @@ if (!argv$stdout) {
     sink(argv$out_path)
 }
 cat('MOBSTER Population Genetics statistics:\n')
-print(data.frame(evo))
+print(data.frame(evo(fit)))
 cat('\n\n')
 print(summary(s))
