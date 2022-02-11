@@ -61,9 +61,9 @@ def convert_vcf(vcf_file, args):
 
     if not args.replace:
         existing = []
-        for file in os.listdir(args.input):
+        for file in os.listdir(args.out_dir):
             if file.startswith(basename) and file.endswith('.VAF'):
-                existing.append(os.path.join(args.input, file))
+                existing.append(os.path.join(args.out_dir, file))
         if len(existing) > 0:
             print('Existing files:\n\t' + '\n\t'.join(existing))
             return existing
@@ -71,9 +71,9 @@ def convert_vcf(vcf_file, args):
     run_bash(cmd, False)
 
     VAFs = []
-    for file in os.listdir(args.input):
+    for file in os.listdir(args.out_dir):
         if file.startswith(basename) and file.endswith('.VAF'):
-            VAFs.append(os.path.join(args.input, file))
+            VAFs.append(os.path.join(args.out_dir, file))
     return VAFs
 
 
