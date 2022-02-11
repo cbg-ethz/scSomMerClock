@@ -13,16 +13,28 @@ import tarfile
 MODULE_STR = ''
 
 DEPTH = {
-    'Li55': {'SRR475153': 176.1 /2, 'SRR475160': 176.1 /2, 'SRR475185': 24.3},
-    'Ni8': {'SRR975206': 35.5, 'SRR975208': 49.1, 'SRR975210': 51.0,
-        'SRR975212': 65.9},
+    'Li55': {'BGI_BC-T': 176.1 /2, 'BGI_BN-T': 24.3},
+    'Ni8': {'SRR975206': 35.5, 'SRR975210': 51.0, 'SRR975212': 65.9},  'SRR975208': 49.1,
     'W32': {'SRR1163508': 86.5, 'SRR1298936': 59.1},
     'W55': {'SRR1153400': 71.6, 'SRR1153401': 18.1},
     'Wu61': {'SRR3086496': 57.7, 'SRR3086497': 51.4, 'SRR3086498': 48.3},
     'Wu63': {'CRC0827-Adenoma_Polyps': 58.8, 'CRC0827-Ca-1': 25,
         'CRC0827-Ca-2': 29.9, 'CRC0827-Normal': 53.6},
-    'X25': {'SRR412866': 126.8, 'SRR412870': 37.3}
+    'X25': {'SRR412866': 126.8, 'SRR412870': 37.3},
+    'H65': {'BGI_LN-T1': 35.9, 'BGI_YH-Control': 24.1, 'BGI_LC-T1': 54.2}
 }
+# CELLULARITY = {
+#     'Li55': {'BGI_BC-T': 176.1 /2, 'BGI_BN-T': 24.3},
+#     'Ni8': {'SRR975206': 35.5, 'SRR975210': 51.0, 'SRR975212': 65.9},  'SRR975208': 49.1,
+#     'W32': {'SRR1163508': 86.5, 'SRR1298936': 59.1},
+#     'W55': {'SRR1153400': 71.6, 'SRR1153401': 18.1},
+#     'Wu61': {'SRR3086496': 57.7, 'SRR3086497': 51.4, 'SRR3086498': 48.3},
+#     'Wu63': {'CRC0827-Adenoma_Polyps': 58.8, 'CRC0827-Ca-1': 25,
+#         'CRC0827-Ca-2': 29.9, 'CRC0827-Normal': 53.6},
+#     'X25': {'SRR412866': 126.8, 'SRR412870': 37.3},
+#     'H65': {'BGI_LN-T1': 35.9, 'BGI_YH-Control': 24.1, 'BGI_LC-T1': 54.2}
+# }
+
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
@@ -82,7 +94,7 @@ def run_williams(VAF_file, args):
     cellularity = 1
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
-        f'--cellularity {cellularity}'
+        f'--cellularity {cellularity} plot'
     run_bash(cmd, args.local)
 
 
@@ -100,6 +112,7 @@ def merge_datasets(args):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=str,
+        default='/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VC_diploid/'
         help='Input dir to files with pattern: <DATASET>.mutect2filtered.PASS.vcf')
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
