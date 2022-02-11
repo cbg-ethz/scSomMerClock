@@ -94,7 +94,7 @@ def run_williams(VAF_file, args):
     cellularity = 1
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
-        f'--cellularity {cellularity} plot'
+        f'--cellularity {cellularity} --plot'
     run_bash(cmd, args.local)
 
 
