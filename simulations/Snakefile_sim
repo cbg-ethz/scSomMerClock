@@ -111,6 +111,7 @@ rule run_mobster:
         os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
     output:
         os.path.join(out_dir, 'vaf_dir', 'vaf.{run}.mobster')
+    threads: 2
     resources:
         mem_mb = 24576,
         runtime = 120,

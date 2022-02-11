@@ -57,7 +57,6 @@ library(mobster)
 
 fit = mobster_fit(
     data,
-    K = 1,
 )
 evo <- function(fit){
     tryCatch(
