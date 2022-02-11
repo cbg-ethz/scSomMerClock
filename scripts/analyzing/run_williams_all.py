@@ -57,7 +57,7 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
 
 def convert_vcf(vcf_file, args):
     basename = os.path.splitext(os.path.basename(vcf_file))[0]
-    out_file = os.path.join(args.input, basename)
+    out_file = os.path.join(args.out_dir, basename)
 
     if not args.replace:
         existing = []
