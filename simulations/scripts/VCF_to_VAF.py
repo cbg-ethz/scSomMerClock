@@ -97,6 +97,7 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
 
 
 def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
+    header_str = 'chrom\tfrom\tref\talt\tDP\talt_count\tVAF'
 
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
@@ -115,8 +116,7 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
                 if line.startswith('#CHROM'):
                     sample_names = line.strip().split('\t')[9:]
                     vafs = [[] for i in sample_names]
-                    out_str = ['chrom\tfrom\tref\talt\tDP\talt_count\tVAF'] \
-                        * len(sample_names)
+                    out_str = [header_str for i in sample_names]
                 continue
             elif line.strip() == '':
                 continue
