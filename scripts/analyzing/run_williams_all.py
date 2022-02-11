@@ -112,7 +112,7 @@ def merge_datasets(args):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', type=str,
-        default='/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VC_diploid/'
+        default='/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VC_diploid/',
         help='Input dir to files with pattern: <DATASET>.mutect2filtered.PASS.vcf')
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
