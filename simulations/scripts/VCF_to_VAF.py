@@ -156,6 +156,7 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
 
     excl = [i for i, j in enumerate(vafs) if len(j) == 0]
     vafs = [j for i, j in enumerate(vafs) if i not in excl]
+    sample_names = [j for i, j in enumerate(sample_names) if i not in excl]
     out_str = [j for i, j in enumerate(out_str) if i not in excl]
 
     return vafs, zip(sample_names, out_str)
