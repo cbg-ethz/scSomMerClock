@@ -111,10 +111,11 @@ def run_williams(VAF_file, args):
 
     # From https://cran.r-project.org/web/packages/neutralitytestr/vignettes/neutraltytestr.html
     fmax = cellularity / ploidy - 2 * np.sqrt(1 / depth)
+    if fmax < 0.1:
+        fmax = 0.25
     print(f'Neutralitytest fmax: {fmax:.4f}')
 
-    cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
-        f'--cellularity {cellularity} --ploidy {ploidy} --plot'
+    cmd = f'{args.exe_will} {VAF_file} {out_file} --fmax {fmax} --plot'
     run_bash(cmd, args.local)
 
 
