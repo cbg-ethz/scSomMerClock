@@ -104,7 +104,7 @@ def run_williams(VAF_file, args):
         depth = DEPTH[dataset][sample]
         cellularity = CELLULARITY[dataset][sample]
     except KeyError:
-        raise KeyError(f'Unknown key {sample} in: {dataset}')
+        raise KeyError(f'Unknown key {sample} in: {dataset}\t({VCF_file})')
 
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
