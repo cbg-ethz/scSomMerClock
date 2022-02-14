@@ -88,8 +88,12 @@ def run_williams(VAF_file, args):
     dataset = basename.split('.')[0]
     sample = basename.split('_')[-1]
 
-    depth = DEPTH[dataset][sample]
-    cellularity = CELLULARITY[dataset][sample]
+    try:
+        depth = DEPTH[dataset][sample]
+        cellularity = CELLULARITY[dataset][sample]
+    except KeyError as E:
+        raise KeyError(f'Unknown key in: {dataset}: {sample}\n{E}')
+
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
         f'--cellularity {cellularity} --plot'
