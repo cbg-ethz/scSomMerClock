@@ -49,7 +49,7 @@ CELLULARITY = {
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
-        cmd = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 8G " \
+        cmd = f"sbatch -t 60 -p amd-shared --qos amd-shared --mem 16G " \
             f"--wrap '{module_str} {cmd_raw}'"
     else:
         cmd = f'{module_str} {cmd_raw}'
@@ -97,7 +97,7 @@ def run_williams(VAF_file, args):
         return
 
     dataset = basename.split('.')[0]
-    sample = re.search('PASS_(.*)\.VAF', basename).group(1)
+    sample = re.search('PASS_(.*)\.VAF', VAF_file).group(1)
 
 
     try:
