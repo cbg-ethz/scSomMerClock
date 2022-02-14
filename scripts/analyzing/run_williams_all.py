@@ -148,7 +148,7 @@ if __name__ == '__main__':
         for in_file in os.listdir(args.input):
             if not in_file.endswith('.mutect2filtered.PASS.vcf'):
                 continue
-            if in_file = 'W32.mutect2filtered.PASS.vcf':
+            if in_file == 'W32.mutect2filtered.PASS.vcf':
                 in_file = 'W32.mutect2filtered.tetra.PASS.vcf'
             VAF_files = convert_vcf(os.path.join(args.input, in_file), args)
             for VAF_file in VAF_files:
