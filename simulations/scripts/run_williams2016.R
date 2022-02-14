@@ -6,7 +6,7 @@ p <- arg_parser('Run neutralitytestr from the Williams et al. 2016 paper.')
 p <- add_argument(p, 'in_path', help = 'Input vcf file (str)')
 p <- add_argument(p, 'out_path', help = 'output log file (str)')
 p <- add_argument(p, '--fmin', default = 0.1, help = 'Min. VAF freq. (float)')
-p <- add_argument(p, '--fmax', default = NULL, help = 'Max. VAF freq. (float)')
+p <- add_argument(p, '--fmax', default = -1, help = 'Max. VAF freq. (float)')
 p <- add_argument(p, '--depth', default = NULL, help = 'Seq. depth (float)')
 p <- add_argument(p, '--cellularity', default = 1,
     help = 'Sample cellularity (float)')
@@ -20,7 +20,7 @@ data <- read.csv(argv$in_path, sep = "\t")
 
 # Run old Williams et al. 2016 frequentist test
 library(neutralitytestr)
-if (is.numeric(argv$fmax)) {
+if (argv$fmax > argv$fmin) {
     s <- neutralitytest(
         data$VAF,
         fmin = argv$fmin,
