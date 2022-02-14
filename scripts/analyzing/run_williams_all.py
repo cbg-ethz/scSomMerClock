@@ -82,7 +82,7 @@ def run_williams(VAF_file, args):
     out_file = os.path.join(args.out_dir, basename + '.mobster')
 
     if not args.replace and os.path.exists(out_file):
-        print(f'Existing files: {out_file}')
+        print(f'Existing files:\n{out_file}')
         return
 
     dataset = basename.split('.')[0]
@@ -91,8 +91,8 @@ def run_williams(VAF_file, args):
     try:
         depth = DEPTH[dataset][sample]
         cellularity = CELLULARITY[dataset][sample]
-    except KeyError as E:
-        raise KeyError(f'Unknown key in: {dataset}: {sample}\n{E}')
+    except KeyError:
+        raise KeyError(f'Unknown key {sample} in: {dataset}')
 
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
@@ -148,6 +148,8 @@ if __name__ == '__main__':
         for in_file in os.listdir(args.input):
             if not in_file.endswith('.mutect2filtered.PASS.vcf'):
                 continue
+            if in_file = 'W32.mutect2filtered.PASS.vcf':
+                in_file = 'W32.mutect2filtered.tetra.PASS.vcf'
             VAF_files = convert_vcf(os.path.join(args.input, in_file), args)
             for VAF_file in VAF_files:
                 run_williams(VAF_file, args)
