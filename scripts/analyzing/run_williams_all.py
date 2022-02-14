@@ -32,7 +32,7 @@ CELLULARITY = {
     'Wu63': {'CRC0827-Adenoma_Polyps': 0.44, 'CRC0827-Ca-1': 0.1,
         'CRC0827-Ca-2': 0.1},
     'X25': {'SRR412866': 0.38},
-    'H65': {'BGI_LN-T1': 0.99, 'BGI_LC-T1': 1}
+    'H65': {'BGI_LN-T1': 0.99, 'BGI_LC-T1': 1.0}
 }
 
 
@@ -82,7 +82,7 @@ def run_williams(VAF_file, args):
     out_file = os.path.join(args.out_dir, basename + '.mobster')
 
     if not args.replace and os.path.exists(out_file):
-        print('Existing files: {out_file}')
+        print(f'Existing files: {out_file}')
         return
 
     dataset = basename.split('.')[0]
