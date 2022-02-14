@@ -2,12 +2,14 @@
 
 import argparse
 from datetime import datetime
-import numpy as np
 import os
-import pandas as pd
+import re
 import shutil
 import subprocess
 import tarfile
+
+import numpy as np
+import pandas as pd
 
 
 MODULE_STR = ''
@@ -95,7 +97,8 @@ def run_williams(VAF_file, args):
         return
 
     dataset = basename.split('.')[0]
-    sample = basename.split('_')[-1]
+    sample = re.search('PASS_(.*)\.VAF', basename).group(1)
+
 
     try:
         depth = DEPTH[dataset][sample]
