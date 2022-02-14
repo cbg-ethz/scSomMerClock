@@ -26,6 +26,7 @@ library(neutralitytestr)
 if (is.numeric(argv$fmin) & is.numeric(argv$fmax)) {
     s <- neutralitytest(
         data$VAF,
+        read_depth = as.numeric(argv$depth),
         fmin = argv$fmin,
         fmax = argv$fmax,
     )

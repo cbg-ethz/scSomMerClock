@@ -93,7 +93,7 @@ def run_williams(VAF_file, args):
     out_file = os.path.join(args.out_dir, basename + '.mobster')
 
     if not args.replace and os.path.exists(out_file):
-        print(f'Existing files:\n{out_file}')
+        print(f'Existing files:\n\t{out_file}')
         return
 
     dataset = basename.split('.')[0]
