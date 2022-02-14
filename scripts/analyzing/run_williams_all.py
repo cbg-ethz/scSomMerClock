@@ -13,7 +13,7 @@ import tarfile
 MODULE_STR = ''
 
 DEPTH = {
-    'Li55': {'BGI_BC-T': 176.1 /2, 'BGI_BN-T': 24.3},
+    'Li55': {'BGI_BC-T': 176.1, 'BGI_BN-T': 24.3},
     'Ni8': {'SRR975206': 35.5, 'SRR975210': 51.0, 'SRR975212': 65.9},
     'W32': {'SRR1163508': 86.5, 'SRR1298936': 59.1},
     'W55': {'SRR1153400': 71.6, 'SRR1153401': 18.1},
@@ -23,17 +23,17 @@ DEPTH = {
     'X25': {'SRR412866': 126.8, 'SRR412870': 37.3},
     'H65': {'BGI_LN-T1': 35.9, 'BGI_YH-Control': 24.1, 'BGI_LC-T1': 54.2}
 }
-# CELLULARITY = {
-#     'Li55': {'BGI_BC-T': 176.1 /2, 'BGI_BN-T': 24.3},
-#     'Ni8': {'SRR975206': 35.5, 'SRR975210': 51.0, 'SRR975212': 65.9},  'SRR975208': 49.1,
-#     'W32': {'SRR1163508': 86.5, 'SRR1298936': 59.1},
-#     'W55': {'SRR1153400': 71.6, 'SRR1153401': 18.1},
-#     'Wu61': {'SRR3086496': 57.7, 'SRR3086497': 51.4, 'SRR3086498': 48.3},
-#     'Wu63': {'CRC0827-Adenoma_Polyps': 58.8, 'CRC0827-Ca-1': 25,
-#         'CRC0827-Ca-2': 29.9, 'CRC0827-Normal': 53.6},
-#     'X25': {'SRR412866': 126.8, 'SRR412870': 37.3},
-#     'H65': {'BGI_LN-T1': 35.9, 'BGI_YH-Control': 24.1, 'BGI_LC-T1': 54.2}
-# }
+CELLULARITY = {
+    'Li55': {'BGI_BC-T': 0.91},
+    'Ni8': {'SRR975210': 0.98, 'SRR975212': 0.19}, # metastasis, primary
+    'W32': {'SRR1298936': 0.97},
+    'W55': {'SRR1153400': 0.34},
+    'Wu61': {'SRR3086497': 0.33, 'SRR3086498': 0.28}, # cancer, polyps
+    'Wu63': {'CRC0827-Adenoma_Polyps': 0.44, 'CRC0827-Ca-1': 0.1,
+        'CRC0827-Ca-2': 0.1},
+    'X25': {'SRR412866': 0.38},
+    'H65': {'BGI_LN-T1': 0.99, 'BGI_LC-T1': 1}
+}
 
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
@@ -87,11 +87,9 @@ def run_williams(VAF_file, args):
 
     dataset = basename.split('.')[0]
     sample = basename.split('_')[-1]
-    try:
-        depth = DEPTH[dataset][sample]
-    except:
-        depth = 100
-    cellularity = 1
+
+    depth = DEPTH[dataset][sample]
+    cellularity = CELLULARITY[dataset][sample]
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
         f'--cellularity {cellularity} --plot'
