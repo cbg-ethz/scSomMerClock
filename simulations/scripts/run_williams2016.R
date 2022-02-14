@@ -56,14 +56,15 @@ library(mobster)
 
 fit = mobster_fit(
     data,
+
 )
 evo <- function(fit){
     tryCatch(
         expr = {
-            return(evolutionary_parameters(fit))
+            return(data.frame(evolutionary_parameters(fit)))
         },
         error = function(e){
-            return(NA)
+            return(fit$best)
         }
     )
 }
@@ -87,6 +88,6 @@ if (!argv$stdout) {
     sink(argv$out_path)
 }
 cat('MOBSTER Population Genetics statistics:\n')
-print(data.frame(evo(fit)))
+print(evo(fit))
 cat('\n\n')
 print(summary(s))
