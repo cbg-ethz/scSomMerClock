@@ -98,7 +98,10 @@ def run_williams(VAF_file, args):
 
     dataset = basename.split('.')[0]
     sample = re.search('PASS_(.*)\.VAF', VAF_file).group(1)
-
+    if 'tetra' in VAF_file:
+        ploidy = 4
+    else:
+        ploidy = 2
 
     try:
         depth = DEPTH[dataset][sample]
@@ -106,9 +109,12 @@ def run_williams(VAF_file, args):
     except KeyError:
         raise KeyError(f'Unknown key {sample} in: {dataset}\t({VAF_file})')
 
+    # From https://cran.r-project.org/web/packages/neutralitytestr/vignettes/neutraltytestr.html
+    fmax = cellularity / ploidy - 2 * np.sqrt(1 / depth)
+    print(f'Neutralitytest fmax: {fmax:.4f}')
 
     cmd = f'{args.exe_will} {VAF_file} {out_file} --depth {depth} ' \
-        f'--cellularity {cellularity} --plot'
+        f'--cellularity {cellularity} --ploidy {ploidy} --plot'
     run_bash(cmd, args.local)
 
 
