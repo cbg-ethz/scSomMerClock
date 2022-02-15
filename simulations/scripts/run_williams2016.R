@@ -54,17 +54,14 @@ if (argv$plot) {
 # Run mobster test
 library(mobster)
 
-fit = mobster_fit(
-    data,
-
-)
-evo <- function(fit){
+fit = mobster_fit(data)
+mobster.evo <- function(fit){
     tryCatch(
         expr = {
-            return(data.frame(evolutionary_parameters(fit)))
+            return( data.frame(evolutionary_parameters(fit)) )
         },
-        error = function(e){
-            return(fit$best)
+        error = function(e) {
+            return( fit$best )
         }
     )
 }
@@ -88,6 +85,6 @@ if (!argv$stdout) {
     sink(argv$out_path)
 }
 cat('MOBSTER Population Genetics statistics:\n')
-print(evo(fit))
+print(mobster.evo(fit))
 cat('\n\n')
 print(summary(s))
