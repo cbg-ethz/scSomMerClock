@@ -61,7 +61,7 @@ mobster.evo <- function(fit){
             return( data.frame(evolutionary_parameters(fit)) )
         },
         error = function(e) {
-            return( fit$best )
+            return( 'MOBSTER: no evolutionary parameters' )
         }
     )
 }
@@ -85,6 +85,7 @@ if (!argv$stdout) {
     sink(argv$out_path)
 }
 cat('MOBSTER Population Genetics statistics:\n')
+print(fit$best)
 print(mobster.evo(fit))
 cat('\n\n')
 print(summary(s))
