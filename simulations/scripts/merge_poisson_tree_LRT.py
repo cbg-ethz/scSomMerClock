@@ -54,13 +54,33 @@ def merge_LRT_tree(in_files, out_file):
     df.to_csv(out_file, sep='\t')
 
 
+def merge_LRT_weight_column(in_dir, out_file=''):
+    vals = []
+    ADO = float(re.search('WGA(0[\.\d]*)', in_dir).group(1))
+
+    for tree in ['cellcoal', 'cellphy', 'scite']:
+        in_file = os.path.join(in_dir, f'poissonTree_{tree}',
+            'poissonTree.summary.tsv')
+        df_in = pd.read_csv(in_file, sep='\t', index_col=0)
+        import pdb; pdb.set_trace()
+        vals.append([ADO, tree, df_in])
+
+    df = pd.DataFrame(vals, columns=['ADO', 'tree', 'weights'])
+
+    if not out_file:
+        out_file = os.path.join(in_dir, 'PTT_weights.tsv')
+    df.to_csv(out_file, sep='\t')
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Input files')
     parser.add_argument('-o', '--output', type=str, help='Output file.')
     parser.add_argument('-t', '--tree', action='store_true',
-        help='If set, merge PoissonTree out_files over trees.'
-            ' If not, merge PoissonTree out_files over weights.')
+        help='If set, merge PoissonTree out_files over trees. '
+            'If not, merge PoissonTree out_files over weights.')
+    parser.add_argument('-w', '--weight', action='store_true',
+        help='Generate weight file for plotting')
     args = parser.parse_args()
     return args
 
@@ -74,6 +94,11 @@ if __name__ == '__main__':
     else:
         import argparse
         args = parse_args()
+
+        if args.weight:
+            merge_LRT_weight_column(args.input, args.output)
+            exit()
+
         if args.tree:
             merge_LRT_tree(args.input, args.output)
         else:
