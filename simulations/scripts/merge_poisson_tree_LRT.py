@@ -96,7 +96,7 @@ if __name__ == '__main__':
         args = parse_args()
 
         if args.weight:
-            merge_LRT_weight_column(args.input, args.output)
+            merge_LRT_weight_column(args.input[0], args.output)
             exit()
 
         if args.tree:
