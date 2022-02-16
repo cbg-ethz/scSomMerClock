@@ -62,12 +62,14 @@ def merge_LRT_weight_column(in_dir, out_file=''):
         in_file = os.path.join(in_dir, f'poissonTree_{tree}',
             'poissonTree.summary.tsv')
         df_in = pd.read_csv(in_file, sep='\t', index_col=0)
+        df_in.drop([-1], inplace=True)
         for col in df_in.columns:
             if not col.startswith('weights'):
                 continue
             wMax = float(col.split('_')[-1].replace('wMax', ''))
-            import pdb; pdb.set_trace()
-            vals.append([ADO, tree, df_in])
+            if wMax == 1:
+                continue
+            vals.append([ADO, tree, wMax, ';'.join(df_in[col].values)])
 
     df = pd.DataFrame(vals, columns=['ADO', 'tree', 'wMax', 'weights'])
 
