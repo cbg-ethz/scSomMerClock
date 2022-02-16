@@ -88,8 +88,11 @@ def get_LRT_weight_summary(in_dir, out_file=''):
             print(f'!Warning: Missing file {in_file}')
             continue
         new_df = pd.read_csv(in_file, sep='\t', index_col=0)
-        import pdb; pdb.set_trace()
+        df = df.append(new_df, ignore_index=True)
 
+    if not out_file:
+        out_file = os.path.join(in_dir, 'PTT_weights_all.tsv')
+    df.to_csv(out_file, sep='\t')
 
 
 def parse_args():
