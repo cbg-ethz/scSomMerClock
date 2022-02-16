@@ -78,6 +78,20 @@ def merge_LRT_weight_column(in_dir, out_file=''):
     df.to_csv(out_file, sep='\t')
 
 
+def get_LRT_weight_summary(in_dir, out_file=''):
+    df = pd.DataFrame(columns=['ADO', 'tree', 'wMax', 'weights'])
+    for dir in os.listdir(in_dir):
+        if not dir.startswith('res_clock0') or 'bulk' in dir:
+            continue
+        in_file = os.path.join(in_dir, dir, 'minDP5-minGQ1', 'PTT_weights.tsv')
+        if not os.path.exists(in_file):
+            print(f'!Warning: Missing file {in_file}')
+            continue
+        new_df = pd.read_csv(in_file, sep='\t', index_col=0)
+        import pdb; pdb.set_trace()
+
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Input files')
@@ -86,7 +100,9 @@ def parse_args():
         help='If set, merge PoissonTree out_files over trees. '
             'If not, merge PoissonTree out_files over weights.')
     parser.add_argument('-w', '--weight', action='store_true',
-        help='Generate weight file for plotting')
+        help='Generate weight file for single ADO rate.')
+    parser.add_argument('-ws', '--weight_summary', action='store_true',
+        help='Generate weight summary file over all ADO rates.')
     args = parser.parse_args()
     return args
 
@@ -103,6 +119,10 @@ if __name__ == '__main__':
 
         if args.weight:
             merge_LRT_weight_column(args.input[0], args.output)
+            exit()
+
+        if args.weight_summary:
+            get_LRT_weight_summary(args.input[0], args.output)
             exit()
 
         if args.tree:
