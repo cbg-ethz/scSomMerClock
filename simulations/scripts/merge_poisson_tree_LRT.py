@@ -65,7 +65,7 @@ def merge_LRT_weight_column(in_dir, out_file=''):
         for col in df_in.columns:
             if not col.startswith('weights'):
                 continue
-            wMax = int(col.split('_')[-1].replace('wMax', ''))
+            wMax = float(col.split('_')[-1].replace('wMax', ''))
             import pdb; pdb.set_trace()
             vals.append([ADO, tree, df_in])
 
