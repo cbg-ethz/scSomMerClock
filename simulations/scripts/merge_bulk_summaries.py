@@ -7,7 +7,9 @@ import pandas as pd
 
 def merge_bulk_summaries(in_files, out_file):
     clock = '_clock0_' in out_file
-    cols = ['R^2_pVal', 'area_pVal', 's_Bayes', 'aff. cells']
+    cols = ['R^2_pVal', 'area_pVal', 's_Bayes']
+    if clock:
+        cols.append('aff. cells')
     df = pd.DataFrame([], columns=cols)
 
     for i, in_file in enumerate(sorted(in_files)):
@@ -30,13 +32,14 @@ def merge_bulk_summaries(in_files, out_file):
     for col in cols:
         if col == 's_Bayes':
             df.loc[-1, col] = df[col].mean().round(2)
+        elif col == 'aff. cells':
+            df.loc[-1, col] = -1
         else:
             if clock:
                 df.loc[-1, col] = f'{(df[col] >= 0.05).sum()}/{(df[col].notna()).sum()}'
             else:
                 df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
 
-    clock = '_clock0_' in out_file
     if not clock:
         cellcoal_log = os.sep.join(
             in_file.split(os.path.sep)[:-2] + ['cellcoal.out'])
