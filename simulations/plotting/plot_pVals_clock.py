@@ -16,11 +16,6 @@ from defaults import *
 def generate_pval_plot_clock(args):
     df = pd.DataFrame(columns=['ADO', 'wMax', 'Tree', 'P-value', 'Lambda'])
 
-    if os.path.isfile(args.input):
-        res_files = [args.input]
-    else:
-        res_files = sorted(os.listdir(args.input))
-
     for res_file in os.listdir(args.input):
         if not res_file.startswith('res_clock0') or 'bulk' in res_file:
             continue
@@ -315,8 +310,6 @@ def parse_args():
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
         help='ADO values to plot. Default = all.')
-    parser.add_argument('-s', '--single_plots', action='store_true',
-        help='Safe plots separately.')
     parser.add_argument('-l', '--legend', action='store_true',
         help='Plot legend as separate figure.')
     args = parser.parse_args()

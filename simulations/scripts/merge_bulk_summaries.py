@@ -27,8 +27,6 @@ def merge_bulk_summaries(in_files, out_file):
                     df.loc[i, 'R^2_pVal'] = float(
                         log_lines[j + 1].strip().split(' ')[-1])
 
-    df.index.name = 'run'
-
     for col in cols:
         if col == 's_Bayes':
             df.loc[-1, col] = df[col].mean().round(2)
@@ -37,6 +35,22 @@ def merge_bulk_summaries(in_files, out_file):
                 df.loc[-1, col] = f'{(df[col] >= 0.05).sum()}/{(df[col].notna()).sum()}'
             else:
                 df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
+
+    clock = '_clock0_' in out_file
+    if not clock:
+        cellcoal_log = os.sep.join(
+            in_file.split(os.path.sep)[:-2] + ['cellcoal.out'])
+        with open(cellcoal_log, 'r') as f:
+            for line in f:
+                if line.startswith('Data set'):
+                    run_no = int(line.strip().split(' ')[2])
+                elif line.startswith('  node '):
+                    cells_raw = line.strip().split('(')[-1].rstrip(')').strip()
+                    cell_no = len(cells_raw.split(' '))
+                    df.loc[run_no, 'aff. cells'] = cell_no
+        df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
+
+    df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
 
 
