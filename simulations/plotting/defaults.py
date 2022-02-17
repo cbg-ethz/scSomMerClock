@@ -9,7 +9,7 @@ FONTSIZE = 16
 DPI = 300
 RUG_HEIGHT = 0.03
 sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-sns.set_context('paper')
+sns.set_context('paper', rc={'xtick.major.size': 2, 'ytick.major.size': 2})
 #     rc={'font.size': FONTSIZE,
 #         'axes.labelsize': 'medium',
 #         'axes.titlesize': 'large',
@@ -42,6 +42,13 @@ vis_names_short = {
     'scite': 'Scite',
     'cellphy': 'CellPhy',
 }
+methods_names = {
+    'PAUP*': 'PAUP*',
+    '-': 'Poisson Dispersion',
+    'cellcoal': 'Poisson Tree (+True Tree)',
+    'cellphy': 'Poisson Tree (+CellPhy)',
+    'scite': 'Poisson Tree (+Scite)',
+}
 
 COLORS = [
      # Blue     # Green    # Red      # Orange   # Purple
@@ -70,4 +77,4 @@ poisson_colors = { # red, blue, orange
 }
 
 
-HUE_ORDER = ['-', 'PAUP*', 'cellcoal', 'cellphy', 'scite']
+HUE_ORDER = ['-', 'cellcoal', 'cellphy', 'scite', 'PAUP*']

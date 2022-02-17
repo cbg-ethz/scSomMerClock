@@ -31,7 +31,7 @@ def merge_bulk_summaries(in_files, out_file):
 
     for col in cols:
         if col == 's_Bayes':
-            df.loc[-1, col] = df[col].mean()
+            df.loc[-1, col] = df[col].mean().round(2)
         else:
             if clock:
                 df.loc[-1, col] = f'{(df[col] >= 0.05).sum()}/{(df[col].notna()).sum()}'

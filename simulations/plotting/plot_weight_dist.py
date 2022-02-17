@@ -6,118 +6,136 @@ import re
 
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 
-from matplotlib.collections import LineCollection
-from matplotlib.gridspec import GridSpec
-from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-from matplotlib.transforms import ScaledTranslation
-from scipy.stats import chi2
 from matplotlib.colors import to_rgba
 
+from defaults import *
 
-COLORS = [
-     # Blue     # Green    # Red      # Orange   # Purple
-    '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
-    '#A6CEE3', '#B2DF8A', '#FB9A99', '#FDBF6F', '#CAB2D6', # light
-    '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
-    '#FFFF99', '#B15928', #ugly
-]
 
-TICK_FONTSIZE = 16
-LABEL_FONTSIZE = 16
+# colors = {101: '#FF7F00', r'$(\gamma + \beta)$ 1000': '#377DB8', 999: '#E41A1A'}
 
-vis_names = {'cellcoal': 'True', 'scite': 'SCITE', 'cellphy': 'CellPhy'}
-colors = {
-    'True': (0.945, 0.4, 0.627),
-    'CellPhy': (0.443, 0.396, 0.776),
-    'SCITE': (0.02, 0.604, 0.173)
-}
-colors = {101: '#FF7F00', r'$(\gamma + \beta)$ 1000': '#377DB8', 999: '#E41A1A'}
+def generate_weights_plot(args):
+    df = pd.read_csv(args.input, sep='\t', index_col=0)
+    df = df[(df['wMax'].isin(args.wMax)) & (df['ADO'].isin(args.ADO))]
 
-def generate_weights_plot(in_files, out_file=None):
-    data = {}
-    legend_elements = []
-    for i, in_file in enumerate(in_files):
-        df_in = pd.read_csv(in_file, sep='\t', engine='python', index_col='run',
-        skipfooter=1)
-        weights_raw = df_in.values[:, -1]
-        weights = []
-        for run_weights in weights_raw:
-            weights.append(np.array(run_weights.split(','), dtype=float))
+    single_plot = len(args.wMax) == 1 and len(args.ADO) == 1
 
-        _, wMax_raw, tree, = in_file.split(os.sep)[-2].split('_')
-        wMax = int(wMax_raw.replace('wMax', ''))
+    wMax_vals = df['wMax'].unique()
+    wMax_vals.sort()
+    ADO_vals = df['ADO'].unique()
+    ADO_vals.sort()
 
-        ADO = float(re.search('WGA(0[\.\d]*)', in_file).group(1))
-        if np.isclose(wMax, 1000 * ADO, atol=5):
-            label = r'$(\gamma + \beta)$ 1000'
+    if single_plot:
+        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+    else:
+        fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
+            figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+    axes = np.reshape(axes, (wMax_vals.size, ADO_vals.size))
+
+    for i, ADO_val in enumerate(ADO_vals):
+        if single_plot:
+            col_type = 'only'
+        elif i == 0:
+            col_type = 'first'
+        elif i == ADO_vals.size - 1:
+            col_type = 'last'
+        elif i == np.floor(ADO_vals.size / 2):
+            col_type = 'middle'
         else:
-            label = wMax
+            col_type = 'intermediate'
 
-        data[label] = np.array(weights).flatten()
+        df_plot = df[df['ADO'] == ADO_val]
+        plot_weight_dist(df_plot, wMax_vals, axes[:,i], col_type)
 
-        legend_elements.append(Patch(fc=to_rgba(colors[label], 0.5),
-            ec=colors[label], label=label, linewidth=1))
+        if not single_plot:
+            axes[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1),
+                xytext=(0, 5), xycoords='axes fraction',
+                textcoords='offset points', size='large', ha='center',
+                va='baseline')
 
-    sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-    sns.set_context('paper',
-        rc={'font.size': TICK_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelsize': LABEL_FONTSIZE,
-            'axes.titlesize': LABEL_FONTSIZE,
-            'axes.labelticksize': LABEL_FONTSIZE,
-            'lines.linewidth': 1,
-            'legend.fontsize': LABEL_FONTSIZE,
-            'legend.title_fontsize':  LABEL_FONTSIZE,
-            'xtick.major.size':  TICK_FONTSIZE*2,
-            'ytick.major.size':  TICK_FONTSIZE,
-        })
+    if single_plot:
+        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
+    else:
+        fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
+            hspace=0.5, wspace=0.5)
 
-    # Same as p-value plot for easy manual merging
-    fig, ax = plt.subplots(figsize=(15, 9))
+    if args.output:
+        fig.savefig(args.output, dpi=DPI)
 
-    sns.histplot(data,
-        element='poly', stat='density', kde=False,
-        common_norm=False, fill=True,
-        bins=100, multiple='dodge',
-        kde_kws={'cut': 0, 'clip': (0, 1)},
-        line_kws={'lw': 3, 'alpha': 0.75},
-        alpha=0.4, palette=colors,
-        legend=False, ax=ax
-    )
-    ax.tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
-    ax.set_xlabel('Poisson Tree weights')
-
-    plt.legend(handles=legend_elements, title='Tree:', bbox_to_anchor=(1.1, 1),
-        loc='upper left', borderaxespad=0.)
-
-    fig.subplots_adjust(left=0.11, bottom=0.15, right=0.75, top=0.95)
-
-    if not out_file:
-        out_dir = os.sep.join(in_file.split(os.sep)[:-2])
-        out_file = os.path.join(out_dir, 'PoissonTree_weights.pdf')
-    fig.savefig(out_file, dpi=300)
+    else:
+        plt.show()
     plt.close()
+
+
+def plot_weight_dist(df, wMax, axes, column_type):
+    max_w = 0
+    for i, j in enumerate(wMax):
+        ax = axes[i]
+        data = {}
+        for tree, tree_data in df[df['wMax'] == j].groupby('tree'):
+            w_str = tree_data['weights'].values[0].replace(';', ',')
+            data[tree] = np.array(w_str.split(','), dtype=float)
+            max_w = max(max_w, data[tree].max())
+
+
+        sns.histplot(data,
+            element='poly', stat='density', kde=False,
+            common_norm=False, fill=True,
+            bins=80, multiple='dodge',
+            line_kws={'alpha': 0.75},
+            alpha=0.4, palette=colors,
+            log_scale=(0, 10),
+            legend=False, ax=ax
+        )
+
+        # ax.spines['right'].set_visible(False)
+        # ax.spines['top'].set_visible(False)
+        # if i < wMax.size - 1:
+        #     ax.set_xticklabels([])
+        #     ax.set_xlabel(None)
+
+        if column_type == 'first':
+            if i != np.floor(wMax.size / 2):
+                ax.set_ylabel('')
+            else:
+                ax.set_ylabel('log Density')
+        else:
+            ax.set_ylabel('')
+
+        if column_type == 'middle' and i == wMax.size - 1:
+            ax.set_xlabel('Poisson Tree weights')
+        else:
+            ax.set_xlabel('')
+
+        if column_type == 'last':
+            ax2 = ax.twinx()
+            ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
+            ax2.set_yticks([])
+
+        if column_type == 'only':
+            ax.set_ylabel('Probability')
+            ax.set_xlabel('Poisson Tree weights')
+
+    for ax in axes:
+        ax.set_xlim((0, max_w * 1.05))
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=str, help='Input directory.')
+    parser.add_argument('input', type=str, help='Input PTT weight summary file.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
+    parser.add_argument('-w', '--wMax', nargs='+', type=float,
+        default=[1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+        help='wMax values to plot. Default = all.')
+    parser.add_argument('-a', '--ADO', nargs='+', type=float,
+        default=[0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
+        help='ADO values to plot. Default = all.')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
-
-    in_files = []
-    for res_dir in os.listdir(args.input):
-        if res_dir.startswith('poissonTree'):
-            in_files.append(
-                os.path.join(args.input, res_dir, 'poissonTree.summary.tsv'))
-    generate_weights_plot(in_files, args.output)
+    generate_weights_plot(args)

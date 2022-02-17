@@ -24,7 +24,8 @@ def merge_summaries(in_files, out_file):
 
     clock = '_clock0_' in out_file
     if not clock:
-        cellcoal_log = os.path.join(in_file.split(os.path.sep)[0], 'cellcoal.out')
+        cellcoal_log = os.sep.join(
+            in_file.split(os.path.sep)[:-3] + ['cellcoal.out'])
         with open(cellcoal_log, 'r') as f:
             for line in f:
                 if line.startswith('Data set'):

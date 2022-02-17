@@ -17,7 +17,7 @@ from ete3 import Tree
 
 
 LAMBDA_MIN = 1e-6
-log_LAMBDA_MIN = -50
+log_LAMBDA_MIN = -100
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
@@ -187,65 +187,13 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if filter:
         muts = muts.loc[idx[0], include_id]
         reads = np.array(reads)[:,include_idx]
-        # stats = get_stats(muts, true_muts.loc[idx[0], include_id])
     else:
         muts = muts[include_id]
         reads = np.array(reads)
-        # stats = get_stats(muts, true_muts)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
 
-    # print(f'VCF rows skipped:\n\t{skip[0]: >5} (>f{nan_filter*100}% missing)\n\t'
-    #     f'{skip[1]: >5} (only wt)\n\t{skip[2]: >5} (filtered)')
-
     return muts, true_muts[include_id], read_data
-
-
-def get_stats(df, true_df, binary=True, per_cell=False, verbose=False):
-    if binary:
-        df = df.replace(2, 1)
-        true_df = true_df.replace(2, 1)
-
-    T = (df == true_df) & df.notnull()
-    F = (df != true_df) & df.notnull()
-    MS_df = df.isna()
-    if per_cell:
-        muts = T.sum()
-        TP = (T & (df > 0)).sum() / muts
-        TN = (T & (df == 0)).sum() / muts
-
-        FP = (F & (df > true_df)).sum() / muts
-        FN = (F & (df < true_df)).sum() / muts
-
-        MS = MS_df.sum() / muts
-        MS_N = (MS_df & (true_df == 0)).sum() / muts
-        MS_T = (MS_df & (true_df > 0)).sum() / muts
-    else:
-        TP = (T & (df > 0)).sum().sum()
-        TN = (T & (df == 0)).sum().sum()
-
-        FP = (F & (df > true_df)).sum().sum()
-        FN = (F & (df < true_df)).sum().sum()
-
-        MS = MS_df.sum().sum()
-        MS_N = (MS_df & (true_df == 0)).sum().sum()
-        MS_T = (MS_df & (true_df > 0)).sum().sum()
-
-    mut_wrong = (df[true_df.sum(axis=1) == 0].sum(axis=1) > 0).sum()
-    mut_missing = (df[true_df.sum(axis=1) > 0].sum(axis=1) == 0).sum()
-    if verbose and not per_cell:
-        print(f'# Mutations: {df.shape[0]} ' \
-            f'(wrong: {mut_wrong}; missing: {mut_missing})\n' \
-            f'\tTP: {TP: >7}\t({TP / df.size:.3f})\n' \
-            f'\tFP: {FP: >7}\t({FP / df.size:.3f})\n' \
-            f'\tTN: {TN: >7}\t({TN / df.size:.3f})\n' \
-            f'\tFN: {FN: >7}\t({FN / df.size:.3f})\n' \
-            f'\tMS: {MS: >7}\t({MS / df.size:.3f})\n' \
-            f'\tMS_N: {MS_N: >5}\t({MS_N / df.size:.3f})\n' \
-            f'\tMS_T: {MS_T: >5}\t({MS_T / df.size:.3f})')
-
-    return {'TP': TP, 'FP': FP, 'TN': TN, 'FN': FN, 'MS': MS, 'MS_N': MS_N,
-        'MS_T': MS_T}
 
 
 def show_tree(tree, out_file='', w_idx=0):
@@ -451,8 +399,17 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
         muts_red = muts.drop(outg, axis=1)
     muts_red = muts_red[muts_red.sum(axis=1) > 0]
 
+    if not (tree_file.endswith('.raxml.bestTree') \
+            or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
+            or tree_file.endswith('_ml0.newick') \
+            or 'scite' in tree_file) or 'cellphy' in tree_file:
+        true_red = call_data[1].drop(outg, axis=1)
+
+        FN = ((true_red == 1) & (muts_red == 0)).mean().mean()
+        FP = ((true_red == 0) & (muts_red == 1)).mean().mean()
+
     # Make sure that at FN + MS is max. 0.8
-    MS = min(muts.isna().sum().sum() / muts_red.size, 1 - FN - 0.2)
+    MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
     M = map_mutations_gt(tree, muts_red, FP, FN + MS)
 
     add_br_weights(tree, FP, FN + MS, w_max)

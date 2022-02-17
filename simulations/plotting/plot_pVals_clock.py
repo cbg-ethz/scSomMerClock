@@ -6,17 +6,14 @@ import re
 
 import numpy as np
 import pandas as pd
-
 from matplotlib.collections import LineCollection
-from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
-from matplotlib.transforms import ScaledTranslation
 from scipy.stats import chi2
 
 from defaults import *
 
 
-def generate_pval_plot(args):
+def generate_pval_plot_clock(args):
     df = pd.DataFrame(columns=['ADO', 'wMax', 'Tree', 'P-value', 'Lambda'])
 
     if os.path.isfile(args.input):
@@ -74,18 +71,34 @@ def generate_pval_plot(args):
                 df_new['wMax'] = wMax_i
                 df = df.append(df_new, ignore_index=True)
 
+    # If single ADO and wMax value, plot all available data in one plot
+    single_plot = len(args.wMax) == 1 and len(args.ADO) == 1
+    if single_plot:
+        df.loc[df['wMax'] == -1, 'wMax'] = args.wMax[0]
+
     wMax_vals = df['wMax'].unique()
     wMax_vals.sort()
     ADO_vals = df['ADO'].unique()
     ADO_vals.sort()
 
-    fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-        figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
-    fig2, axes2 = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-        figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+    if args.legend:
+        generate_legend_plot(df['Tree'].unique(), args.output)
+
+    if single_plot:
+        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+        fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+    else:
+        fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
+            figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+        fig2, axes2 = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
+            figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+    axes = np.reshape(axes, (wMax_vals.size, ADO_vals.size))
+    axes2 = np.reshape(axes2, (wMax_vals.size, ADO_vals.size))
 
     for i, ADO_val in enumerate(ADO_vals):
-        if i == 0:
+        if single_plot:
+            col_type = 'only'
+        elif i == 0:
             col_type = 'first'
         elif i == ADO_vals.size - 1:
             col_type = 'last'
@@ -98,24 +111,32 @@ def generate_pval_plot(args):
         plot_pVal_dist(df_plot, wMax_vals, axes[:,i], col_type)
         plot_lambda_dist(df_plot, wMax_vals, axes2[:,i], col_type)
 
-        axes[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1), xytext=(0, 5),
-            xycoords='axes fraction', textcoords='offset points',
-            size='large', ha='center', va='baseline')
-        axes2[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1), xytext=(0, 5),
-            xycoords='axes fraction', textcoords='offset points',
-            size='large', ha='center', va='baseline')
+        if not single_plot:
+            axes[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1),
+                xytext=(0, 5), xycoords='axes fraction',
+                textcoords='offset points', size='large', ha='center',
+                va='baseline')
+            axes2[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1),
+                xytext=(0, 5), xycoords='axes fraction',
+                textcoords='offset points', size='large', ha='center',
+                va='baseline')
 
-    fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
-        hspace=0.5, wspace=0.5)
-    fig2.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
-        hspace=0.5, wspace=0.5)
+    if single_plot:
+        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
+        fig2.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
+    else:
+        fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
+            hspace=0.5, wspace=0.5)
+        fig2.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
+            hspace=0.5, wspace=0.5)
 
     if args.output:
-        fig.savefig(args.output, dpi=300)
-        fig2.savefig(os.path.splitext(args.output)[0] + '_lambda.png', dpi=300)
+        fig.savefig(args.output, dpi=DPI)
+        fig2.savefig(os.path.splitext(args.output)[0] + '_lambda.png', dpi=DPI)
     else:
         plt.show()
     plt.close()
+
 
 
 def plot_pVal_dist(df, wMax, axes, column_type):
@@ -147,8 +168,7 @@ def plot_pVal_dist(df, wMax, axes, column_type):
                 np.c_[np.zeros_like(rug_data) + 1 + RUG_HEIGHT*2 * k,
                         np.zeros_like(rug_data) + 1 + RUG_HEIGHT*2 * (k + 1)]),
                     axis=-1)
-            lc = LineCollection(segs,
-                transform=ax.get_xaxis_transform(),
+            lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
                 clip_on=False, color=colors[method], linewidth=0.05, alpha=0.75)
             ax.add_collection(lc)
             k += 1
@@ -181,7 +201,7 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             if i != np.floor(wMax.size / 2):
                 ax.set_ylabel('')
             else:
-                ax.set_ylabel(f'Probability')
+                ax.set_ylabel('Probability')
         else:
             ax.set_ylabel('')
 
@@ -197,6 +217,10 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             else:
                 ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
             ax2.set_yticks([])
+
+        if column_type == 'only':
+            ax.set_ylabel('Probability')
+            ax.set_xlabel('P-value')
 
 
 def plot_lambda_dist(df, wMax, axes, column_type):
@@ -247,6 +271,36 @@ def plot_lambda_dist(df, wMax, axes, column_type):
                 ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
             ax2.set_yticks([])
 
+        if column_type == 'only':
+            ax.set_xlabel(r'$\lambda$')
+            ax.set_ylabel(f'Density')
+
+
+def generate_legend_plot(methods, output):
+    fig, ax = plt.subplots(figsize=(4, 3))
+
+    handles = []
+    labels = []
+    for method in HUE_ORDER:
+        if method not in methods:
+            continue
+        labels.append(methods_names[method])
+        handles.append(Line2D([0], [0], color=colors[method], lw=2))
+    handles.extend([Line2D([0], [0], color='white'),
+        Line2D([0], [0], color='black', lw=2, ls='--')])
+    labels.extend(['', r'% of p-values $\leq$ 0.05'])
+
+    ax.grid(False)
+    ax.axis('off')
+    ax.legend(handles, labels, frameon=True, title=r'$\bf{Method}$')
+
+    fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
+    if output:
+        fig.savefig(os.path.splitext(output)[0] + '_legend.png', dpi=DPI)
+    else:
+        plt.show()
+    plt.close()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -263,10 +317,12 @@ def parse_args():
         help='ADO values to plot. Default = all.')
     parser.add_argument('-s', '--single_plots', action='store_true',
         help='Safe plots separately.')
+    parser.add_argument('-l', '--legend', action='store_true',
+        help='Plot legend as separate figure.')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
-    generate_pval_plot(args)
+    generate_pval_plot_clock(args)
