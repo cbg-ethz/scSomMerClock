@@ -46,7 +46,7 @@ def merge_bulk_summaries(in_files, out_file):
         with open(cellcoal_log, 'r') as f:
             for line in f:
                 if line.startswith('Data set'):
-                    run_no = int(line.strip().split(' ')[2])
+                    run_no = int(line.strip().split(' ')[2]) - 1
                 elif line.startswith('  node '):
                     cells_raw = line.strip().split('(')[-1].rstrip(')').strip()
                     cell_no = len(cells_raw.split(' '))
