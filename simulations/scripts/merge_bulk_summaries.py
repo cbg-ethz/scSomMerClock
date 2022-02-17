@@ -7,7 +7,7 @@ import pandas as pd
 
 def merge_bulk_summaries(in_files, out_file):
     clock = '_clock0_' in out_file
-    cols = ['R^2_pVal', 'area_pVal', 's_Bayes']
+    cols = ['R^2_pVal', 'area_pVal', 's_Bayes', 'aff. cells']
     df = pd.DataFrame([], columns=cols)
 
     for i, in_file in enumerate(sorted(in_files)):
