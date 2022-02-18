@@ -164,7 +164,7 @@ if __name__ == '__main__':
         os.mkdir(args.out_dir)
 
     if args.mode == 'run':
-        for in_file in os.listdir(args.input):
+        for in_file in sorted(os.listdir(args.input)):
             if not in_file.endswith('.mutect2filtered.PASS.vcf'):
                 continue
             if in_file == 'W32.mutect2filtered.PASS.vcf':
