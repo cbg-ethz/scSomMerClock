@@ -148,7 +148,7 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, min_alt=5):
                 if s_rec_elms[0] == '0/0' or s_rec_elms[0] == '0|0':
                     continue
 
-                if vaf >= fmin and vaf < fmax and alt_count >= min_alt:
+                if vaf >= fmin and vaf < fmax and int(alt_count) >= min_alt:
                     out_str[s_i] += f'\n{line_cols[0]}\t{line_cols[1]}\t' \
                         f'{line_cols[3]}\t{line_cols[4]}\t{DP}\t{alt_count}\t' \
                         f'{vaf:.6f}'
