@@ -25,7 +25,7 @@ DEPTH = {
     'Wu63_CRC0827-Ca-1': {'CRC0827-Ca-1': 25, 'CRC0827-Normal': 53.6},
     'Wu63_CRC0827-Ca-2': {'CRC0827-Ca-2': 29.9, 'CRC0827-Normal': 53.6},
     'Wu63_Polyps': {'CRC0827-Adenoma_Polyps': 58.8, 'CRC0827-Normal': 53.6},
-    'X25': {'SRR412866': 126.8, 'SRR412870': 37.3},
+    'X25': {'BGI_RC-T': 126.8, 'BGI_RN-T':: 37.3},
     'H65_BGI_LC-T1': {'BGI_LC-T1': 54.2, 'BGI_YH-Control': 24.1},
     'H65_BGI_LN-T1': {'BGI_LN-T1': 35.9, 'BGI_YH-Control': 24.1}
 }
@@ -41,7 +41,7 @@ CELLULARITY = {
     'Wu63_CRC0827-Ca-1': {'CRC0827-Ca-1': 0.1},
     'Wu63_CRC0827-Ca-2': {'CRC0827-Ca-2': 0.1},
     'Wu63_Polyps': {'CRC0827-Adenoma_Polyps': 0.44},
-    'X25': {'SRR412866': 0.38},
+    'X25': {'BGI_RC-T': 0.4},
     'H65_BGI_LC-T1': {'BGI_LC-T1': 1.0},
     'H65_BGI_LN-T1': {'BGI_LN-T1': 0.99}
 }

@@ -96,7 +96,7 @@ def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1
     return np.array(vafs), out_str
 
 
-def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
+def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, min_alt=5):
     header_str = 'chrom\tfrom\tref\talt\tDP\talt_count\tVAF'
 
     if vcf_file.endswith('gz'):
@@ -148,7 +148,7 @@ def vcf_to_vaf_bulk(vcf_file, fmin=1e-6, fmax=1, dmin=10):
                 if s_rec_elms[0] == '0/0' or s_rec_elms[0] == '0|0':
                     continue
 
-                if vaf >= fmin and vaf < fmax and DP >= dmin:
+                if vaf >= fmin and vaf < fmax and alt_count >= min_alt:
                     out_str[s_i] += f'\n{line_cols[0]}\t{line_cols[1]}\t' \
                         f'{line_cols[3]}\t{line_cols[4]}\t{DP}\t{alt_count}\t' \
                         f'{vaf:.6f}'
@@ -192,7 +192,7 @@ def parse_args():
         help='Regex pattern for samples to exclude.')
     parser.add_argument('-b', '--bulk', action='store_true',
         help='If set, assumes mutect2 VCF output.')
-    parser.add_argument('-dmin', '--depthmin', type=int, default=10,
+    parser.add_argument('-minAlt', '--min_alternatives', type=int, default=5,
         help='Min. depth for bulk/biological data.')
     args = parser.parse_args()
     return args
@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
         if args.bulk:
             vafs, out_data = vcf_to_vaf_bulk(args.vcf, args.fmin, args.fmax,
-                args.depthmin)
+                args.min_alternatives)
 
             for sample_name, out_str in out_data:
                 out_file_s = f'{out_file}_{sample_name}.VAF'
