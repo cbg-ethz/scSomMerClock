@@ -35,13 +35,13 @@ def run_bash(cmd_raw, bsub=True):
     else:
         cmd = cmd_raw
 
+    print(f'Running: {cmd}')
     subp = subprocess.Popen(cmd,
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     stdout, stderr = subp.communicate()
     subp.wait()
 
-    print(f'Running: {cmd}')
     if not bsub:
         print(str(stdout), str(stderr))
     print('\n')
