@@ -9,20 +9,19 @@ import subprocess
 base_dir = '/home/uvi/be/nbo/data/data/'
 
 data_dirs = {
-    'H65_Monica': ['all', 'cancer', 'normal'],
-    'Li55': ['all', 'cancer', 'normal'],
+    'H65_Monica': ['cancer', 'normal'],
+    'Li55': ['cancer', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
-    'Ni8_Monica': ['all', 'cancer'],
+    'Ni8_Monica': ['cancer'],
     'S21_P1': ['all'],
-    'S21_P2': ['all', 'cancer', 'left'],
-    'W32_Monica': ['all', 'aneuploid', 'cancer', 'haploid', 'normal'],
-    'W55': ['all', 'cancer', 'normal'],
-    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
-        'polyps'],
-    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
-    'X25': ['all', 'cancer', 'normal']
+    'S21_P2': ['cancer', 'left'],
+    'W32_Monica': ['aneuploid', 'cancer', 'haploid', 'normal'],
+    'W55': ['cancer', 'normal'],
+    'Wu61': ['cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal', 'polyps'],
+    'Wu63': ['cancer', 'cancer_polyps', 'normal', 'polyps'],
+    'X25': ['cancer', 'normal']
 }
 data_filters = ['all', '33nanFilter', '50nanFilter']
 
