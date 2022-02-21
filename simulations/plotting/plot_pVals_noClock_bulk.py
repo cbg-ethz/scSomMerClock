@@ -4,9 +4,7 @@ import argparse
 import os
 import re
 
-import numpy as np
 import pandas as pd
-from matplotlib.collections import LineCollection
 
 from defaults import *
 
@@ -177,15 +175,21 @@ def generate_pval_plot_noClock(args):
     df.drop(['R^2_pVal'], axis=1, inplace=True)
     # plot_affected_cells(df_in, args.output)
 
+    cell_no = int(re.search('_bulk(\d+)_', args.input).group(1))
     min_cells = np.array(args.min_cell)
     single_plot = min_cells.size == 1
 
     if single_plot:
-        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4, 3))
+        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+        fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
-        fig, axes = plt.subplots(nrows=2, ncols=min_cells.size,
+        fig, axes = plt.subplots(nrows=1, ncols=min_cells.size,
             figsize=(3 * min_cells.size, 3))
-    axes = np.reshape(axes, (2, min_cells.size))
+        fig2, axes2 = plt.subplots(nrows=1, ncols=min_cells.size,
+            figsize=(3 * min_cells.size, 3))
+    axes = np.reshape(axes, (1, min_cells.size))
+    axes2 = np.reshape(axes2, (1, min_cells.size))
+
 
     for i, min_cell in enumerate(min_cells):
         df_plot = df[df['aff. cells'] >= min_cell]
@@ -194,66 +198,49 @@ def generate_pval_plot_noClock(args):
             continue
 
         plot_neutralitytest(df_plot['area_pVal'], axes[0, i], (i, min_cells.size))
-        plot_mobster(df_plot['s_Bayes'], axes[1, i], (i, min_cells.size))
+        plot_mobster(df_plot['s_Bayes'], axes2[0, i], (i, min_cells.size))
 
         if not single_plot:
-            header = r'$\geq$' + f'{min_cell} cells\n(n = {df_plot.shape[0]})'
+            header = r'$\geq$' \
+                + f'{min_cell}/{cell_no} cells\n(n = {df_plot.shape[0]})'
             axes[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
+                xycoords='axes fraction', textcoords='offset points',
+                size='large', ha='center', va='baseline')
+            axes2[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
 
     if single_plot:
-        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
+        fig.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
+        fig2.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
     else:
-        fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
+        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.15, top=0.75,
+            hspace=0.5, wspace=0.5)
+        fig2.subplots_adjust(left=0.05, right=0.95, bottom=0.15, top=0.75,
             hspace=0.5, wspace=0.5)
 
     if args.output:
-        fig.savefig(args.output, dpi=300)
+        fig.savefig(args.output + '_neutralitytest.png', dpi=300)
+        fig2.savefig(args.output + '_mobster.png', dpi=300)
     else:
         plt.show()
     plt.close()
 
 
 def plot_neutralitytest(S, ax, col):
-    color = '#B2DF8A'
-
     data = S.values.astype(float)
     dp = sns.histplot(data,
-        element='poly', stat='probability', kde=False,
-        binwidth=0.01, binrange=(0, 1),
-        kde_kws={'cut': 0, 'clip': (0, 1)},
-        line_kws={'lw': 3}, legend=False, ax=ax,
-        palette=color,
+        element='bars', stat='probability', kde=False, binwidth=0.05,
+        binrange=(0, 1), color=colors['neutrality'], legend=False, ax=ax,
     )
     ax.set_xlim((0, 1))
 
-    # Add rugplots
-
-    segs = np.stack((np.c_[data, data],
-        np.c_[np.zeros_like(data) + 1, np.zeros_like(data) + 1 + RUG_HEIGHT*2]),
-            axis=-1)
-    lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
-        clip_on=False, color=color, linewidth=0.05)
-    ax.add_collection(lc)
-
-    y_pval = np.mean(data <= 0.05)
-    if y_pval > 0.33:
-        va = 'top'
-        y_dist = -0.02
-    else:
-        va = 'bottom'
-        y_dist = 0.02
-
-    ax.axhline(y_pval, ls='--', color=color, lw=1)
-    ax.text(0.05, y_pval + y_dist, f'{y_pval:.2f}', color=color, ha='left',
-        va=va, rotation=45)
+    add_rugs(data, offset=0, ax=ax, color=colors['neutrality'])
 
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
     ax.set_xlabel('P-value')
-
     if col[0] == 0:
         ax.set_ylabel('Probability')
     else:
@@ -266,29 +253,18 @@ def plot_neutralitytest(S, ax, col):
 
 
 def plot_mobster(S, ax, col):
-    color = '#33A02C'
-
     data = S.values.astype(float)
     dp = sns.histplot(data,
-        element='poly', stat='probability', kde=False, fill=True,
-        kde_kws={'cut': 0}, line_kws={'lw': 3}, legend=False, ax=ax,
-        palette=color,
+        element='bars', stat='probability', kde=False, fill=True,
+        color=colors['mobster'], log_scale=(False, False), legend=False, ax=ax,
     )
-    ax.set_ylim((0, 1))
+    ax.set_ylim((0, 0.5))
 
-    # Add rugplots
-    segs = np.stack((np.c_[data, data],
-        np.c_[np.zeros_like(data) + 1, np.zeros_like(data) + 1 + RUG_HEIGHT*2]),
-            axis=-1)
-    lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
-        clip_on=False, color=color, linewidth=0.05)
-    ax.add_collection(lc)
-
+    add_rugs(data, offset=0, ax=ax, color=colors['mobster'])
     ax.axvline(np.mean(data[~np.isnan(data)]), ls='--', color='black', lw=1)
 
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-
 
     ax.set_xlabel('Selective advantage s')
     if col[0] == 0:

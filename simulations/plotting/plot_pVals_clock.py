@@ -4,9 +4,7 @@ import argparse
 import os
 import re
 
-import numpy as np
 import pandas as pd
-from matplotlib.collections import LineCollection
 from matplotlib.lines import Line2D
 from scipy.stats import chi2
 
@@ -139,14 +137,14 @@ def plot_pVal_dist(df, wMax, axes, column_type):
         ax = axes[i]
         data = df[df['wMax'] == j]
         dp = sns.histplot(data, x='P-value', hue='Tree',
-            element='poly', stat='probability', kde=False,
-            common_norm=False, fill=False,
-            binwidth=0.01, binrange=(0, 1), multiple='dodge',
+            element='bars', stat='probability', kde=False,
+            common_norm=False, fill=True,
+            binwidth=0.05, binrange=(0, 1), multiple='dodge',
             kde_kws={'cut': 0, 'clip': (0, 1)},
             line_kws={'lw': 3, 'alpha': 0.66},
-            palette=colors, alpha=0.5,
+            palette=colors, alpha=1, shrink=1,
             hue_order=HUE_ORDER,
-            legend=False, ax=ax,
+            legend=False, ax=ax
         )
 
         ax.set_xlim((0, 1))
@@ -158,33 +156,26 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             rug_data = data[data['Tree'] == method]['P-value'].values
             if rug_data.size == 0:
                 continue
-
-            segs = np.stack((np.c_[rug_data, rug_data],
-                np.c_[np.zeros_like(rug_data) + 1 + RUG_HEIGHT*2 * k,
-                        np.zeros_like(rug_data) + 1 + RUG_HEIGHT*2 * (k + 1)]),
-                    axis=-1)
-            lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
-                clip_on=False, color=colors[method], linewidth=0.05, alpha=0.75)
-            ax.add_collection(lc)
+            add_rugs(rug_data, offset=k, ax=ax, color=colors[method])
             k += 1
 
-        l = 0
-        for tree, col in colors.items():
-            df_sub = df[(df['Tree'] == tree) & (df['wMax'] == j)]
-            if df_sub.size > 0:
-                y_pval = (df_sub['P-value'] <= 0.05).mean()
-                if y_pval > 0.33:
-                    va = 'top'
-                    y_dist = -0.02
-                else:
-                    va = 'bottom'
-                    y_dist = 0.02
+        # l = 0
+        # for tree, col in colors.items():
+        #     df_sub = df[(df['Tree'] == tree) & (df['wMax'] == j)]
+        #     if df_sub.size > 0:
+        #         y_pval = (df_sub['P-value'] <= 0.05).mean()
+        #         if y_pval > 0.33:
+        #             va = 'top'
+        #             y_dist = -0.02
+        #         else:
+        #             va = 'bottom'
+        #             y_dist = 0.02
 
-                ax.axhline(y_pval, ls='--', color=col, lw=1)
-                # ax.axvline(0.05, ls='--', color='grey', lw=1)
-                ax.text(0.05 + l * 0.15, y_pval + y_dist, f'{y_pval:.2f}',
-                    color=col, ha='left', va=va, rotation=45)
-                l += 1
+        #         ax.axhline(y_pval, ls='--', color=col, lw=1)
+        #         # ax.axvline(0.05, ls='--', color='grey', lw=1)
+        #         ax.text(0.05 + l * 0.15, y_pval + y_dist, f'{y_pval:.2f}',
+        #             color=col, ha='left', va=va, rotation=45)
+        #         l += 1
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)

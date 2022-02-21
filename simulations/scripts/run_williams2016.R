@@ -54,6 +54,11 @@ if (argv$plot) {
 # Run mobster test
 library(mobster)
 
+# Safe both outputs
+if (!argv$stdout) {
+    sink(argv$out_path)
+}
+
 fit = mobster_fit(data)
 mobster.evo <- function(fit){
     tryCatch(
@@ -80,10 +85,6 @@ if (argv$plot) {
     )
 }
 
-# Safe both outputs
-if (!argv$stdout) {
-    sink(argv$out_path)
-}
 cat('MOBSTER Population Genetics statistics:\n')
 print(fit$best)
 print(mobster.evo(fit))

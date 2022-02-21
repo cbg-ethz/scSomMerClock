@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 from matplotlib import cm
+from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 
 
@@ -9,7 +11,8 @@ FONTSIZE = 16
 DPI = 300
 RUG_HEIGHT = 0.03
 sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
-sns.set_context('paper', rc={'xtick.major.size': 2, 'ytick.major.size': 2})
+sns.set_context('paper',
+    rc={'xtick.major.size': 2, 'ytick.major.size': 2, 'lines.linewidth': 2})
 #     rc={'font.size': FONTSIZE,
 #         'axes.labelsize': 'medium',
 #         'axes.titlesize': 'large',
@@ -21,7 +24,7 @@ sns.set_context('paper', rc={'xtick.major.size': 2, 'ytick.major.size': 2})
 #         'lines.linewidth': 1,
 #         'xtick.major.size':  6,
 #         'ytick.major.size':  6,
-#         'lines.markersize': 6.0,
+#         'lines.markersize': 6.0}
 # })
 
 vis_names = {
@@ -69,6 +72,8 @@ colors = {
     'scite': '#FF7F00', # orange
     'Scite': '#FF7F00', # ligther orange
     '-': '#994EA3' # purple
+    'mobster': '#33A02C' # dark green
+    'neutrality': '#B2DF8A'
 }
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
@@ -78,3 +83,13 @@ poisson_colors = { # red, blue, orange
 
 
 HUE_ORDER = ['-', 'cellcoal', 'cellphy', 'scite', 'PAUP*']
+
+
+def add_rugs(data, offset, ax, color):
+    segs = np.stack((np.c_[data, data],
+            np.c_[np.zeros_like(data) + 1 + RUG_HEIGHT*2 * offset,
+                    np.zeros_like(data) + 1 + RUG_HEIGHT*2 * (offset + 1)]),
+        axis=-1)
+    lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
+        clip_on=False, color=color, linewidth=0.05)
+    ax.add_collection(lc)

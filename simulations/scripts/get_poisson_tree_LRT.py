@@ -197,7 +197,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
 
 def show_tree(tree, out_file='', w_idx=0):
-    from ete3 import TreeStyle, NodeStyle, ImgFace
+    from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace
     import matplotlib.pyplot as plt
     from matplotlib import cm
     from matplotlib.colors import rgb2hex
@@ -206,9 +206,10 @@ def show_tree(tree, out_file='', w_idx=0):
     weights = np.zeros(2 * len(tree) - 1)
     lengths = np.zeros(2 * len(tree) - 1)
     for i, node in enumerate(tree.iter_descendants()):
-        node.support = node.weights_norm[w_idx]
+        node.support = round(node.weights_norm[w_idx], 1)
+        node.dist = round(node.dist, 1)
         weights[i] = node.support
-        lengths[i] = node.dist
+        lengths[i] = round(node.dist, 1)
         if node.weights_norm_z[w_idx] == -1:
             color_hex = '#000000'
         else:
@@ -218,9 +219,18 @@ def show_tree(tree, out_file='', w_idx=0):
         style["size"] = 0 # set internal node size to 0
         style["vt_line_color"] = color_hex
         style["hz_line_color"] = color_hex
-        style["vt_line_width"] = 4
-        style["hz_line_width"] = 4
+        style["vt_line_width"] = 20
+        style["hz_line_width"] = 20
         node.img_style = style
+
+        mut = TextFace(f'#mut = {node.dist}', fsize=24)
+        mut.margin_bottom = 10
+        mut.margin_right = 20
+        # import pdb; pdb.set_trace()
+        node.add_face(mut, column=0, position="branch-top")
+        if node.support >= 0:
+            node.add_face(TextFace(f'   w = {node.support}', fsize=22), column=0, position="branch-bottom")
+
     root = tree.get_tree_root().children[0]
     root.dist = 1
 
@@ -230,13 +240,13 @@ def show_tree(tree, out_file='', w_idx=0):
     # ts.root_opening_factor = 0.1
     # ts.rotation = 90
     ts.show_leaf_name = True
-    ts.show_branch_support = True
-    ts.show_branch_length = True
+    ts.show_branch_support = False
+    ts.show_branch_length = False
     ts.margin_left = 0
     ts.margin_right = 0
     ts.margin_top = 0
     ts.margin_bottom = 0
-    # ts.optimal_scale_level = 'full'
+    ts.optimal_scale_level = 'full'
     # ts.force_topology = True
 
     leaves = tree.get_leaves()
@@ -265,7 +275,7 @@ def show_tree(tree, out_file='', w_idx=0):
         # ts.legend_position = 4
 
         try:
-            tree.render(out_file, tree_style=ts, w=1200, units='px')
+            tree.render(out_file, tree_style=ts, dpi=300)
             print(f'Tree written to: {out_file}')
         except:
             tree.render(out_file, dpi=300, h=h, units='mm')
@@ -854,7 +864,7 @@ def parse_args():
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--w_max', type=float, default=1000, nargs='+',
+    parser.add_argument('-w', '--w_max', type=float, default=[1000], nargs='+',
         help='Maximum weight value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
