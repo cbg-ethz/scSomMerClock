@@ -838,7 +838,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
         if w_max == 500 or plot_only:
-            show_tree(tree, tree_file + f'_w{w_max:.0f}_mapped.png', w_idx)
+            tree_fig = out_files[0] + f'_w{w_max:.0f}_mapped.png'
+            show_tree(tree, tree_fig, w_idx)
 
     if plot_only:
         exit()

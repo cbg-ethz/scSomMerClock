@@ -7,6 +7,7 @@ import re
 import pandas as pd
 
 from defaults import *
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
 
 def plot_affected_cells(df, out_file):
@@ -100,113 +101,58 @@ def plot_sign_over_cells(df_in, axes, trees, col_no):
             ax2.set_yticks([])
 
 
-def generate_sign_over_cells(args):
-    df = pd.DataFrame(columns=['aff. cells', 'Amplifier', 'Method', 'P-value'])
+def generate_pval_plot_noClock(args):
+    df = pd.DataFrame(columns=['area_pVal', 's_Bayes', 'aff. cells', 'Amplifier'])
     for res_file in os.listdir(args.input):
         if not res_file.startswith('res_clock') or not 'bulk' in res_file \
                 or res_file.startswith('res_clock0'):
             continue
+        bulk_file = os.path.join(args.input, res_file)
+        df_new = pd.read_csv(bulk_file, sep='\t', index_col='run')
+        df_new.drop([-1], inplace=True)
+        df_new.drop(['R^2_pVal'], axis=1, inplace=True)
+
         ampl = float(re.search('res_clock(\d[\.\d]*)x', res_file).group(1))
-        df_summary = pd.read_csv(
-            os.path.join(args.input, res_file), sep='\t', index_col='run')
-        df_summary.drop([-1], inplace=True)
+        if args.amplifier and ampl not in args.amplifier:
+            continue
+        df_new['Amplifier'] = ampl
 
-        import pdb; psb.set_trace()
-        cols = [i for i in df_summary.columns if i.startswith('p-value')]
-        for col in cols:
-            if col[8:].startswith('poissonTree'):
-                try:
-                    wMax = int(re.search('wMax(\d+)', col).group(1))
-                except AttributeError:
-                    # No errors
-                    wMax = args.wMax
-                else:
-                    if wMax not in args.wMax:
-                        continue
-                    wMax = [wMax]
-                tree = col.split('.')[-1]
-                if tree not in colors:
-                    tree = col.split('_')[-1]
-            elif col[8:].startswith('poissonDisp') or col[8:].startswith('paup'):
-                continue
-            else:
-                raise TypeError(f'Unknown column type: {col}')
-
-            df_new = df_summary.loc[:,[col, 'aff. cells']]
-            df_new.columns = ['P-value', 'aff. cells']
-
-            df_new['Amplifier'] = ampl
-            df_new['Tree'] = tree
-            for wMax_i in wMax:
-                df_new['wMax'] = wMax_i
-                df = df.append(df_new, ignore_index=True)
+        df = df.append(df_new, ignore_index=True)
+    cell_no = int(re.search('_bulk(\d+)_', bulk_file).group(1))
 
     ampl_vals = df['Amplifier'].unique()
     ampl_vals.sort()
 
-    tree_vals = df['Tree'].unique()
-
-    fig, axes = plt.subplots(nrows=tree_vals.size, ncols=ampl_vals.size,
-        figsize=(3 * ampl_vals.size, tree_vals.size + 2))
-    axes = np.reshape(axes, (tree_vals.size, ampl_vals.size))
-
-    for i, ampl_val in enumerate(ampl_vals):
-        df_plot = df[df['Amplifier'] == ampl_val]
-        plot_sign_over_cells(df_plot, axes[:,i], tree_vals, (i, ampl_vals.size))
-
-        axes[0, i].annotate(f'Amplifier: {ampl_val}x', xy=(0.5, 1.1),
-            xytext=(0, 5), xycoords='axes fraction',
-            textcoords='offset points', size='large', ha='center',
-            va='baseline')
-
-    fig.subplots_adjust(left=0.05, bottom=0.1, right=0.95, top=0.9,
-            hspace=0.25, wspace=0.25)
-
-    if args.output:
-        fig.savefig(args.output, dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
-
-
-def generate_pval_plot_noClock(args):
-    df = pd.read_csv(args.input, sep='\t', index_col=0)
-    df.drop([-1], inplace=True)
-    df.drop(['R^2_pVal'], axis=1, inplace=True)
-    # plot_affected_cells(df_in, args.output)
-
-    cell_no = int(re.search('_bulk(\d+)_', args.input).group(1))
     min_cells = np.array(args.min_cell)
-    single_plot = min_cells.size == 1
+
+    single_plot = min_cells.size == 1 and ampl_vals.size == 1
 
     if single_plot:
         fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
         fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
-        fig, axes = plt.subplots(nrows=1, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, 3))
-        fig2, axes2 = plt.subplots(nrows=1, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, 3))
-    axes = np.reshape(axes, (1, min_cells.size))
-    axes2 = np.reshape(axes2, (1, min_cells.size))
-
+        fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=min_cells.size,
+            figsize=(3 * min_cells.size, ampl_vals.size + 2))
+        fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=min_cells.size,
+            figsize=(3 * min_cells.size, ampl_vals.size + 2))
+    axes = np.reshape(axes, (ampl_vals.size, min_cells.size))
+    axes2 = np.reshape(axes2, (ampl_vals.size, min_cells.size))
 
     for i, min_cell in enumerate(min_cells):
-        df_plot = df[df['aff. cells'] >= min_cell]
+        df_plot = df[(df['aff. cells'] >= min_cell) | (df['Amplifier'] == 1)]
         if df_plot.size == 0:
             print(f'!WARNING - No run with {min_cell} cells affected!')
             continue
 
-        plot_neutralitytest(df_plot['area_pVal'], axes[0, i], (i, min_cells.size))
-        plot_mobster(df_plot['s_Bayes'], axes2[0, i], (i, min_cells.size))
+        plot_neutralitytest(df_plot, axes[:, i], (i, min_cells.size))
+        plot_mobster(df_plot, axes2[:, i], (i, min_cells.size))
 
         if not single_plot:
-            header = r'$\geq$' \
-                + f'{min_cell}/{cell_no} cells\n(n = {df_plot.shape[0]})'
-            axes[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
+            header = r'$\geq$' + f'{min_cell}/{cell_no} cells'
+            axes[0,i].annotate(header, xy=(0.5, 1.15), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
-            axes2[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
+            axes2[0,i].annotate(header, xy=(0.5, 1.15), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
 
@@ -214,9 +160,9 @@ def generate_pval_plot_noClock(args):
         fig.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
         fig2.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
     else:
-        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.15, top=0.75,
+        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.85,
             hspace=0.5, wspace=0.5)
-        fig2.subplots_adjust(left=0.05, right=0.95, bottom=0.15, top=0.75,
+        fig2.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.85,
             hspace=0.5, wspace=0.5)
 
     if args.output:
@@ -227,55 +173,84 @@ def generate_pval_plot_noClock(args):
     plt.close()
 
 
-def plot_neutralitytest(S, ax, col):
-    data = S.values.astype(float)
-    dp = sns.histplot(data,
-        element='bars', stat='probability', kde=False, binwidth=0.05,
-        binrange=(0, 1), color=colors['neutrality'], legend=False, ax=ax,
-    )
-    ax.set_xlim((0, 1))
+def plot_neutralitytest(df, axes, col):
+    ampl_vals = sorted(df['Amplifier'].unique())
 
-    add_rugs(data, offset=0, ax=ax, color=colors['neutrality'])
+    for i, ampl in enumerate(ampl_vals):
+        ax = axes[i]
+        data = df[df['Amplifier'] == ampl]['area_pVal'].values.astype(float)
+        dp = sns.histplot(data,
+            element='bars', stat='probability', kde=False, binwidth=0.05,
+            binrange=(0, 1), color=colors['neutrality'], legend=False, ax=ax,
+        )
+        ax.set_xlim((0, 1))
+        ax.set_ylim((0, 0.6))
 
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
+        add_rugs(data, offset=0, ax=ax, color=colors['neutrality'])
 
-    ax.set_xlabel('P-value')
-    if col[0] == 0:
-        ax.set_ylabel('Probability')
-    else:
-        ax.set_ylabel('')
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
 
-    if col[0] == col[1] - 1:
-        ax2 = ax.twinx()
-        ax2.set_ylabel('\nneutralitytest', fontsize=12)
-        ax2.set_yticks([])
+        ax.annotate(f'n = {data.size:.0f}', xy=(0.95, 0.75), xytext=(0, 5),
+                xycoords='axes fraction', textcoords='offset points',
+                ha='right', va='top', bbox=bbox_props)
+
+        if col[0] == np.floor((col[1] - 1) / 2) and i == len(ampl_vals) - 1:
+            ax.set_xlabel('P-value')
+        else:
+            ax.set_xlabel('')
+
+        if col[0] == 0 and i == np.floor((len(ampl_vals) - 1) / 2):
+            ax.set_ylabel('Probability')
+        else:
+            ax.set_ylabel('')
+
+        if col[0] == col[1] - 1:
+            ax2 = ax.twinx()
+            ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+            ax2.set_yticks([])
 
 
-def plot_mobster(S, ax, col):
-    data = S.values.astype(float)
-    dp = sns.histplot(data,
-        element='bars', stat='probability', kde=False, fill=True,
-        color=colors['mobster'], log_scale=(False, False), legend=False, ax=ax,
-    )
-    ax.set_ylim((0, 0.5))
+def plot_mobster(df, axes, col):
+    ampl_vals = sorted(df['Amplifier'].unique())
 
-    add_rugs(data, offset=0, ax=ax, color=colors['mobster'])
-    ax.axvline(np.mean(data[~np.isnan(data)]), ls='--', color='black', lw=1)
+    for i, ampl in enumerate(ampl_vals):
+        ax = axes[i]
+        data = df[df['Amplifier'] == ampl]['s_Bayes'].values.astype(float)
+        data = np.clip(data, -10, 100)
 
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
+        dp = sns.histplot(data,
+            element='bars', stat='probability', kde=False, fill=True,
+            color=colors['mobster'], log_scale=(False, False), legend=False, ax=ax,
+        )
+        ax.set_xlim((-2, 20))
+        ax.set_ylim((0, 0.7))
 
-    ax.set_xlabel('Selective advantage s')
-    if col[0] == 0:
-        ax.set_ylabel('Probability')
-    else:
-        ax.set_ylabel('')
+        add_rugs(data, offset=0, ax=ax, color=colors['mobster'])
+        ax.axvline(np.mean(data[~np.isnan(data)]), ls='--', color='black',
+            alpha=0.75, lw=1)
 
-    if col[0] == col[1] - 1:
-        ax2 = ax.twinx()
-        ax2.set_ylabel('\nMobster', fontsize=12)
-        ax2.set_yticks([])
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        ax.annotate(f'n = {data.size:.0f}', xy=(0.95, 0.75), xytext=(0, 5),
+                xycoords='axes fraction', textcoords='offset points',
+                ha='right', va='top', bbox=bbox_props)
+
+        if col[0] == np.floor((col[1] - 1) / 2) and i == len(ampl_vals) - 1:
+            ax.set_xlabel('Selective advantage s')
+        else:
+            ax.set_xlabel('')
+
+        if col[0] == 0 and i == np.floor((len(ampl_vals) - 1) / 2):
+            ax.set_ylabel('Probability')
+        else:
+            ax.set_ylabel('')
+
+        if col[0] == col[1] - 1:
+            ax2 = ax.twinx()
+            ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+            ax2.set_yticks([])
 
 
 def parse_args():
@@ -284,17 +259,14 @@ def parse_args():
     parser.add_argument('input', type=str, help='Summary file.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-c', '--min_cell', nargs='+',default = [10, 20, 30, 40, 50],
-        type=float, help='Min. #cells affected. Default = [10, 20, 30, 40, 50].')
-    parser.add_argument('-scd', '--sign_cell_dist', action='store_true',
-        help='Plot sign. p-values per aff. cells dist.')
+    parser.add_argument('-c', '--min_cell', nargs='+', default = [1, 10, 20, 30, 40, 50],
+        type=float, help='Min. #cells affected. Default = [1, 10, 20, 30, 40, 50].')
+    parser.add_argument('-w', '--amplifier', nargs='+', default=[], type=float,
+        help='wMax values to plot. Default = all.')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
-    if args.sign_cell_dist:
-        generate_sign_over_cells(args)
-    else:
-        generate_pval_plot_noClock(args)
+    generate_pval_plot_noClock(args)

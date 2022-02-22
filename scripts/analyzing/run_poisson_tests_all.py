@@ -83,42 +83,38 @@ def run_poisson_tree(tree, vcf_file, args):
 
 
 def run_plotting(vcf_files, args):
+    w_max = 500
+
     for vcf_file in vcf_files:
         path_strs = vcf_file.split(os.path.sep)
         clock_dir_no = path_strs.index('ClockTest')
         subset = path_strs[clock_dir_no + 1]
+        if subset == 'all':
+            continue
+
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
 
-        if subset == 'all':
-            continue
+        for tree in ['cellphy', 'scite']:
+            if tree == 'cellphy':
+                tree_file = vcf_file + '.raxml.bestTree'
+            else:
+                tree_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
+                    f'{dataset}.{filters}_ml0.newick')
 
-        w_max = 500
+            plot_file_raw = os.path.join(args.out_dir,
+                f'{dataset}_{filters}_{tree}')
+            plot_file = plot_file_raw + f'_w{w_max:.0f}_mapped.png'
 
-        cellphy_tree = vcf_file + '.raxml.bestTree'
-        cellphy_plot = cellphy_tree + f'_w{w_max:.0f}_mapped.png'
-        if os.path.exists(cellphy_plot) and not args.replace:
-            print(f'\tTree file exists: {cellphy_plot}')
-        elif not os.path.exists(cellphy_tree):
-            print(f'\tMissing tree file: {cellphy_tree}')
-        else:
-            cmd = f'python {args.exe_tree} {vcf_file} {cellphy_tree} -w {w_max} ' \
-                f'-b -p'
-            run_bash(cmd, args.local)
-
-        vcf_dir = os.path.dirname(vcf_file)
-        scite_tree = os.path.join(vcf_dir, 'scite_dir',
-            f'{dataset}.{filters}_ml0.newick')
-        scite_plot = scite_tree + f'_w{w_max:.0f}_mapped.png'
-        if os.path.exists(scite_plot) and not args.replace:
-            print(f'\tTree file exists: {scite_plot}')
-        elif not os.path.exists(scite_tree):
-            print(f'\tMissing tree file: {scite_tree}')
-        else:
-            cmd = f'python {args.exe_tree} {vcf_file} {scite_tree} -w {w_max} ' \
-                f'-b -p'
-            run_bash(cmd, args.local)
+            if os.path.exists(plot_file) and not args.replace:
+                print(f'\tExisting tree plot: {plot_file}')
+            elif not os.path.exists(cellphy_tree):
+                print(f'\tMissing tree file: {tree_file}')
+            else:
+                cmd = f'python {args.exe_tree} {vcf_file} {cellphy_tree} ' \
+                    f'-o {plot_file_raw} -w {w_max} -b -p'
+                run_bash(cmd, args.local)
 
 
 def merge_datasets(disp_file, tree_files, out_dir):

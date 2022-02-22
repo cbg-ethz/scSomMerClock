@@ -70,7 +70,8 @@ def run_phlogeny_plotting(args):
                     out_file = os.path.join(args.out_dir,
                         f'Phylogeny_{tree}_{data_set}_{sub_dir}_{filters}.pdf')
                     if not os.path.exists(out_file) or args.replace:
-                        cmd =  f'python {args.exe} -i {in_file} -o {out_file}'
+                        cmd =  f'python {args.exe} -i {in_file} -o {out_file} '
+                            '-w 400 -b -p'
                         run_bash(cmd, args.local)
 
 
@@ -79,7 +80,8 @@ def parse_args():
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all/phylogenies', help='Output directory.')
     parser.add_argument('-e', '--exe', type=str,
-        default='simulations/plotting/plot_tree.py', help='Tree plotting script.')
+        default='simulations/scripts/get_poisson_tree_LRT.py',
+        help='Tree plotting script.')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',

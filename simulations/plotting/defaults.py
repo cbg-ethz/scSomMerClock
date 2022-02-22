@@ -71,9 +71,9 @@ colors = {
     'CellPhy': '#377DB8', # blue
     'scite': '#FF7F00', # orange
     'Scite': '#FF7F00', # ligther orange
-    '-': '#994EA3' # purple
-    'mobster': '#33A02C' # dark green
-    'neutrality': '#B2DF8A'
+    '-': '#994EA3', # purple
+    'mobster': '#33A02C', # dark green
+    'neutrality': '#B2DF8A', #light green
 }
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
