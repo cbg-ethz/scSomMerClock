@@ -33,11 +33,14 @@ def run_plotting_from_folder(args):
             vcf_file = os.path.join(args.in_dir, vcf_file_raw)
         tree_file = vcf_file.replace('.vcf.gz', '.newick')
 
-        print(vcf_file)
         assert os.path.exists(tree_file)
 
-        plot_file_raw = vcf_file.replace('.vcf', '')
+        plot_file_raw = vcf_file.replace('.vcf.gz', '')
         plot_file = plot_file_raw + f'_w{w_max:.0f}_mapped.png'
+
+        if os.path.exists(plot_file) and not args.replace:
+            print(f'Existing tree plot: {plot_file}')
+            continue
 
         cmd = f'python {args.exe} {vcf_file} {tree_file} -w {w_max} ' \
                 f'-o {plot_file_raw} -b -p'
