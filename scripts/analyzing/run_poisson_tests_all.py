@@ -109,10 +109,10 @@ def run_plotting(vcf_files, args):
 
             if os.path.exists(plot_file) and not args.replace:
                 print(f'\tExisting tree plot: {plot_file}')
-            elif not os.path.exists(cellphy_tree):
+            elif not os.path.exists(tree_file):
                 print(f'\tMissing tree file: {tree_file}')
             else:
-                cmd = f'python {args.exe_tree} {vcf_file} {cellphy_tree} ' \
+                cmd = f'python {args.exe_tree} {vcf_file} {tree_file} ' \
                     f'-o {plot_file_raw} -w {w_max} -b -p'
                 run_bash(cmd, args.local)
 
