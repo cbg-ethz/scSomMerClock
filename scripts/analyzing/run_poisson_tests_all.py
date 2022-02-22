@@ -106,15 +106,19 @@ def run_plotting(vcf_files, args, gather_only=False):
                 tree_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
                     f'{dataset}.{filters}_ml0.newick')
 
-            plot_file_raw = os.path.join(args.out_dir,
-                f'{dataset}_{filters}_{tree}')
+            base_name = f'{dataset}_{filters}_{tree}'
+            plot_file_raw = os.path.join(args.out_dir, base_name)
             plot_file = plot_file_raw + f'_w{w_max:.0f}_mapped.png'
 
             if gather_only:
-                shutil.copyfile(tree_file,
-                    os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.newick'))
-                shutil.copyfile(vcf_file,
-                    os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.vcf'))
+                if not os.path.exists(tree_file):
+                    print(f'\tMissing tree file: {tree_file}')
+                else:
+                    base_name =
+                    shutil.copyfile(tree_file,
+                        os.path.join(phyl_dir, f'{base_name}.newick'))
+                    shutil.copyfile(vcf_file,
+                        os.path.join(phyl_dir, f'{base_name}.vcf'))
                 continue
 
             if os.path.exists(plot_file) and not args.replace:
