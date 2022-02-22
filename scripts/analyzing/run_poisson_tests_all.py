@@ -82,8 +82,11 @@ def run_poisson_tree(tree, vcf_file, args):
     run_bash(cmd, args.local)
 
 
-def run_plotting(vcf_files, args):
+def run_plotting(vcf_files, args, gather_only=False):
     w_max = 500
+    phyl_dir = os.path.join(args.out_dir, 'phylogeny')
+    if not os.path.exists(phyl_dir):
+        os.makedirs(phyl_dir)
 
     for vcf_file in vcf_files:
         path_strs = vcf_file.split(os.path.sep)
@@ -106,6 +109,13 @@ def run_plotting(vcf_files, args):
             plot_file_raw = os.path.join(args.out_dir,
                 f'{dataset}_{filters}_{tree}')
             plot_file = plot_file_raw + f'_w{w_max:.0f}_mapped.png'
+
+            if gather_only:
+                shutil.copyfile(tree_file,
+                    os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.newick'))
+                shutils.copyfile(vcf_file,
+                    os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.vcf'))
+                continue
 
             if os.path.exists(plot_file) and not args.replace:
                 print(f'\tExisting tree plot: {plot_file}')
@@ -212,8 +222,8 @@ def parse_args():
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
     parser.add_argument('-m', '--mode', type=str,
-        choices=['run', 'merge', 'compress', 'plot'],
-        default='run', help='Which task to do: run|merge|compress|plot')
+        choices=['run', 'merge', 'compress', 'plot', 'gather_plot'],
+        default='run', help='Which task to do: run|merge|compress|plot|gather_plot')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
@@ -259,6 +269,8 @@ if __name__ == '__main__':
         merge_datasets(disp_file, poisson_tree_files, args.out_dir)
     elif args.mode == 'plot':
         run_plotting(vcf_files, args)
+    elif args.mode == 'gather_plot':
+        run_plotting(vcf_files, args, True)
     else:
         comp_dir = os.path.join(args.out_dir,
             f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
