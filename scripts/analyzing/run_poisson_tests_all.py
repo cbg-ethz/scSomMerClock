@@ -84,9 +84,11 @@ def run_poisson_tree(tree, vcf_file, args):
 
 def run_plotting(vcf_files, args, gather_only=False):
     w_max = 500
-    phyl_dir = os.path.join(args.out_dir, 'phylogeny')
-    if not os.path.exists(phyl_dir):
-        os.makedirs(phyl_dir)
+
+    if gather_only:
+        phyl_dir = os.path.join(args.out_dir, 'phylogeny')
+        if not os.path.exists(phyl_dir):
+            os.makedirs(phyl_dir)
 
     for vcf_file in vcf_files:
         path_strs = vcf_file.split(os.path.sep)
@@ -102,9 +104,12 @@ def run_plotting(vcf_files, args, gather_only=False):
         for tree in ['cellphy', 'scite']:
             if tree == 'cellphy':
                 tree_file = vcf_file + '.raxml.bestTree'
+                log_file = vcf_file + '.raxml.log'
             else:
                 tree_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
                     f'{dataset}.{filters}_ml0.newick')
+                log_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
+                    f'{dataset}.{filters}.log')
 
             base_name = f'{dataset}_{filters}_{tree}'
             plot_file_raw = os.path.join(args.out_dir, base_name)
@@ -116,8 +121,11 @@ def run_plotting(vcf_files, args, gather_only=False):
                 else:
                     shutil.copyfile(tree_file,
                         os.path.join(phyl_dir, f'{base_name}.newick'))
+                    shutil.copyfile(log_file,
+                        os.path.join(phyl_dir, f'{base_name}.log'))
+
                     shutil.copyfile(vcf_file,
-                        os.path.join(phyl_dir, f'{base_name}.vcf'))
+                        os.path.join(phyl_dir, f'{base_name}.vcf.gz'))
                 continue
 
             if os.path.exists(plot_file) and not args.replace:
