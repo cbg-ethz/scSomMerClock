@@ -114,7 +114,6 @@ def run_plotting(vcf_files, args, gather_only=False):
                 if not os.path.exists(tree_file):
                     print(f'\tMissing tree file: {tree_file}')
                 else:
-                    base_name =
                     shutil.copyfile(tree_file,
                         os.path.join(phyl_dir, f'{base_name}.newick'))
                     shutil.copyfile(vcf_file,
