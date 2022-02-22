@@ -129,6 +129,11 @@ def run_plotting(vcf_files, args, gather_only=False):
                     f'-o {plot_file_raw} -w {w_max} -b -p'
                 run_bash(cmd, args.local)
 
+    if gather_only:
+        tar = tarfile.open(phyl_dir + '.tar.gz', 'w:gz')
+        tar.add(phyl_dir)
+        tar.close()
+
 
 def merge_datasets(disp_file, tree_files, out_dir):
     if disp_file:
