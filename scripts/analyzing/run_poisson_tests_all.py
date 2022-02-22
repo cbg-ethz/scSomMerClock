@@ -113,7 +113,7 @@ def run_plotting(vcf_files, args, gather_only=False):
             if gather_only:
                 shutil.copyfile(tree_file,
                     os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.newick'))
-                shutils.copyfile(vcf_file,
+                shutil.copyfile(vcf_file,
                     os.path.join(phyl_dir, f'{dataset}_{filters}_{tree}.vcf'))
                 continue
 
