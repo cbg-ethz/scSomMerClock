@@ -196,58 +196,81 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     return muts, true_muts[include_id], read_data
 
 
-def show_tree(tree, out_file='', w_idx=0):
+def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
     from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace
     import matplotlib.pyplot as plt
     from matplotlib import cm
     from matplotlib.colors import rgb2hex
 
+    mut_cutoff = max(50,
+        np.percentile([i.dist for i in tree.iter_descendants()], 90))
+
     cmap =cm.get_cmap('RdYlBu_r')
-    weights = np.zeros(2 * len(tree) - 1)
-    lengths = np.zeros(2 * len(tree) - 1)
+    lw = 1
+    fsize = 4
     for i, node in enumerate(tree.iter_descendants()):
-        node.support = round(node.weights_norm[w_idx], 1)
-        node.dist = round(node.dist, 1)
-        weights[i] = node.support
-        lengths[i] = round(node.dist, 1)
+        style = NodeStyle()
+
+        mut_no = node.dist
+        if mut_no > mut_cutoff:
+            node.dist = mut_cutoff
+            style['hz_line_type'] = 1
+            mut = TextFace(f'{mut_no:.1f}', fsize=fsize)
+            mut.margin_right = 5
+            mut.vt_align = 1
+            node.add_face(mut, column=0, position="branch-top")
+        else:
+            if br_labels:
+                node.dist = mut_no
+                mut = TextFace(f'{mut_no:.1f}', fsize=1)
+                mut.margin_right = 2
+                node.add_face(mut, column=0, position="branch-top")
+
         if node.weights_norm_z[w_idx] == -1:
             color_hex = '#000000'
         else:
             color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
 
-        style = NodeStyle()
         style["size"] = 0 # set internal node size to 0
         style["vt_line_color"] = color_hex
         style["hz_line_color"] = color_hex
-        style["vt_line_width"] = 20
-        style["hz_line_width"] = 20
+        style["vt_line_width"] = lw
+        style["hz_line_width"] = lw
         node.img_style = style
 
-        mut = TextFace(f'#mut = {node.dist}', fsize=24)
-        mut.margin_bottom = 10
-        mut.margin_right = 20
-        # import pdb; pdb.set_trace()
-        node.add_face(mut, column=0, position="branch-top")
-        if node.support >= 0:
-            node.add_face(TextFace(f'   w = {node.support}', fsize=22), column=0, position="branch-bottom")
+        if node.is_leaf():
+            name = TextFace(node.name, fsize=fsize)
+            name.margin_left = 2
+            name.hz_align = 1
+            node.add_face(name, column=0, position="branch-right")
 
-    root = tree.get_tree_root().children[0]
-    root.dist = 1
+        if br_labels:
+            weight = round(node.weights_norm[w_idx], 1)
+            if weight >= 0:
+                w_face = TextFace(f'{weight}', fsize=1)
+                node.add_face(w_face, column=0, position="branch-bottom")
+
+    root = tree.get_tree_root()
+    root.children[0].dist = 0
+    root.img_style = NodeStyle(size=0)
 
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
     # ts.arc_span = 180
     # ts.root_opening_factor = 0.1
     # ts.rotation = 90
-    ts.show_leaf_name = True
+    ts.allow_face_overlap = True
+    ts.show_leaf_name = False
     ts.show_branch_support = False
     ts.show_branch_length = False
-    ts.margin_left = 0
-    ts.margin_right = 0
-    ts.margin_top = 0
-    ts.margin_bottom = 0
-    ts.optimal_scale_level = 'full'
-    # ts.force_topology = True
+    ts.branch_vertical_margin = 5
+    ts.min_leaf_separation = 2
+    ts.margin_left = 10
+    ts.margin_right = 10
+    ts.margin_top = 10
+    ts.margin_bottom = 10
+    # ts.optimal_scale_level = 'full' # "mid" | "full"
+    ts.scale = 1
 
     leaves = tree.get_leaves()
     leaf_root_dist = np.zeros(len(leaves))
@@ -266,16 +289,17 @@ def show_tree(tree, out_file='', w_idx=0):
         # fig, ax = plt.subplots(figsize=(5, 1),
         #     subplot_kw=dict(xticks=[0, 5, 10], yticks=[]))
         # cax = ax.imshow([colors], extent=[0, 10, 0, 1])
-        # ax.set_xticklabels([f'{weights[weights >= 0].min():.2f}', f'{1:.2f}',
-        #     f'{weights.max():.2f}'],fontsize=24)
         # fig.subplots_adjust(left=0.1, bottom=0, right=0.9, top=1.5)
         # fig.savefig(cmap_file, dpi=300)
 
         # ts.legend.add_face(ImgFace(cmap_file, height=40), column=0)
         # ts.legend_position = 4
 
+        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            out_file += f'.{out_type}'
+
         try:
-            tree.render(out_file, tree_style=ts, dpi=300)
+            tree.render(out_file, tree_style=ts, w=2400,  dpi=300)
             print(f'Tree written to: {out_file}')
         except:
             tree.render(out_file, dpi=300, h=h, units='mm')
@@ -296,6 +320,10 @@ def read_tree(tree_file, samples=[]):
 
         log_file = tree_file.replace('.mutationMapTree', '.log') \
             .replace('.bestTree', '.log')
+
+        if log_file == tree_file:
+            log_file = tree_file.replace('newick', 'log')
+
         with open(log_file, 'r') as f:
             log = f.read().strip()
 
@@ -326,6 +354,9 @@ def read_tree(tree_file, samples=[]):
 
         # Get ML error rates from log file
         log_file =  tree_file.replace('_ml0.newick', '.log')
+        if log_file == tree_file:
+            log_file =  tree_file.replace('.newick', '.log')
+
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log_raw = f.read()
@@ -412,7 +443,7 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     if not (tree_file.endswith('.raxml.bestTree') \
             or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
             or tree_file.endswith('_ml0.newick') \
-            or 'scite' in tree_file) or 'cellphy' in tree_file:
+            or 'scite' in tree_file or 'cellphy' in tree_file):
         true_red = call_data[1].drop(outg, axis=1)
 
         FN = ((true_red == 1) & (muts_red == 0)).mean().mean()
@@ -804,7 +835,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
     # import pdb; pdb.set_trace()
 
 
-def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
+def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         w_maxs=[1000], plot_only=False, exclude='', include=''):
     path_strs = vcf_file.split(os.path.sep)
     try:
@@ -837,16 +868,14 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_files,
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
-        if w_max == 500 or plot_only:
-            tree_fig = out_files[0] + f'_w{w_max:.0f}_mapped.png'
+        if plot_only:
+            tree_fig = out_file + f'_w{w_max:.0f}_mapped'
             show_tree(tree, tree_fig, w_idx)
-
-    if plot_only:
-        exit()
+            exit()
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
 
-    summary_file = re.sub('(?<=_)w\d+_', '', out_files[0])
+    summary_file = re.sub('(?<=_)w\d+_', '', out_file)
     with open(summary_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 
@@ -904,7 +933,7 @@ if __name__ == '__main__':
             run_poisson_tree_test_biological(
                 vcf_file=args.vcf,
                 tree_file=args.tree,
-                out_files=args.output,
+                out_file=args.output[0],
                 w_maxs=args.w_max,
                 plot_only=args.plotting,
                 exclude=args.exclude,
