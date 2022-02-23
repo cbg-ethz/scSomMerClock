@@ -524,6 +524,8 @@ rule filter_calls_chr:
     output:
         os.path.join('Calls', 'all_filtered.{chr}.vcf.gz')
     envmodules:
+        'cesga/2018',
+        'gcccore/6.4.0',
         'pysam/0.16.0.1-python-3.8.1', 
         'pandas/1.0.0-python-3.8.1',
     resources:
@@ -536,7 +538,7 @@ rule filter_calls_chr:
         filter_QUAL = config.get('filters', {}).get('QUAL', 20),
         pref = '-p chr' if config['static']['WGA_ref'].startswith('hg19') else '',
     shell:
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o QC '
+        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o Calls '
         '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
         '-q {params.filter_QUAL} -r {params.filter_DP} {params.pref}'
 

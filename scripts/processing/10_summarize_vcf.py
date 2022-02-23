@@ -124,7 +124,7 @@ def get_summary_df(args):
     vcf_header = VCF_HEADER.format(time=time.localtime(), 
         contigs=contigs, ref=ref, samples=samples)
 
-    out_vcf = os.path.join(args.output, 'all.{}.filtered.vcf'.format(args.chr))
+    out_vcf = os.path.join(args.output, 'all_filtered.{}.vcf'.format(args.chr))
     print('Writing vcf file to: {}'.format(out_vcf))
     with open(out_vcf, 'w') as f_vcf:
         f_vcf.write(vcf_header)
@@ -559,7 +559,7 @@ def merge_summaries(args):
             sample_labels=' '.join(nex_mat.keys()),
             rec_no=len(nex_mat[taxa_info[0]]), matrix=nex_mat_str.strip('\n')))
 
-    vcf_out_file = os.path.join(args.output, 'all.filtered.vcf')
+    vcf_out_file = os.path.join(args.output, 'all_filtered.vcf')
     with open(vcf_out_file, 'w') as f_vcf:
         f_vcf.write(vcf_out.strip('\n'))
 
