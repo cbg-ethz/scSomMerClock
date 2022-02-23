@@ -107,13 +107,14 @@ def run_plotting(vcf_files, args, gather_only=False):
     for vcf_file in vcf_files:
         path_strs = vcf_file.split(os.path.sep)
         clock_dir_no = path_strs.index('ClockTest')
-        subset = path_strs[clock_dir_no + 1]
-        if subset == 'all':
-            continue
 
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
+        subset = path_strs[clock_dir_no + 1]
+
+        if 'all' in subset and not dataset.startswith(('Lo-P', 'S21_P1')):
+            continue
 
         for tree in ['cellphy', 'scite']:
             if tree == 'cellphy':
@@ -272,7 +273,7 @@ def get_plot_files(vcf_files):
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
-        if 'all' in path_strs[-2]:
+        if 'all' in path_strs[-2] and not dataset.startswith(('Lo-P', 'S21_P1')):
             continue
 
         files.append(vcf_file + '.raxml.bestTree_w500_mapped.png')
