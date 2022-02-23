@@ -542,6 +542,7 @@ rule filter_calls_chr:
 
 
 rule merge_filtered_calls:
+    input:
         expand(os.path.join('Calls', 'all_filtered.{chr}.vcf.gz'), chr=CHROM)
     output:
         os.path.join('Calls',  'all_filtered.vcf')
