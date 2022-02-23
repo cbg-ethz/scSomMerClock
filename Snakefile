@@ -552,4 +552,4 @@ rule merge_filtered_calls:
         'pysam/0.16.0.1-python-3.7.7',
         'pandas/1.0.1-python-3.7.7',
     script:
-        f'{SCRIPT_DIR}/merge_summary_vcfs.py'
+        f'{SCRIPT_DIR}/11_merge_filtered_vcfs.py'

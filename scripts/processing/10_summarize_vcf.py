@@ -137,21 +137,22 @@ def get_summary_df(args):
             .format(args.gt_sep, args.gt_sep.join(sample_maps[0].keys())))
         f_gt.write(gt_mat.rstrip('\n'))
 
-
-    out_nexus = os.path.join(args.output, 'Genotype_matrix.{}.nex'.format(args.chr))
-    print('Writing NEXUS file to: {}'.format(out_nexus))
-    nex_labels = ['REF'] + list(sc_map.keys())
-    nex_matrix = ''
-    if isinstance(all_mat, bool):
-        rec_no = 0
-    else:
-        for i, all_row in enumerate(all_mat):
-            nex_matrix += '{}    {}\n'.format(nex_labels[i], ''.join(all_row))
-        rec_no = all_mat.shape[1]
-    with open(out_nexus, 'w') as f_nex:
-        f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
-            sample_labels=' '.join(nex_labels), rec_no=rec_no,
-            matrix=nex_matrix.strip('\n')))
+    if args.out_nexus:
+        out_nexus = os.path.join(args.output,
+            'Genotype_matrix.{}.nex'.format(args.chr))
+        print('Writing NEXUS file to: {}'.format(out_nexus))
+        nex_labels = ['REF'] + list(sc_map.keys())
+        nex_matrix = ''
+        if isinstance(all_mat, bool):
+            rec_no = 0
+        else:
+            for i, all_row in enumerate(all_mat):
+                nex_matrix += '{}    {}\n'.format(nex_labels[i], ''.join(all_row))
+            rec_no = all_mat.shape[1]
+        with open(out_nexus, 'w') as f_nex:
+            f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
+                sample_labels=' '.join(nex_labels), rec_no=rec_no,
+                matrix=nex_matrix.strip('\n')))
 
     if germline:
         out_germ = os.path.join(args.output, 'Call_germline.{}.tsv'.format(args.chr))
@@ -585,6 +586,8 @@ def parse_args():
         'Default = summarize')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
+    parser.add_argument('-on', '--output_nexus', action='store_true',
+        help='Write data additionally as nexus file. Default = False.')
     parser.add_argument('-bn', '--bulk_normal', nargs='*', type=str, default=[''],
         help='Column name of bulk normal. Default = None.')
     parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
