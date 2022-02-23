@@ -11,7 +11,7 @@ while [ "$1" != "" ]; do
                             ;;
         *)                  if [[ $1 == *"mutect"* ]]; then
                                 mutect_calls=$1
-                                sample_bams+="$1.tmp "
+                                sample_bams+="$1.tmp.gz "
                             else
                                 sample_bams+="$1 "
                             fi
@@ -36,14 +36,14 @@ if [ "$mutect_calls" != "" ]; then
             --output-type v \
             --output ${mutect_calls}.tmp \
             -
-
     rm vcf_header.mutect.tmp
     sed -i -e 's/ID=AD,Number=R,Type/ID=AD,Number=.,Type/g' ${mutect_calls}.tmp
 
+    bcftools view ${mutect_calls}.tmp -O z -o ${mutect_calls}.tmp.gz
     bcftools index \
         --force \
         --threads ${cores} \
-        ${mutect_calls}.tmp
+        ${mutect_calls}.tmp.gz
 fi
 
 bcftools merge \
@@ -63,7 +63,7 @@ bcftools index \
     ${out_dir}/all.vcf.gz
 
 if [ "$mutect_calls" != "" ]; then
-    rm ${mutect_calls}.tmp 
+    rm ${mutect_calls}.tmp ${mutect_calls}.tmp.gz
 fi
 
 for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 'X' 'Y'; do 
