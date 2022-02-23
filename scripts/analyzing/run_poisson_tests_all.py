@@ -32,6 +32,14 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     print()
 
 
+
+def run_tests(vcf_files, args)
+    if args.tests == 'both' or args.tests == 'dispersion':
+        run_poisson_disp(vcf_files, args)
+    if args.tests == 'both' or args.tests == 'tree':
+        run_poissonTree(vcf_files, args)
+
+
 def run_poisson_disp(vcf_files, args):
     out_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
     if not args.replace and os.path.exists(out_file):
@@ -40,7 +48,13 @@ def run_poisson_disp(vcf_files, args):
     run_bash(cmd, args.local, '')
 
 
-def run_poisson_tree(tree, vcf_file, args):
+def run_poissonTree(vcf_files, args):
+    for vcf_file in vcf_files:
+        for tree in ['cellphy', 'scite']:
+            run_poissonTree_single(vcf_file, tree, args)
+
+
+def run_poissonTree_single(vcf_file, tree, args):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -143,7 +157,16 @@ def run_plotting(vcf_files, args, gather_only=False):
         tar.close()
 
 
-def merge_datasets(disp_file, tree_files, out_dir):
+def merge_datasets(vcf_files, args):
+    if args.tests == 'both' or args.tests == 'dispersion':
+        disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
+    else:
+        disp_file = None
+
+    tree_files = []
+    if args.tests == 'both' or args.tests == 'tree':
+        tree_files.extend(get_poisson_tree_files(vcf_files))
+
     if disp_file:
         df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1, 2])
         df_disp.drop(['H0', 'H1', 'hypothesis', '-2logLR'], axis=1, inplace=True)
@@ -184,8 +207,45 @@ def merge_datasets(disp_file, tree_files, out_dir):
     df.drop(dof_cols[1:], axis=1, inplace=True)
     df.sort_index(inplace=True)
 
-    out_file = os.path.join(out_dir, 'Summary_biological_data.tsv')
+    out_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
     df.to_csv(out_file, sep='\t')
+
+
+def compress_results(vcf_files, args):
+    comp_dir = os.path.join(args.out_dir,
+        f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
+    print(f'Writing files to: {comp_dir}.tar.gz')
+    os.mkdir(comp_dir)
+
+    old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
+    new_file = os.path.join(comp_dir, os.path.basename(old_file))
+    run_bash(f'cp {old_file} {new_file}', False, '')
+
+    for old_file in get_plot_files(vcf_files):
+        path_parts = old_file.split(os.path.sep)
+        old_name = path_parts[-1]
+        if 'scite_dir' in path_parts:
+            tree = 'scite'
+            subset = path_parts[-3]
+            new_name = old_name \
+                .replace('_outg_ml0.newick_w500_mapped.png', '')
+        else:
+            tree = 'cellphy'
+            subset = path_parts[-2]
+            new_name = old_name \
+                .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
+
+        dataset, filters = new_name.split('.')
+        new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
+        new_file = os.path.join(comp_dir, new_name)
+        if not os.path.exists(old_file):
+            print(f'\tMissing file: {old_file}')
+            continue
+        run_bash(f'cp {old_file} {new_file}', False, '')
+
+    tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
+    tar.add(comp_dir)
+    tar.close()
 
 
 def get_poisson_tree_files(vcf_files):
@@ -239,7 +299,7 @@ def parse_args():
         default='poisson_tests_all', help='Output file.')
     parser.add_argument('-m', '--mode', type=str,
         choices=['run', 'merge', 'compress', 'plot', 'gather_plot'],
-        default='run', help='Which task to do: run|merge|compress|plot|gather_plot')
+        default='run', help='Which task to do. Default = run.')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
@@ -266,63 +326,10 @@ if __name__ == '__main__':
         os.mkdir(args.out_dir)
 
     if args.mode == 'run':
-        if args.tests == 'both' or args.tests == 'dispersion':
-            run_poisson_disp(vcf_files, args)
-
-        if args.tests == 'both' or args.tests == 'tree':
-            for vcf_file in vcf_files:
-                run_poisson_tree('cellphy', vcf_file, args)
-                run_poisson_tree('scite', vcf_file, args)
+        run_tests(vcf_files, args)
     elif args.mode == 'merge':
-        if args.tests == 'both' or args.tests == 'dispersion':
-            disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
-        else:
-            disp_file = None
-
-        poisson_tree_files = []
-        if args.tests == 'both' or args.tests == 'tree':
-            poisson_tree_files.extend(get_poisson_tree_files(vcf_files))
-        merge_datasets(disp_file, poisson_tree_files, args.out_dir)
-    elif args.mode == 'plot':
-        run_plotting(vcf_files, args)
-    elif args.mode == 'gather_plot':
-        run_plotting(vcf_files, args, True)
+        merge_datasets(vcf_files, args)
+    elif args.mode == 'plot' or args.mode == 'gather_plot':
+        run_plotting(vcf_files, args, args.mode == 'gather_plot')
     else:
-        comp_dir = os.path.join(args.out_dir,
-            f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
-        print(f'Writing files to: {comp_dir}.tar.gz')
-        os.mkdir(comp_dir)
-
-        old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
-        new_file = os.path.join(comp_dir, os.path.basename(old_file))
-        run_bash(f'cp {old_file} {new_file}', False, '')
-
-        for old_file in get_plot_files(vcf_files):
-            path_parts = old_file.split(os.path.sep)
-            old_name = path_parts[-1]
-            if 'scite_dir' in path_parts:
-                tree = 'scite'
-                subset = path_parts[-3]
-                new_name = old_name \
-                    .replace('_outg_ml0.newick_w500_mapped.png', '')
-            else:
-                tree = 'cellphy'
-                subset = path_parts[-2]
-                new_name = old_name \
-                    .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
-
-            dataset, filters = new_name.split('.')
-            new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
-            new_file = os.path.join(comp_dir, new_name)
-            if not os.path.exists(old_file):
-                print(f'\tMissing file: {old_file}')
-                continue
-            run_bash(f'cp {old_file} {new_file}', False, '')
-
-        tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
-        tar.add(comp_dir)
-        tar.close()
-
-
-
-
+        compress_results(vcf_files, args)
