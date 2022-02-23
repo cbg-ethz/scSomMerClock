@@ -96,13 +96,10 @@ def run_poissonTree_single(vcf_file, tree, args):
     run_bash(cmd, args.local)
 
 
-def run_plotting(vcf_files, args, gather_only=False):
-    w_max = 500
-
-    if gather_only:
-        phyl_dir = os.path.join(args.out_dir, 'phylogeny')
-        if not os.path.exists(phyl_dir):
-            os.makedirs(phyl_dir)
+def get_plot_data(vcf_files, args):
+    phyl_dir = os.path.join(args.out_dir, 'phylogeny')
+    if not os.path.exists(phyl_dir):
+        os.makedirs(phyl_dir)
 
     for vcf_file in vcf_files:
         path_strs = vcf_file.split(os.path.sep)
@@ -127,35 +124,22 @@ def run_plotting(vcf_files, args, gather_only=False):
                     f'{dataset}.{filters}.log')
 
             base_name = f'{dataset}_{subset}_{filters.replace("_outg", "")}_{tree}'
-            plot_file_raw = os.path.join(args.out_dir, base_name)
-            plot_file = plot_file_raw + f'_w{w_max:.0f}_mapped.png'
 
-            if gather_only:
-                if not os.path.exists(tree_file):
-                    print(f'\tMissing tree file: {tree_file}')
-                else:
-                    shutil.copyfile(tree_file,
-                        os.path.join(phyl_dir, f'{base_name}.newick'))
-                    shutil.copyfile(log_file,
-                        os.path.join(phyl_dir, f'{base_name}.log'))
-
-                    shutil.copyfile(vcf_file,
-                        os.path.join(phyl_dir, f'{base_name}.vcf.gz'))
-                continue
-
-            if os.path.exists(plot_file) and not args.replace:
-                print(f'\tExisting tree plot: {plot_file}')
-            elif not os.path.exists(tree_file):
+            if not os.path.exists(tree_file):
                 print(f'\tMissing tree file: {tree_file}')
             else:
-                cmd = f'python {args.exe_tree} {vcf_file} {tree_file} ' \
-                    f'-o {plot_file_raw} -w {w_max} -b -p'
-                run_bash(cmd, args.local)
+                shutil.copyfile(tree_file,
+                    os.path.join(phyl_dir, f'{base_name}.newick'))
+                shutil.copyfile(log_file,
+                    os.path.join(phyl_dir, f'{base_name}.log'))
 
-    if gather_only:
-        tar = tarfile.open(phyl_dir + '.tar.gz', 'w:gz')
-        tar.add(phyl_dir)
-        tar.close()
+                shutil.copyfile(vcf_file,
+                    os.path.join(phyl_dir, f'{base_name}.vcf.gz'))
+            continue
+
+    tar = tarfile.open(phyl_dir + '.tar.gz', 'w:gz')
+    tar.add(phyl_dir)
+    tar.close()
 
 
 def merge_datasets(vcf_files, args):
@@ -299,7 +283,7 @@ def parse_args():
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
     parser.add_argument('-m', '--mode', type=str,
-        choices=['run', 'merge', 'compress', 'plot', 'gather_plot'],
+        choices=['run', 'merge', 'compress', 'plot_data'],
         default='run', help='Which task to do. Default = run.')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
@@ -330,7 +314,7 @@ if __name__ == '__main__':
         run_tests(vcf_files, args)
     elif args.mode == 'merge':
         merge_datasets(vcf_files, args)
-    elif args.mode == 'plot' or args.mode == 'gather_plot':
-        run_plotting(vcf_files, args, args.mode == 'gather_plot')
+    elif args.mode == 'plot_data':
+        get_plot_data(vcf_files, args)
     else:
         compress_results(vcf_files, args)
