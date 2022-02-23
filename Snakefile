@@ -53,19 +53,9 @@ ss_samples = list(set(cell_map.keys()).difference(bulk_samples['all']))
 ss_samples.sort()
 
 
-def get_all_files(wildcards):
-    files = [os.path.join('Calls', 'all.vcf.gz'), 'PAUP_LRT_test.tsv',
-         'poisson_tree_LRT.tsv', 'poisson_dispersion_test.tsv']
-    
-    if config['static'].get('QC_seq', False):
-        files.append(os.path.join('QC', 'QC_sequencing.tsv'))
-
-    return files
-
-
 rule all:
     input:
-        get_all_files
+        os.path.join('Calls', 'all.vcf.gz')
             
 
 rule adapter_cutting:
@@ -528,11 +518,11 @@ rule merge_calls:
 # ------------------------------------------------------------------------------
 
 
-rule QC_calling_chr:
+rule filter_calls_chr:
     input:
         os.path.join('Calls', 'all.{chr}.vcf.gz')
     output:
-        temp(os.path.join('QC', 'all.{chr}.filtered.vcf')),
+        os.path.join('Calls', 'all_filtered.{chr}.vcf.gz')
     envmodules:
         'pysam/0.16.0.1-python-3.8.1', 
         'pandas/1.0.0-python-3.8.1',
@@ -551,185 +541,13 @@ rule QC_calling_chr:
         '-q {params.filter_QUAL} -r {params.filter_DP} {params.pref}'
 
 
-rule QC_calling_all:
+rule merge_filtered_calls:
     input:
-        expand(os.path.join('QC', 'all.{chr}.filtered.vcf'), chr=CHROM)
+        expand(os.path.join('Calls', 'all_filtered.{chr}.vcf.gz'), chr=CHROM)
     output:
-        os.path.join('QC',  'all.filtered.vcf')
+        os.path.join('Calls',  'all_filtered.vcf')
     envmodules:  
         'pysam/0.16.0.1-python-3.7.7',
         'pandas/1.0.1-python-3.7.7',
     script:
         f'{SCRIPT_DIR}/merge_summary_vcfs.py'
-
-
-# ------------------------------------------------------------------------------
-# ------------------------------ Clock testing ---------------------------------
-# ------------------------------------------------------------------------------
-
-# -------------------------- POISSON DISPERSION --------------------------------
-
-rule run_poisson_test:
-    input:
-        os.path.join('QC',  'all.filtered.vcf')
-    output:
-        'poisson_dispersion_test.tsv'
-    envmodules:  
-        'scipy/1.4.1-python-3.7.7',
-    resources:
-        mem_mb = 2048
-    params:
-        exclude = config['specific'].get('sc_normal', '')
-    script:
-        f'simulations/{SCRIPT_DIR}/get_poisson_LRT.py'
-
-
-# ---------------------------- TREE INFERENCE ----------------------------------
-
-rule run_scite:
-    input:
-        os.path.join('QC', 'all.filtered.vcf')
-    output:
-        os.path.join('QC', 'scite_tree_ml0.newick')
-    resources:
-        mem_mb = 4096
-    envmodules:
-        'numpy/1.18.1-python-3.7.7'
-    params:
-        steps = config.get('scite', {}).get('steps', 1E6),
-        exe = config.get('scite', {}).get('exe', './infSCITE'),
-    script:
-        f'simulations/{SCRIPT_DIR}/run_scite.py'
-
-
-# ------------------------------- PAUP LRT -------------------------------------
-
-rule vcf_to_nex:
-    input:
-        vcf = os.path.join('QC',  'all.filtered.vcf'),
-        tree = os.path.join('QC', 'scite_tree_ml0.newick'),
-    output:
-        expand(os.path.join('QC', 'all.nxs.{model}'), model=MODELS)
-    resources:
-        mem_mb = 1024
-    params:
-        ss = config.get('mrbayes', {}).get('ss', False),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    script:
-        f'simulations/{SCRIPT_DIR}/convert_vcf_to_nexus.py'
-
-
-rule run_PAUP:
-    input:
-        os.path.join('QC', 'all.nxs.{model}')
-    output:
-        os.path.join('QC', 'all.paup.{model}.PAUP.score')
-    params:
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    shell:
-        '{params.paup_exe} -n {input} > QC/paup.{wildcards.model}.log'
-
-
-rule merge_paup_results:
-    input:
-        expand(os.path.join('QC', 'all.paup.{model}.PAUP.score'), model=MODELS)
-    output:
-        'PAUP_LRT_test.tsv'
-    conda: 'envs/monovar.yaml'
-    envmodules:
-        'scipy/1.4.1-python-3.7.7',
-    resources:
-        mem_mb = 2048
-    params:
-        no_cells = config['cellcoal']['model']['no_cells'] + 1,
-    script:
-        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
-
-
-# --------------------------- POISSON TREE LRT ---------------------------------
-
-rule run_poisson_tree:
-    input:
-        vcf = os.path.join('QC',  'all.filtered.vcf'),
-        tree = os.path.join('QC', 'scite_tree_ml0.newick'),
-    output:
-        'poisson_tree_LRT.tsv'
-    conda:
-        ''
-    envmodules:
-        'biopython/1.77-python-3.7.7',
-        'pandas/1.0.1-python-3.7.7',
-        'scipy/1.4.1-python-3.7.7',
-        'matplotlib/3.1.3-python-3.7.7'
-    resources:
-        mem_mb = 1024,
-        runtime = 20,
-    params:
-        exclude = config.get('specific', {}).get('normal_regex', ''),
-        include = config.get('specific', {}).get('tumor_regex', ''),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    script:
-        f'{SCRIPT_DIR}/12_poisson_tree_LRT.py'
-
-
-# ------------------------------------------------------------------------------
-# ----------------------------- ADO Calculation --------------------------------
-# ------------------------------------------------------------------------------
-
-
-rule ADO_calculation:
-    input:
-        bulk = os.path.join('Calls', 'all.mutect.filtered.vcf.gz'),
-        ss = expand(os.path.join('Processing', '{cell}.recal.{chr}.bam'),
-            chr=CHROM, cell=ss_samples)
-    output:
-        os.path.join('QC',  'ADO_rates.txt')
-    envmodules:
-        'pysam/0.16.0.1-python-3.8.1',
-        'pandas/1.0.0-python-3.8.1',
-    params:
-        base_dir = BASE_DIR,
-        dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
-        ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
-    shell:
-        'python {params.base_dir}/scripts/processing/ADO_calculation.py {input} '
-        '--bulk {input.bulk} --dbsnp {params.dbsnp} -r {params.ref_genome} '
-        '-o {output}'
-
-
-# ------------------------------------------------------------------------------
-# ------------------------------ SEQUENCING QC ---------------------------------
-# ------------------------------------------------------------------------------
-
-
-rule create_bed:
-    input:
-        os.path.join('Processing', '{cell}.dedup.bam')
-    output:
-        os.path.join('Processing', '{cell}.genome.tsv')
-    envmodules:
-        'bedtools/2.28.0'
-    params:
-        base_dir = BASE_DIR,
-        seq = config['specific']['SEQ'],
-        target = os.path.join(RES_PATH, 
-            config['specific'].get('WES_target', '-1')),
-        genome = os.path.join(RES_PATH, 
-            config['specific'].get('WES_target_genome', '-1'))
-    shell:
-        '{params.base_dir}/scripts/processing/QC_cov.sh -i {input} -o {output} '
-        '--seq {params.seq} -e {params.target} -g {params.genome}'
-
-
-rule QC_sequencing:
-    input:
-        expand(os.path.join('Processing', '{cell}.genome.tsv'), cell=ss_samples)
-    output:
-        'QC_sequencing.tsv'
-    envmodules:
-        'pandas/1.0.1-python-3.7.7',
-        'matplotlib/3.1.3-python-3.7.7'
-    params:
-        base_dir = BASE_DIR,
-    shell:
-        'python {params.base_dir}/scripts/processing/QC_coverage.py {input} -o "./"'
