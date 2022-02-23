@@ -8,7 +8,7 @@ static:
   gnomAD: small_exac_common_3_b37.vcf.gz
 
 specific:
-  data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/W32
+  data_path: /mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/data/W32_Monica
   cellnames: acc-cell.txt
   pair_end: False
   bulk_normal: TNBC_Pop_Normal # SRR1163508
@@ -32,6 +32,3 @@ monovar:
 filters:
   depth: 10
   geno_qual: 20
-
-paup:
-  exe: ../paup4a168_ubuntu64
