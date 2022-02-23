@@ -34,7 +34,7 @@ end;
 """
 
 
-def merge_summaries(in_files, out_dir, keep_sex=False):
+def merge_summaries(in_files, out_dir, keep_sex=False, nexus=False):
     counts = {}
     gt_mat = ''
     nex_mat = {}
@@ -68,19 +68,21 @@ def merge_summaries(in_files, out_dir, keep_sex=False):
                 header = f_gt.readline()
                 gt_mat += '\n' + f_gt.read()     
 
-        nex_file = os.path.join(base_dir, f'Genotype_matrix.{chrom}.nex')
-        with open(nex_file, 'r') as f_nex:
-            nex_str = f_nex.read()
-            start = nex_str.find('matrix\n')
-            end = nex_str.find('    ;', start)
-            chr_mat = nex_str[start + 6:end].strip()
-            if chr_mat:
-                for taxa in chr_mat.split('\n'):
-                    taxa_info = taxa.strip().split('    ')
-                    try:
-                        nex_mat[taxa_info[0]] += taxa_info[1]
-                    except KeyError:
-                        nex_mat[taxa_info[0]] = taxa_info[1]
+        if nexus:
+            nex_file = os.path.join(base_dir, f'Genotype_matrix.{chrom}.nex')
+            if os.path.exists(nex_file):
+                with open(nex_file, 'r') as f_nex:
+                    nex_str = f_nex.read()
+                    start = nex_str.find('matrix\n')
+                    end = nex_str.find('    ;', start)
+                    chr_mat = nex_str[start + 6:end].strip()
+                    if chr_mat:
+                        for taxa in chr_mat.split('\n'):
+                            taxa_info = taxa.strip().split('    ')
+                            try:
+                                nex_mat[taxa_info[0]] += taxa_info[1]
+                            except KeyError:
+                                nex_mat[taxa_info[0]] = taxa_info[1]
 
         vcf = VariantFile(vcf_file)
         if i == 0:
@@ -96,17 +98,7 @@ def merge_summaries(in_files, out_dir, keep_sex=False):
         for rec in vcf.fetch():
             vcf_out += str(rec)
 
-    nex_mat_str = ''
-    for sample_row in nex_mat.items():
-        nex_mat_str += '{}    {}\n'.format(*sample_row)
-
-    nex_out_file = os.path.join(out_dir, 'Genotype_matrix.all.nex')
-    with open(nex_out_file, 'w') as f_nex:
-        f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(nex_mat),
-            sample_labels=' '.join(nex_mat.keys()),
-            rec_no=len(nex_mat[taxa_info[0]]), matrix=nex_mat_str.strip('\n')))
-
-    vcf_out_file = os.path.join(out_dir, 'all.filtered.vcf')
+    vcf_out_file = os.path.join(out_dir, 'all_filtered.vcf')
     with open(vcf_out_file, 'w') as f_vcf:
         f_vcf.write(vcf_out.strip('\n'))
 
@@ -115,16 +107,8 @@ def merge_summaries(in_files, out_dir, keep_sex=False):
         f_gt.write(gt_mat.strip('\n'))
 
     out_QC = os.path.join(out_dir, 'Call_summary.all.tsv' )
-    save_summary(counts, out_QC)
-
-    return counts
-
-
-def save_summary(data, out_file, verbose=True):
-    if verbose:
-        print(f'Writing call-Venn-data to: {out_file}\n\n\nSUMMARY:')
-    with open(out_file, 'w') as f:
-        for alg, calls in data.items():
+    with open(out_QC, 'w') as f:
+        for alg, calls in counts.items():
             if alg == 'singletons':
                 continue
             if isinstance(calls, list):
@@ -132,8 +116,17 @@ def save_summary(data, out_file, verbose=True):
             else:
                 call_no = calls
             f.write(f'{call_no}\t{alg}\n')
-            if verbose:
-                print(f'{call_no}\t-\t{alg.replace('_',' & ')}')
+
+    if nexus:
+        nex_mat_str = ''
+        for sample_row in nex_mat.items():
+            nex_mat_str += '{}    {}\n'.format(*sample_row)
+
+        nex_out_file = os.path.join(out_dir, 'Genotype_matrix.all.nex')
+        with open(nex_out_file, 'w') as f_nex:
+            f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(nex_mat),
+                sample_labels=' '.join(nex_mat.keys()),
+                rec_no=len(nex_mat[taxa_info[0]]), matrix=nex_mat_str.strip('\n')))
 
 
 def parse_args():
@@ -141,6 +134,8 @@ def parse_args():
     parser.add_argument('input', type=str, nargs='*', help='Input files')
     parser.add_argument('-o', '--outdir', type=str, default='', 
         help='Output file. Default = <INPUT_DIR>.')
+    parser.add_argument('-on', '--output_nexus', action='store_true',
+        help='Write data additionally as nexus file. Default = False.')
     parser.add_argument('-s', '--keep_sex', action='store_true',
         help='If set, sex chromosomes are kept.')
     args = parser.parse_args()
@@ -158,4 +153,5 @@ if __name__ == '__main__':
         if not os.path.exists(args.output):
             os.makedirs(args.output)
 
-        merge_summaries(args.input, args.outdir, keep_sex=args.keep_sex)
+        merge_summaries(args.input, args.outdir, keep_sex=args.keep_sex,
+            nexus=args.output_nexus)

@@ -532,15 +532,12 @@ rule filter_calls_chr:
         mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
         base_dir = BASE_DIR,
-        bulk_normal = config['specific'].get('bulk_normal', ''),
-        bulk_tumor = ' '.join([' '.join(i) for i in bulk_samples['tumor']]),
+        bulk_tumor = bulk_samples['tumor'],
         filter_DP = config.get('filters', {}).get('depth', 10),
         filter_QUAL = config.get('filters', {}).get('QUAL', 20),
         pref = '-p chr' if config['static']['WGA_ref'].startswith('hg19') else '',
     shell:
-        'python {params.base_dir}/scripts/10_summarize_vcf.py {input} -o Calls '
-        '-bn {params.bulk_normal} -bt {params.bulk_tumor} '
-        '-q {params.filter_QUAL} -r {params.filter_DP} {params.pref}'
+        '{SCRIPT_DIR}/10_summarize_vcf.py'
 
 
 rule merge_filtered_calls:

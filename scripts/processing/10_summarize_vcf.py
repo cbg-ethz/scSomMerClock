@@ -42,9 +42,10 @@ end;
 """
 
 
-def get_summary_df(args):
-    vcf_in = VariantFile(args.input)
-    in_file = os.path.basename(args.input)
+def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
+            prefix='', keep_sex=False, gt_sep=',', out_nexus=False):
+    vcf_in = VariantFile(input)
+    in_file = os.path.basename(input)
 
     samples = set([])
     for sample in vcf_in.header.samples:
@@ -55,15 +56,15 @@ def get_summary_df(args):
             samples.add(sample_name)
 
     sc_map = OrderedDict([(j, i) for i, j in enumerate(sorted(samples))])
-    if args.bulk_tumor:
-        bk_map = OrderedDict([(j, i) for i, j in enumerate(sorted(args.bulk_tumor))])
+    if bulk_tumor:
+        bk_map = OrderedDict([(j, i) for i, j in enumerate(sorted(bulk_tumor))])
     else:
         bk_map = OrderedDict()
     sample_maps = (sc_map, bk_map)
 
     # Iterate over rows
     print('Iterating calls - Start')
-    if args.chr == 'all_chr':
+    if chr == 'all_chr':
         data = {'singletons': [], 
             'monovar2+': [],
             'sccaller2+': [],
@@ -77,14 +78,15 @@ def get_summary_df(args):
         gt_mat = ''
         germline = []
         for chrom in CHROM:
-            if not args.keep_sex and chrom in ['X', 'Y']:
+            if not keep_sex and chrom in ['X', 'Y']:
                 continue
 
-            if args.prefix != '':
-                chrom = args.prefix + chrom
+            if prefix != '':
+                chrom = prefix + chrom
             chr_data_in = vcf_in.fetch(chrom)
             chr_data, chr_vcf_body, chr_gt_mat, chr_all_mat, chr_germline = \
-                iterate_chrom(chr_data_in, sample_maps, chrom, args.gt_sep)
+                iterate_chrom(chr_data_in, sample_maps, chrom, read_depth,
+                    quality, gt_sep)
 
             for group in chr_data:
                 data[group].extend(chr_data[group])
@@ -98,9 +100,9 @@ def get_summary_df(args):
             gt_mat += chr_gt_mat
             germline.extend(chr_germline)
     else:
-        chr_data = vcf_in.fetch(args.chr)
+        chr_data = vcf_in.fetch(chr)
         data, vcf_body, gt_mat, all_mat, germline = \
-            iterate_chrom(chr_data, sample_maps, args.chr, args.gt_sep)
+            iterate_chrom(chr_data, sample_maps, chr, read_depth, quality, gt_sep)
 
     cols = ['CHROM', 'POS', \
         'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
@@ -112,8 +114,8 @@ def get_summary_df(args):
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(args.output, 'Call_details.{}.tsv' \
-        .format(args.chr))
+    out_summary = os.path.join(output, 'Call_details.{}.tsv' \
+        .format(chr))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
 
@@ -124,22 +126,21 @@ def get_summary_df(args):
     vcf_header = VCF_HEADER.format(time=time.localtime(), 
         contigs=contigs, ref=ref, samples=samples)
 
-    out_vcf = os.path.join(args.output, 'all_filtered.{}.vcf'.format(args.chr))
+    out_vcf = os.path.join(output, 'all_filtered.{}.vcf'.format(chr))
     print('Writing vcf file to: {}'.format(out_vcf))
     with open(out_vcf, 'w') as f_vcf:
         f_vcf.write(vcf_header)
         f_vcf.write(vcf_body.strip('\n'))
 
-    out_gt = os.path.join(args.output, 'Genotype_matrix.{}.csv'.format(args.chr))
+    out_gt = os.path.join(output, 'Genotype_matrix.{}.csv'.format(chr))
     print('Writing genotype matrix to: {}'.format(out_gt))
     with open(out_gt, 'w') as f_gt:
         f_gt.write('chrom:pos{}{}' \
-            .format(args.gt_sep, args.gt_sep.join(sample_maps[0].keys())))
+            .format(gt_sep, gt_sep.join(sample_maps[0].keys())))
         f_gt.write(gt_mat.rstrip('\n'))
 
-    if args.out_nexus:
-        out_nexus = os.path.join(args.output,
-            'Genotype_matrix.{}.nex'.format(args.chr))
+    if out_nexus:
+        out_nexus = os.path.join(output, 'Genotype_matrix.{}.nex'.format(chr))
         print('Writing NEXUS file to: {}'.format(out_nexus))
         nex_labels = ['REF'] + list(sc_map.keys())
         nex_matrix = ''
@@ -155,18 +156,18 @@ def get_summary_df(args):
                 matrix=nex_matrix.strip('\n')))
 
     if germline:
-        out_germ = os.path.join(args.output, 'Call_germline.{}.tsv'.format(args.chr))
+        out_germ = os.path.join(output, 'Call_germline.{}.tsv'.format(chr))
         print('Writing germline calls to: {}'.format(out_germ))
         with open(out_germ, 'w') as f:
             f.write('\n'.join(germline))
 
-    out_QC = os.path.join(args.output, 'Call_summary.{}.tsv'.format(args.chr))
+    out_QC = os.path.join(output, 'Call_summary.{}.tsv'.format(chr))
     save_summary(data, out_QC)
 
     return data
 
 
-def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
+def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
     out_vcf = ''
     gt_mat = ''
     all_mat = []
@@ -193,7 +194,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
             continue
 
         sc_calls, is_bulk_snv, is_germline_snv = get_call_summary(rec,
-            sample_maps, args.read_depth, args.quality)
+            sample_maps, read_depth, quality)
 
         if is_germline_snv:
             germline.append('{}:{}'.format(rec.chrom, rec.pos))
@@ -282,7 +283,6 @@ def iterate_chrom(chr_data, sample_maps, chrom, sep=','):
     print('Iterating calls on Chr {} - End\n'.format(chrom))
     return data, out_vcf, gt_mat, all_mat_t, germline
     
-
 
 def get_call_ids(sample_id, sample_maps):
     sample_detail = sample_id.split('.')
@@ -423,7 +423,7 @@ def save_summary(data, out_file, verbose=True):
                 print('{}\t-\t{}'.format(call_no, alg_str))
 
 
-def plot_venn(data, args):
+def plot_venn(data, output):
     try:
         import matplotlib.pyplot as plt
         from matplotlib_venn import venn3, venn3_circles
@@ -482,114 +482,21 @@ def plot_venn(data, args):
     except AttributeError:
         pass
 
-    out_file = os.path.join(args.output, 'SNP_counts.pdf')
+    out_file = os.path.join(output, 'SNP_counts.pdf')
     print('Saving call-Venn-plots to: {}'.format(out_file))
     fig.savefig(out_file, dpi=300)
     plt.close()
 
 
-def merge_summaries(args):
-    counts = {}
-    gt_mat = ''
-    nex_mat = {}
-    vcf_out = ''
-    vcf_map = {os.path.basename(i).split('.')[1]: i for i in args.input}
-    sorted_chr = sorted(vcf_map.keys(),
-        key = lambda x: int(x) if x not in ['X', 'Y'] else 23)
-
-    for i, chrom in enumerate(sorted_chr):
-        if not args.keep_sex and chrom in ['X', 'Y']:
-            continue
-
-        vcf_file = vcf_map[chrom]
-        base_dir = os.path.dirname(vcf_file)
-
-        sum_file = os.path.join(base_dir, 'Call_summary.{}.tsv'.format(chrom))
-        with open(sum_file, 'r') as f_cnt:
-            lines = f_cnt.readlines()
-            for line in lines:
-                alg_counts, alg = line.strip().split('\t')
-                try:
-                    counts[alg] += int(alg_counts)
-                except KeyError:
-                    counts[alg] = int(alg_counts)
-
-        gt_file = os.path.join(base_dir, 'Genotype_matrix.{}.csv'.format(chrom))
-        with open(gt_file, 'r') as f_gt:
-            if i == 0:
-                gt_mat += f_gt.read()
-            else:
-                header = f_gt.readline()
-                gt_mat += '\n' + f_gt.read()     
-
-        nex_file = os.path.join(base_dir, 'Genotype_matrix.{}.nex'.format(chrom))
-        with open(nex_file, 'r') as f_nex:
-            nex_str = f_nex.read()
-            start = nex_str.find('matrix\n')
-            end = nex_str.find('    ;', start)
-            chr_mat = nex_str[start+6:end].strip()
-            if chr_mat:
-                for taxa in chr_mat.split('\n'):
-                    taxa_info = taxa.strip().split('    ')
-                    try:
-                        nex_mat[taxa_info[0]] += taxa_info[1]
-                    except KeyError:
-                        nex_mat[taxa_info[0]] = taxa_info[1]
-
-        vcf = VariantFile(vcf_file)
-        if i == 0:
-            contigs = ''
-            for contig, contig_obj in vcf.header.contigs.items():
-                if contig in sorted_chr:
-                    contigs += str(contig_obj.header_record)
-            samples = '\t'.join([i for i in vcf.header.samples])
-            ref = re.search('##reference=.*\n', str(vcf.header))[0].rstrip('\n')
-            vcf_out += VCF_HEADER.format(time=time.localtime(), 
-                contigs=contigs.rstrip('\n'), ref=ref, samples=samples)
-
-        for rec in vcf.fetch():
-            vcf_out += str(rec)
-
-    nex_mat_str = ''
-    for sample_row in nex_mat.items():
-        nex_mat_str += '{}    {}\n'.format(*sample_row)
-
-    nex_out_file = os.path.join(args.output, 'Genotype_matrix.all.nex')
-    with open(nex_out_file, 'w') as f_nex:
-        f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(nex_mat),
-            sample_labels=' '.join(nex_mat.keys()),
-            rec_no=len(nex_mat[taxa_info[0]]), matrix=nex_mat_str.strip('\n')))
-
-    vcf_out_file = os.path.join(args.output, 'all_filtered.vcf')
-    with open(vcf_out_file, 'w') as f_vcf:
-        f_vcf.write(vcf_out.strip('\n'))
-
-    gt_out_file = os.path.join(args.output, 'Genotype_matrix.all.csv')
-    with open(gt_out_file, 'w') as f_gt:
-        f_gt.write(gt_mat.strip('\n'))
-
-    out_QC = os.path.join(args.output, 'Call_summary.all.tsv' )
-    save_summary(counts, out_QC)
-
-    return counts
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Merge and filter vcf files from different SNVcallers.')
-    parser.add_argument('input', type=str,  nargs='*',
+    parser.add_argument('input', type=str,
         help='Absolute or relative path(s) to input VCF file')
-    parser.add_argument('-t', '--task', type=str, choices=['summarize', 'merge'],
-        default='summarize', help='Scripts task, options are: 1. summarizing the '
-        'calls in a vcf file, 2. merging the previously generated summaries. '
-        'Default = summarize')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
     parser.add_argument('-on', '--output_nexus', action='store_true',
         help='Write data additionally as nexus file. Default = False.')
-    parser.add_argument('-bn', '--bulk_normal', nargs='*', type=str, default=[''],
-        help='Column name of bulk normal. Default = None.')
     parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
         help='Column name of bulk tumor. Default = None.')
     parser.add_argument('-ks', '--keep_sex', action='store_true',
@@ -607,32 +514,42 @@ def parse_args():
     return args
 
 
-def main(args):
-    if not args.output:
-        args.output = os.path.dirname(args.input[0])
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
+if __name__ == '__main__':
+    if 'snakemake' in globals():
+        get_summary_df(
+            input=snakemake.input,
+            chr=snakemake.wildcards.chr,
+            output=os.path.dirname(snakemake.output[0]),
+            read_depth=snakemake.params.filter_DP,
+            quality=snakemake.params.filter_QUAL,
+            bulk_tumor=snakemake.params.bulk_tumor,
+            prefix=snakemake.params.pref,
+        )
+    else:
+        args = parse_args()
 
-    if args.task == 'summarize':
-        if len(args.input) != 1:
-            raise IOError('Can only summarize 1 vcf file ({} given)' \
-                .format(len(args.input)))
-        args.input = args.input[0]
+        if not args.output:
+            args.output = os.path.dirname(args.input)
+        if not os.path.exists(args.output):
+            os.makedirs(args.output)
 
         try:
             args.chr = re.search('\.[0-9XY]+\.', args.input).group(0).strip('.')
         except AttributeError:
             args.chr = 'all_chr'
 
-        data = get_summary_df(args)
+        data = get_summary_df(
+            args.input,
+            args.chr,
+            args.output,
+            args.read_depth,
+            args.quality,
+            bulk_tumor=args.bulk_tumor,
+            prefix=args.prefix,
+            keep_sex=args.keep_sex,
+            gt_sep=args.gt_sep,
+            out_nexus=args.output_nexus
+        )
         if args.chr == 'all_chr':
-            plot_venn(data, args)
+            plot_venn(data, args.output)
 
-    else:
-        summary = merge_summaries(args)
-        plot_venn(summary, args)
-
-
-if __name__ == '__main__':
-    args = parse_args()
-    main(args)
