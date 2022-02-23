@@ -13,8 +13,8 @@ specific:
   pair_end: False
   bulk_normal: TNBC_Pop_Normal # SRR1163508
   bulk_samples: [TNBC_Pop_Tumor] # SRR1298936
-  normal_regex: TNBC_n\d+
-  tumor_regex: [a|h]\d+
+  # normal_regex: TNBC_n\d+
+  # tumor_regex: [a|h]\d+
   WGA_library: MDA
   SEQ: WES
   WES_target: Illumina_TruSeq_exome_targeted_regions.hg19.modified.bed

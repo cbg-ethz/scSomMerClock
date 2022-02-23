@@ -207,7 +207,7 @@ rule indel_realignment2:
             '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
         '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
-        '{params.modules} -c {params.pref}{wildcards.chr} -r {params.ref_genome} '
+        ' -c {params.pref}{wildcards.chr} -r {params.ref_genome} '
         '-t {input.target} -ma {input.maps} -i1 {params.indels1} '
         '{params.indels2}'
 
@@ -542,7 +542,6 @@ rule filter_calls_chr:
 
 
 rule merge_filtered_calls:
-    input:
         expand(os.path.join('Calls', 'all_filtered.{chr}.vcf.gz'), chr=CHROM)
     output:
         os.path.join('Calls',  'all_filtered.vcf')
