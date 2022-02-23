@@ -33,7 +33,7 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
 
 
 
-def run_tests(vcf_files, args)
+def run_tests(vcf_files, args):
     if args.tests == 'both' or args.tests == 'dispersion':
         run_poisson_disp(vcf_files, args)
     if args.tests == 'both' or args.tests == 'tree':
