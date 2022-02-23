@@ -7,7 +7,7 @@ while [ "$1" != "" ]; do
     key=$1
     case ${key} in
         -o | --out)         shift
-                            out_dir=$(echo $1 | sed 's/\///g')
+                            out_dir=$1
                             ;;
         *)                  if [[ $1 == *"mutect"* ]]; then
                                 mutect_calls=$1
