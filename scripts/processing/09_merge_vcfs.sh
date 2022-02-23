@@ -33,14 +33,17 @@ if [ "$mutect_calls" != "" ]; then
         --threads ${cores} \
         ${mutect_calls} \
         | bcftools annotate \
-            --output-type z \
+            --output-type v \
             --output ${mutect_calls}.tmp \
             -
+
+    rm vcf_header.mutect.tmp
+    sed -i -e 's/ID=AD,Number=R,Type/ID=AD,Number=.,Type/g' ${mutect_calls}.tmp
+
     bcftools index \
         --force \
         --threads ${cores} \
         ${mutect_calls}.tmp
-    rm vcf_header.mutect.tmp
 fi
 
 bcftools merge \
