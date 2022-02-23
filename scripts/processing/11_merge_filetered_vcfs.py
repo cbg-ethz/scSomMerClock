@@ -144,14 +144,14 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        output = os.path.dirname(snakemake.output[0])
-        merge_summaries(snakemake.input, output)
+        outdir = os.path.dirname(snakemake.output[0])
+        merge_summaries(snakemake.input, outdir)
     else:
         args = parse_args()
-        if not args.output:
-            args.output = os.path.dirname(args.input[0])
-        if not os.path.exists(args.output):
-            os.makedirs(args.output)
+        if not args.outdir:
+            args.outdir = os.path.dirname(args.input[0])
+        if not os.path.exists(args.outdir):
+            os.makedirs(args.outdir)
 
         merge_summaries(args.input, args.outdir, keep_sex=args.keep_sex,
             nexus=args.output_nexus)
