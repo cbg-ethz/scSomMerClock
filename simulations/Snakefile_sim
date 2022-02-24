@@ -7,8 +7,8 @@ SCRIPT_DIR = 'scripts'
 
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]
-BULK = config['cellcoal']['model']['no_cells'] >= 100 \
-    and config['cellcoal']['NGS']['seq_cov'] <= 1
+CELL_NO = config['cellcoal']['model']['no_cells']
+BULK = CELL_NO >= 100 and config['cellcoal']['NGS']['seq_cov'] <= 1
 
 w_maxs = config.get('poisson', {}).get('w_max', [1000])
 if isinstance(w_maxs, (int, float)):
@@ -83,7 +83,7 @@ rule run_cellcoal:
     resources:
         mem_mb = 16384 \
             * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
-        runtime = 1200 if BULK else 300,
+        runtime = 1200 if CELL_NO >= 100 else 300,
     params:
         exe = config['cellcoal']['exe'],
     shell:
@@ -116,8 +116,7 @@ rule run_mobster:
         mem_mb = 24576,
         runtime = 120,
     params:
-        depth = config['cellcoal']['model']['no_cells'] \
-            * config['cellcoal']['NGS']['seq_cov'],
+        depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
         '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
         ' && rm -f {out_dir}/vcf_dir/vcf.{wildcards.run}'
@@ -143,15 +142,13 @@ rule generate_overview_file:
         ADO = os.path.join(base_dir, 'ADO_overview.tsv')
     resources:
         runtime = 30
-    params:
-        no_cells = config['cellcoal']['model']['no_cells'],
     run:
         cols = ['run', 'muts_cells', 'muts_outgrp', 'muts_false',
             'sides', 'TP_sides', 'FP_sides', 'TN_sides', 'FN_sides', 'MS_sides']
         with open(output.stats, 'w') as f:
             f.write('\t'.join(cols) + '\n')
 
-        cells = '\t'.join([f'tumcell{i+1:0>4}' for i in range(params.no_cells)] \
+        cells = '\t'.join([f'tumcell{i+1:0>4}' for i in range(CELL_NO)] \
             + ['healthycell'])
         with open(output.ADO, 'w') as f:
             f.write('run\t' + cells + '\n')
@@ -287,7 +284,7 @@ rule merge_paup_results:
     resources:
         mem_mb = 2048
     params:
-        no_cells = config['cellcoal']['model']['no_cells'] + 1,
+        no_cells = CELL_NO + 1,
     script:
         f'{SCRIPT_DIR}/get_PAUP_LRT.py'
 
