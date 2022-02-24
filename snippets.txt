@@ -42,3 +42,12 @@ sbatch -t 720 -p amd-shared --qos amd-shared --mem 2G --wrap '/home/uvi/be/nbo/c
 
 # run scite on slurm cluster
 sbatch -t 1440 -p amd-shared --qos amd-shared --mem 10G --wrap 'python3 /home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py -e /home/uvi/be/nbo/infSCITE/infSCITE -s 1000000 --verbose -p <PREFIX> /home/uvi/be/nbo/data/data/<VCF>.gz'
+
+
+# Rerun SNV merging with DP/QL filters:
+for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 'X' 'Y'; do
+    python /home/uvi/be/nbo/MolClockAnalysis/scripts/processing/10_summarize_vcf.py /home/uvi/be/nbo/data/data/W32_Monica/Calls/all.${chr}.vcf.gz -o /home/uvi/be/nbo/data/data/W32_Monica/Calls/ -bt TNBC_Pop_Tumor -q 1 -r
+done;
+input=$(ls /home/uvi/be/nbo/data/data/W32_Monica/Calls/all_filtered.*.vcf);
+python /home/uvi/be/nbo/MolClockAnalysis/scripts/processing/11_merge_filetered_vcfs.py $input -o /home/uvi/be/nbo/data/data/W32_Monica/Calls/ ;
+sbatch -t 1000 -p amd-shared --qos amd-shared --mem 4G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh  -r -t 1 -z -l /home/uvi/be/nbo/data/data/W32_Monica/Calls/all_filtered.vcf';

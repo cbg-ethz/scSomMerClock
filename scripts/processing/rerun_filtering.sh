@@ -2,24 +2,23 @@
 
 module load pysam
 scriptDir='/home/uvi/be/nbo/MolClockAnalysis/scripts'
-dataDir='/home/uvi/be/nbo/data/data/W32_Monica/Calls'
 DP=10
 GQ=13
 
 while [ "$1" != "" ]; do
     key=$1
     case ${key} in
+        -i | --in)          shift
+                            dataDir=$1
+                            ;;
+        -b | --bulk )       shift
+                            bulk=$1
+                            ;;
         -d | --DP)          shift
                             DP=$1
                             ;;
         -q | --GQ )         shift
                             GQ=$1
-                            ;;
-        -b | --bulk )       shift
-                            bulk=$1
-                            ;;
-        -i | --in)          shift
-                            dataDir=$1
                             ;;
         -s | --scripts)     shift
                             scriptDir=$1
