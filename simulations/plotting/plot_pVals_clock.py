@@ -141,8 +141,8 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             common_norm=False, fill=True,
             binwidth=0.05, binrange=(0, 1), multiple='dodge',
             kde_kws={'cut': 0, 'clip': (0, 1)},
-            line_kws={'lw': 3, 'alpha': 0.66},
-            palette=colors, alpha=1, shrink=1,
+            line_kws={'lw': 3},
+            palette=colors, shrink=1,
             hue_order=HUE_ORDER,
             legend=False, ax=ax
         )

@@ -84,6 +84,7 @@ poisson_colors = { # red, blue, orange
 
 HUE_ORDER = ['-', 'cellcoal', 'cellphy', 'scite', 'PAUP*']
 
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
 def add_rugs(data, offset, ax, color):
     segs = np.stack((np.c_[data, data],

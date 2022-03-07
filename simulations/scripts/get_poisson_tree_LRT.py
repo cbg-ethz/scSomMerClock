@@ -327,10 +327,8 @@ def read_tree(tree_file, samples=[]):
         with open(log_file, 'r') as f:
             log = f.read().strip()
 
-        FP = max(float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1)),
-                LAMBDA_MIN)
-        FN = max(float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1)),
-                LAMBDA_MIN)
+        FP = float(re.search('SEQ_ERROR: (0.\d+(e-\d+)?)', log).group(1))
+        FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log).group(1))
     elif tree_file.endswith('_ml0.newick') or 'scite' in tree_file:
         sem_count = tree_raw.count(';')
         if sem_count == 0:
@@ -360,14 +358,12 @@ def read_tree(tree_file, samples=[]):
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log_raw = f.read()
-            FN = max(float(
+            FN = float(
                 re.search('best value for beta:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                    .group(1)),
-                LAMBDA_MIN)
-            FP = max(float(
+                    .group(1))
+            FP = float(
                 re.search('best value for alpha:\\\\t(\d.\d+(e-\d+)?)', log_raw) \
-                    .group(1)),
-                LAMBDA_MIN)
+                    .group(1))
         else:
             error_file = tree_file.replace('_ml0.newick', '.errors.csv')
             with open(error_file, 'r') as f:
@@ -382,13 +378,10 @@ def read_tree(tree_file, samples=[]):
 
         # Extract data from tree file paths
         try:
-            FP = max(float(
-                re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-                    .group(1)) + 0.01, # + 0.01 = Seq. error
-                LAMBDA_MIN)
-            FN = max(float(
-                re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1)),
-                LAMBDA_MIN)
+            FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
+                .group(1)) + 0.01 # + 0.01 = Seq. error
+
+            FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
         except AttributeError:
             FP = LAMBDA_MIN
             FN = LAMBDA_MIN
@@ -433,7 +426,9 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
         FP = FP_fix
         FN = FN_fix
     else:
+        FP = max(FP, LAMBDA_MIN)
         FN /= 2
+        FN = max(FN, LAMBDA_MIN)
 
     # Remove mutations that were only present in outgroup
     if outg in muts.columns:
