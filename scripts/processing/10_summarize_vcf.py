@@ -336,8 +336,8 @@ def get_call_summary(rec, sample_maps, depth, quality):
                             < quality:
                         continue
                 else:
-                    PL_min = np.min([j for j in sample['PL'] if j != None])
-                    if sorted(sample['PL'] - PL_min)[1] < quality:
+                    PL_vals = np.array([j for j in sample['PL'] if j != None])
+                    if sorted(PL_vals - PL_vals.min())[1] < quality:
                         continue           
                 
             if sample['GT'][0] == 0 and sample['GT'][1] == 0:
