@@ -11,15 +11,16 @@ from defaults import *
 
 def generate_pval_plot_bulk(args):
     df = pd.DataFrame(columns=['area_pVal', 's_Bayes', 'aff. cells', 'Amplifier'])
-    for res_file in os.listdir(args.input):
+    for res_file in sorted(os.listdir(args.input)):
         if not res_file.startswith('res_clock') or not 'bulk' in res_file:
             continue
         bulk_file = os.path.join(args.input, res_file)
         df_new = pd.read_csv(bulk_file, sep='\t', index_col='run')
+
         df_new.drop([-1], inplace=True)
         df_new.drop(['R^2_pVal'], axis=1, inplace=True)
 
-        if res_file.startswith('res_clock0'):
+        if res_file.startswith('res_clock00'):
             ampl = 1
         else:
             ampl = float(re.search('res_clock(\d[\.\d]*)x', res_file).group(1))
@@ -33,32 +34,46 @@ def generate_pval_plot_bulk(args):
     ampl_vals = df['Amplifier'].unique()
     ampl_vals.sort()
 
-    min_cells = np.array(args.min_cell)
+    clone_sizes = np.array(args.clone_size)
 
-    single_plot = min_cells.size == 1 and ampl_vals.size == 1
+    single_plot = clone_sizes.size == 1 and ampl_vals.size == 1
 
     if single_plot:
         fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
         fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
-        fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, ampl_vals.size + 2))
-        fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, ampl_vals.size + 2))
-    axes = np.reshape(axes, (ampl_vals.size, min_cells.size))
-    axes2 = np.reshape(axes2, (ampl_vals.size, min_cells.size))
+        fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=clone_sizes.size,
+            figsize=(3 * clone_sizes.size, ampl_vals.size + 2))
+        fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=clone_sizes.size,
+            figsize=(3 * clone_sizes.size, ampl_vals.size + 2))
+    axes = np.reshape(axes, (ampl_vals.size, clone_sizes.size))
+    axes2 = np.reshape(axes2, (ampl_vals.size, clone_sizes.size))
 
-    for i, min_cell in enumerate(min_cells):
-        df_plot = df[(df['aff. cells'] >= min_cell) | (df['Amplifier'] == 1)]
+    for i, clone_size_max in enumerate(clone_sizes):
+        if clone_size_max == 0:
+            df_plot = df
+        else:
+            clone_size_min = clone_sizes[i - 1]
+            min_cells = clone_size_min * args.total_cells / 100
+            max_cells = clone_size_max * args.total_cells / 100
+            df_plot = df[((df['aff. cells'] >= min_cells) \
+                    & (df['aff. cells'] < max_cells)) \
+                | (df['Amplifier'] == 1)]
+
         if df_plot.size == 0:
-            print(f'!WARNING - No run with {min_cell} cells affected!')
+            print('!WARNING - No run with amplified clone sizes: '\
+                f'[{clone_size_min}, {clone_size_max}]!')
             continue
 
-        plot_neutralitytest(df_plot, axes[:, i], (i, min_cells.size))
-        plot_mobster(df_plot, axes2[:, i], (i, min_cells.size))
+        plot_neutralitytest(df_plot, axes[:, i], (i, clone_sizes.size))
+        plot_mobster(df_plot, axes2[:, i], (i, clone_sizes.size))
 
         if not single_plot:
-            header = r'$\geq$' + f'{min_cell}/{cell_no} cells'
+            if clone_size_max == 0:
+                header = 'All data'
+            else:
+                header = 'Amplified clone size:\n' \
+                    f'({clone_size_min}, {clone_size_max}] %'
             axes[0,i].annotate(header, xy=(0.5, 1.15), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
@@ -108,7 +123,7 @@ def plot_neutralitytest(df, axes, col):
             binrange=(0, 1), color=colors['neutrality'], legend=False, ax=ax,
         )
         ax.set_xlim((0, 1))
-        ax.set_ylim((0, 0.6))
+        ax.set_ylim((0, 0.75))
 
         if ampl == 1:
             ax.set_yticks([0.05, 0.25, 0.5])
@@ -206,8 +221,12 @@ def parse_args():
     parser.add_argument('input', type=str, help='Directory with summary files.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-c', '--min_cell', nargs='+', default = [1, 10, 20, 30, 40, 50],
-        type=float, help='Min. #cells affected. Default = [1, 10, 20, 30, 40, 50].')
+    parser.add_argument('-t', '--total_cells', type=int, default=100,
+        help='Number of simulated cells. Default = 100')
+    parser.add_argument('-c', '--clone_size', nargs='+',
+        default = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        #default = [0, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95],
+        type=float, help='Amplified clone size subsets. Default = [0, 10, 20, 30, 40, 50].')
     parser.add_argument('-a', '--amplifier', nargs='+', default=[], type=float,
         help='Clock and amplifier values to plot. Clock = 1. Default = all.')
     args = parser.parse_args()

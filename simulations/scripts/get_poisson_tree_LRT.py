@@ -441,8 +441,8 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     #         or 'scite' in tree_file or 'cellphy' in tree_file):
     #     true_red = call_data[1].drop(outg, axis=1)
 
-    #     FN = ((true_red == 1) & (muts_red == 0)).mean().mean()
-    #     FP = ((true_red == 0) & (muts_red == 1)).mean().mean()
+    #     FN = max(((true_red == 1) & (muts_red == 0)).mean().mean(), LAMBDA_MIN)
+    #     FP = max(((true_red == 0) & (muts_red == 1)).mean().mean(), LAMBDA_MIN)
 
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)

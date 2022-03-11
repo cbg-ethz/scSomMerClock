@@ -2,6 +2,7 @@
 
 from matplotlib import cm
 from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -74,6 +75,7 @@ colors = {
     '-': '#994EA3', # purple
     'mobster': '#33A02C', # dark green
     'neutrality': '#B2DF8A', #light green
+    'gap': ''
 }
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal

@@ -17,7 +17,8 @@ from defaults import *
 
 def generate_weights_plot(args):
     df = pd.read_csv(args.input, sep='\t', index_col=0)
-    df = df[(df['wMax'].isin(args.wMax)) & (df['ADO'].isin(args.ADO))]
+    df = df[(df['wMax'].isin(args.wMax)) & (df['ADO'].isin(args.ADO)) \
+            & (df['tree'].isin(args.method))]
 
     single_plot = len(args.wMax) == 1 and len(args.ADO) == 1
 
@@ -132,6 +133,10 @@ def parse_args():
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
         help='ADO values to plot. Default = all.')
+    parser.add_argument('-m', '--method', nargs='+', type=str,
+        choices=['cellcoal', 'cellphy', 'scite'],
+        default=['cellcoal', 'scite', 'cellphy'],
+        help='Method to plot. Default = all.')
     args = parser.parse_args()
     return args
 

@@ -40,7 +40,7 @@ def generate_wmax_plot(args):
             if not tree in vis_names:
                 tree = col.split('_')[-1]
 
-            if not tree in args.trees:
+            if not tree in args.method:
                 continue
             sig = (content < 0.05).mean()
 
@@ -53,7 +53,7 @@ def generate_wmax_plot(args):
             for tree in ['cellcoal', 'cellphy', 'scite']:
                 df.loc[df.shape[0]] = [ADO, 1, tree, 1]
 
-    single_plot = len(args.trees) == 1
+    single_plot = len(args.method) == 1
     trees = df['tree'].unique()
 
     df['ADO rate'] /= 2
@@ -126,7 +126,7 @@ def parse_args():
         help='Output file.')
     parser.add_argument('-b', '--bulk', action='store_true',
         help='Consider only bulk file.')
-    parser.add_argument('-t', '--trees', nargs='+', type=str,
+    parser.add_argument('-m', '--method', nargs='+', type=str,
         default = ['cellcoal', 'cellphy', 'scite'],
         choices=['cellcoal', 'cellphy', 'scite'],
         help='Which tree inference method to plot.')

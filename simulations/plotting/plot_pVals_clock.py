@@ -28,7 +28,6 @@ def generate_pval_plot_clock(args):
 
         cols = [i for i in df_summary.columns if i.startswith('p-value')]
         for col in cols:
-
             if col[8:].startswith('poissonTree'):
                 try:
                     wMax = int(re.search('wMax(\d+)', col).group(1))
@@ -42,16 +41,22 @@ def generate_pval_plot_clock(args):
                 tree = col.split('.')[-1]
                 if tree not in colors:
                     tree = col.split('_')[-1]
+                if tree not in args.method:
+                    continue
             elif col[8:].startswith('poissonDisp'):
-                if args.skip_poisson:
+                if 'poissonDisp' not in args.method:
                     continue
                 wMax = [-1]
                 tree = '-'
             elif col[8:].startswith('paup'):
-                if args.skip_poisson:
+                if 'PAUP*' not in args.method:
                     continue
                 wMax = [-1]
-                tree = 'PAUP*'
+                tree = col.split('.')[-1]
+                if tree == 'cellcoal':
+                    tree = 'PAUP*'
+                else:
+                    continue
             else:
                 raise TypeError(f'Unknown column type: {col}')
 
@@ -136,15 +141,19 @@ def plot_pVal_dist(df, wMax, axes, column_type):
     for i, j in enumerate(wMax):
         ax = axes[i]
         data = df[df['wMax'] == j]
+
+        hue_order = sorted(data['Tree'].unique())
+        if len(hue_order) > 1:
+            hue_order.append('gap')
+
+        # import pdb; pdb.set_trace()
         dp = sns.histplot(data, x='P-value', hue='Tree',
             element='bars', stat='probability', kde=False,
             common_norm=False, fill=True,
             binwidth=0.05, binrange=(0, 1), multiple='dodge',
-            kde_kws={'cut': 0, 'clip': (0, 1)},
-            line_kws={'lw': 3},
-            palette=colors, shrink=1,
-            hue_order=HUE_ORDER,
-            legend=False, ax=ax
+            palette=colors,
+            hue_order=hue_order,
+            legend=False, ax=ax,
         )
 
         ax.set_xlim((0, 1))
@@ -301,6 +310,10 @@ def parse_args():
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
         help='ADO values to plot. Default = all.')
+    parser.add_argument('-m', '--method', nargs='+', type=str,
+        choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
+        default=['cellcoal', 'scite', 'cellphy', 'poissonDisp', 'PAUP*'],
+        help='Method to plot. Default = all.')
     parser.add_argument('-l', '--legend', action='store_true',
         help='Plot legend as separate figure.')
     args = parser.parse_args()

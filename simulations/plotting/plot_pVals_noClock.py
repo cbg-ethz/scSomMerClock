@@ -127,6 +127,8 @@ def generate_sign_over_cells(args):
                 tree = col.split('.')[-1]
                 if tree not in colors:
                     tree = col.split('_')[-1]
+                if tree not in args.method:
+                    continue
             elif col[8:].startswith('poissonDisp') or col[8:].startswith('paup'):
                 continue
             else:
@@ -183,9 +185,13 @@ def generate_pval_plot_noClock(args):
             if name == 'aff. cells':
                 cell_no = value
             elif name == 'p-value_poissonDisp':
+                if not 'poissonDisp' in args.method:
+                    continue
                 vals.append(['-', -1, cell_no, value])
             else:
                 tree = name.split('.')[-1]
+                if not tree in args.method:
+                    continue
                 wMax = int(re.search('_wMax(\d+)', name).group(1))
                 vals.append([tree, wMax, cell_no, value])
     df = pd.DataFrame(vals,
@@ -331,6 +337,10 @@ def parse_args():
         help='wMax values to plot. Default = all.')
     parser.add_argument('-c', '--min_cell', nargs='+',default = [1, 2, 3, 4, 5],
         type=float, help='Min. #cells affected. Default = [1, 2, 3, 4, 5].')
+    parser.add_argument('-m', '--method', nargs='+', type=str,
+        choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp'],
+        default=['cellcoal', 'scite', 'cellphy', 'poissonDisp'],
+        help='Method to plot. Default = all.')
     parser.add_argument('-scd', '--sign_cell_dist', action='store_true',
         help='Plot sign. p-values per aff. cells dist.')
     args = parser.parse_args()
