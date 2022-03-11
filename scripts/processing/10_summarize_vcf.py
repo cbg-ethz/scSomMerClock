@@ -14,6 +14,8 @@ CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
 ALG_MAP = {'monovar': 0, 'sccaller': 1, 'mutect': 2}
 SC_COLS = [0, 1, 3]
 BULK_COLS = [2, 4, 5, 6]
+MIN_READS_NAN = 5
+MIN_GQ_NAN = 1
 
 
 VCF_HEADER = """##fileformat=VCFv4.1
@@ -205,9 +207,9 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
             continue
 
         # 0: monovar, 1: sccaller, 2: bulk_tumor
-        monovar_only = np.sum((sc_calls[:,0] == 1) & (sc_calls[:,1] != 1))
-        sccaller_only = np.sum((sc_calls[:,0] != 1) & (sc_calls[:,1] == 1))
-        monovar_sccaller = np.sum((sc_calls[:,0] == 1) & (sc_calls[:,1] == 1))
+        monovar_only = np.sum((sc_calls[0] == 1) & (sc_calls[1] != 1))
+        sccaller_only = np.sum((sc_calls[0] != 1) & (sc_calls[1] == 1))
+        monovar_sccaller = np.sum((sc_calls[0] == 1) & (sc_calls[1] == 1))
         # SNV also called in bulk
         if is_bulk_snv:
             rec_data = [rec.chrom, rec.pos,
@@ -305,7 +307,10 @@ def get_call_ids(sample_id, sample_maps):
 
 
 def get_call_summary(rec, sample_maps, depth, quality):
-    sc_calls = np.full((len(sample_maps[0]), 2), -1, dtype=int)
+    dims = (2, len(sample_maps[0]))
+    sc_calls = np.full(dims, -1, dtype=int)
+    DP = np.zeros(dims, dtype=int)
+    GQ = np.zeros(dims, dtype=int)
     snv_bulk = False
     snv_germline = False
 
@@ -316,41 +321,61 @@ def get_call_summary(rec, sample_maps, depth, quality):
         # Skip missing data
         if sample['GT'][0] == None:
             continue
-        # Skip read depth below threshold
-        if sum(sample['AD']) < depth:
-            continue
-
+        # Mutect calls
         if alg == 2:
             if sample_map_id == 'normal':
                 snv_germline = True
             else:
                 snv_bulk = True
+            continue
+        # Set indels and "False" calls (only called by sccaller) to NAN
+        if alg == 1 and sample['SO'] != 'True':
+            continue
+
+        # Transform PL values to: wt|het|hom with min. value of 0
+        if 'FPL' in sample and sample['FPL'][0] != None:
+            wt_PL = min(sample['FPL'][0], sample['FPL'][1])
+            PL_vals = np.array([wt_PL, sample['FPL'][2], sample['FPL'][3]], dtype=int)
         else:
-            # Skip indels and "False" calls (only called by sccaller)
-            if alg == 1 and sample['SO'] != 'True':
-                continue
-            # Skip genotype quality below threshold
-            if sample['GQ'] < quality:
-                if 'FPL' in sample and sample['FPL'][0] != None:
-                    if min(sample['FPL'][:2]) - max(sample['FPL'][2:]) \
-                            < quality:
-                        continue
-                else:
-                    PL_vals = np.array([j for j in sample['PL'] if j != None])
-                    if sorted(PL_vals - PL_vals.min())[1] < quality:
-                        continue           
-                
-            if sample['GT'][0] == 0 and sample['GT'][1] == 0:
-                sc_calls[sample_map_id, alg] = 0
-            else:
-                sc_calls[sample_map_id, alg] = 1
+            PL_vals = np.array([j for j in sample['PL'] if j != None], dtype=int)
+        PL_vals -= PL_vals.min()
+
+        try:
+            sample['PL'] = [int(i) for i in PL_vals]
+        except TypeError:
+            # Weird pysam bug
+            sample['PL'] = [int(i) for i in PL_vals] * 2
+
+        GQ_s = sorted(PL_vals)[1]
+        sample['GQ'] = int(GQ_s)
+
+        DP_s = sum(sample['AD'])
+        # Set genotype quality or read depth below minimum threshold to NAN
+        if DP_s < MIN_READS_NAN or GQ_s < MIN_GQ_NAN:
+            continue
+
+        if sample['GT'][0] == 0 and sample['GT'][1] == 0:
+            sc_calls[alg, sample_map_id] = 0
+        else:
+            sc_calls[alg, sample_map_id] = 1
+
+        GQ[alg, sample_map_id] = GQ_s
+        DP[alg, sample_map_id] = DP_s
+
+    mon_rel = (DP[0] >= depth) & (GQ[0] >= quality)
+    scc_rel = (DP[1] >= depth) & (GQ[1] >= quality)
+
+    # Check if at least 2 good call in 1 algorithm or 1 good call in each algorithm
+    if not mon_rel.sum() > 1 and not scc_rel.sum() > 1 \
+            and not (mon_rel & scc_rel).sum() > 0 and not snv_bulk:
+        sc_calls[:] = -1
 
     return sc_calls, snv_bulk, snv_germline
 
 
 def get_call_output(rec, calls, sc_map):
-    best_calls = calls.argmax(axis=1)
-    data_calls = np.sum(calls.max(axis=1) > -1)
+    best_calls = calls.argmax(axis=0)
+    data_calls = np.sum(calls.max(axis=0) > -1)
 
     if len(rec.alts) == 1:
         alt = rec.alts[0]
@@ -365,35 +390,26 @@ def get_call_output(rec, calls, sc_map):
     gt_mat_row = np.zeros(len(sc_map), dtype=str)
     for sample, sample_id in sc_map.items():
         alg = best_calls[sample_id]
-        gt = calls[sample_id, alg]
+        gt = calls[alg, sample_id]
+
         if gt == -1:
             gt_mat_row[sample_id] = '3'
             rec_out += '\t./.:.:.:.'
         else:
             if alg == 0:
-                call = rec.samples['{}.monovar'.format(sample)]
+                call = rec.samples[f'{sample}.monovar']
             else:
-                call = rec.samples['{}.sccaller'.format(sample)]
-            
-            if 'FPL' in call and call['FPL'][0] != None:
+                call = rec.samples[f'{sample}.sccaller']
+
+            if np.sum(call['AD']) < MIN_READS_NAN or call['GQ'] < MIN_GQ_NAN:
+                gt_mat_row[sample_id] = '3'
+                rec_out += '\t./.:.:.:.'
+            else:
                 rec_out += f'\t{min(1, call["GT"][0])}/{min(1, call["GT"][1])}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
-                    f'{call["FPL"][0]},{call["FPL"][2]},{call["FPL"][2]}'
+                    f'{call["PL"][0]},{call["PL"][1]},{call["PL"][2]}'
                 gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
-            else:
-                PL = [i for i in call['PL'] if i != None]
-                if len(PL) == 0:
-                    rec_out += '\t./.:.:.:.'
-                    gt_mat_row[sample_id] = '3'
-                elif len(PL) == 3:
-                    rec_out += f'\t{min(1, call["GT"][0])}/{min(1,call["GT"][1])}:' \
-                        f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
-                        f'{PL[0]},{PL[1]},{PL[2]}'
-                    gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
-                else:
-                    import pdb; pdb.set_trace()
 
-    if "None" in rec_out: import pdb; pdb.set_trace()
     return rec_out, gt_mat_row
 
 
@@ -505,6 +521,10 @@ def parse_args():
         help='Minimum quality threshold. Default = 13.')
     parser.add_argument('-r', '--read_depth', type=int, default=10,
         help='Minimum read depth at loci. Default = 10.')
+    parser.add_argument('-nq', '--nan_quality', type=int, default=1,
+        help='Min. locus GQ to be not reported as GQ. Default = 1.')
+    parser.add_argument('-nr', '--nan_read_depth', type=int, default=5,
+        help='Min. locus read depth to be not reported as missing. Default = 5.')
     parser.add_argument('-p', '--prefix', type=str, default='',
         help='Prefix for chromosome, e.g. "chr". Default = "".')
     parser.add_argument('-s', '--gt_sep', type=str, default=',',
@@ -532,6 +552,9 @@ if __name__ == '__main__':
             args.output = os.path.dirname(args.input)
         if not os.path.exists(args.output):
             os.makedirs(args.output)
+
+        MIN_READS_NAN = args.nan_read_depth
+        MIN_GQ_NAN = args.nan_quality
 
         try:
             args.chr = re.search('\.[0-9XY]+\.', args.input).group(0).strip('.')
