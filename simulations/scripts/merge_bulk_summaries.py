@@ -18,14 +18,15 @@ def merge_bulk_summaries(in_files, out_file):
             log_lines = f.read().strip().split('\n')
             for j, line_raw in enumerate(log_lines):
                 line = line_raw.strip()
-                if line.startswith('s'):
+                if line.startswith('mu') and not 'cluster' in line:
+                    df.loc[i, 's_Bayes'] = 0
+                    df.loc[i, 'clones_Bayes'] = 0
+                elif line.startswith('s'):
                     if line.endswith('subclone'):
-                        freq1 = float(
-                            [i for i in log_lines[j - 2].split(' ') if i][5])
-                        freq2 = float(
-                            [i for i in log_lines[j - 1].split(' ') if i][5])
-                        s1 = float([i for i in log_lines[j + 1].split(' ') if i][2])
-                        s2 = float([i for i in log_lines[j + 2].split(' ') if i][2])
+                        freq1 = float(re.split('\s+', log_lines[j - 2])[5])
+                        freq2 = float(re.split('\s+', log_lines[j - 1])[5])
+                        s1 = float(re.split('\s+', log_lines[j + 1])[2])
+                        s2 = float(re.split('\s+', log_lines[j + 2])[2])
                         df.loc[i, 's_Bayes'] = np.average(
                             [s1, s2], weights=[freq1, fre2])
                         df.loc[i, 'clones_Bayes'] = 2
