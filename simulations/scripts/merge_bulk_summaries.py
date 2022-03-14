@@ -62,20 +62,15 @@ def merge_bulk_summaries(in_files, out_file):
                     # Last relevant line
                     break
 
-    for col in cols:
-        if col == 's_Bayes':
-            df.loc[-1, col] = df[col].mean().round(2)
-        elif col == 'clones_Bayes':
-            df.loc[-1, col] = df[col].mean().round(2)
-        elif col == 'aff. cells':
-            df.loc[-1, col] = -1
-        else:
-            if clock:
-                df.loc[-1, col] = f'{(df[col] >= 0.05).sum()}/{(df[col].notna()).sum()}'
-            else:
-                df.loc[-1, col] = f'{(df[col] < 0.05).sum()}/{(df[col].notna()).sum()}'
-
-    if not clock:
+    df.loc[-1, 's_Bayes'] = df['s_Bayes'].mean().round(2)
+    df.loc[-1, 'clones_Bayes'] = df['clones_Bayes'].mean().round(2)
+    if clock:
+        r2_true = (df['R^2_pVal'] >= 0.05).sum()
+        area_true = (df['area_pVal'] >= 0.05).sum()
+        df.loc[-1, 'aff. cells'] = -1
+    else:
+        r2_true = (df['R^2_pVal'] < 0.05).sum()
+        area_true = (df['area_pVal'] < 0.05).sum()
         cellcoal_log = os.sep.join(
             in_file.split(os.path.sep)[:-2] + ['cellcoal.out'])
         with open(cellcoal_log, 'r') as f:
@@ -87,6 +82,9 @@ def merge_bulk_summaries(in_files, out_file):
                     cell_no = len(cells_raw.split(' '))
                     df.loc[run_no, 'aff. cells'] = cell_no
         df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
+
+    df.loc[-1, 'R^2_pVal'] = f'{r2_true}/{(df['R^2_pVal'].notna()).sum()}'
+    df.loc[-1, 'area_pVal'] = f'{area_true}/{(df['area_pVal'].notna()).sum()}'
 
     df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
