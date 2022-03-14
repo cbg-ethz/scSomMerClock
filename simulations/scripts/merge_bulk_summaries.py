@@ -83,8 +83,8 @@ def merge_bulk_summaries(in_files, out_file):
                     df.loc[run_no, 'aff. cells'] = cell_no
         df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
 
-    df.loc[-1, 'R^2_pVal'] = f'{r2_true}/{(df['R^2_pVal'].notna()).sum()}'
-    df.loc[-1, 'area_pVal'] = f'{area_true}/{(df['area_pVal'].notna()).sum()}'
+    df.loc[-1, 'R^2_pVal'] = f'{r2_true}/{(df["R^2_pVal"].notna()).sum()}'
+    df.loc[-1, 'area_pVal'] = f'{area_true}/{(df["area_pVal"].notna()).sum()}'
 
     df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
