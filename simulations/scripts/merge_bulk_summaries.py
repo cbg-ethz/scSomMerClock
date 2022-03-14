@@ -25,7 +25,7 @@ def merge_bulk_summaries(in_files, out_file):
                         df.loc[i, 's_Bayes'] = 0
                         df.loc[i, 'clones_Bayes'] = 0
                     if 's' in header:
-                        s_idx = header.index('s')
+                        s_idx = header.index('s') + 1
                         freq1 = float(re.split('\s+', log_lines[j + 1])[5])
                         s1 = float(re.split('\s+', log_lines[j + 1])[s_idx])
                         if log_lines[j + 2].startswith('2'):
