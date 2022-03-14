@@ -15,12 +15,29 @@ def merge_bulk_summaries(in_files, out_file):
     for i, in_file in enumerate(sorted(in_files)):
         run_no = f'{i+1:0>4}'
         with open(in_file, 'r') as f:
-            log_lines = f.read().strip().split('\n')
+            log_lines = f.read().strip().split('\n')[1:]
+
             for j, line_raw in enumerate(log_lines):
                 line = line_raw.strip()
-                if line.startswith('mu') and not 'cluster' in line:
-                    df.loc[i, 's_Bayes'] = 0
-                    df.loc[i, 'clones_Bayes'] = 0
+                if line.startswith('mu'):
+                    header = re.split('\s+', line)
+                    if not 'cluster' in header:
+                        df.loc[i, 's_Bayes'] = 0
+                        df.loc[i, 'clones_Bayes'] = 0
+                    if 's' in header:
+                        s_idx = header.index('s')
+                        freq1 = float(re.split('\s+', log_lines[j + 1])[5])
+                        s1 = float(re.split('\s+', log_lines[j + 1])[s_idx])
+                        if log_lines[j + 2].startswith('2'):
+                            freq2 = float(re.split('\s+', log_lines[j + 2])[5])
+                            s2 = float(re.split('\s+', log_lines[j + 2])[s_idx])
+                            df.loc[i, 's_Bayes'] = (s1 * freq1 + s2 * freq2) \
+                                / (freq1 + freq2)
+                            df.loc[i, 'clones_Bayes'] = 2
+                        else:
+                            df.loc[i, 's_Bayes'] = s1
+                            df.loc[i, 'clones_Bayes'] = 1
+
                 elif line.startswith('s'):
                     if line.endswith('subclone'):
                         freq1 = float(re.split('\s+', log_lines[j - 2])[5])
@@ -42,9 +59,13 @@ def merge_bulk_summaries(in_files, out_file):
                 elif line == 'R^2:':
                     df.loc[i, 'R^2_pVal'] = float(
                         log_lines[j + 1].strip().split(' ')[-1])
+                    # Last relevant line
+                    break
 
     for col in cols:
         if col == 's_Bayes':
+            df.loc[-1, col] = df[col].mean().round(2)
+        elif col == 'clones_Bayes':
             df.loc[-1, col] = df[col].mean().round(2)
         elif col == 'aff. cells':
             df.loc[-1, col] = -1
