@@ -7,7 +7,7 @@ import pandas as pd
 
 def merge_bulk_summaries(in_files, out_file):
     clock = '_clock0_' in out_file
-    cols = ['R^2_pVal', 'area_pVal', 's_Bayes']
+    cols = ['R^2_pVal', 'area_pVal', 's_Bayes', 'clones_Bayes']
     if clock:
         cols.append('aff. cells')
     df = pd.DataFrame([], columns=cols)
@@ -18,9 +18,21 @@ def merge_bulk_summaries(in_files, out_file):
             log_lines = f.read().strip().split('\n')
             for j, line_raw in enumerate(log_lines):
                 line = line_raw.strip()
-                if line == 's':
-                    df.loc[i, 's_Bayes'] = float(
-                        log_lines[j + 1].strip().split(' ')[1])
+                if line.startswith('s'):
+                    if line.endswith('subclone'):
+                        freq1 = float(
+                            [i for i in log_lines[j - 2].split(' ') if i][5])
+                        freq2 = float(
+                            [i for i in log_lines[j - 1].split(' ') if i][5])
+                        s1 = float([i for i in log_lines[j + 1].split(' ') if i][2])
+                        s2 = float([i for i in log_lines[j + 2].split(' ') if i][2])
+                        df.loc[i, 's_Bayes'] = np.average(
+                            [s1, s2], weights=[freq1, fre2])
+                        df.loc[i, 'clones_Bayes'] = 2
+                    else:
+                        df.loc[i, 's_Bayes'] = float(
+                            log_lines[j + 1].strip().split(' ')[1])
+                        df.loc[i, 'clones_Bayes'] = 1
                 # Best statistic, accrording to Williams et al. 2018, p. 11
                 elif line == 'Area:':
                     df.loc[i, 'area_pVal'] = float(
