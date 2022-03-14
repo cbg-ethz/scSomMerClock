@@ -2,7 +2,6 @@
 
 import os
 import re
-import numpy as np
 import pandas as pd
 
 
@@ -28,8 +27,9 @@ def merge_bulk_summaries(in_files, out_file):
                         freq2 = float(re.split('\s+', log_lines[j - 1])[5])
                         s1 = float(re.split('\s+', log_lines[j + 1])[1])
                         s2 = float(re.split('\s+', log_lines[j + 2])[1])
-                        df.loc[i, 's_Bayes'] = np.average(
-                            [s1, s2], weights=[freq1, fre2])
+                        # weighted mean
+                        df.loc[i, 's_Bayes'] = (s1 * freq1 + s2 * freq2) \
+                            / (freq1 + freq2)
                         df.loc[i, 'clones_Bayes'] = 2
                     else:
                         df.loc[i, 's_Bayes'] = float(
