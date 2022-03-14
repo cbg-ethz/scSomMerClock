@@ -25,8 +25,8 @@ def merge_bulk_summaries(in_files, out_file):
                     if line.endswith('subclone'):
                         freq1 = float(re.split('\s+', log_lines[j - 2])[5])
                         freq2 = float(re.split('\s+', log_lines[j - 1])[5])
-                        s1 = float(re.split('\s+', log_lines[j + 1])[2])
-                        s2 = float(re.split('\s+', log_lines[j + 2])[2])
+                        s1 = float(re.split('\s+', log_lines[j + 1])[1])
+                        s2 = float(re.split('\s+', log_lines[j + 2])[1])
                         df.loc[i, 's_Bayes'] = np.average(
                             [s1, s2], weights=[freq1, fre2])
                         df.loc[i, 'clones_Bayes'] = 2
