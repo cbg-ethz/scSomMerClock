@@ -103,7 +103,7 @@ cat('MOBSTER Population Genetics statistics:\n')
 print(fit$best)
 print(mobster.evo(fit))
 cat('\n')
-print(bootstrap_statistics$bootstrap_model)
+print(data.frame(bootstrap_statistics$bootstrap_model))
 cat('\n\n')
 print(summary(s))
 
