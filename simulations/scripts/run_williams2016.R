@@ -107,3 +107,7 @@ cat('\n')
 print(bootstrap_statistics$bootstrap_model)
 cat('\n\n')
 print(summary(s))
+
+if (!argv$stdout) {
+    sink()
+}
