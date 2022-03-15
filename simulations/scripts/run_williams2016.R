@@ -54,11 +54,6 @@ if (argv$plot) {
 # Run mobster test
 library(mobster)
 
-# Safe both outputs
-if (!argv$stdout) {
-    sink(argv$out_path)
-}
-
 fit = mobster_fit(
     data,
     maxIter = argv$maxIter,
@@ -73,7 +68,6 @@ bootstrap_statistics = bootstrapped_statistics(
   fit$best,
   bootstrap_results = bootstrap_results
 )
-
 
 mobster.evo <- function(fit){
     tryCatch(
@@ -98,6 +92,11 @@ if (argv$plot) {
         dpi = 300,
         bg = 'white'
     )
+}
+
+# Safe both outputs
+if (!argv$stdout) {
+    sink(argv$out_path)
 }
 
 cat('MOBSTER Population Genetics statistics:\n')
