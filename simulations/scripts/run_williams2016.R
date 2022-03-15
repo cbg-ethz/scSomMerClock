@@ -11,6 +11,7 @@ p <- add_argument(p, '--depth', default = NULL, help = 'Seq. depth (float)')
 p <- add_argument(p, '--cellularity', default = 1,
     help = 'Sample cellularity (float)')
 p <- add_argument(p, '--ploidy', default = 2, help = 'Sample ploidy (float)')
+p <- add_argument(p, '--maxIter', default = 500, help = 'Mobster maxIter (float)')
 p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
 p <- add_argument(p, '--stdout', flag = TRUE, help = 'Print summary to stdout')
 
@@ -29,7 +30,6 @@ if (argv$fmax > argv$fmin) {
 } else {
     s <- neutralitytest(
         data$VAF,
-        fmin = argv$fmin,
         read_depth = as.numeric(argv$depth),
         cellularity = argv$cellularity,
         ploidy = argv$ploidy,
@@ -59,7 +59,22 @@ if (!argv$stdout) {
     sink(argv$out_path)
 }
 
-fit = mobster_fit(data)
+fit = mobster_fit(
+    data,
+    maxIter = argv$maxIter,
+)
+bootstrap_results = mobster_bootstrap(
+  fit$best,
+  n.resamples = 20,
+  auto_setup = 'FAST' # forwarded to mobster_fit
+)
+
+bootstrap_statistics = bootstrapped_statistics(
+  fit$best,
+  bootstrap_results = bootstrap_results
+)
+
+
 mobster.evo <- function(fit){
     tryCatch(
         expr = {
@@ -88,5 +103,7 @@ if (argv$plot) {
 cat('MOBSTER Population Genetics statistics:\n')
 print(fit$best)
 print(mobster.evo(fit))
+cat('\n')
+print(bootstrap_statistics$bootstrap_model)
 cat('\n\n')
 print(summary(s))
