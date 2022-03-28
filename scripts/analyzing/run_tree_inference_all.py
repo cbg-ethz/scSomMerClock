@@ -86,7 +86,7 @@ def parse_args():
         help='Overwrite already existing files.')
     parser.add_argument('-k', '--keep_going', action='store_true',
         help='Dont exit on errors.')
-    parser.add_argument('-cd', '--clock_dir', type='str', default='ClockTest'
+    parser.add_argument('-cd', '--clock_dir', type='str', default='ClockTest',
         help='Clock directory name.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
