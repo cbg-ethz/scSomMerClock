@@ -113,6 +113,8 @@ if __name__ == '__main__':
         # Iterate sub sets
         for sub_dir in sub_dirs:
             vcf_dir = os.path.join(base_dir, data_dir, CLOCK_DIR, sub_dir)
+            if not os.path.exists(vcf_dir):
+                os.makedirs(vcf_dir)
             # Iterate nan filters
             for data_filter in data_filters:
                 vcf_raw_name = f'{data_set}.{data_filter}.vcf'
@@ -167,6 +169,7 @@ if __name__ == '__main__':
                                 f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(flt_cmd, False)
+                    # Skip 'all' subdir if other subsets exist
                     if len(sub_dirs) > 1:
                         continue
                 # Copy file from 'all' dir
