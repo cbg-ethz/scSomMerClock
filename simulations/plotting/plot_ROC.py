@@ -84,38 +84,32 @@ def generate_PRC(args):
         fig1, axes1 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
         fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
-        fig1, axes1 = plt.subplots(nrows=ADO_vals.size, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, ADO_vals.size * 3))
-        fig2, axes2 = plt.subplots(nrows=ADO_vals.size, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, ADO_vals.size * 3))
-    axes1 = np.reshape(axes1, (ADO_vals.size, min_cells.size))
-    axes2 = np.reshape(axes2, (ADO_vals.size, min_cells.size))
+        fig1, axes1 = plt.subplots(nrows=min_cells.size, ncols=ADO_vals.size,
+            figsize=(3 * ADO_vals.size, min_cells.size * 3))
+        fig2, axes2 = plt.subplots(nrows=min_cells.size, ncols=ADO_vals.size,
+            figsize=(3 * ADO_vals.size, min_cells.size * 3))
+    axes1 = np.reshape(axes1, (min_cells.size, ADO_vals.size))
+    axes2 = np.reshape(axes2, (min_cells.size, ADO_vals.size))
 
-    for i, min_cell in enumerate(min_cells):
-        df_plot = df[df['aff. cells'] >= min_cell]
-        if df_plot.size == 0:
-            print(f'!WARNING - No run with {min_cell} cells affected!')
-            continue
-
-        plot_curves(df_plot, axes1, axes2, (i, min_cells.size))
+    for i, ADO_val in enumerate(ADO_vals):
+        df_plot = df[df['ADO'] == ADO_val]
+        plot_curves(df_plot, axes1, axes2, min_cells, (i, ADO_vals.size), args.amplifier)
 
         if not single_plot:
-            header = r'$\geq$' + f'{min_cell} cells'
-            axes1[0, i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
-                xycoords='axes fraction', textcoords='offset points',
-                size='large', ha='center', va='baseline')
-            axes2[0, i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
-                xycoords='axes fraction', textcoords='offset points',
-                size='large', ha='center', va='baseline')
+            if ADO_val == 0:
+                col_title = 'No Errors'
+            else:
+                col_title = f'FN rate: {ADO_val / 2}'
 
-    if single_plot:
-        fig1.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
-        fig2.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
-    else:
-        fig1.subplots_adjust(left=0.05, bottom=0.15, right=0.95, top=0.85,
-            hspace=0.5, wspace=0.5)
-        fig2.subplots_adjust(left=0.05, bottom=0.15, right=0.95, top=0.85,
-            hspace=0.5, wspace=0.5)
+            axes1[0,i].annotate(col_title, xy=(0.5, 1.15), xytext=(0, 5),
+                xycoords='axes fraction', textcoords='offset points', size='large',
+                ha='center', va='baseline')
+            axes2[0,i].annotate(col_title, xy=(0.5, 1.15), xytext=(0, 5),
+                xycoords='axes fraction', textcoords='offset points', size='large',
+                ha='center', va='baseline')
+
+    fig1.tight_layout()
+    fig2.tight_layout()
 
     if args.output:
         fig1.savefig(f'PRC_{args.output}.png', dpi=300)
@@ -125,16 +119,22 @@ def generate_PRC(args):
     plt.close()
 
 
-def plot_curves(df_in, axes1, axes2, col_id):
+def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
     wMax_map = {j: i for i, j in enumerate(sorted(df_in['wMax'].unique()))}
     cmap = cm.get_cmap('viridis_r', len(wMax_map))
 
-    ADO_vals = df_in['ADO'].unique()
-    for j, ADO in enumerate(sorted(ADO_vals)):
+    for j, min_cell in enumerate(min_cells):
+        df_cell = df_in[(df_in['aff. cells'] >= min_cell) \
+        & ((df_in['aff. cells'] <= 30 - min_cell) | (df_in['aff. cells'] == np.inf))]
+
+        if df_cell.size == 0:
+            print(f'!WARNING - No run with {min_cell} cells affected!')
+            continue
+
         ax1 = axes1[j, col_id[0]]
         ax2 = axes2[j, col_id[0]]
-        df_ADO = df_in[df_in['ADO'] == ADO]
-        for method, df in df_ADO.groupby('method'):
+
+        for method, df in df_cell.groupby('method'):
             if method != 'Poisson Dispersion':
                 rec = [0, 1]
                 prec = [1, 0]
@@ -181,7 +181,7 @@ def plot_curves(df_in, axes1, axes2, col_id):
         ax2.set_ylim((-0.05, 1.05))
 
         # First col, middle row
-        if col_id[0] == 0 and j == np.floor(ADO_vals.size / 2):
+        if col_id[0] == 0 and j == np.floor(min_cells.size / 2):
             ax1.set_ylabel('Precision')
             ax2.set_ylabel('True positive rate')
         else:
@@ -189,7 +189,7 @@ def plot_curves(df_in, axes1, axes2, col_id):
             ax2.set_ylabel('')
 
         # Middle col, last row
-        if col_id[0] == np.floor((col_id[1] - 1) / 2) and j == ADO_vals.size - 1:
+        if col_id[0] == np.floor((col_id[1] - 1) / 2) and j == min_cells.size - 1:
             ax1.set_xlabel('Recall')
             ax2.set_xlabel('False positive rate')
         else:
@@ -199,11 +199,16 @@ def plot_curves(df_in, axes1, axes2, col_id):
         # Last column
         if col_id[0] == col_id[1] - 1:
             ax12 = ax1.twinx()
-            ax12.set_ylabel(f'\nADO = \n{ADO}', fontsize=8)
             ax12.set_yticks([])
             ax22 = ax2.twinx()
-            ax22.set_ylabel(f'\nADO = \n{ADO}', fontsize=8)
             ax22.set_yticks([])
+            if len(min_cells) == 1:
+                ax12.set_ylabel(f'\nAmplifier:\n{ampl:.0f}', fontsize=8)
+                ax22.set_ylabel(f'\nAmplifier:\n{ampl:.0f}', fontsize=8)
+            else:
+                ax12.set_ylabel('\n' + r'$\geq$' + f'{min_cell} cells', fontsize=8)
+                ax22.set_ylabel('\n' + r'$\geq$' + f'{min_cell} cells', fontsize=8)
+
 
 
 def parse_args():

@@ -13,7 +13,8 @@ DPI = 300
 RUG_HEIGHT = 0.03
 sns.set_style('whitegrid') #darkgrid, whitegrid, dark, white, ticks
 sns.set_context('paper',
-    rc={'xtick.major.size': 2, 'ytick.major.size': 2, 'lines.linewidth': 2})
+    rc={'xtick.major.size': 2, 'ytick.major.size': 2, 'lines.linewidth': 2,
+        'axes.axisbelow': True})
 #     rc={'font.size': FONTSIZE,
 #         'axes.labelsize': 'medium',
 #         'axes.titlesize': 'large',
@@ -49,8 +50,8 @@ vis_names_short = {
 methods_names = {
     'PAUP*': 'PAUP*',
     '-': 'Poisson Dispersion',
-    'cellcoal': 'Poisson Tree (+True Tree)',
-    'cellphy': 'Poisson Tree (+CellPhy)',
+    'cellcoal': 'Poisson Tree Test (True)',
+    'cellphy': 'Poisson Tree Test (CellPhy)',
     'scite': 'Poisson Tree (+Scite)',
 }
 
@@ -62,7 +63,7 @@ COLORS = [
     '#FFFF99', '#B15928', #ugly
 ]
 colors = {
-    'Poisson Dispersion':  '#994EA3', # purple
+    'Poisson Dispersion': '#FFC514', # '#994EA3', # purple
     'PAUP*': '#4FAF4A', # green
     'PAUP* + True Tree': '#4FAF4A', # green
     'PAUP* + CellPhy Tree': '#177512', # darker green
@@ -71,11 +72,14 @@ colors = {
     'cellphy': '#377DB8', # blue
     'CellPhy': '#377DB8', # blue
     'scite': '#FF7F00', # orange
-    'Scite': '#FF7F00', # ligther orange
-    '-': '#994EA3', # purple
+    'Scite': '#FF7F00', # orange
+    '-': '#FFC514', #'#994EA3', # purple
     'mobster': '#33A02C', # dark green
-    'neutrality': '#B2DF8A', #light green
-    'gap': ''
+    'neutrality': '#FF7F00', #'#B2DF8A', #light green
+    'gap': '',
+    0: '#719819', # '#B2DF8A', #light green
+    1: '#33A02C', # green
+    2: '#116360', # dark green
 }
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
@@ -84,15 +88,18 @@ poisson_colors = { # red, blue, orange
 }
 
 
-HUE_ORDER = ['-', 'cellcoal', 'cellphy', 'scite', 'PAUP*']
+HUE_ORDER = ['cellcoal', 'cellphy', 'scite', 'PAUP*', '-']
 
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
-def add_rugs(data, offset, ax, color):
+def add_rugs(data, offset, ax, color, height=None):
+    if not height:
+        height = RUG_HEIGHT
+
     segs = np.stack((np.c_[data, data],
-            np.c_[np.zeros_like(data) + 1 + RUG_HEIGHT*2 * offset,
-                    np.zeros_like(data) + 1 + RUG_HEIGHT*2 * (offset + 1)]),
+            np.c_[np.zeros_like(data) + 1 + height *2 * offset,
+                    np.zeros_like(data) + 1 + height *2 * (offset + 1)]),
         axis=-1)
     lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
-        clip_on=False, color=color, linewidth=0.05)
+        clip_on=False, color=color, linewidth=0.06)
     ax.add_collection(lc)

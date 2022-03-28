@@ -5,6 +5,7 @@ import os
 import re
 
 import numpy as np
+from matplotlib.lines import Line2D
 import pandas as pd
 
 from defaults import *
@@ -72,7 +73,7 @@ def generate_wmax_plot(args):
         ax.set_ylabel(r'P-values $\leq$ 0.05 [%]')
         ax.axhline(0.05, ls=(0, (1, 4)), color='red', lw=2)
         ax.set_ylim((-0.05, 1.05))
-        ax.set_xlabel('False negative error rate')
+        ax.set_xlabel('FN rate')
         ax.text(0.0125 / 2, 0.07, '0.05', color='red', ha='right', va='center')
 
         if i != trees.size - 1:
@@ -90,11 +91,7 @@ def generate_wmax_plot(args):
         legend_data = ax.get_legend_handles_labels()
         generate_legend_plot(*legend_data, args.output)
 
-    if single_plot:
-        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
-    else:
-        fig.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.95,
-            wspace=0.75)
+    fig.tight_layout()
     if args.output:
         fig.savefig(args.output, dpi=DPI)
     else:
@@ -102,13 +99,19 @@ def generate_wmax_plot(args):
     plt.close()
 
 
-def generate_legend_plot(handles, labels, output):
+def generate_legend_plot(handles, labels, output, circle=True):
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.grid(False)
     ax.axis('off')
+    final_handles = []
     for handle in handles:
-        handle.set_lw(2)
-    ax.legend(handles, labels, ncol=2, frameon=False, title=r'$\bf{w_{max}}$')
+        if circle:
+            final_handles.append(Line2D(
+                [0], [0], marker='o', color=handle.get_color(), markersize=8, lw=0))
+        else:
+            handle.set_lw(2)
+            final_handles.append(handle)
+    ax.legend(final_handles, labels, ncol=2, frameon=False, title=r'$\bf{w_{max}}$')
 
     fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     if output:

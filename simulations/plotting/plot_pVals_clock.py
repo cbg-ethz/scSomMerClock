@@ -24,7 +24,8 @@ def generate_pval_plot_clock(args):
         df_summary = pd.read_csv(
             os.path.join(args.input, res_file), sep='\t', index_col='run')
         df_summary.drop([-1], inplace=True)
-        df_summary = df_summary.T.drop_duplicates().T
+        df_summary = df_summary.T.reset_index().drop_duplicates() \
+            .set_index('index').T
 
         cols = [i for i in df_summary.columns if i.startswith('p-value')]
         for col in cols:
@@ -110,11 +111,11 @@ def generate_pval_plot_clock(args):
         plot_lambda_dist(df_plot, wMax_vals, axes2[:,i], col_type)
 
         if not single_plot:
-            axes[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1),
+            axes[0,i].annotate(f'FN rate: {ADO_val / 2}', xy=(0.5, 1.1),
                 xytext=(0, 5), xycoords='axes fraction',
                 textcoords='offset points', size='large', ha='center',
                 va='baseline')
-            axes2[0,i].annotate(f'ADO rate: {ADO_val}', xy=(0.5, 1.1),
+            axes2[0,i].annotate(f'FN rate: {ADO_val / 2}', xy=(0.5, 1.1),
                 xytext=(0, 5), xycoords='axes fraction',
                 textcoords='offset points', size='large', ha='center',
                 va='baseline')
@@ -127,6 +128,8 @@ def generate_pval_plot_clock(args):
             hspace=0.5, wspace=0.5)
         fig2.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
             hspace=0.5, wspace=0.5)
+        fig.tight_layout()
+        fig2.tight_layout()
 
     if args.output:
         fig.savefig(args.output, dpi=DPI)
@@ -150,7 +153,7 @@ def plot_pVal_dist(df, wMax, axes, column_type):
         dp = sns.histplot(data, x='P-value', hue='Tree',
             element='bars', stat='probability', kde=False,
             common_norm=False, fill=True,
-            binwidth=0.05, binrange=(0, 1), multiple='dodge',
+            binwidth=0.05, binrange=(0, 1), multiple='layer',
             palette=colors,
             hue_order=hue_order,
             legend=False, ax=ax,
@@ -308,7 +311,7 @@ def parse_args():
         default=[1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
         help='wMax values to plot. Default = all.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
+        default=[0, 0.2, 0.4, 0.6],
         help='ADO values to plot. Default = all.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],

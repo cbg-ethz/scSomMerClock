@@ -102,7 +102,7 @@ if (!argv$stdout) {
 cat('MOBSTER Population Genetics statistics:\n')
 print(fit$best)
 print(mobster.evo(fit))
-cat('\n')
+cat('\nMOBSTER Model bootstrap:\n')
 print(data.frame(bootstrap_statistics$bootstrap_model))
 cat('\n\n')
 print(summary(s))

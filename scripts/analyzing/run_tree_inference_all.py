@@ -6,7 +6,8 @@ import shutil
 import subprocess
 
 
-monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
+# monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
+monica_dir = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
 base_dir = '/home/uvi/be/nbo/data/data/'
 
 data_dirs = {
@@ -17,13 +18,12 @@ data_dirs = {
     'Lo-P3': ['all'],
     'Ni8_Monica': ['all', 'cancer'],
     'S21_P1': ['all'],
-    'S21_P2': ['all', 'cancer', 'left'],
-    'W32_Monica': ['all', 'aneuploid', 'cancer', 'haploid', 'normal'],
+    'S21_P2': ['all', 'cancer'],
+    'W32_Monica': ['all', 'aneuploid', 'haploid', 'normal'],
     'W55': ['all', 'cancer', 'normal'],
-    'Wu61': ['all', 'cancer', 'cancer_C', 'cancer_CA', 'cancer_C_CA', 'normal',
-        'polyps'],
-    'Wu63': ['all', 'cancer', 'cancer_polyps', 'normal', 'polyps'],
-    'X25': ['all', 'cancer', 'normal']
+    'Wu61': ['all', 'cancer_C', 'cancer_CA', 'normal', 'polyps'],
+    'Wu63': ['all', 'cancer', 'normal', 'polyps'],
+    'X25': ['all', 'cancer']
 }
 data_filters = ['all', '33nanFilter'] #, '50nanFilter']
 
@@ -38,6 +38,7 @@ cellphy_time = 1000
 cellphy_mem = 2
 
 KEEP_GOING = False
+CLOCK_DIR = ''
 
 
 def run_bash(cmd_raw, bsub=True, time=30, mem=2):
@@ -68,7 +69,7 @@ def print_masterlist(out_file='vcf_masterlist.txt'):
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
-            vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
+            vcf_dir = os.path.join(base_dir, data_dir, CLOCK_DIR, sub_dir)
             for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
@@ -85,6 +86,8 @@ def parse_args():
         help='Overwrite already existing files.')
     parser.add_argument('-k', '--keep_going', action='store_true',
         help='Dont exit on errors.')
+    parser.add_argument('-cd', '--clock_dir', type='str', default='ClockTest'
+        help='Clock directory name.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-m', '--master', default='', type=str,
@@ -96,6 +99,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     KEEP_GOING = args.keep_going
+    CLOCK_DIR = args.clock_dir
 
     if args.master:
         print_masterlist(args.master)
@@ -108,7 +112,7 @@ if __name__ == '__main__':
         data_set = data_dir.replace('_Monica', '')
         # Iterate sub sets
         for sub_dir in sub_dirs:
-            vcf_dir = os.path.join(base_dir, data_dir, 'ClockTest', sub_dir)
+            vcf_dir = os.path.join(base_dir, data_dir, CLOCK_DIR, sub_dir)
             # Iterate nan filters
             for data_filter in data_filters:
                 vcf_raw_name = f'{data_set}.{data_filter}.vcf'
@@ -136,10 +140,13 @@ if __name__ == '__main__':
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
-                    # monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
-                    #     'all.all_chr.filtered.vcf')
-                    monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
-                        f'{data_set}_ado_filtered.vcf')
+                    if 'dec21' in monica_dir:
+                        # monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
+                        #     'all.all_chr.filtered.vcf')
+                        monica_file = os.path.join(monica_dir, f'{data_set}_dec21',
+                            f'{data_set}_ado_filtered.vcf')
+                    else:
+                        monica_file = os.path.join(monica_dir, f'{data_set}.vcf')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
@@ -165,7 +172,7 @@ if __name__ == '__main__':
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
-                        base_file = os.path.join(base_dir, data_dir, 'ClockTest',
+                        base_file = os.path.join(base_dir, data_dir, CLOCK_DIR,
                             'all', vcf_name)
                         sample_file = os.path.join(vcf_dir, 'samples.txt')
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
