@@ -181,7 +181,7 @@ if __name__ == '__main__':
                             'ClockTest', sub_dir, 'samples.txt')
 
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                            f'{vcf_file} {base_file} ' \
+                            f'-o {vcf_file} -O z {base_file} ' \
                             f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd, False)
 
