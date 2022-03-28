@@ -177,7 +177,9 @@ if __name__ == '__main__':
                     if not os.path.exists(vcf_file) or args.replace:
                         base_file = os.path.join(base_dir, data_dir, CLOCK_DIR,
                             'all', vcf_name)
-                        sample_file = os.path.join(vcf_dir, 'samples.txt')
+                        sample_file = os.path.join(base_dir, data_dir,
+                            'ClockTest', sub_dir, 'samples.txt')
+
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                             f'{vcf_file} {base_file} ' \
                             f'&& chmod 755 {vcf_file}'
