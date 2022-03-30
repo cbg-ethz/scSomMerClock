@@ -13,31 +13,40 @@ def merge_LRT_weight(in_files, out_file):
 
     for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
+        subs_re = re.search('\.ss(\d+)\.', in_file)
+        if subs_re:
+            new_df['subsample_size'] = int(subs_re.group(1))
+            new_df['subsample_rep'] = int(
+                re.search('\.ss\d+\.(\d+)\.wMax', in_file).group(1))
         df = df.append(new_df, ignore_index=True)
 
-    total = df.shape[0]
-    avg_row = np.full(df.shape[1], -1, dtype=float)
-
-    avg_row[1:-2] = df.iloc[:,1:-2].mean(axis=0).values
-    avg_row[-1] = np.nan
+    num_cols = df.columns[df.dtypes != object]
+    mean_col = df.loc[:,num_cols].mean(axis=0)
 
     model_total = df.dropna().shape[0]
-    df.loc[total] = avg_row
-
+    hyp_col = [i for i in df.columns if i.startswith('hypothesis')][0]
     if clock:
         try:
-            avg_hyp = [f'{df.iloc[:,-2].value_counts()["H0"]}/{model_total}']
+            avg_hyp = f'{df[hyp_col].value_counts()["H0"]}/{model_total}'
         except KeyError:
-            avg_hyp = [f'0/{model_total}']
+            avg_hyp = f'0/{model_total}'
     else:
         try:
-            avg_hyp = [f'{df.iloc[:,-2].value_counts()["H1"]}/{model_total}']
+            avg_hyp = f'{df[hyp_col].value_counts()["H1"]}/{model_total}'
         except KeyError:
-            avg_hyp = [f'0/{model_total}']
-    df.iloc[total, -2] = avg_hyp
+            avg_hyp = f'0/{model_total}'
 
+    df.loc[-1] = np.full(df.shape[1], -1, dtype=float)
+    df.loc[-1, num_cols] = mean_col
+    df.loc[-1, 'run'] = -1
+    if subs_re:
+        df.loc[-1, 'subsample_size'] = ','.join(
+            [f'{i:.0f}' for i in df['subsample_size'].unique()])
+        df.loc[-1, 'subsample_rep'] = df['subsample_rep'].max()
+
+    df.loc[-1, hyp_col] = avg_hyp
     df.round(4).to_csv(out_file, sep='\t', index=False)
-    print(df.iloc[total])
+    print(df.loc[-1])
 
 
 def merge_LRT_tree(in_files, out_file):
@@ -47,10 +56,15 @@ def merge_LRT_tree(in_files, out_file):
         # Backward compatibility
         new_df.drop(['SNVs', 'TP', 'FP', 'TN', 'FN', 'MS', 'MS_T'],
             axis=1, errors='ignore', inplace=True)
+        if 'subsample_size' in new_df.columns:
+            new_df.reset_index(inplace=True)
+            new_df.set_index(['run', 'subsample_size', 'subsample_rep'],
+                inplace=True)
         if i == 0:
             df = new_df
         else:
             df = df.join(new_df)
+
     df.to_csv(out_file, sep='\t')
 
 

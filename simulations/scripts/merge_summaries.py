@@ -12,6 +12,12 @@ def merge_summaries(in_files, out_file):
         new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
         new_df.rename(index={'Avg.': '-1'}, inplace=True)
         new_df.index = new_df.index.astype(int)
+        new_df.index.name = 'run'
+
+        if 'subsample_size' in new_df.columns:
+            new_df.reset_index(inplace=True)
+            new_df.set_index(['run', 'subsample_size', 'subsample_rep'],
+                inplace=True)
 
         base_name = os.path.basename(in_file)
         if base_name.split('.')[0] == 'poissonDisp':
@@ -48,7 +54,6 @@ def merge_summaries(in_files, out_file):
     else:
         df = df[['dof'] + list(df.columns[:-1])]
 
-    df.index.name = 'run'
     df.to_csv(out_file, sep='\t', index=True)
 
 

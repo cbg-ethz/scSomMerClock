@@ -22,6 +22,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
 
     header = ''
     body = ''
+    from_bulk = 'vcf_bulk_dir'  in vcf_file
 
     rows_skipped = 0
     mut_no = np.zeros(4) # muts cells, muts outg, FP cells/outg, ISA violations
@@ -43,6 +44,11 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         'is singleton">\n##FILTER=<ID=wildtype,Description="' \
                         'Only 0|0 called">\n##droppedRows=0\n'
                     sample_no = len(line.strip().split('\t')[9:])
+                    if from_bulk:
+                        sample_no -= 1
+                        # Remove doubled outgrp from sample list
+                        line = '\t'.join(
+                            line.split('\t')[:-2] + [line.split('\t')[-1]])
                     ADOs = np.zeros((2, sample_no), dtype=int)
                     if monovar:
                         format_short = 'GT:AD:DP:GQ:PL'
@@ -78,7 +84,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             genotypes = np.full((sample_no, 2), np.nan, dtype=float)
             reads = np.zeros((sample_no, 4), dtype=int)
 
-            for s_i, s_rec_raw in enumerate(line_cols[9:]):
+            for s_i, s_rec_raw in enumerate(line_cols[9:9+sample_no]):
                 s_rec = s_rec_raw.split(':')
                 gt = sorted([int(i) for i in s_rec[0].replace('.', '-1').split('|')])
 
@@ -268,6 +274,9 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
     if stats_file:
         with open(stats_file, 'a+') as f:
             f.write(f'{run_no}\t{mut_no[0]}\t{mut_no[1]}\t{mut_no[2]}\t'
+                f'{np.sum(stats)}\t{stats[0]}\t{stats[1]}\t{stats[2]}\t'
+                f'{stats[3]}\t{stats[4]}\n')
+            print(f'{run_no}\t{mut_no[0]}\t{mut_no[1]}\t{mut_no[2]}\t'
                 f'{np.sum(stats)}\t{stats[0]}\t{stats[1]}\t{stats[2]}\t'
                 f'{stats[3]}\t{stats[4]}\n')
 

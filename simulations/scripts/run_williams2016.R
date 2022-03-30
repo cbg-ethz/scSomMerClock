@@ -12,6 +12,7 @@ p <- add_argument(p, '--cellularity', default = 1,
     help = 'Sample cellularity (float)')
 p <- add_argument(p, '--ploidy', default = 2, help = 'Sample ploidy (float)')
 p <- add_argument(p, '--maxIter', default = 500, help = 'Mobster maxIter (float)')
+p <- add_argument(p, '--bootstrap', flag = TRUE, help = 'Run bootstrapping')
 p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
 p <- add_argument(p, '--stdout', flag = TRUE, help = 'Print summary to stdout')
 
@@ -57,17 +58,20 @@ library(mobster)
 fit = mobster_fit(
     data,
     maxIter = argv$maxIter,
+    K = 1,
 )
-bootstrap_results = mobster_bootstrap(
-  fit$best,
-  n.resamples = 20,
-  auto_setup = 'FAST' # forwarded to mobster_fit
-)
+if (argv$bootstrap) {
+    bootstrap_results = mobster_bootstrap(
+      fit$best,
+      n.resamples = 20,
+      auto_setup = 'FAST' # forwarded to mobster_fit
+    )
 
-bootstrap_statistics = bootstrapped_statistics(
-  fit$best,
-  bootstrap_results = bootstrap_results
-)
+    bootstrap_statistics = bootstrapped_statistics(
+      fit$best,
+      bootstrap_results = bootstrap_results
+    )
+}
 
 mobster.evo <- function(fit){
     tryCatch(
@@ -102,8 +106,10 @@ if (!argv$stdout) {
 cat('MOBSTER Population Genetics statistics:\n')
 print(fit$best)
 print(mobster.evo(fit))
-cat('\nMOBSTER Model bootstrap:\n')
-print(data.frame(bootstrap_statistics$bootstrap_model))
+if (argv$bootstrap) {
+    cat('\nMOBSTER Model bootstrap:\n')
+    print(data.frame(bootstrap_statistics$bootstrap_model))
+}
 cat('\n\n')
 print(summary(s))
 

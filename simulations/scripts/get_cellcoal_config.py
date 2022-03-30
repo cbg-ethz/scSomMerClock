@@ -15,21 +15,26 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
     templ = re.sub('{pop_size}', str(model.get('pop_size', 10000)), templ)
     templ = re.sub('{out_dir}', out_dir, templ)
 
-    rep_no = config['cellcoal'].get('no_rep', 10)
     cell_no = model.get('no_cells', 30)
-    cell_depth = config['cellcoal'].get('NGS', {}).get('seq_cov', 20)
     tree_flag = '6'
+    if user_tree:
+        rep_no = 1
+        cell_depth = config['sc_from_bulk'].get('NGS', {}).get('seq_cov', 20)
+        cell_no += 1
+        templ = re.sub('{outgroup_branch_length}', '0', templ)
+        templ = re.sub('{root_branch_length}', '0', templ)
+    else:
+        rep_no = config['cellcoal'].get('no_rep', 10)
+        cell_depth = config['cellcoal'].get('NGS', {}).get('seq_cov', 20)
+        templ = re.sub('{outgroup_branch_length}',
+            str(model.get('outgroup_branch_length', 1)), templ)
+        templ = re.sub('{root_branch_length}',
+            str(model.get('root_branch_length', 0.5)), templ)
 
     templ = re.sub('{no_rep}', str(rep_no), templ)
     templ = re.sub('{seq_cov}', str(cell_depth), templ)
     templ = re.sub('{no_cells}', str(cell_no), templ)
     templ = re.sub('{out_tree}', tree_flag, templ)
-
-    templ = re.sub('{outgroup_branch_length}',
-        str(model.get('outgroup_branch_length', 1)), templ)
-
-    templ = re.sub('{root_branch_length}',
-        str(model.get('root_branch_length', 0.5)), templ)
 
     if model.get('no_muts', None):
         templ = re.sub('{no_muts}', f'j{model["no_muts"]}', templ)
@@ -66,7 +71,7 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
         templ = re.sub('{alphabet}', '1', templ)
 
     scWGA = config['cellcoal']['scWGA']
-    if scWGA.get('errors', False):
+    if scWGA.get('errors', False) or user_tree:
         if isinstance(scWGA['ADO_rate'], float):
             templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"]}', templ)
             templ = re.sub('{ADO_rate_var}', '', templ)
@@ -89,9 +94,12 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
         templ = re.sub('{doublet_rate}', '', templ)
 
     NGS = config['cellcoal']['NGS']
-    if NGS.get('errors', False):
-        if NGS["seq_overdis"] > 0:
+    if NGS.get('errors', False) or user_tree:
+        if not user_tree and NGS["seq_overdis"] > 0:
             templ = re.sub('{seq_overdis}', f'V{NGS["seq_overdis"]}', templ)
+        elif user_tree and config['sc_from_bulk']['NGS']['seq_overdis']:
+            templ = re.sub('{seq_overdis}',
+                f'V{config["sc_from_bulk"]["NGS"]["seq_overdis"]}', templ)
         else:
             templ = re.sub('{seq_overdis}', '', templ)
         templ = re.sub('{seq_error}', f'E{NGS["seq_error"]}', templ)
@@ -121,10 +129,20 @@ if __name__ == '__main__':
     if not 'snakemake' in globals():
         raise IOError('Script only works with snakemake object')
 
+
+    if snakemake.input.get('tree', False):
+        tree = snakemake.input.tree
+        out_dir = f'{snakemake.params.out_dir}.{snakemake.wildcards.run}'
+    else:
+        tree = ''
+        out_dir = snakemake.params.out_dir
+
     cc_config = get_cellcoal_config(snakemake.config,
-        snakemake.params.template, snakemake.params.out_dir)
-    with open(snakemake.output.snakemake, 'w') as f_yaml:
-        yaml.dump(snakemake.config, f_yaml)
+        snakemake.params.template, out_dir, tree)
+
+    if snakemake.output.get('snakemake', False):
+        with open(snakemake.output.snakemake, 'w') as f_yaml:
+            yaml.dump(snakemake.config, f_yaml)
 
     with open(snakemake.output.cellcoal, 'w') as f:
         f.write(cc_config)

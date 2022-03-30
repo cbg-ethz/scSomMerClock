@@ -6,9 +6,12 @@ from scripts.utils import get_out_dir
 SCRIPT_DIR = 'scripts'
 
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
+SUBSAMPLES = config['sc_from_bulk']['subsampling']
+REPS = range(config['sc_from_bulk']['no_rep'])
+
 TREES = [i for i,j in config['tree'].items() if j['run']]
 CELL_NO = config['cellcoal']['model']['no_cells']
-BULK = CELL_NO >= 100 and config['cellcoal']['NGS']['seq_cov'] <= 1
+BULK = True
 
 w_maxs = config.get('poisson', {}).get('w_max', [1000])
 if isinstance(w_maxs, (int, float)):
@@ -17,45 +20,39 @@ if isinstance(w_maxs, (int, float)):
 out_dir, filter_dir = get_out_dir(config, BULK)
 base_dir = os.path.join(out_dir, filter_dir)
 
+
 def get_final_files(wildcards):
     files = []
     for tree in TREES:
-        if config.get('paup', {}).get('run', False):
-            files.append(os.path.join(base_dir, f'paup_dir_{tree}',
-                'paup.summary.tsv'))
-
         if config.get('poisson', {}).get('tree', True) or \
                 config.get('poisson', {}).get('run', False):
             files.append(os.path.join(base_dir, f'poissonTree_{tree}',
                     f'poissonTree.summary.tsv'))
 
-    if config.get('poisson', {}).get('dispersion', False) or \
-                config.get('poisson', {}).get('run', False):
-        files.append(os.path.join(base_dir, 'poissonDisp.summary.tsv'))
+    # if config.get('poisson', {}).get('dispersion', False) or \
+    #             config.get('poisson', {}).get('run', False):
+    #     files.append(os.path.join(base_dir, 'poissonDisp.summary.tsv'))
 
     return files
 
 
+rule all:
+    input:
+        os.path.join(out_dir, 'bulk_summary.tsv'),
+        os.path.join(base_dir, 'subsampling_summary.tsv'),
 
-if BULK:
-    rule all:
-        input:
-            os.path.join(out_dir, 'bulk_summary.tsv')
-else:
-    rule all:
-        input:
-            os.path.join(base_dir, 'final_summary.tsv'),
 
-rule merge_summary_files:
+rule merge_bulk_summary_files:
     input:
         get_final_files
     output:
-        os.path.join(base_dir, 'final_summary.tsv')
+        os.path.join(base_dir, 'subsampling_summary.tsv')
     resources:
         mem_mb = 4096,
         runtime = 20,
     script:
         f'{SCRIPT_DIR}/merge_summaries.py'
+
 
 
 # ------------------------------- CELLCOAL -------------------------------------
@@ -133,11 +130,47 @@ rule merge_mobster:
         f'{SCRIPT_DIR}/merge_bulk_summaries.py'
 
 
+# ------------------------------ SUBSAMPLING -----------------------------------
+
+
+rule create_cellcoal_bulk_config:
+    input:
+        tree = os.path.join(out_dir, 'trees_dir', 'trees.{run}')
+    output:
+        cellcoal = 'cellcoal_parameters_bulk.{run}'
+    params:
+        template = config['cellcoal'] \
+            .get('parameter', 'cellcoal_parameters.template'),
+        out_dir = out_dir,
+    resources:
+        mem_mb = 1024
+    script:
+        f'{SCRIPT_DIR}/get_cellcoal_config.py'
+
+
+rule run_cellcoal_from_bulk:
+    input:
+        cellcoal = 'cellcoal_parameters_bulk.{run}'
+    output:
+        os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.{run}')
+    resources:
+        mem_mb = 16384 \
+            * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
+        runtime = 1200 if CELL_NO >= 10e0 else 300,
+    params:
+        exe = config['cellcoal']['exe'],
+    shell:
+        '{params.exe} -F{input} > /dev/null 2>&1 && '
+        'mv {out_dir}.{wildcards.run}/vcf_dir/vcf.0001 {output} && '
+        'rm -r {out_dir}.{wildcards.run} {input}'
+
+
 # -------------------------- DATA POSTPROCESSING -------------------------------
+
 
 rule generate_overview_file:
     input:
-        os.path.join(out_dir, 'vcf_dir', 'vcf.0001')
+        os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.0001')
     output:
         stats = os.path.join(base_dir, 'data_overview.tsv'),
         ADO = os.path.join(base_dir, 'ADO_overview.tsv')
@@ -157,11 +190,11 @@ rule generate_overview_file:
 
 rule postprocess_vcf:
     input:
-        vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}'),
+        vcf = os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.{run}'),
         stats = ancient(os.path.join(base_dir, 'data_overview.tsv')),
         ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:
-        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
+        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.pp.gz')
     resources:
         runtime = 120,
     group: 'vcf'
@@ -175,17 +208,31 @@ rule postprocess_vcf:
         f'{SCRIPT_DIR}/postprocess_vcf.py'
 
 
+rule subsample_vcf:
+    input:
+        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.pp.gz')
+    output:
+        expand(os.path.join(base_dir, 'vcf_bulk_dir',
+            'vcf.{{run}}.ss{{sample}}.{rep}.gz'), rep=REPS)
+    group: 'vcf'
+    params:
+        reps = config['sc_from_bulk']['no_rep'],
+    script:
+        f'{SCRIPT_DIR}/subsample_bulk.py'
+
+
 def get_repl_data(wildcards):
-    vcf = os.path.join(base_dir, 'vcf_dir',
-        'vcf.{wildcards.run}.final.gz'.format(wildcards=wildcards))
+    vcf = os.path.join(base_dir, 'vcf_bulk_dir',
+        'vcf.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}.gz' \
+            .format(wildcards=wildcards))
 
     if wildcards.tree == 'cellphy':
         tree = os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.Mapped.raxml.mutationMapTree' \
+            'cellphy_tree.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}.Mapped.raxml.mutationMapTree' \
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
         tree = os.path.join(base_dir, 'scite_dir',
-            'scite_tree.{wildcards.run}_ml0.newick'.format(wildcards=wildcards))
+            'scite_tree.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}_ml0.newick'.format(wildcards=wildcards))
     else:
         tree = os.path.join(out_dir, 'trees_dir', 'trees.{wildcards.run}' \
             .format(wildcards=wildcards))
@@ -196,9 +243,10 @@ def get_repl_data(wildcards):
 
 rule run_scite:
     input:
-        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
+        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
     output:
-        os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
+        os.path.join(base_dir, 'scite_dir',
+            'scite_tree.{run}.ss{sample}.{rep}_ml0.newick')
     resources:
         mem_mb = 6144,
         runtime = lambda wildcards, attempt: attempt * 1080,
@@ -213,87 +261,33 @@ rule run_scite:
 
 rule run_cellphy:
     input:
-        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
+        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
     output:
         os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
+            'cellphy_tree.{run}.ss{sample}.{rep}.Mapped.raxml.mutationMapTree')
     resources:
         mem_mb = 2048,
         runtime =  lambda wildcards, attempt: attempt * 60,
-    threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
+    threads: 1 if config['tree']['cellphy'].get('command', 'SEARCH') == 'FAST' \
         else 4
     params:
         prefix = lambda wildcards: os.sep.join([base_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}'.format(wildcards=wildcards)]),
-        exe = config['tree']['cellphy'].get('exe', './cellphy.sh'),
+            'cellphy_tree.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}'\
+                .format(wildcards=wildcards)]),
+        exe = config['tree']['cellphy']['exe'],
         cmd = config['tree']['cellphy'].get('command', 'SEARCH'),
     shell:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l '
         '-p {params.prefix} {input} > /dev/null && '
-        'rm -f {params.prefix}.raxml.startTree ' # {params.prefix}.raxml.bestModel
-        '{params.prefix}.raxml.mlTrees'
-
-
-# -------------------------------- PAUP ----------------------------------------
-
-MODELS = ['clock', 'noClock']
-
-rule vcf_to_nex:
-    input:
-        unpack(get_repl_data)
-    output:
-        temp(expand(os.path.join(base_dir, 'nxs_dir_{{tree}}',
-            'nxs.{{run}}.{{steps}}.{model}'), model=MODELS))
-    resources:
-        mem_mb = 1024,
-        runtime = 30,
-    params:
-        ss = config.get('mrbayes', {}).get('ss', False),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-        exclude = config.get('poisson', {}).get('exclude', ''),
-        include = config.get('poisson', {}).get('include', ''),
-    script:
-        f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
-
-
-rule run_PAUP:
-    input:
-        os.path.join(base_dir, 'nxs_dir_{tree}', 'nxs.{run}.0.{model}')
-    output:
-        temp(os.path.join(base_dir, 'paup_dir_{tree}',
-            'paup.{run}.0.{model}.PAUP.score'))
-    resources:
-        runtime = 60,
-    params:
-        prefix = lambda wildcards: os.sep.join([base_dir,
-            'paup_dir_{wildcards.tree}'.format(wildcards=wildcards)]),
-        paup_exe = config.get('paup', {}).get('exe', 'paup'),
-    shell:
-        'mkdir -p {params.prefix} && '
-        '{params.paup_exe} -n {input} > '
-        '{params.prefix}/paup.{wildcards.run}.{wildcards.model}.log && '
-        'rm {params.prefix}/paup.{wildcards.run}.{wildcards.model}.log'
-
-
-rule merge_paup_results:
-    input:
-        expand(os.path.join(base_dir, 'paup_dir_{{tree}}',
-            'paup.{run}.0.{model}.PAUP.score'), model=MODELS, run=RUNS)
-    output:
-        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.summary.tsv')
-    resources:
-        mem_mb = 2048
-    params:
-        no_cells = CELL_NO + 1,
-    script:
-        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
+        'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees' # {params.prefix}.raxml.bestModel
 
 
 # ------------------------------- POISSON --------------------------------------
 
 rule run_poisson:
     input:
-        expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'), run=RUNS)
+        expand(os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz'),
+            run=RUNS, sample=SUBSAMPLES, rep=REPS)
     output:
         os.path.join(base_dir, 'poissonDisp.summary.tsv')
     resources:
@@ -314,7 +308,8 @@ rule run_poissonTree:
         unpack(get_repl_data)
     output:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-            'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)
+                'poissonTree.{{run}}.ss{{sample}}.{{rep}}.wMax{w_max}.LRT.txt'),
+            w_max=w_maxs)
     envmodules:
         'ete/3.1.2',
     threads: 1
@@ -332,7 +327,8 @@ rule run_poissonTree:
 rule merge_poissonTree_weight:
     input:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-            'poissonTree.{run}.wMax{{w_max}}.LRT.txt'), run=RUNS)
+                'poissonTree.{run}.ss{sample}.{rep}.wMax{{w_max}}.LRT.txt'),
+            run=RUNS, sample=SUBSAMPLES, rep=REPS)
     output:
         os.path.join(base_dir, 'poissonTree_{tree}',
             'poissonTree.summary.wMax{w_max}.tsv')

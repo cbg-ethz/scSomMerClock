@@ -392,7 +392,7 @@ def read_tree(tree_file, samples=[]):
     tree.set_outgroup(outg_node)
     outg_node.delete()
 
-    # Remove terminals that are not in vcf (discrepancy vcf and newick)
+    # Remove terminals that are not in vcf (discrepancy vcf and newick; subsampling)
     for node in tree.get_leaves():
         if node.name not in samples:
             node.delete()
