@@ -307,9 +307,9 @@ rule run_poissonTree:
     input:
         unpack(get_repl_data)
     output:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+        temp(expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
                 'poissonTree.{{run}}.ss{{sample}}.{{rep}}.wMax{w_max}.LRT.txt'),
-            w_max=w_maxs)
+            w_max=w_maxs))
     envmodules:
         'ete/3.1.2',
     threads: 1
