@@ -276,7 +276,7 @@ rule run_cellphy:
         exe = config['tree']['cellphy']['exe'],
         cmd = config['tree']['cellphy'].get('command', 'SEARCH'),
     shell:
-        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l -y'
+        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l -y '
         '-p {params.prefix} {input} > /dev/null && '
         'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees '
         '{params.prefix}.raxml.bestModel {params.prefix}.raxml.rba '
