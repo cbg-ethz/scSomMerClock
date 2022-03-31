@@ -272,8 +272,8 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             f.write(f'{run_no}\t' + '\t'.join(ADO_rate.astype(str)) +'\n')
 
     if stats_file:
-        out_line = f'{run_no}\t{mut_no[0]}\t{mut_no[1]}\t{mut_no[2]}\t'
-            f'{np.sum(stats)}\t{stats[0]}\t{stats[1]}\t{stats[2]}\t{stats[3]}\t'
+        out_line = f'{run_no}\t{mut_no[0]}\t{mut_no[1]}\t{mut_no[2]}\t' \
+            f'{np.sum(stats)}\t{stats[0]}\t{stats[1]}\t{stats[2]}\t{stats[3]}\t' \
             f'{stats[4]}\n'
         with open(stats_file, 'a+') as f:
             f.write(out_line)
