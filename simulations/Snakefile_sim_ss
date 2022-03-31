@@ -197,7 +197,7 @@ rule postprocess_vcf:
         os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.pp.gz')
     resources:
         runtime = 120,
-    group: 'vcf'
+    #group: 'vcf'
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
@@ -214,7 +214,6 @@ rule subsample_vcf:
     output:
         expand(os.path.join(base_dir, 'vcf_bulk_dir',
             'vcf.{{run}}.ss{{sample}}.{rep}.gz'), rep=REPS)
-    group: 'vcf'
     params:
         reps = config['sc_from_bulk']['no_rep'],
     script:
@@ -316,7 +315,7 @@ rule run_poissonTree:
     resources:
         mem_mb = 768,
         runtime = lambda wildcards, attempt: attempt * 30,
-    group: 'treeTest'
+    #group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
