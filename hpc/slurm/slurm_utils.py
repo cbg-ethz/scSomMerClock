@@ -65,8 +65,8 @@ def format_wildcards(string, job_properties):
             for key in job_properties:
                 setattr(self, key, job_properties[key])
     job = Job(job_properties)
-    job._format_params = Wildcards(fromdict=job_properties['params'])
-    job._format_wildcards = Wildcards(fromdict=job_properties['wildcards'])
+    job._format_params = Wildcards(fromdict=job_properties.get('params', {}))
+    job._format_wildcards = Wildcards(fromdict=job_properties.get('wildcards', {}))
     _variables = dict()
     _variables.update(
         dict(
