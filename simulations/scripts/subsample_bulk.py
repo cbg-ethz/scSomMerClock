@@ -38,8 +38,10 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                         outg_id = len(samples) + outg_id
                     samples = np.delete(samples, outg_id)
 
-                    ss_ids = np.random.choice(np.arange(len(samples)),
-                        size=(reps, no,), replace=False)
+                    ss_ids = np.zeros((reps, no,))
+                    for i in range(reps):
+                        ss_ids[i] = np.random.choice(np.arange(len(samples)),
+                            size=no, replace=False)
                     ss_ids = np.sort(ss_ids)
 
                     subsamples = np.append(samples[ss_ids],
