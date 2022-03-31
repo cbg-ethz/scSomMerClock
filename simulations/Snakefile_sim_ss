@@ -227,7 +227,7 @@ def get_repl_data(wildcards):
 
     if wildcards.tree == 'cellphy':
         tree = os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}.Mapped.raxml.mutationMapTree' \
+            'cellphy_tree.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}.raxml.bestTree' \
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
         tree = os.path.join(base_dir, 'scite_dir',
@@ -263,7 +263,7 @@ rule run_cellphy:
         os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
     output:
         os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.ss{sample}.{rep}.Mapped.raxml.mutationMapTree')
+            'cellphy_tree.{run}.ss{sample}.{rep}.raxml.bestTree')
     resources:
         mem_mb = 2048,
         runtime =  lambda wildcards, attempt: attempt * 60,
@@ -276,9 +276,10 @@ rule run_cellphy:
         exe = config['tree']['cellphy']['exe'],
         cmd = config['tree']['cellphy'].get('command', 'SEARCH'),
     shell:
-        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l '
+        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l -y'
         '-p {params.prefix} {input} > /dev/null && '
-        'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees' # {params.prefix}.raxml.bestModel
+        'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees '
+        '{params.prefix}.raxml.bestModel {params.prefix}.raxml.rba '
 
 
 # ------------------------------- POISSON --------------------------------------
