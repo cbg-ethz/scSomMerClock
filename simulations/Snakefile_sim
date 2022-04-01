@@ -313,39 +313,28 @@ rule run_poissonTree:
     input:
         unpack(get_repl_data)
     output:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-            'poissonTree.{{run}}.wMax{w_max}.LRT.txt'), w_max=w_maxs)
+        os.path.join(base_dir, 'poissonTree_{tree}',
+            'poissonTree.{run}.ss{sample}.{rep}.LRT.txt')
     envmodules:
         'ete/3.1.2',
     threads: 1
     resources:
         mem_mb = 768,
         runtime = lambda wildcards, attempt: attempt * 30,
-    group: 'treeTest'
+    #group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
+        w_maxs = W_MAXS,
     script:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
-
-
-rule merge_poissonTree_weight:
-    input:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-            'poissonTree.{run}.wMax{{w_max}}.LRT.txt'), run=RUNS)
-    output:
-        os.path.join(base_dir, 'poissonTree_{tree}',
-            'poissonTree.summary.wMax{w_max}.tsv')
-    resources:
-        mem_mb = 2048,
-    script:
-        f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
 
 
 rule merge_poissonTree_tree:
     input:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-            'poissonTree.summary.wMax{w_max}.tsv'), w_max=w_maxs)
+                'poissonTree.{run}.ss{sample}.{rep}.LRT.txt'),
+            run=RUNS, sample=SUBSAMPLES, rep=REPS)
     output:
         os.path.join(base_dir, 'poissonTree_{tree}',
             'poissonTree.summary.tsv')

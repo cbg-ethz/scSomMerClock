@@ -9,15 +9,15 @@ def merge_summaries(in_files, out_file):
     df = pd.DataFrame()
 
     for i, in_file in enumerate(sorted(in_files)):
-        new_df = pd.read_csv(in_file, sep='\t', index_col='run').dropna(axis=1)
-        new_df.rename(index={'Avg.': '-1'}, inplace=True)
-        new_df.index = new_df.index.astype(int)
-        new_df.index.name = 'run'
-
+        new_df = pd.read_csv(in_file, sep='\t')
         if 'subsample_size' in new_df.columns:
-            new_df.reset_index(inplace=True)
             new_df.set_index(['run', 'subsample_size', 'subsample_rep'],
                 inplace=True)
+        else:
+            new_df.set_index('run', inplace=True, drop=True)
+            new_df.rename(index={'Avg.': '-1'}, inplace=True)
+            new_df.index = new_df.index.astype(int)
+        new_df.dropna(axis=1, inplace=True)
 
         base_name = os.path.basename(in_file)
         if base_name.split('.')[0] == 'poissonDisp':

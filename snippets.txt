@@ -37,6 +37,16 @@ bcftools query -l <VCF>
 # Replace small with capital letter in vcf (e.g. a to A)
 sed -i.bak $'s/\ta\t/\tA\t/g' <VCF>
 
+# Split multiallelic sides into biallelic ones
+bcftools norm -m-any -c s -f <FASTA> <VCF> -o Z -o <OUTFILE>.gz
+
+# filter indels
+bcftools filter --include 'TYPE="snp"' <VCF> -O z -o <OUTFILE>.gz
+
+# Split and filter indels
+bcftools norm -m-any -c s -f <FASTA> <VCF> | bcftools filter --include 'TYPE="snp"' - -O z -o <OUTFILE>.gz
+
+
 # run cellphy on slurm cluster
 sbatch -t 720 -p amd-shared --qos amd-shared --mem 2G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'
 

@@ -66,7 +66,7 @@ def parse_args():
     parser.add_argument('-e', '--exe', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
-    parser.add_argument('-w', '--w_max', type=int, default=500,
+    parser.add_argument('-w', '--w_max', type=int, default=400,
         help='W_max value for Poisson Tree test.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')

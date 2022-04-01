@@ -20,6 +20,17 @@ LAMBDA_MIN = 1e-6
 log_LAMBDA_MIN = -100
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
+CANCER_TYPE = {
+    'H65': 'MM',
+    'Li55': 'BLCA',
+    'Lo-P1': None, 'Lo-P2': None, 'Lo-P3': None,
+    'Ni8': 'LUAD',
+    'S21_P1': 'PRAD', 'S21_P2': 'PRAD', 'S21': 'PRAD',
+    'W32': 'BRCA', 'W55': 'BRCA',
+    'Wu61': 'COREAD', 'Wu63': 'COREAD',
+    'X25': 'RCCC',
+}
+
 
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if vcf_file.endswith('gz'):
@@ -167,7 +178,8 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
             data[1].append(line_muts[2])
 
-            pos = int(line_cols[1])
+            pos = (int(line_cols[0]), int(line_cols[1]))
+
             idx[1].append(pos)
             if 'PASS' in line_cols[6] or line_cols[6] == 's50':
                 idx[0].append(pos)
@@ -250,6 +262,15 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
                 w_face = TextFace(f'{weight}', fsize=1)
                 node.add_face(w_face, column=0, position="branch-bottom")
 
+        for i, driver in enumerate(node.drivers):
+            driver_face = TextFace(f'{driver[0]} ({driver[2]* 100:.0f}%)', fsize=3)
+            driver_face.hz_align = 1
+            if driver[1]:
+                driver_face.background.color = 'LightGreen'
+            else:
+                driver_face.background.color = 'PeachPuff'
+            node.add_face(driver_face, column=0, position="branch-bottom")
+
     root = tree.get_tree_root()
     root.children[0].dist = 0
     root.img_style = NodeStyle(size=0)
@@ -317,7 +338,6 @@ def read_tree(tree_file, samples=[]):
             or 'cellphy' in tree_file:
 
         tree_raw = re.sub('\[\d+\]', '', tree_raw)
-
         log_file = tree_file.replace('.mutationMapTree', '.log') \
             .replace('.bestTree', '.log')
 
@@ -402,7 +422,7 @@ def read_tree(tree_file, samples=[]):
     for i, node in enumerate(tree.iter_descendants()):
         node.add_features(
             in_length=node.dist,
-            muts_br=set([]),
+            muts_br=[[], [], []],
             muts_br_true=set([]),
             muts_br_false=set([]),
             muts_br_missing=set([]),
@@ -412,7 +432,8 @@ def read_tree(tree_file, samples=[]):
             name='+'.join(sorted(node.get_leaf_names())),
             weights=np.zeros(weight_no),
             weights_norm=np.zeros(weight_no),
-            weights_norm_z=np.zeros(weight_no)
+            weights_norm_z=np.zeros(weight_no),
+            drivers=[]
         )
 
     return tree, outg_name, FP, FN
@@ -423,8 +444,8 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
 
     tree, outg, FP, FN = read_tree(tree_file, muts.columns.values)
     if FP_fix and FN_fix:
-        FP = FP_fix
-        FN = FN_fix
+        FP =  max(FP_fix, LAMBDA_MIN)
+        FN =  max(FN_fix, LAMBDA_MIN)
     else:
         FP = max(FP, LAMBDA_MIN)
         FN /= 2
@@ -505,9 +526,13 @@ def map_mutations_gt(tree, muts_in, FP, FN):
         M[i] = probs_norm
 
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
+        max_prob = probs_norm.max()
+        unique =  best_nodes.size == 1
 
         for best_node in best_nodes:
-            node_map[best_node].muts_br.add(idx_map[i])
+            node_map[best_node].muts_br[0].append(idx_map[i])
+            node_map[best_node].muts_br[1].append(max_prob)
+            node_map[best_node].muts_br[2].append(unique)
 
     soft_assigned = M.sum(axis=0)
     for i, node in node_map.items():
@@ -579,20 +604,24 @@ def add_true_muts(tree, df_true):
         # child0.false_muts = node.muts_node_true.difference(node.true_muts)
         child0.muts_br_true = child0.muts_node_true \
             .difference(node.muts_node_true)
-        child0.muts_br_false = child0.muts_br.difference(child0.muts_br_true)
-        child0.muts_br_missing = child0.muts_br_true.difference(child0.muts_br)
+        child0.muts_br_false = set(child0.muts_br[0]) \
+            .difference(child0.muts_br_true)
+        child0.muts_br_missing = child0.muts_br_true \
+            .difference(set(child0.muts_br[0]))
         child0.mut_no_true = len(child0.muts_br_true)
 
         child1.muts_br_true = child1.muts_node_true \
             .difference(node.muts_node_true)
-        child1.muts_br_false = child1.muts_br.difference(child1.muts_br_true)
-        child1.muts_br_missing = child1.muts_br_true.difference(child1.muts_br)
+        child1.muts_br_false = set(child1.muts_br[0]) \
+            .difference(child1.muts_br_true)
+        child1.muts_br_missing = child1.muts_br_true \
+            .difference(set(child1.muts_br[0]))
         child1.mut_no_true = len(child1.muts_br_true)
 
     root = tree.get_tree_root().children[0]
     root.muts_br_true = root.muts_node_true
-    root.muts_br_false = root.muts_br.difference(root.muts_br_true)
-    root.muts_br_missing = root.muts_br_true.difference(root.muts_br)
+    root.muts_br_false = set(root.muts_br[0]).difference(root.muts_br_true)
+    root.muts_br_missing = root.muts_br_true.difference(set(root.muts_br[0]))
     root.mut_no_true = len(root.muts_br_true)
 
 
@@ -791,20 +820,21 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
     return LR, dof, on_bound, p_val, zip(opt.x, devi)
 
 
-def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
-        w_maxs=[1000], exclude='', include=''):
+def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
+            exclude='', include='', FN_fix=None, FP_fix=None):
     run = os.path.basename(vcf_file).split('.')[1]
-    cols = ['FN', 'FP', '-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
+    cols_all = ['FN', 'FP']
+    cols_wMax = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
 
     call_data = get_mut_df(vcf_file, exclude, include)
 
     if not isinstance(w_maxs, list):
         w_maxs = [w_maxs]
-    if not isinstance(out_files, list):
-        out_files = [out_files]
 
-    for w_max, out_file in zip(w_maxs, out_files):
-        tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max)
+    header_str = 'run\t'
+    model_str = f'{run}\t'
+    for i, w_max in enumerate(sorted(w_maxs)):
+        tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max, FN_fix, FP_fix)
         add_true_muts(tree, call_data[1])
 
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
@@ -814,29 +844,31 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_files,
         LR, dof, on_bound, p_val, Y_opt = \
             get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
 
-        header_str = 'run\t' \
-            + '\t'.join([f'{col}_poissonTree_wMax{w_max}' for col in cols])
+        if i == 0:
+            header_str += f'FN\tFP\t'
+            model_str += f'{FN:.4f}\t{FP:.6f}\t'
 
-        weight_str = ",".join([str(i) for i in weights_norm[:,w_idx].round(3)])
+        weight_str = ",".join([str(j) for j in weights_norm[:,w_idx].round(3)])
+        header_str += '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
+        model_str += f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
+            f'H{int(p_val < 0.05)}\t{weight_str}'
 
-        model_str = f'{run}\t{FN:.4f}\t{FP:.6f}\t{LR:0>5.2f}\t{dof+on_bound}\t'\
-            f'{p_val:.2E}\tH{int(p_val < 0.05)}\t{weight_str}\n'
-
-        with open(out_file, 'w') as f_out:
-            f_out.write(f'{header_str}\n{model_str}')
-
+    with open(out_file, 'w') as f_out:
+        f_out.write(f'{header_str}\n{model_str}')
     # add_opt_muts(tree, Y, Y_opt)
     # show_tree(tree)
     # import pdb; pdb.set_trace()
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
-        w_maxs=[1000], plot_only=False, exclude='', include=''):
+        w_maxs=[1000], plot_only=False, driver_file='', exclude='', include=''):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
     except ValueError:
-        dataset = 'unknown'
+        dataset = path_strs[-1].split('_')[0]
+        if dataset == 'S21':
+            dataset = '_'.join(path_strs[-1].split('_')[:2])
         subset = 'unknown'
         filters = 'unknown'
     else:
@@ -844,6 +876,20 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         file_ids = path_strs[-1].split('.')
         dataset = file_ids[0]
         filters = file_ids[1]
+
+    if driver_file:
+        drivers = pd.read_csv(driver_file, sep='\t')
+        drivers.set_index('SYMBOL', inplace=True)
+
+        maf_file = os.path.join(os.path.dirname(vcf_file), f'{dataset}.maf')
+        annot = pd.read_csv(maf_file, sep='\t', skiprows=[0], usecols=
+            ['SYMBOL', 'Chromosome', 'Start_Position', 'End_Position',
+                 'Variant_Classification'])
+        annot.set_index(['Chromosome', 'Start_Position'], inplace=True)
+        # annot.dropna(how='all',axis=1, inplace=True)
+        # If statistics required on the annotations, this is the place
+        annot.dropna(inplace=True)
+        annot = annot[~annot['Variant_Classification'].str.contains('Intron|Silent')]
 
     header_str = 'dataset\tsubset\tfilters\tFN\tFP'
     model_str = ''
@@ -863,6 +909,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
+        annotate_drivers(dataset, tree, drivers, annot)
         if plot_only:
             tree_fig = out_file + f'_w{w_max:.0f}_mapped'
             show_tree(tree, tree_fig, w_idx)
@@ -878,23 +925,73 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
     print('success')
 
 
+def annotate_drivers(dataset, tree, drivers, annot):
+    print(f'{dataset}: {CANCER_TYPE[dataset]}')
+
+    for node in tree.iter_descendants():
+        for i, (chr, pos) in enumerate(node.muts_br[0]):
+            try:
+                SNV = annot.loc[chr, pos]
+            except TypeError:
+                continue
+
+            gene = SNV['SYMBOL']
+            try:
+                driver = drivers.loc[gene]
+            except KeyError:
+                continue
+
+            # Skip drivers mapped to more than 1 branch
+            if not node.muts_br[2][i] and node.muts_br[2][i] < 0.33:
+                continue
+
+            driver_str = f'{SNV["Variant_Classification"]: <17} in '\
+                f'driver gene {gene: <15}'
+            if isinstance(driver, pd.Series):
+                if driver['CANCER_TYPE'] == CANCER_TYPE[dataset]:
+                    c_type = True
+                    driver_str = '  * ' + driver_str
+                    driver_str += f' ({driver["ROLE"]})'
+                else:
+                    c_type = False
+                    driver_str = '    ' + driver_str
+                    driver_str += f' (cancer type: {driver["CANCER_TYPE"]})'
+            else:
+                c_types = driver['CANCER_TYPE'].unique()
+                if CANCER_TYPE[dataset] in c_types:
+                    c_type = True
+                    role = driver[driver['CANCER_TYPE'] == CANCER_TYPE[dataset]] \
+                        ['ROLE'].unique()
+                    driver_str = '  * ' + driver_str
+                    driver_str += f' ({",".join(role)})'
+                else:
+                    c_type = False
+                    driver_str = '    ' + driver_str
+                    driver_str += f' (cancer types: {",".join(c_types)})'
+            print(driver_str)
+
+            node.drivers.append((gene, c_type, node.muts_br[1][i]))
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('vcf', type=str, help='SNP file in vcf format')
     parser.add_argument('tree', type=str, help='Tree file in newick format')
-    parser.add_argument('-o', '--output', type=str, default='', nargs='+',
-        help='Output file(s). 1 file per w_max for simulations, '\
-            '1 file for biological data')
+    parser.add_argument('-o', '--output', type=str, default='',
+        help='Output file.')
     parser.add_argument('-excl', '--exclude', type=str, default='',
         help='Regex pattern for samples to exclude from LRT test,')
     parser.add_argument('-incl', '--include', type=str, default='',
         help='Regex pattern for samples to include from LRT test,')
-    parser.add_argument('-w', '--w_max', type=float, default=[1000], nargs='+',
-        help='Maximum weight value.')
+    parser.add_argument('-w', '--w_max', type=float, nargs='+',
+        default=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+        help='Maximum weight value. Defaut = 100, 200, ..., 1000')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
     parser.add_argument('-p', '--plotting', action='store_true',
         help='Plot phylogeny of biological data only.')
+    parser.add_argument('-d', '--drivers', type=str, default='',
+        help='Path to IntOGen driver genes for annotation of real data sets.')
     args = parser.parse_args()
     return args
 
@@ -906,18 +1003,15 @@ if __name__ == '__main__':
         if snakemake.params.include == None:
             snakemake.params.include = ''
 
-        w_maxs = []
-        for out_file in snakemake.output:
-            file_name = os.path.basename(out_file)
-            w_maxs.append(
-                float(re.search('wMax(\d+[\.\d]*)\.LRT', file_name).group(1)))
         run_poisson_tree_test_simulations(
             vcf_file=snakemake.input.vcf,
             tree_file=snakemake.input.tree,
-            out_files=snakemake.output,
-            w_maxs=w_maxs,
+            out_file=snakemake.output[0],
+            w_maxs=snakemake.params.w_maxs,
             exclude=snakemake.params.exclude,
-            include=snakemake.params.include
+            include=snakemake.params.include,
+            FN_fix=snakemake.params.FN,
+            FP_fix=snakemake.params.FP,
         )
     else:
         import argparse
@@ -928,9 +1022,10 @@ if __name__ == '__main__':
             run_poisson_tree_test_biological(
                 vcf_file=args.vcf,
                 tree_file=args.tree,
-                out_file=args.output[0],
+                out_file=args.output,
                 w_maxs=args.w_max,
                 plot_only=args.plotting,
+                driver_file=args.drivers,
                 exclude=args.exclude,
                 include=args.include,
             )
@@ -938,7 +1033,7 @@ if __name__ == '__main__':
             run_poisson_tree_test_simulations(
                 vcf_file=args.vcf,
                 tree_file=args.tree,
-                out_files=args.output,
+                out_file=args.output,
                 w_maxs=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
