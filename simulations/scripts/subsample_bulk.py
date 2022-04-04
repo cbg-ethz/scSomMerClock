@@ -50,7 +50,6 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                     sample_no = no + 1
 
                     for i, subsample in enumerate(subsamples):
-
                         body[i] += '\t'.join(line_cols[:9] + list(subsample)) + '\n'
                 else:
                     header += line

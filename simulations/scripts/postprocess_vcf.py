@@ -22,7 +22,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
 
     header = ''
     body = ''
-    from_bulk = 'vcf_bulk_dir'  in vcf_file
 
     rows_skipped = 0
     mut_no = np.zeros(4) # muts cells, muts outg, FP cells/outg, ISA violations
@@ -44,18 +43,15 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         'is singleton">\n##FILTER=<ID=wildtype,Description="' \
                         'Only 0|0 called">\n##droppedRows=0\n'
                     sample_no = len(line.strip().split('\t')[9:])
-                    if from_bulk:
+                    if 'vcf_bulk_dir'  in vcf_file:
                         sample_no -= 1
                         # Remove doubled outgrp from sample list
                         line = '\t'.join(
                             line.split('\t')[:-2] + [line.split('\t')[-1]])
                     ADOs = np.zeros((2, sample_no), dtype=int)
-                    if monovar:
-                        format_short = 'GT:AD:DP:GQ:PL'
-                    else:
-                        header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
-                            'Description="Genotype Quality">\n'
-                        format_short = 'GT:DP:RC:GQ:TG'
+                    header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
+                        'Description="Genotype Quality">\n'
+                    format_short = 'GT:DP:RC:GQ:TG'
 
                 header += line
                 continue
@@ -87,50 +83,44 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             for s_i, s_rec_raw in enumerate(line_cols[9:9+sample_no]):
                 s_rec = s_rec_raw.split(':')
                 gt = sorted([int(i) for i in s_rec[0].replace('.', '-1').split('|')])
+                dp = int(s_rec[1])
+                rc = s_rec[2]
 
-                if monovar:
-                    gq = int(s_rec[3])
-                    dp = int(s_rec[2])
-                    tgt = ''
+                try:
+                    tgt = sorted([bases[i] for i in s_rec[-1].split('|')])
+                # True alt in vcf
+                except KeyError:
+                    new_base = [i for i in s_rec[-1].split('|') \
+                        if i not in bases][0]
+                    bases[new_base] = len(bases)
+                    tgt = sorted([bases[i] for i in s_rec[-1].split('|')])
+                assert len(tgt) == 2, f'Wrong true GT field: {tgt}'
+                true_gt[s_i] = tgt
+
+                if len(FORMAT_col) == len(s_rec):
+                    pln = np.array([-float(i) \
+                        for i in s_rec[PLN_col].split(',')])
+                    gq = min(99, sorted(pln - pln.min())[1])
                 else:
-                    dp = int(s_rec[1])
-                    rc = s_rec[2]
+                    gq = -1
 
-                    try:
-                        tgt = sorted([bases[i] for i in s_rec[-1].split('|')])
-                    # True alt in in vcf
-                    except KeyError:
-                        new_base = [i for i in s_rec[-1].split('|') \
-                            if i not in bases][0]
-                        bases[new_base] = len(bases)
-                        tgt = sorted([bases[i] for i in s_rec[-1].split('|')])
-                    assert len(tgt) == 2, f'Wrong true GT field: {tgt}'
-                    true_gt[s_i] = tgt
+                if gt == [-1, -1] and dp > 0:
+                    gt_raw = GT_MAPPING[
+                        np.array(s_rec[3].split(','), dtype=float).argmax()]
+                    gt = sorted([bases[gt_raw[0]], bases[gt_raw[1]]])
 
-                    if len(FORMAT_col) == len(s_rec):
-                        pln = np.array([-float(i) \
-                            for i in s_rec[PLN_col].split(',')])
-                        gq = min(99, sorted(pln - pln.min())[1])
-                    else:
-                        gq = -1
-
-                    if gt == [-1, -1] and dp > 0:
-                        gt_raw = GT_MAPPING[
-                            np.array(s_rec[3].split(','), dtype=float).argmax()]
-                        gt = sorted([bases[gt_raw[0]], bases[gt_raw[1]]])
-
-                    if (tgt[1] > 0) and (gt[1] > 0): #TP
-                        stats[0] += 1
-                    elif (tgt[1] == 0) and (gt[1] > 0): #FP
-                        stats[1] += 1
-                    elif  (tgt[1] == 0) and (gt[1] == 0): # TN
-                        stats[2] += 1
-                    elif (tgt[1] > 0) and (gt[1] == 0): # FN
-                        stats[3] += 1
-                    elif gt == [-1, -1]:
-                        stats[4] += 1
-                    else:
-                        raise RuntimeError('Unknown case for stats update')
+                if (tgt[1] > 0) and (gt[1] > 0): #TP
+                    stats[0] += 1
+                elif (tgt[1] == 0) and (gt[1] > 0): #FP
+                    stats[1] += 1
+                elif  (tgt[1] == 0) and (gt[1] == 0): # TN
+                    stats[2] += 1
+                elif (tgt[1] > 0) and (gt[1] == 0): # FN
+                    stats[3] += 1
+                elif gt == [-1, -1]:
+                    stats[4] += 1
+                else:
+                    raise RuntimeError('Unknown case for stats update')
 
                 if (dp < minDP) or (dp == 0) or (gq < minGQ):
                     new_line[s_i] = f'.|.:{dp}:{rc}:{gq:.0f}:{tgt[0]}|{tgt[1]}'
@@ -148,7 +138,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
 
                 reads[s_i] = rc.split(',')
 
-
             bases_rev = {j: i for i,j in bases.items()}
             alt_bases = np.unique(true_gt[:,1])
             if alt_bases.size == 1:
@@ -165,37 +154,34 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             else:
                 print(f'Unknown ADO calc for true genotypes: {reads}')
 
-
-
             called_gt = genotypes[~np.isnan(genotypes.sum(axis=1))]
             # Count true mutations
-            if not monovar:
-                unique_genos = np.unique(true_gt[:-1], axis=0) # exclude outgroup
-                # All wt or all mut
-                if unique_genos.shape[0] == 1:
-                    all_wt = (unique_genos[0] == 0).all()
-                    outg_wt = all(true_gt[-1] == 0)
-                    # Some wildtype and some mutations
-                    if not all_wt:
-                        mut_no[0] += 1
-                    # False positive: all true ones are wildtype
-                    elif all_wt and outg_wt:
-                        mut_no[2] += 1
-                    # Outgroup mutation: wildtype in all cells except outgroup
-                    elif all_wt and not outg_wt:
-                        mut_no[1] += 1
-                    else:
-                        import pdb; pdb.set_trace()
-
-                # Some wt and some muts
-                elif unique_genos.shape[0] == 2:
-                    # ISA violation: different mutations at locus
-                    if not any((unique_genos == 0).sum(axis=0) == 2):
-                        mut_no[3] += 1
+            unique_genos = np.unique(true_gt[:-1], axis=0) # exclude outgroup
+            # All wt or all mut
+            if unique_genos.shape[0] == 1:
+                all_wt = (unique_genos[0] == 0).all()
+                outg_wt = all(true_gt[-1] == 0)
+                # Some wildtype and some mutations
+                if not all_wt:
                     mut_no[0] += 1
-                # ISA violation: different mutations at locus
+                # False positive: all true ones are wildtype
+                elif all_wt and outg_wt:
+                    mut_no[2] += 1
+                # Outgroup mutation: wildtype in all cells except outgroup
+                elif all_wt and not outg_wt:
+                    mut_no[1] += 1
                 else:
                     import pdb; pdb.set_trace()
+
+            # Some wt and some muts
+            elif unique_genos.shape[0] == 2:
+                # ISA violation: different mutations at locus
+                if not any((unique_genos == 0).sum(axis=0) == 2):
+                    mut_no[3] += 1
+                mut_no[0] += 1
+            # ISA violation: different mutations at locus
+            else:
+                import pdb; pdb.set_trace()
 
             # No signal above filtering threshold for position: skip
             if called_gt.size == 0:
@@ -233,7 +219,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     elif s_filter:
                         filter_str = 'singleton'
 
-                # if int(line_cols[1]) == 1933: import pdb; pdb.set_trace()
                 # If two different singleton het muts are called, filter these
                 two_diff = False
                 diff_bp, bp_count = np.unique(called_gt[:,1], return_counts=True)

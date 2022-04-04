@@ -74,9 +74,10 @@ def merge_LRT_tree(in_files, out_file):
     else:
         df.set_index('run', inplace=True, drop=True)
 
+    df.sort_index(inplace=True)
     # Add average row
-    num_cols = df.columns[df.dtypes != object]
-    mean_col = df.loc[:,num_cols].mean(axis=0)
+    num_cols = [i for i, (j, k) in enumerate(df.dtypes.items()) if k != object]
+    mean_col = df.iloc[:,num_cols].mean(axis=0)
 
     model_total = df.dropna().shape[0]
     if isinstance(df.index, pd.MultiIndex):
@@ -84,9 +85,9 @@ def merge_LRT_tree(in_files, out_file):
     else:
         avg_id = -1
     df.loc[avg_id] = np.full(df.shape[1], -1, dtype=float)
-    df.loc[avg_id, num_cols] = mean_col
+    df.iloc[-1] = mean_col
 
-    for hyp_col in df.columns:
+    for i, hyp_col in enumerate(df.columns):
         if not hyp_col.startswith('hypothesis'):
             continue
 
@@ -101,7 +102,7 @@ def merge_LRT_tree(in_files, out_file):
             except KeyError:
                 avg_hyp = f'0/{model_total}'
 
-        df.loc[avg_id, hyp_col] = avg_hyp
+        df.iloc[-1, i] = avg_hyp
 
     df.round(4).to_csv(out_file, sep='\t')
     print(df.loc[avg_id])

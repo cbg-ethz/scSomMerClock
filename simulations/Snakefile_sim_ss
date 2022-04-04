@@ -117,7 +117,6 @@ rule run_mobster:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
         '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
-        ' && rm -f {out_dir}/vcf_dir/vcf.{wildcards.run}'
 
 
 rule merge_mobster:
@@ -150,7 +149,7 @@ rule create_cellcoal_bulk_config:
 
 rule run_cellcoal_from_bulk:
     input:
-        cellcoal = 'cellcoal_parameters_bulk.{run}'
+        'cellcoal_parameters_bulk.{run}'
     output:
         os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.{run}')
     resources:
@@ -194,7 +193,7 @@ rule postprocess_vcf:
         stats = ancient(os.path.join(base_dir, 'data_overview.tsv')),
         ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:
-        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.pp.gz')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     resources:
         runtime = 120,
     #group: 'vcf'
@@ -210,9 +209,11 @@ rule postprocess_vcf:
 
 rule subsample_vcf:
     input:
-        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.pp.gz')
+        vcf = os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'),
+        stats = ancient(os.path.join(base_dir, 'data_overview.tsv')),
+        ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:
-        expand(os.path.join(base_dir, 'vcf_bulk_dir',
+        expand(os.path.join(base_dir, 'vcf_dir',
             'vcf.{{run}}.ss{{sample}}.{rep}.gz'), rep=REPS)
     params:
         reps = config['sc_from_bulk']['no_rep'],
@@ -221,7 +222,7 @@ rule subsample_vcf:
 
 
 def get_repl_data(wildcards):
-    vcf = os.path.join(base_dir, 'vcf_bulk_dir',
+    vcf = os.path.join(base_dir, 'vcf_dir',
         'vcf.{wildcards.run}.ss{wildcards.sample}.{wildcards.rep}.gz' \
             .format(wildcards=wildcards))
 
@@ -242,7 +243,7 @@ def get_repl_data(wildcards):
 
 rule run_scite:
     input:
-        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
     output:
         os.path.join(base_dir, 'scite_dir',
             'scite_tree.{run}.ss{sample}.{rep}_ml0.newick')
@@ -260,7 +261,7 @@ rule run_scite:
 
 rule run_cellphy:
     input:
-        os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.ss{sample}.{rep}.gz')
     output:
         os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.ss{sample}.{rep}.raxml.bestTree')
@@ -286,7 +287,7 @@ rule run_cellphy:
 
 rule run_poisson:
     input:
-        expand(os.path.join(base_dir, 'vcf_bulk_dir', 'vcf.{run}.ss{sample}.{rep}.gz'),
+        expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.ss{sample}.{rep}.gz'),
             run=RUNS, sample=SUBSAMPLES, rep=REPS)
     output:
         os.path.join(base_dir, 'poissonDisp.summary.tsv')
@@ -326,20 +327,6 @@ rule run_poissonTree:
             if wildcards.tree == 'cellcoal' else None,
     script:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
-
-
-# rule merge_poissonTree_weight:
-#     input:
-#         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-#                 'poissonTree.{run}.ss{sample}.{rep}.LRT.txt'),
-#             run=RUNS, sample=SUBSAMPLES, rep=REPS)
-#     output:
-#         os.path.join(base_dir, 'poissonTree_{tree}',
-#             'poissonTree.summary.wMax{w_max}.tsv')
-#     resources:
-#         mem_mb = 2048,
-#     script:
-#         f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
 
 
 rule merge_poissonTree_tree:

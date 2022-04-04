@@ -120,7 +120,6 @@ rule run_mobster:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
         '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
-        ' && rm -f {out_dir}/vcf_dir/vcf.{wildcards.run}'
 
 
 rule merge_mobster:

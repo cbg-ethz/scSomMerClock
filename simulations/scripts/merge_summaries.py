@@ -28,6 +28,7 @@ def merge_summaries(in_files, out_file):
 
         df = pd.concat([df, new_df], axis=1)
 
+    df.sort_index(inplace=True)
     clock = '_clock0_' in out_file
     if not clock:
         cellcoal_log = os.sep.join(
@@ -54,7 +55,8 @@ def merge_summaries(in_files, out_file):
     else:
         df = df[['dof'] + list(df.columns[:-1])]
 
-    df.to_csv(out_file, sep='\t', index=True)
+    idx = df.index.tolist()
+    df.reindex(idx[1:] + [idx[0]]).to_csv(out_file, sep='\t', index=True)
 
 
 def parse_args():
