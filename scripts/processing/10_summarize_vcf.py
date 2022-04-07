@@ -349,7 +349,15 @@ def get_call_summary(rec, sample_maps, depth, quality):
         GQ_s = sorted(PL_vals)[1]
         sample['GQ'] = int(GQ_s)
 
+        # Correct if GQ difference is between 0/1 and 1/1
+        if (np.abs(PL_vals[1] - PL_vals[2]) == GQ_s):
+            wt_mut_diff = PL_vals[0] - GQ_s
+            if wt_mut_diff >= MIN_GQ_NAN:
+                GQ_s = wt_mut_diff - GQ_s
+                sample['GQ'] = int(wt_mut_diff)
+
         DP_s = sum(sample['AD'])
+
         # Set genotype quality or read depth below minimum threshold to NAN
         if DP_s < MIN_READS_NAN or GQ_s < MIN_GQ_NAN:
             continue
