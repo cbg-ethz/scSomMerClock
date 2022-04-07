@@ -18,8 +18,14 @@ if isinstance(W_MAXS, (int, float)):
     W_MAXS = [W_MAXS]
 
 out_dir, filter_dir = get_out_dir(config, BULK)
-base_dir = os.path.join(out_dir, filter_dir)
 
+
+if BULK:
+    base_dir = os.path.join(out_dir,
+        f'ADO{config["cellcoal"]["scWGA"]["ADO_rate"][0]},' \
+        f'{config["cellcoal"]["scWGA"]["ADO_rate"][1]}-{filter_dir}')
+else:
+    base_dir = os.path.join(out_dir, filter_dir)
 
 def get_final_files(wildcards):
     files = []
@@ -151,7 +157,7 @@ rule run_cellcoal_from_bulk:
     input:
         'cellcoal_parameters_bulk.{run}'
     output:
-        os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.{run}')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.{run}')
     resources:
         mem_mb = 16384 \
             * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
@@ -169,7 +175,7 @@ rule run_cellcoal_from_bulk:
 
 rule generate_overview_file:
     input:
-        os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.0001')
+        os.path.join(base_dir, 'vcf_dir', 'vcf.0001')
     output:
         stats = os.path.join(base_dir, 'data_overview.tsv'),
         ADO = os.path.join(base_dir, 'ADO_overview.tsv')
@@ -189,7 +195,7 @@ rule generate_overview_file:
 
 rule postprocess_vcf:
     input:
-        vcf = os.path.join(out_dir, 'vcf_bulk_dir', 'vcf.{run}'),
+        vcf = os.path.join(base_dir, 'vcf_dir', 'vcf.{run}'),
         stats = ancient(os.path.join(base_dir, 'data_overview.tsv')),
         ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:

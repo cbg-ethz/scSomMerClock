@@ -45,7 +45,7 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                     ss_ids = np.sort(ss_ids)
 
                     subsamples = np.append(samples[ss_ids],
-                        np.full((reps, 1), 'healthycell') , axis=1)
+                        np.full((reps, 1), 'healthycell'), axis=1)
                     ss_ids = np.append(ss_ids, np.full((reps, 1), outg_id), axis=1)
                     sample_no = no + 1
 

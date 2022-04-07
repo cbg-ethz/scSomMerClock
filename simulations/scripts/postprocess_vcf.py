@@ -43,7 +43,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                         'is singleton">\n##FILTER=<ID=wildtype,Description="' \
                         'Only 0|0 called">\n##droppedRows=0\n'
                     sample_no = len(line.strip().split('\t')[9:])
-                    if 'vcf_bulk_dir'  in vcf_file:
+                    if re.search('_bulk(\d+)x_', vcf_file):
                         sample_no -= 1
                         # Remove doubled outgrp from sample list
                         line = '\t'.join(
