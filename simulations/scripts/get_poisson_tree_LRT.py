@@ -181,7 +181,8 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             pos = (int(line_cols[0]), int(line_cols[1]))
 
             idx[1].append(pos)
-            if 'PASS' in line_cols[6] or line_cols[6] == 's50':
+            if 'PASS' in line_cols[6] or line_cols[6] == 's50' \
+                    or line_cols[6] == 'singleton':
                 idx[0].append(pos)
                 ref_gt.append((MUT[line_cols[3]], alt_idx))
                 reads.append(line_reads)
