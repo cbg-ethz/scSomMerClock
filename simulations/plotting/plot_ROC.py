@@ -7,6 +7,7 @@ import re
 import pandas as pd
 
 from defaults import *
+CELL_NO = 30
 
 
 def generate_PRC(args):
@@ -101,10 +102,10 @@ def generate_PRC(args):
             else:
                 col_title = f'FN rate: {ADO_val / 2}'
 
-            axes1[0,i].annotate(col_title, xy=(0.5, 1.15), xytext=(0, 5),
+            axes1[0,i].annotate(col_title, xy=(0.5, 1), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points', size='large',
                 ha='center', va='baseline')
-            axes2[0,i].annotate(col_title, xy=(0.5, 1.15), xytext=(0, 5),
+            axes2[0,i].annotate(col_title, xy=(0.5, 1), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points', size='large',
                 ha='center', va='baseline')
 
@@ -125,7 +126,7 @@ def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
 
     for j, min_cell in enumerate(min_cells):
         df_cell = df_in[(df_in['aff. cells'] >= min_cell) \
-        & ((df_in['aff. cells'] <= 30 - min_cell) | (df_in['aff. cells'] == np.inf))]
+            & ((df_in['aff. cells'] <= CELL_NO - min_cell) | (df_in['aff. cells'] == np.inf))]
 
         if df_cell.size == 0:
             print(f'!WARNING - No run with {min_cell} cells affected!')
@@ -156,7 +157,8 @@ def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
                     w_max.append(wMax)
                     prec.append(precision)
                     rec.append(recall)
-                    fprs.append(fpr)
+                    # <INFO> Max to avoid bug in plotting vertical line to (0|0)
+                    fprs.append(max(fpr, 1e-4))
             else:
                 vals = df['predicted'].value_counts()
                 rec = [vals.TP / (vals.TP + vals.FN)]
@@ -174,41 +176,62 @@ def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
                     mec=colors[method], mfc=cmap(k - 2))
             ax2.plot([0, 1], [0, 1], color='grey', ls='--')
 
-        ax1.set_xlim((-0.05, 1.05))
-        ax1.set_ylim((0.4, 1.05))
+        format_ax(ax1, col_id, j, min_cells, True)
+        format_ax(ax2, col_id, j, min_cells, False)
 
-        ax2.set_xlim((-0.05, 1.05))
-        ax2.set_ylim((-0.05, 1.05))
 
-        # First col, middle row
-        if col_id[0] == 0 and j == np.floor(min_cells.size / 2):
-            ax1.set_ylabel('Precision')
-            ax2.set_ylabel('True positive rate')
-        else:
-            ax1.set_ylabel('')
-            ax2.set_ylabel('')
+def format_ax(ax, col_id, j, min_cells, PRC):
+    ax.set_xlim((-0.05, 1.05))
 
-        # Middle col, last row
-        if col_id[0] == np.floor((col_id[1] - 1) / 2) and j == min_cells.size - 1:
-            ax1.set_xlabel('Recall')
-            ax2.set_xlabel('False positive rate')
-        else:
-            ax1.set_xlabel('')
-            ax2.set_xlabel('')
+    if PRC:
+        ax.set_ylim((0.4, 1.05))
+    else:
+        ax.set_ylim((-0.05, 1.05))
 
-        # Last column
-        if col_id[0] == col_id[1] - 1:
-            ax12 = ax1.twinx()
-            ax12.set_yticks([])
-            ax22 = ax2.twinx()
-            ax22.set_yticks([])
-            if len(min_cells) == 1:
-                ax12.set_ylabel(f'\nAmplifier:\n{ampl:.0f}', fontsize=8)
-                ax22.set_ylabel(f'\nAmplifier:\n{ampl:.0f}', fontsize=8)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    if j < min_cells.size - 1:
+        ax.set_xticklabels([])
+        ax.set_xlabel(None)
+
+    # First col
+    if col_id[0] == 0:
+        # middle row
+        if j == np.floor(min_cells.size / 2):
+            if PRC:
+                ax.set_ylabel('Precision')
             else:
-                ax12.set_ylabel('\n' + r'$\geq$' + f'{min_cell} cells', fontsize=8)
-                ax22.set_ylabel('\n' + r'$\geq$' + f'{min_cell} cells', fontsize=8)
+                ax.set_ylabel('True positive rate')
+        else:
+            ax.set_ylabel(None)
 
+    else:
+        ax.set_ylabel(None)
+        ax.set_yticklabels([])
+
+    # Middle col, last row
+    if col_id[0] == np.floor((col_id[1] - 1) / 2) and j == min_cells.size - 1:
+        if PRC:
+            ax.set_xlabel('Recall')
+        else:
+            ax.set_xlabel('False positive rate')
+    else:
+        ax.set_xlabel('')
+
+    # Last column
+    if col_id[0] == col_id[1] - 1:
+        ax2 = ax.twinx()
+        ax2.set_yticks([])
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        if len(min_cells) == 1:
+            ax1.set_ylabel(f'\nAmplifier:\n{ampl:.0f}')
+        else:
+            ax2.set_ylabel(f'\n{min_cells[j]}' + r'$\leq$' + f'# ampl. cells' \
+                + r'$\leq$' + f'{CELL_NO - min_cells[j]}')
+        for tick in  ax.yaxis.majorTicks:
+            tick.tick1line.set_markersize(0)
 
 
 def parse_args():

@@ -262,7 +262,6 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
             f'{stats[4]}\n'
         with open(stats_file, 'a+') as f:
             f.write(out_line)
-        print(out_line)
 
 
 def parse_args():

@@ -137,3 +137,5 @@ simulations/configs
 simulations/debugging
 simulations/results
 poisson_tests_all
+*.png
+*.pdf

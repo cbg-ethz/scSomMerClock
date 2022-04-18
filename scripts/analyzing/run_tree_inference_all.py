@@ -189,7 +189,7 @@ if __name__ == '__main__':
                 tree_cmds = []
                 if not os.path.exists(cellphy_out) or args.replace:
                     tree_cmds.append(
-                        (f"{cellphy_exe} SEARCH -r -t 1 -z -l {vcf_file}",
+                        (f"{cellphy_exe} FULL -r -y -z -l {vcf_file}",
                             cellphy_time, cellphy_mem)
                     )
 

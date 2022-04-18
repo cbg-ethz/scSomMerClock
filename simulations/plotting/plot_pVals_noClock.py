@@ -7,6 +7,7 @@ import re
 import pandas as pd
 
 from defaults import *
+CELL_NO = 30
 
 
 def plot_affected_cells(df, out_file):
@@ -190,6 +191,8 @@ def generate_pval_plot_noClock(args):
                 vals.append(['-', -1, cell_no, value])
             else:
                 tree = name.split('.')[-1]
+                if tree.startswith('0_'):
+                    tree = tree[2:]
                 if not tree in args.method:
                     continue
                 wMax = int(re.search('_wMax(\d+)', name).group(1))
@@ -210,41 +213,28 @@ def generate_pval_plot_noClock(args):
         fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
         fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=min_cells.size,
-            figsize=(3 * min_cells.size, wMax_vals.size + 1))
+            figsize=(2 * min_cells.size, wMax_vals.size + 1))
     axes = np.reshape(axes, (wMax_vals.size, min_cells.size))
 
     for i, min_cell in enumerate(min_cells):
-        if single_plot:
-            col_type = 'only'
-        elif i == 0:
-            col_type = 'first'
-        elif i == min_cells.size - 1:
-            col_type = 'last'
-        elif i == np.floor(min_cells.size / 2):
-            col_type = 'middle'
-        else:
-            col_type = 'intermediate'
-
-        df_plot = df[df['aff. cells'] >= min_cell]
+        df_plot = df[(df['aff. cells'] >= min_cell) \
+            & (df['aff. cells'] <= CELL_NO - min_cell)]
         if df_plot.size == 0:
             print(f'!WARNING - No run with {min_cell} cells affected!')
             continue
-        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], col_type)
+        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], (i, min_cells.size))
 
         if not single_plot:
             wMax_max = df_plot['wMax'].value_counts().index[0]
             n = ((df_plot['Tree'] == 'cellcoal') & (df_plot['wMax'] == wMax_max)) \
                 .sum()
-            header = r'$\geq$' + f'{min_cell} cells\n(n = {n})'
+            header = f'{min_cell}' + r'$\leq$' + f'# ampl. cells' + r'$\leq$' \
+                + f'{CELL_NO - min_cell}' + f'\n(n = {n})'
             axes[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
 
-    if single_plot:
-        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
-    else:
-        fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
-            hspace=0.5, wspace=0.5)
+    fig.tight_layout()
 
     if args.output:
         fig.savefig(args.output, dpi=300)
@@ -253,13 +243,13 @@ def generate_pval_plot_noClock(args):
     plt.close()
 
 
-def plot_pVal_dist(df, wMax, axes, column_type):
+def plot_pVal_dist(df, wMax, axes, col_no):
     hue_order = ['-', 'cellcoal', 'cellphy', 'scite']
     for i, j in enumerate(wMax):
         ax = axes[i]
         data = df[df['wMax'] == j]
         dp = sns.histplot(data, x='P-value', hue='Tree', element='bars',
-            stat='probability', multiple='dodge', fill=True, common_norm=False,
+            stat='probability', multiple='layer', fill=True, common_norm=False,
             hue_order=['-', 'cellcoal', 'cellphy', 'scite'], binwidth=0.05,
             binrange=(0, 1), palette=colors, shrink=1, legend=False, ax=ax,
         )
@@ -300,30 +290,29 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
-        if column_type == 'first':
+        if col_no[0] == 0:
             if i != np.floor(wMax.size / 2):
                 ax.set_ylabel('')
             else:
                 ax.set_ylabel('Probability')
         else:
-            ax.set_ylabel('')
+            ax.set_ylabel(None)
+            ax.set_yticklabels([])
 
-        if column_type == 'middle' and i == wMax.size - 1:
+        if col_no[0] == np.floor(col_no[1] / 2)  and i == wMax.size - 1:
             ax.set_xlabel('P-value')
         else:
             ax.set_xlabel('')
 
-        if column_type == 'last':
+        if col_no[0] == col_no[1] - 1:
             ax2 = ax.twinx()
             if j >= 0:
                 ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
             else:
                 ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
             ax2.set_yticks([])
-
-        if column_type == 'only':
-            ax.set_xlabel('P-value')
-            ax.set_ylabel('Probability')
+            for tick in  ax.yaxis.majorTicks:
+                tick.tick1line.set_markersize(0)
 
 
 def parse_args():

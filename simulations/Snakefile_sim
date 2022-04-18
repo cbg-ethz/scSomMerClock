@@ -10,9 +10,9 @@ TREES = [i for i,j in config['tree'].items() if j['run']]
 CELL_NO = config['cellcoal']['model']['no_cells']
 BULK = CELL_NO >= 100 and config['cellcoal']['NGS']['seq_cov'] <= 1
 
-w_maxs = config.get('poisson', {}).get('w_max', [1000])
-if isinstance(w_maxs, (int, float)):
-    w_maxs = [w_maxs]
+W_MAXS = config.get('poisson', {}).get('w_max', [1000])
+if isinstance(W_MAXS, (int, float)):
+    W_MAXS = [W_MAXS]
 
 out_dir, filter_dir = get_out_dir(config, BULK)
 base_dir = os.path.join(out_dir, filter_dir)
@@ -21,20 +21,15 @@ def get_final_files(wildcards):
     files = []
     for tree in TREES:
         if config.get('paup', {}).get('run', False):
-            files.append(os.path.join(base_dir, f'paup_dir_{tree}',
-                'paup.summary.tsv'))
-
+            files.append(f'paup_{tree}.summary.tsv')
         if config.get('poisson', {}).get('tree', True) or \
                 config.get('poisson', {}).get('run', False):
-            files.append(os.path.join(base_dir, f'poissonTree_{tree}',
-                    f'poissonTree.summary.tsv'))
-
+            files.append(f'poissonTree_{tree}.summary.tsv')
     if config.get('poisson', {}).get('dispersion', False) or \
                 config.get('poisson', {}).get('run', False):
-        files.append(os.path.join(base_dir, 'poissonDisp.summary.tsv'))
+        files.append('poissonDisp.summary.tsv')
 
-    return files
-
+    return [os.path.join(base_dir, i) for i in files]
 
 
 if BULK:
@@ -227,10 +222,68 @@ rule run_cellphy:
         exe = config['tree']['cellphy'].get('exe', './cellphy.sh'),
         cmd = config['tree']['cellphy'].get('command', 'SEARCH'),
     shell:
-        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l '
+        '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l -y '
         '-p {params.prefix} {input} > /dev/null && '
-        'rm -f {params.prefix}.raxml.startTree ' # {params.prefix}.raxml.bestModel
-        '{params.prefix}.raxml.mlTrees'
+        'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees '
+        '{params.prefix}.raxml.bestModel {params.prefix}.raxml.rba'
+
+
+# ------------------------------- POISSON --------------------------------------
+
+rule run_poisson:
+    input:
+        expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'), run=RUNS)
+    output:
+        os.path.join(base_dir, 'poissonDisp.summary.tsv')
+    resources:
+        mem_mb = 2048,
+        runtime = 120,
+    params:
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
+    script:
+        f'{SCRIPT_DIR}/get_poisson_LRT.py'
+
+
+# --------------------------- POISSON TREE -------------------------------------
+
+
+rule run_poissonTree:
+    input:
+        unpack(get_repl_data)
+    output:
+        os.path.join(base_dir, 'poissonTree_{tree}',
+            'poissonTree.{run}.LRT.txt')
+    envmodules:
+        'ete/3.1.2',
+    threads: 1
+    resources:
+        mem_mb = 768,
+        runtime = lambda wildcards, attempt: attempt * 30,
+    #group: 'treeTest'
+    params:
+        exclude = config.get('poisson', {}).get('exclude', ''),
+        include = config.get('poisson', {}).get('include', ''),
+        w_maxs = W_MAXS,
+        FN = lambda wildcards: config['cellcoal']['scWGA']['ADO_rate'][0] / 2 \
+            if wildcards.tree == 'cellcoal' else None,
+        FP = lambda wildcards: config['cellcoal']['scWGA']['ampl_error'][0] \
+                + config['cellcoal']['NGS']['seq_error'] \
+            if wildcards.tree == 'cellcoal' else None,
+    script:
+        f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
+
+
+rule merge_poissonTree_tree:
+    input:
+        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
+                'poissonTree.{run}.LRT.txt'), run=RUNS)
+    output:
+        os.path.join(base_dir, 'poissonTree_{tree}.summary.tsv')
+    resources:
+        mem_mb = 2048,
+    script:
+        f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'
 
 
 # -------------------------------- PAUP ----------------------------------------
@@ -279,65 +332,10 @@ rule merge_paup_results:
         expand(os.path.join(base_dir, 'paup_dir_{{tree}}',
             'paup.{run}.0.{model}.PAUP.score'), model=MODELS, run=RUNS)
     output:
-        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.summary.tsv')
+        os.path.join(base_dir, 'paup_{tree}.summary.tsv')
     resources:
         mem_mb = 2048
     params:
         no_cells = CELL_NO + 1,
     script:
         f'{SCRIPT_DIR}/get_PAUP_LRT.py'
-
-
-# ------------------------------- POISSON --------------------------------------
-
-rule run_poisson:
-    input:
-        expand(os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz'), run=RUNS)
-    output:
-        os.path.join(base_dir, 'poissonDisp.summary.tsv')
-    resources:
-        mem_mb = 2048,
-        runtime = 120,
-    params:
-        exclude = config.get('poisson', {}).get('exclude', ''),
-        include = config.get('poisson', {}).get('include', ''),
-    script:
-        f'{SCRIPT_DIR}/get_poisson_LRT.py'
-
-
-# --------------------------- POISSON TREE -------------------------------------
-
-
-rule run_poissonTree:
-    input:
-        unpack(get_repl_data)
-    output:
-        os.path.join(base_dir, 'poissonTree_{tree}',
-            'poissonTree.{run}.ss{sample}.{rep}.LRT.txt')
-    envmodules:
-        'ete/3.1.2',
-    threads: 1
-    resources:
-        mem_mb = 768,
-        runtime = lambda wildcards, attempt: attempt * 30,
-    #group: 'treeTest'
-    params:
-        exclude = config.get('poisson', {}).get('exclude', ''),
-        include = config.get('poisson', {}).get('include', ''),
-        w_maxs = W_MAXS,
-    script:
-        f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
-
-
-rule merge_poissonTree_tree:
-    input:
-        expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
-                'poissonTree.{run}.ss{sample}.{rep}.LRT.txt'),
-            run=RUNS, sample=SUBSAMPLES, rep=REPS)
-    output:
-        os.path.join(base_dir, 'poissonTree_{tree}',
-            'poissonTree.summary.tsv')
-    resources:
-        mem_mb = 2048,
-    script:
-        f'{SCRIPT_DIR}/merge_poisson_tree_LRT.py'

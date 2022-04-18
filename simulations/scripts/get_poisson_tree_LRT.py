@@ -20,17 +20,6 @@ LAMBDA_MIN = 1e-6
 log_LAMBDA_MIN = -100
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
-CANCER_TYPE = {
-    'H65': 'MM',
-    'Li55': 'BLCA',
-    'Lo-P1': None, 'Lo-P2': None, 'Lo-P3': None,
-    'Ni8': 'LUAD',
-    'S21_P1': 'PRAD', 'S21_P2': 'PRAD', 'S21': 'PRAD',
-    'W32': 'BRCA', 'W55': 'BRCA',
-    'Wu61': 'COREAD', 'Wu63': 'COREAD',
-    'X25': 'RCCC',
-}
-
 
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     if vcf_file.endswith('gz'):
@@ -219,7 +208,7 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
 
     cmap =cm.get_cmap('RdYlBu_r')
-    lw = 1
+    lw = 3
     fsize = 4
     for i, node in enumerate(tree.iter_descendants()):
         style = NodeStyle()
@@ -235,9 +224,13 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
         else:
             if br_labels:
                 node.dist = mut_no
-                mut = TextFace(f'{mut_no:.1f}', fsize=1)
+                mut = TextFace(f'{mut_no:.1f}', fsize=fsize)
                 mut.margin_right = 2
                 node.add_face(mut, column=0, position="branch-top")
+
+        if hasattr(node, 'mut_no_true'):
+            mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
+            node.add_face(mut, column=0, position="branch-top")
 
         if node.weights_norm_z[w_idx] == -1:
             color_hex = '#000000'
@@ -264,11 +257,16 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
                 node.add_face(w_face, column=0, position="branch-bottom")
 
         for i, driver in enumerate(node.drivers):
+            if driver[2] < 0:
+                continue
+
             driver_face = TextFace(f'{driver[0]} ({driver[2]* 100:.0f}%)', fsize=3)
             driver_face.hz_align = 1
+
             if driver[1]:
                 driver_face.background.color = 'LightGreen'
             else:
+                continue
                 driver_face.background.color = 'PeachPuff'
             node.add_face(driver_face, column=0, position="branch-bottom")
 
@@ -468,9 +466,10 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
 
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
-    M = map_mutations_gt(tree, muts_red, FP, FN + MS)
+    MS_i = np.clip(muts_red.isna().mean(), None, 1 - FN - 0.2)
+    M = map_mutations_gt(tree, muts_red, FP, FN + MS_i)
 
-    add_br_weights(tree, FP, FN + MS, w_max)
+    add_br_weights(tree, FP, FN, MS_i, w_max)
 
     return tree, FP, FN, M
 
@@ -513,16 +512,37 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
     muts_inv = 1 - muts
 
-    errors = np.log([1 - FN, FP, 1 - FP, FN])
+    # -- Assume average missing value for all cells --
+    # # errors = np.log([1 - FN.mean(), FP, 1 - FP, FN.mean()])
+    # TP_m_all = S * np.log(1 - FN.mean())
+    # FP_m_all = S_inv * np.log(FP)
+    # TN_m_all = S_inv * np.log(1 - FP)
+    # FN_m_all = S * np.log(FN.mean())
+
+    # -- Taking different missing value per cell into account --
+    FN_i = FN[muts_in.columns].values
+
+    TP_m = S * np.log(1 - FN_i)
+    FP_m = S_inv * np.log(FP)
+    TN_m = S_inv * np.log(1 - FP)
+    FN_m = S * np.log(FN_i)
+
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in enumerate(muts):
-        mut_data = np.stack([
-            np.nansum(S * mut, axis=1), # TP
-            np.nansum(S_inv * mut, axis=1), # FP
-            np.nansum(S_inv * muts_inv[i], axis=1), # TN
-            np.nansum(S * muts_inv[i], axis=1), # FN,
-        ])
-        probs = np.dot(errors, mut_data)
+        # probs = np.stack([
+        #     np.nansum(TP_m_all * mut, axis=1), # TP
+        #     np.nansum(FP_m_all * mut, axis=1), # FP
+        #     np.nansum(TN_m_all * muts_inv[i], axis=1), # TN
+        #     np.nansum(FN_m_all * muts_inv[i], axis=1), # FN,
+        # ]).sum(axis=0)
+
+        probs = np.stack([
+            np.nansum(TP_m * mut, axis=1), # TP
+            np.nansum(FP_m * mut, axis=1), # FP
+            np.nansum(TN_m * muts_inv[i], axis=1), # TN
+            np.nansum(FN_m * muts_inv[i], axis=1), # FN,
+        ]).sum(axis=0)
+
         probs_norm = _normalize_log_probs(probs)
         M[i] = probs_norm
 
@@ -544,7 +564,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
-def add_br_weights(tree, FP, FN, w_max):
+def add_br_weights(tree, FP, FN, MS_i, w_max):
     m = len(tree)
     n = 2 * m - 1
 
@@ -559,11 +579,45 @@ def add_br_weights(tree, FP, FN, w_max):
         S[i, cells] = 1
 
     l_TN = np.log(1 - FP)
-    l_FN = np.log(FN)
     weights = np.zeros((n, 2), dtype=float)
 
-    t = S.sum(axis=1)
-    p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
+    # # -- Assume average missing value for all cells --
+    # l_FN = np.log(FN + MS_i[leaf_names].mean())
+    # t = S.sum(axis=1)
+    # p_ADO_all = np.exp(t * l_FN.mean() + (m - t) * l_TN)
+    # p_noADO_all = 1 - p_ADO_all
+
+    # -- Taking different missing value per cell into account --
+    l_FN = np.log(FN)
+    MS_vals = MS_i[leaf_names].values
+
+    p_ADO = np.zeros(n, dtype=float)
+    for i, br in enumerate(S):
+        p_br = log_LAMBDA_MIN
+
+        l_mut = br.sum()
+        mut_coeffs = np.log(binomCoeff(l_mut, np.arange(l_mut + 1)))
+        l_mut_MS_avg = np.log(MS_vals[br].mean())
+
+        l_no_mut = m - l_mut
+        no_mut_coeffs = np.log(binomCoeff(l_no_mut, np.arange(l_no_mut + 1)))
+        l_no_mut_MS_avg = np.log(MS_vals[1 - br].mean())
+
+        for FN_no, mut_coeff in enumerate(mut_coeffs):
+            MS_mut_no = l_mut - FN_no
+
+            tbl_prob = log_LAMBDA_MIN
+            for TN_no, no_mut_coeff in enumerate(no_mut_coeffs):
+                MS_no_mut_no = l_no_mut - TN_no
+
+                tbl_prob_new = no_mut_coeff \
+                    + FN_no * l_FN + MS_mut_no * l_mut_MS_avg \
+                    + TN_no * l_TN + MS_no_mut_no * l_no_mut_MS_avg
+                tbl_prob = np.logaddexp(tbl_prob, tbl_prob_new)
+
+
+            p_br = tbl_prob = np.logaddexp(p_br, mut_coeff + tbl_prob_new)
+        p_ADO[i] = np.exp(p_br)
     p_noADO = 1 - p_ADO
 
     # weight 0: inv variance
@@ -572,7 +626,7 @@ def add_br_weights(tree, FP, FN, w_max):
     weights[:,1] = np.clip(p_noADO / p_ADO, None, w_max)
 
     # Drop root weight
-    root_id = np.argwhere(t == m).flatten()[0]
+    root_id = np.argwhere(S.sum(axis=1) == m).flatten()[0]
     weights = np.delete(weights, root_id, axis=0)
     nodes.remove(nodes[root_id])
 
@@ -761,7 +815,6 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
         scale_fac = (ll_H1 // i) * i
         if scale_fac != 0:
             break
-
     def fun_opt(l, Y):
         return -np.nansum(
             (Y * np.log(np.where(l > LAMBDA_MIN, l, np.nan)) - l) * weights) \
@@ -910,8 +963,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
-        annotate_drivers(dataset, tree, drivers, annot)
         if plot_only:
+            annotate_drivers(dataset, tree, drivers, annot)
             tree_fig = out_file + f'_w{w_max:.0f}_mapped'
             show_tree(tree, tree_fig, w_idx)
             exit()
@@ -927,6 +980,17 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
 
 
 def annotate_drivers(dataset, tree, drivers, annot):
+    CANCER_TYPE = {
+        'H65': 'MM',
+        'Li55': 'BLCA',
+        'Lo-P1': None, 'Lo-P2': None, 'Lo-P3': None,
+        'Ni8': 'LUAD',
+        'S21_P1': 'PRAD', 'S21_P2': 'PRAD', 'S21': 'PRAD',
+        'W32': 'BRCA', 'W55': 'BRCA',
+        'Wu61': 'COREAD', 'Wu63': 'COREAD',
+        'X25': 'RCCC',
+    }
+
     print(f'{dataset}: {CANCER_TYPE[dataset]}')
 
     for node in tree.iter_descendants():

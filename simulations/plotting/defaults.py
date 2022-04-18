@@ -50,8 +50,8 @@ vis_names_short = {
 methods_names = {
     'PAUP*': 'PAUP*',
     '-': 'Poisson Dispersion',
-    'cellcoal': 'Poisson Tree Test (True)',
-    'cellphy': 'Poisson Tree Test (CellPhy)',
+    'cellcoal': 'Poisson Tree (True Tree)',
+    'cellphy': 'Poisson Tree (CellPhy)',
     'scite': 'Poisson Tree (+Scite)',
 }
 

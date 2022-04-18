@@ -111,7 +111,7 @@ def generate_legend_plot(handles, labels, output, circle=True):
         else:
             handle.set_lw(2)
             final_handles.append(handle)
-    ax.legend(final_handles, labels, ncol=2, frameon=False, title=r'$\bf{w_{max}}$')
+    ax.legend(final_handles, labels, ncol=2, frameon=True, title=r'$\bf{w_{max}}$')
 
     fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     if output:

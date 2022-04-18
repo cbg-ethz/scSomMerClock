@@ -6,6 +6,7 @@ import re
 
 import pandas as pd
 from matplotlib.lines import Line2D
+import matplotlib.patches as mpatches
 from scipy.stats import chi2
 
 from defaults import *
@@ -75,6 +76,9 @@ def generate_pval_plot_clock(args):
     if single_plot:
         df.loc[df['wMax'] == -1, 'wMax'] = args.wMax[0]
 
+    for col in ['ADO', 'wMax', 'P-value', 'Lambda']:
+        df[col] = df[col].astype(float)
+
     wMax_vals = df['wMax'].unique()
     wMax_vals.sort()
     ADO_vals = df['ADO'].unique()
@@ -88,9 +92,9 @@ def generate_pval_plot_clock(args):
         fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
     else:
         fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-            figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+            figsize=(2 * ADO_vals.size, wMax_vals.size + 1))
         fig2, axes2 = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-            figsize=(3 * ADO_vals.size, wMax_vals.size + 1))
+            figsize=(2 * ADO_vals.size, wMax_vals.size + 1))
     axes = np.reshape(axes, (wMax_vals.size, ADO_vals.size))
     axes2 = np.reshape(axes2, (wMax_vals.size, ADO_vals.size))
 
@@ -107,7 +111,7 @@ def generate_pval_plot_clock(args):
             col_type = 'intermediate'
 
         df_plot = df[df['ADO'] == ADO_val]
-        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], col_type)
+        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], (i, ADO_vals.size))
         plot_lambda_dist(df_plot, wMax_vals, axes2[:,i], col_type)
 
         if not single_plot:
@@ -119,17 +123,8 @@ def generate_pval_plot_clock(args):
                 xytext=(0, 5), xycoords='axes fraction',
                 textcoords='offset points', size='large', ha='center',
                 va='baseline')
-
-    if single_plot:
-        fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.75)
-        fig2.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
-    else:
-        fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
-            hspace=0.5, wspace=0.5)
-        fig2.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95,
-            hspace=0.5, wspace=0.5)
-        fig.tight_layout()
-        fig2.tight_layout()
+    fig.tight_layout()
+    fig2.tight_layout()
 
     if args.output:
         fig.savefig(args.output, dpi=DPI)
@@ -140,7 +135,7 @@ def generate_pval_plot_clock(args):
 
 
 
-def plot_pVal_dist(df, wMax, axes, column_type):
+def plot_pVal_dist(df, wMax, axes, col_no):
     for i, j in enumerate(wMax):
         ax = axes[i]
         data = df[df['wMax'] == j]
@@ -149,7 +144,6 @@ def plot_pVal_dist(df, wMax, axes, column_type):
         if len(hue_order) > 1:
             hue_order.append('gap')
 
-        # import pdb; pdb.set_trace()
         dp = sns.histplot(data, x='P-value', hue='Tree',
             element='bars', stat='probability', kde=False,
             common_norm=False, fill=True,
@@ -158,6 +152,14 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             hue_order=hue_order,
             legend=False, ax=ax,
         )
+
+        # # import pdb; pdb.set_trace()
+        # dp = sns.violinplot(x='wMax', y='P-value', data=df, hue='Tree',
+        #     cut=0, split=True, inner='point',
+        #     palette=colors,
+        #     hue_order=hue_order,
+        #     ax=ax,
+        # )
 
         ax.set_xlim((0, 1))
         ax.set_ylim((0, 1))
@@ -195,30 +197,32 @@ def plot_pVal_dist(df, wMax, axes, column_type):
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
-        if column_type == 'first':
+        # First col
+        if col_no[0] == 0:
             if i != np.floor(wMax.size / 2):
                 ax.set_ylabel('')
             else:
                 ax.set_ylabel('Probability')
         else:
-            ax.set_ylabel('')
+            ax.set_ylabel(None)
+            ax.set_yticklabels([])
 
-        if column_type == 'middle' and i == wMax.size - 1:
+        # Middle col
+        if col_no[0] == np.floor(col_no[1] / 2) and i == wMax.size - 1:
             ax.set_xlabel('P-value')
         else:
             ax.set_xlabel('')
 
-        if column_type == 'last':
+        # Last col
+        if col_no[0] == col_no[1] - 1:
             ax2 = ax.twinx()
             if j >= 0:
                 ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
             else:
-                ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
+                ax.set_ylabel(None)
             ax2.set_yticks([])
-
-        if column_type == 'only':
-            ax.set_ylabel('Probability')
-            ax.set_xlabel('P-value')
+            for tick in  ax.yaxis.majorTicks:
+                tick.tick1line.set_markersize(0)
 
 
 def plot_lambda_dist(df, wMax, axes, column_type):
@@ -283,14 +287,16 @@ def generate_legend_plot(methods, output):
         if method not in methods:
             continue
         labels.append(methods_names[method])
-        handles.append(Line2D([0], [0], color=colors[method], lw=2))
-    handles.extend([Line2D([0], [0], color='white'),
-        Line2D([0], [0], color='black', lw=2, ls='--')])
-    labels.extend(['', r'% of p-values $\leq$ 0.05'])
+        # handles.append(Line2D([0], [0], color=colors[method], lw=2))
+        handles.append(
+            mpatches.Patch(color=colors[method], label=methods_names[method]))
+    # handles.extend([Line2D([0], [0], color='white'),
+    #     Line2D([0], [0], color='black', lw=2, ls='--')])
+    # labels.extend(['', r'% of p-values $\leq$ 0.05'])
 
     ax.grid(False)
     ax.axis('off')
-    ax.legend(handles, labels, frameon=True, title=r'$\bf{Method}$')
+    ax.legend(handles[::-1], labels, frameon=True, title=r'$\bf{Test}$')
 
     fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     if output:
