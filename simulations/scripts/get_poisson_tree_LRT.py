@@ -466,7 +466,7 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
 
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
-    MS_i = np.clip(muts_red.isna().mean(), None, 1 - FN - 0.2)
+    MS_i = np.clip(muts_red.isna().mean(), LAMBDA_MIN, 1 - FN - 0.2)
     M = map_mutations_gt(tree, muts_red, FP, FN + MS_i)
 
     add_br_weights(tree, FP, FN, MS_i, w_max)
