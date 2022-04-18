@@ -71,7 +71,8 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
         templ = re.sub('{alphabet}', '1', templ)
 
     scWGA = config['cellcoal']['scWGA']
-    if scWGA.get('errors', False) or user_tree:
+    if scWGA.get('errors', False) or \
+            (user_tree and config.get('sc_from_bulk', {}).get('errors', True)):
         if isinstance(scWGA['ADO_rate'], float):
             templ = re.sub('{ADO_rate}', f'D{scWGA["ADO_rate"]}', templ)
             templ = re.sub('{ADO_rate_var}', '', templ)
@@ -94,10 +95,11 @@ def get_cellcoal_config(config, template_file, out_dir, user_tree=''):
         templ = re.sub('{doublet_rate}', '', templ)
 
     NGS = config['cellcoal']['NGS']
-    if NGS.get('errors', False) or user_tree:
+    if NGS.get('errors', False) or \
+            (user_tree and config.get('sc_from_bulk', {}).get('errors', True)):
         if not user_tree and NGS["seq_overdis"] > 0:
             templ = re.sub('{seq_overdis}', f'V{NGS["seq_overdis"]}', templ)
-        elif user_tree and config['sc_from_bulk']['NGS']['seq_overdis']:
+        elif user_tree and config['sc_from_bulk']['NGS']['seq_overdis'] > 0:
             templ = re.sub('{seq_overdis}',
                 f'V{config["sc_from_bulk"]["NGS"]["seq_overdis"]}', templ)
         else:

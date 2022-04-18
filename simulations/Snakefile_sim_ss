@@ -21,9 +21,12 @@ out_dir, filter_dir = get_out_dir(config, BULK)
 
 
 if BULK:
-    base_dir = os.path.join(out_dir,
-        f'ADO{config["cellcoal"]["scWGA"]["ADO_rate"][0]},' \
-        f'{config["cellcoal"]["scWGA"]["ADO_rate"][1]}-{filter_dir}')
+    if config.get('sc_from_bulk', {}).get('errors', True):
+        base_dir = os.path.join(out_dir,
+            f'ADO{config["cellcoal"]["scWGA"]["ADO_rate"][0]},' \
+            f'{config["cellcoal"]["scWGA"]["ADO_rate"][1]}-{filter_dir}')
+    else:
+        base_dir = os.path.join(out_dir, f'ADO0-{filter_dir}')
 else:
     base_dir = os.path.join(out_dir, filter_dir)
 
@@ -286,7 +289,7 @@ rule run_cellphy:
         '{params.exe} {params.cmd} -o healthycell -r -t {threads} -z -l -y '
         '-p {params.prefix} {input} > /dev/null && '
         'rm -f {params.prefix}.raxml.startTree {params.prefix}.raxml.mlTrees '
-        '{params.prefix}.raxml.bestModel {params.prefix}.raxml.rba '
+        '{params.prefix}.raxml.bestModel {params.prefix}.raxml.rba'
 
 
 # ------------------------------- POISSON --------------------------------------

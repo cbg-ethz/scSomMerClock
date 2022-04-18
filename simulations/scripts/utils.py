@@ -60,6 +60,7 @@ def get_out_dir(config, bulk=False):
     if config.get('SNP_filter', {}).get('singletons', False):
         filter_dir += '-noSingletons'
 
+
     return sim_dir, filter_dir
 
 
