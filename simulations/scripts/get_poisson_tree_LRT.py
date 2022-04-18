@@ -613,10 +613,16 @@ def add_br_weights(tree, FP, FN, MS_i, w_max):
                 tbl_prob_new = no_mut_coeff \
                     + FN_no * l_FN + MS_mut_no * l_mut_MS_avg \
                     + TN_no * l_TN + MS_no_mut_no * l_no_mut_MS_avg
-                tbl_prob = np.logaddexp(tbl_prob, tbl_prob_new)
+                try:
+                    tbl_prob = np.logaddexp(tbl_prob, tbl_prob_new)
+                except FloatingPointError:
+                    tbl_prob = max(tbl_prob, tbl_prob_new)
 
+            try:
+                p_br = np.logaddexp(p_br, mut_coeff + tbl_prob_new)
+            except FloatingPointError:
+                p_br = max(p_br, mut_coeff + tbl_prob_new)
 
-            p_br = tbl_prob = np.logaddexp(p_br, mut_coeff + tbl_prob_new)
         p_ADO[i] = np.exp(p_br)
     p_noADO = 1 - p_ADO
 
