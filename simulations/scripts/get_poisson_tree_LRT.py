@@ -44,9 +44,11 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             if line.startswith('#'):
                 # Safe column headers
                 if line.startswith('#CHROM'):
-                    sample_line = re.sub('cell(?=\d+)', 'tumcell', line)
-                    sample_line = re.sub('outgcell', 'healthycell', sample_line)
-                    sample_names = [i.strip() for i in sample_line.split('\t')[9:]]
+                    if line.count('tumcell') == 0:
+                        line = re.sub('cell(?=\d+)', 'tumcell', line)
+                    if line.count('healthycell') == 0:
+                        line = re.sub('outgcell', 'healthycell', line)
+                    sample_names = [i.strip() for i in line.split('\t')[9:]]
                     sample_no = len(sample_names)
                     samples = [0 for i in range(sample_no)]
                     if exclude_pat != '':
@@ -343,8 +345,10 @@ def read_tree(tree_file, samples=[]):
             or 'cellphy' in tree_file:
 
         tree_raw = re.sub('\[\d+\]', '', tree_raw)
-        tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
-        tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
+        if tree_raw.count('tumcell') == 0:
+            tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
+        if tree_raw.count('healthycell') == 0:
+            tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
         log_file = tree_file.replace('.mutationMapTree', '.log') \
             .replace('.bestTree', '.log')
 
@@ -400,8 +404,10 @@ def read_tree(tree_file, samples=[]):
         # For Scite, multiply by two as FN != ADO event if assuming binary data
         FN *= 2
     else:
-        tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
-        tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
+        if tree_raw.count('tumcell') == 0:
+            tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
+        if tree_raw.count('healthycell') == 0:
+            tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
 
         # Extract data from tree file paths
         try:
@@ -418,7 +424,6 @@ def read_tree(tree_file, samples=[]):
     outg_node = tree&outg_name
     tree.set_outgroup(outg_node)
     outg_node.delete()
-
 
     # Remove terminals that are not in vcf (discrepancy vcf and newick; subsampling)
     for node in tree.get_leaves():

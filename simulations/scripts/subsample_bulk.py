@@ -28,7 +28,7 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                 # Safe column headers
                 if line.startswith('#CHROM'):
                     line_cols = line.strip().split('\t')
-                    samples_all = line_cols[9:]
+                    samples_all = [i.strip() for i in line_cols[9:]]
                     sample_no_all = len(samples_all)
                     skip = [i if i >= 0 else sample_no_all + i for i in skip]
 
