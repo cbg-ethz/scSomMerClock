@@ -161,7 +161,6 @@ rule run_cellcoal_from_bulk:
         'cellcoal_parameters_bulk.{run}'
     output:
         vcf = os.path.join(base_dir, 'vcf_dir', 'vcf.{run}'),
-        tree = os.path.join(base_dir, 'trees_bulk_dir', 'tree.{run}')
     resources:
         mem_mb = 16384 \
             * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
@@ -171,7 +170,6 @@ rule run_cellcoal_from_bulk:
     shell:
         '{params.exe} -F{input} > /dev/null 2>&1 && '
         'mv {out_dir}.{wildcards.run}/vcf_dir/vcf.0001 {output.vcf} && '
-        'mv {out_dir}.{wildcards.run}/trees_dir/trees.0001 {output.tree} && '
         'rm -r {out_dir}.{wildcards.run} {input}'
 
 

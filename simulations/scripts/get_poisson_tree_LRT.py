@@ -939,7 +939,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
         f_out.write(f'{header_str}\n{model_str}')
     # add_opt_muts(tree, Y, Y_opt)
     # show_tree(tree)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
