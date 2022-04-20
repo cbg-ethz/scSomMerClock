@@ -24,6 +24,7 @@ VCF_HEADER = """##fileformat=VCFv4.1
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
 {ref}
 {contigs}
@@ -169,11 +170,10 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
         sccaller_only = np.sum((sc_calls[0] != 1) & (sc_calls[1] == 1))
         monovar_sccaller = np.sum((sc_calls[0] == 1) & (sc_calls[1] == 1))
 
-        import pdb; pdb.set_trace()
         # SNV also called in bulk
         if is_bulk_snv:
-            rec_data = [rec.chrom, rec.pos,
-                    0, 0, 1, 0, monovar_only, sccaller_only, monovar_sccaller]
+            rec_data = (rec.chrom, rec.pos,
+                    0, 0, 1, 0, monovar_only, sccaller_only, monovar_sccaller)
             # Only detected in bulk:
             if sum(rec_data[2:]) == 1:
                 data['bulk'].append(rec_data)
@@ -194,8 +194,8 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
                 import pdb; pdb.set_trace()
         # SNV only called in SC
         else:
-            rec_data = [rec.chrom, rec.pos,
-                monovar_only, sccaller_only, 0, monovar_sccaller, 0, 0, 0]
+            rec_data = (rec.chrom, rec.pos,
+                monovar_only, sccaller_only, 0, monovar_sccaller, 0, 0, 0)
             no_snvs = sum(rec_data[2:])
 
             # Only wildtype
@@ -341,26 +341,25 @@ def get_call_output(rec, calls, sc_map):
         alt = rec.alts[alls[np.argmax(alls_count)] - 1]
 
     rec_out = f'\n{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{alt}\t' \
-        f'{min(99, rec.qual)}\tPASS\tNS={data_calls}\tGT:AD:GQ:PL'
+        f'{min(99, rec.qual)}\tPASS\tNS={data_calls}\tGT:DP:AD:GQ:PL'
     
     for sample, sample_id in sc_map.items():
-        alg = best_calls[sample_id]
-        gt = calls[alg, sample_id]
+        # Prioritize SCcaller calls over monovar calls
+        if calls[1, sample_id] > -1:
+            alg = 'sccaller'
+            gt = calls[1, sample_id]
+        else:
+            alg = 'monovar'
+            gt = calls[0, sample_id]
 
         if gt == -1:
-            rec_out += '\t./.:.:.:.'
+            rec_out += '\t./.:.:.:.:.'
         else:
-            if alg == 0:
-                call = rec.samples[f'{sample}.monovar']
-            else:
-                call = rec.samples[f'{sample}.sccaller']
+            call = rec.samples[f'{sample}.{alg}']
 
-            if np.sum(call['AD']) < MIN_READS_NAN or call['GQ'] < MIN_GQ_NAN:
-                rec_out += '\t./.:.:.:.'
-            else:
-                rec_out += f'\t{min(1, call["GT"][0])}/{min(1, call["GT"][1])}:' \
-                    f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
-                    f'{call["PL"][0]},{call["PL"][1]},{call["PL"][2]}'
+            rec_out += f'\t{min(1, call["GT"][0])}/{min(1, call["GT"][1])}:' \
+                f'{np.sum(call["AD"])}:{call["AD"][0]},{call["AD"][1]}:' \
+                f'{call["GQ"]}:{call["PL"][0]},{call["PL"][1]},{call["PL"][2]}'
 
     return rec_out
 
