@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 sample_bams=""
 min_depth=10

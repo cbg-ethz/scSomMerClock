@@ -343,6 +343,8 @@ def read_tree(tree_file, samples=[]):
             or 'cellphy' in tree_file:
 
         tree_raw = re.sub('\[\d+\]', '', tree_raw)
+        tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
+        tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
         log_file = tree_file.replace('.mutationMapTree', '.log') \
             .replace('.bestTree', '.log')
 
@@ -421,7 +423,6 @@ def read_tree(tree_file, samples=[]):
     # Remove terminals that are not in vcf (discrepancy vcf and newick; subsampling)
     for node in tree.get_leaves():
         if node.name not in samples:
-            print(node.name)
             node.delete()
 
     # Initialize node attributes on tree

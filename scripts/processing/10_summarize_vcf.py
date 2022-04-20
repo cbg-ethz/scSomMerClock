@@ -12,8 +12,6 @@ from pysam import VariantFile
 
 CHROM = [str(i) for i in range(1, 23, 1)] + ['X', 'Y']
 ALG_MAP = {'monovar': 0, 'sccaller': 1, 'mutect': 2}
-SC_COLS = [0, 1, 3]
-BULK_COLS = [2, 4, 5, 6]
 MIN_READS_NAN = 5
 MIN_GQ_NAN = 1
 
@@ -32,17 +30,6 @@ VCF_HEADER = """##fileformat=VCFv4.1
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples}
 """
 
-NEXUS_TEMPLATE = """#NEXUS
-
-begin data;
-    dimensions ntax={sample_no} nchar={rec_no};
-    format datatype=dna missing=? gap=-;
-    matrix
-{matrix}
-    ;
-end;
-"""
-
 
 def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
             prefix='', keep_sex=False, gt_sep=',', out_nexus=False):
@@ -50,18 +37,27 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
     in_file = os.path.basename(input)
 
     samples = set([])
+    bulk_samples = set([])
     for sample in vcf_in.header.samples:
         sample_detail = sample.split('.')
         sample_name = '.'.join(sample_detail[:-1])
         caller = sample_detail[-1]
-        if caller != 'mutect':
+        if caller == 'mutect':
+            bulk_samples.add(sample_name)
+        else:
             samples.add(sample_name)
 
     sc_map = OrderedDict([(j, i) for i, j in enumerate(sorted(samples))])
-    if bulk_tumor:
-        bk_map = OrderedDict([(j, i) for i, j in enumerate(sorted(bulk_tumor))])
-    else:
-        bk_map = OrderedDict()
+    bk_map = OrderedDict()
+    for i, j in enumerate(sorted(bulk_tumor)):
+        if j in bulk_samples:
+            bk_map[j] = i
+        else:
+            print(f'\nWARNING: Cannot find bulk sample: {j}\n')
+
+    for i in bulk_samples - bk_map.keys():
+        print(f'\t Bulk normal sample: {i}')
+
     sample_maps = (sc_map, bk_map)
 
     # Iterate over rows
@@ -77,7 +73,7 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
             'monovar1+_sccaller1+_bulk': []
         }
         vcf_body = ''
-        gt_mat = ''
+
         germline = []
         for chrom in CHROM:
             if not keep_sex and chrom in ['X', 'Y']:
@@ -86,29 +82,21 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
             if prefix != '':
                 chrom = prefix + chrom
             chr_data_in = vcf_in.fetch(chrom)
-            chr_data, chr_vcf_body, chr_gt_mat, chr_all_mat, chr_germline = \
-                iterate_chrom(chr_data_in, sample_maps, chrom, read_depth,
-                    quality, gt_sep)
+            chr_data, chr_vcf_body, chr_germline = iterate_chrom(
+                chr_data_in, sample_maps, chrom, read_depth, quality)
 
             for group in chr_data:
                 data[group].extend(chr_data[group])
-            try:
-                all_mat = np.concatenate([all_mat, chr_all_mat], axis=1)
-            except NameError:
-                all_mat = chr_all_mat
-            except ValueError:
-                pass
+
             vcf_body += chr_vcf_body
-            gt_mat += chr_gt_mat
             germline.extend(chr_germline)
     else:
-        chr_data = vcf_in.fetch(chr)
-        data, vcf_body, gt_mat, all_mat, germline = \
-            iterate_chrom(chr_data, sample_maps, chr, read_depth, quality, gt_sep)
+        chr_data_in = vcf_in.fetch(chr)
+        data, vcf_body, germline = iterate_chrom(
+            chr_data_in, sample_maps, chr, read_depth, quality)
 
-    cols = ['CHROM', 'POS', \
-        'monovar', 'sccaller', 'bulk', 'monovar_sccaller', 'monovar_bulk', \
-        'sccaller_bulk', 'monovar_sccaller_bulk']
+    cols = ['CHROM', 'POS', 'monovar', 'sccaller', 'bulk', 'monovar_sccaller',
+        'monovar_bulk', 'sccaller_bulk', 'monovar_sccaller_bulk']
     df = pd.DataFrame([])
     for group_vals in data.values():
         df = df.append(group_vals)
@@ -116,46 +104,21 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
     df.set_index(['CHROM', 'POS'], inplace=True)
     df = df.astype(int)
 
-    out_summary = os.path.join(output, 'Call_details.{}.tsv' \
-        .format(chr))
+    out_summary = os.path.join(output, 'Call_details.{}.tsv'.format(chr))
     print('Writing call summary to: {}'.format(out_summary))
     df.to_csv(out_summary, sep='\t')
-
 
     contigs = '\n'.join(['##contig=<ID={},eta=-1>'.format(i) for i in CHROM])
     samples = '\t'.join(sc_map.keys())
     ref = re.search('##reference=.*\n', str(vcf_in.header))[0].rstrip('\n')
-    vcf_header = VCF_HEADER.format(time=time.localtime(), 
-        contigs=contigs, ref=ref, samples=samples)
+    vcf_header = VCF_HEADER.format(time=time.localtime(), contigs=contigs,
+        ref=ref, samples=samples)
 
     out_vcf = os.path.join(output, 'all_filtered.{}.vcf'.format(chr))
     print('Writing vcf file to: {}'.format(out_vcf))
     with open(out_vcf, 'w') as f_vcf:
         f_vcf.write(vcf_header)
         f_vcf.write(vcf_body.strip('\n'))
-
-    out_gt = os.path.join(output, 'Genotype_matrix.{}.csv'.format(chr))
-    print('Writing genotype matrix to: {}'.format(out_gt))
-    with open(out_gt, 'w') as f_gt:
-        f_gt.write('chrom:pos{}{}' \
-            .format(gt_sep, gt_sep.join(sample_maps[0].keys())))
-        f_gt.write(gt_mat.rstrip('\n'))
-
-    if out_nexus:
-        out_nexus = os.path.join(output, 'Genotype_matrix.{}.nex'.format(chr))
-        print('Writing NEXUS file to: {}'.format(out_nexus))
-        nex_labels = ['REF'] + list(sc_map.keys())
-        nex_matrix = ''
-        if isinstance(all_mat, bool):
-            rec_no = 0
-        else:
-            for i, all_row in enumerate(all_mat):
-                nex_matrix += '{}    {}\n'.format(nex_labels[i], ''.join(all_row))
-            rec_no = all_mat.shape[1]
-        with open(out_nexus, 'w') as f_nex:
-            f_nex.write(NEXUS_TEMPLATE.format(sample_no=len(sc_map) + 1,
-                sample_labels=' '.join(nex_labels), rec_no=rec_no,
-                matrix=nex_matrix.strip('\n')))
 
     if germline:
         out_germ = os.path.join(output, 'Call_germline.{}.tsv'.format(chr))
@@ -169,10 +132,7 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
     return data
 
 
-def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
-    out_vcf = ''
-    gt_mat = ''
-    all_mat = []
+def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
     data = {'singletons': [], 
         'monovar2+': [],
         'sccaller2+': [],
@@ -182,20 +142,18 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
         'sccaller1+_bulk': [],
         'monovar1+_sccaller1+_bulk': []
     }
+    out_vcf = ''
     germline = []
-    filtered = 0
-    only_wt = 0
 
     for idx, rec in enumerate(chr_data):
         if idx % 100000 == 0:
             print('Iterated records on Chr {}:\t{}'.format(chrom, idx))
 
-        # Filtered in bulk & multplie genotypes called by SCcaller
+        # Filtered in bulk and/or multplie genotypes called by SCcaller
         if not 'PASS' in rec.filter:
-            filtered += 1
             continue
 
-        sc_calls, is_bulk_snv, is_germline_snv = get_call_summary(rec,
+        sc_calls, is_bulk_snv, is_germline_snv = get_rec_summary(rec,
             sample_maps, read_depth, quality)
 
         if is_germline_snv:
@@ -210,6 +168,8 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
         monovar_only = np.sum((sc_calls[0] == 1) & (sc_calls[1] != 1))
         sccaller_only = np.sum((sc_calls[0] != 1) & (sc_calls[1] == 1))
         monovar_sccaller = np.sum((sc_calls[0] == 1) & (sc_calls[1] == 1))
+
+        import pdb; pdb.set_trace()
         # SNV also called in bulk
         if is_bulk_snv:
             rec_data = [rec.chrom, rec.pos,
@@ -221,15 +181,15 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
             # Detected by both algorithms and in bulk
             if (monovar_sccaller > 0) or (monovar_only >= 1 and sccaller_only >= 1):
                 data['monovar1+_sccaller1+_bulk'].append(rec_data)
-                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                rec_vcf = get_call_output(rec, sc_calls, sample_maps[0])
             # Detected by monovar and in bulk
             elif monovar_only >= 1 and sccaller_only == 0:
                 data['monovar1+_bulk'].append(rec_data)
-                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                rec_vcf = get_call_output(rec, sc_calls, sample_maps[0])
             # Detected by sccaller and in bulk
             elif sccaller_only >= 1 and monovar_only == 0:
                 data['sccaller1+_bulk'].append(rec_data)
-                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                rec_vcf = get_call_output(rec, sc_calls, sample_maps[0])
             else:
                 import pdb; pdb.set_trace()
         # SNV only called in SC
@@ -238,8 +198,8 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
                 monovar_only, sccaller_only, 0, monovar_sccaller, 0, 0, 0]
             no_snvs = sum(rec_data[2:])
 
+            # Only wildtype
             if no_snvs == 0 :
-                only_wt += 1
                 continue
             elif no_snvs == 1 \
                     or (no_snvs == 2 and monovar_only == 1 and sccaller_only == 1):
@@ -249,7 +209,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
                 if monovar_sccaller > 1 \
                         or (monovar_only > 0 and sccaller_only > 0):
                     data['monovar2+_sccaller2+'].append(rec_data)
-                    rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                    rec_vcf = get_call_output(rec, sc_calls, sample_maps[0])
                 elif monovar_only > 0:
                     data['monovar2+'].append(rec_data)
                     continue
@@ -266,25 +226,88 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality, sep=','):
                 continue
             elif monovar_only >= 2 and sccaller_only >= 2:
                 data['monovar2+_sccaller2+'].append(rec_data)
-                rec_vcf, gt_row = get_call_output(rec, sc_calls, sample_maps[0])
+                rec_vcf = get_call_output(rec, sc_calls, sample_maps[0])
             else:
                 import pdb; pdb.set_trace()
             
         out_vcf += rec_vcf
-        gt_mat += '\n{}:{}{}{}' \
-            .format(rec.chrom, rec.pos, sep, sep.join(gt_row))
-        all_row = np.array([rec.ref] + [rec.alts[0]] * len(sample_maps[0]))
-        all_row[np.argwhere(gt_row == '0') + 1] = rec.ref
-        all_row[np.argwhere(gt_row == '3') + 1] = '?'
-        all_mat.append(all_row)
-    
-    if len(all_mat) > 0:
-        all_mat_t = np.stack(all_mat).T
-    else:
-        all_mat_t = False
+
     print('Iterating calls on Chr {} - End\n'.format(chrom))
-    return data, out_vcf, gt_mat, all_mat_t, germline
-    
+    return data, out_vcf, germline
+
+
+def get_rec_summary(rec, sample_maps, depth, quality):
+    dims = (2, len(sample_maps[0])) # Dim 0: Monovar, Dim 1: SCcaller
+    sc_calls = np.full(dims, -1, dtype=int) # -1: nan, 0: wildtype, 1: mutation
+    DP = np.zeros(dims, dtype=int)
+    GQ = np.zeros(dims, dtype=int)
+    snv_bulk = False
+    snv_germline = False
+
+    for sample_id, sample in rec.samples.iteritems():
+        alg, sample_map_id = get_call_ids(sample_id, sample_maps)
+
+        # Skip missing data
+        if sample['GT'][0] == None:
+            continue
+
+        # Set indels and "False" calls (only called by sccaller) to NAN
+        if alg == 1 and sample['SO'] != 'True':
+            continue
+        # Mutect calls
+        elif alg == 2:
+            if sample['GT'] != (0, 0):
+                if sample_map_id == 'normal':
+                    snv_germline = True
+                else:
+                    snv_bulk = True
+            continue
+
+        # Transform PL values to: wt|het|hom with min. value of 0
+        if 'FPL' in sample and sample['FPL'][0] != None:
+            wt_PL = min(sample['FPL'][0], sample['FPL'][1])
+            PL_vals = np.array([wt_PL, sample['FPL'][2], sample['FPL'][3]], dtype=int)
+        else:
+            PL_vals = np.array([j for j in sample['PL'] if j != None], dtype=int)
+        PL_vals -= PL_vals.min()
+        GQ_s = sorted(PL_vals)[1]
+
+        # Weird pysam/SCcaller output error (6 instead of 3 PL fields)
+        try:
+            sample['PL'] = [int(i) for i in PL_vals]
+        except TypeError:
+            sample['PL'] = [int(i) for i in PL_vals] + [None, None, None]
+        sample['GQ'] = int(GQ_s)
+
+        # Correct if GQ difference is between 0/1 and 1/1
+        if GQ_s < quality and (np.abs(PL_vals[1] - PL_vals[2]) == GQ_s):
+            wt_mut_diff = int(PL_vals[0] - GQ_s)
+            if wt_mut_diff >= MIN_GQ_NAN:
+                GQ_s = wt_mut_diff
+                sample['GQ'] = wt_mut_diff
+
+        DP_s = sum(sample['AD'])
+
+        GQ[alg, sample_map_id] = GQ_s
+        DP[alg, sample_map_id] = DP_s
+
+        # Set genotype quality or read depth below minimum threshold to NAN
+        if DP_s < MIN_READS_NAN or GQ_s < MIN_GQ_NAN:
+            continue
+
+        # Save genotype: 0 = wt, 1 = mut
+        if sample['GT'][0] == 0 and sample['GT'][1] == 0:
+            sc_calls[alg, sample_map_id] = 0
+        else:
+            sc_calls[alg, sample_map_id] = 1
+
+    # Check if at least 2 good call in 1 algorithm or 1 good call in each algorithm
+    rel_calls = (DP >= depth) & (GQ >= quality)
+    if not any(rel_calls.sum(axis=1) > 1) and not snv_bulk:
+        sc_calls[:] = -1
+
+    return sc_calls, snv_bulk, snv_germline
+
 
 def get_call_ids(sample_id, sample_maps):
     sample_detail = sample_id.split('.')
@@ -306,81 +329,6 @@ def get_call_ids(sample_id, sample_maps):
     return alg, sample_map_id
 
 
-def get_call_summary(rec, sample_maps, depth, quality):
-    dims = (2, len(sample_maps[0]))
-    sc_calls = np.full(dims, -1, dtype=int)
-    DP = np.zeros(dims, dtype=int)
-    GQ = np.zeros(dims, dtype=int)
-    snv_bulk = False
-    snv_germline = False
-
-    # 0: monovar, 1: sccaller, 2: bulk_tumor
-    for sample_id, sample in rec.samples.iteritems():
-        alg, sample_map_id = get_call_ids(sample_id, sample_maps)
-
-        # Skip missing data
-        if sample['GT'][0] == None:
-            continue
-        # Mutect calls
-        if alg == 2:
-            if sample_map_id == 'normal':
-                snv_germline = True
-            else:
-                snv_bulk = True
-            continue
-        # Set indels and "False" calls (only called by sccaller) to NAN
-        if alg == 1 and sample['SO'] != 'True':
-            continue
-
-        # Transform PL values to: wt|het|hom with min. value of 0
-        if 'FPL' in sample and sample['FPL'][0] != None:
-            wt_PL = min(sample['FPL'][0], sample['FPL'][1])
-            PL_vals = np.array([wt_PL, sample['FPL'][2], sample['FPL'][3]], dtype=int)
-        else:
-            PL_vals = np.array([j for j in sample['PL'] if j != None], dtype=int)
-        PL_vals -= PL_vals.min()
-
-        try:
-            sample['PL'] = [int(i) for i in PL_vals]
-        except TypeError:
-            # Weird pysam bug
-            sample['PL'] = [int(i) for i in PL_vals] * 2
-
-        GQ_s = sorted(PL_vals)[1]
-        sample['GQ'] = int(GQ_s)
-
-        # Correct if GQ difference is between 0/1 and 1/1
-        if (np.abs(PL_vals[1] - PL_vals[2]) == GQ_s):
-            wt_mut_diff = PL_vals[0] - GQ_s
-            if wt_mut_diff >= MIN_GQ_NAN:
-                GQ_s = wt_mut_diff - GQ_s
-                sample['GQ'] = int(wt_mut_diff)
-
-        DP_s = sum(sample['AD'])
-
-        # Set genotype quality or read depth below minimum threshold to NAN
-        if DP_s < MIN_READS_NAN or GQ_s < MIN_GQ_NAN:
-            continue
-
-        if sample['GT'][0] == 0 and sample['GT'][1] == 0:
-            sc_calls[alg, sample_map_id] = 0
-        else:
-            sc_calls[alg, sample_map_id] = 1
-
-        GQ[alg, sample_map_id] = GQ_s
-        DP[alg, sample_map_id] = DP_s
-
-    mon_rel = (DP[0] >= depth) & (GQ[0] >= quality)
-    scc_rel = (DP[1] >= depth) & (GQ[1] >= quality)
-
-    # Check if at least 2 good call in 1 algorithm or 1 good call in each algorithm
-    if not mon_rel.sum() > 1 and not scc_rel.sum() > 1 \
-            and not (mon_rel & scc_rel).sum() > 0 and not snv_bulk:
-        sc_calls[:] = -1
-
-    return sc_calls, snv_bulk, snv_germline
-
-
 def get_call_output(rec, calls, sc_map):
     best_calls = calls.argmax(axis=0)
     data_calls = np.sum(calls.max(axis=0) > -1)
@@ -395,13 +343,11 @@ def get_call_output(rec, calls, sc_map):
     rec_out = f'\n{rec.chrom}\t{rec.pos}\t.\t{rec.ref}\t{alt}\t' \
         f'{min(99, rec.qual)}\tPASS\tNS={data_calls}\tGT:AD:GQ:PL'
     
-    gt_mat_row = np.zeros(len(sc_map), dtype=str)
     for sample, sample_id in sc_map.items():
         alg = best_calls[sample_id]
         gt = calls[alg, sample_id]
 
         if gt == -1:
-            gt_mat_row[sample_id] = '3'
             rec_out += '\t./.:.:.:.'
         else:
             if alg == 0:
@@ -410,15 +356,13 @@ def get_call_output(rec, calls, sc_map):
                 call = rec.samples[f'{sample}.sccaller']
 
             if np.sum(call['AD']) < MIN_READS_NAN or call['GQ'] < MIN_GQ_NAN:
-                gt_mat_row[sample_id] = '3'
                 rec_out += '\t./.:.:.:.'
             else:
                 rec_out += f'\t{min(1, call["GT"][0])}/{min(1, call["GT"][1])}:' \
                     f'{call["AD"][0]},{call["AD"][1]}:{call["GQ"]}:' \
                     f'{call["PL"][0]},{call["PL"][1]},{call["PL"][2]}'
-                gt_mat_row[sample_id] = get_gt_mat_entry(call["GT"])
 
-    return rec_out, gt_mat_row
+    return rec_out
 
 
 def get_gt_mat_entry(gt):
@@ -519,8 +463,6 @@ def parse_args():
         help='Absolute or relative path(s) to input VCF file')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Path to the output directory. Default = <INPUT_DIR>.')
-    parser.add_argument('-on', '--output_nexus', action='store_true',
-        help='Write data additionally as nexus file. Default = False.')
     parser.add_argument('-bt', '--bulk_tumor', nargs='*', type=str,
         help='Column name of bulk tumor. Default = None.')
     parser.add_argument('-ks', '--keep_sex', action='store_true',
@@ -535,8 +477,6 @@ def parse_args():
         help='Min. locus read depth to be not reported as missing. Default = 5.')
     parser.add_argument('-p', '--prefix', type=str, default='',
         help='Prefix for chromosome, e.g. "chr". Default = "".')
-    parser.add_argument('-s', '--gt_sep', type=str, default=',',
-        help='Separator for genotype matrix. Default = ",".')
 
     args = parser.parse_args()
     return args
@@ -578,8 +518,6 @@ if __name__ == '__main__':
             bulk_tumor=args.bulk_tumor,
             prefix=args.prefix,
             keep_sex=args.keep_sex,
-            gt_sep=args.gt_sep,
-            out_nexus=args.output_nexus
         )
         if args.chr == 'all_chr':
             plot_venn(data, args.output)

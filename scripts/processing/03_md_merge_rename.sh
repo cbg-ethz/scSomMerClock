@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 bams_in=""
 while [ "$1" != "" ]; do

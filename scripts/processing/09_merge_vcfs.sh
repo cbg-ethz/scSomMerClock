@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+
 
 sample_bams=""
 mutect_calls=""

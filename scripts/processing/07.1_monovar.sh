@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 monovar=monovar.py
 prefix=""

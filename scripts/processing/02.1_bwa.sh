@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 pair_end=true
 while [ "$1" != "" ]; do

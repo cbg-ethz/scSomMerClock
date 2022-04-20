@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 minBaseQual=13
 minDepth=10

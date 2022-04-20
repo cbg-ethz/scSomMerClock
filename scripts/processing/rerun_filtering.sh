@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 module load pysam
 scriptDir='/home/uvi/be/nbo/MolClockAnalysis/scripts'

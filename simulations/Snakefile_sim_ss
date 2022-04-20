@@ -145,7 +145,7 @@ rule create_cellcoal_bulk_config:
     input:
         tree = os.path.join(out_dir, 'trees_dir', 'trees.{run}')
     output:
-        cellcoal = 'cellcoal_parameters_bulk.{run}'
+        cellcoal = temp('cellcoal_parameters_bulk.{run}')
     params:
         template = config['cellcoal'] \
             .get('parameter', 'cellcoal_parameters.template'),
@@ -170,7 +170,7 @@ rule run_cellcoal_from_bulk:
     shell:
         '{params.exe} -F{input} > /dev/null 2>&1 && '
         'mv {out_dir}.{wildcards.run}/vcf_dir/vcf.0001 {output.vcf} && '
-        'rm -r {out_dir}.{wildcards.run} {input}'
+        'rm -r {out_dir}.{wildcards.run}'
 
 
 # -------------------------- DATA POSTPROCESSING -------------------------------

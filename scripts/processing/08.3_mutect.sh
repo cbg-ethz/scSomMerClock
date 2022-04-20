@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 tumor_in=""
 while [ "$1" != "" ]; do
