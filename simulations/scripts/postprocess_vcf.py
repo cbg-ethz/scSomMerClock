@@ -54,7 +54,7 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     format_short = 'GT:DP:RC:GQ:TG'
                     header += '\t'.join([i.strip() for i in line.split('\t')]) \
                         + '\n'
-
+                    continue
                 header += line
                 continue
             elif line.strip() == '':
