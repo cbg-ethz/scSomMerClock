@@ -905,9 +905,6 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
     cols_all = ['FN', 'FP']
     cols_wMax = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
 
-    vcf_file = 'res_clock0_bulk100x_n100/ADO0-minDP5-minGQ1/vcf_dir/vcf.0001.final.gz'
-    tree_file = 'res_clock0_bulk100x_n100/trees_dir/trees.0001'
-
     call_data = get_mut_df(vcf_file, exclude, include)
 
     if not isinstance(w_maxs, list):
