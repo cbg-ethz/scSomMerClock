@@ -32,7 +32,6 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     data = [[], []]
     idx =[[], []]
 
-    nan_filter = 1
     reads = []
     ref_gt = []
     with file_stream as f_in:
@@ -45,7 +44,9 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             if line.startswith('#'):
                 # Safe column headers
                 if line.startswith('#CHROM'):
-                    sample_names = line.strip().split('\t')[9:]
+                    sample_line = re.sub('cell(?=\d+)', 'tumcell', line)
+                    sample_line = re.sub('outgcell', 'healthycell', sample_line)
+                    sample_names = [i.strip() for i in sample_line.split('\t')[9:]]
                     sample_no = len(sample_names)
                     samples = [0 for i in range(sample_no)]
                     if exclude_pat != '':
@@ -141,10 +142,6 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
             if not any(np.nansum(line_muts, axis=1) > 0):
                 skip[1] += 1
                 continue
-            # Skip lines with >50% missing values (mainly biological data)
-            if np.isnan(line_muts[1]).sum() > sample_no * nan_filter:
-                skip[0] += 1
-                continue
 
             # Check if called mutations are all the same
             alts, alt_counts = np.unique(diff_muts, return_counts=True)
@@ -188,17 +185,20 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
     if filter:
         muts = muts.loc[idx[0], include_id]
+        true_muts = true_muts.loc[idx[0], include_id]
         reads = np.array(reads)[:,include_idx]
     else:
         muts = muts[include_id]
+        true_muts = true_muts[include_id]
         reads = np.array(reads)
 
     read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
 
-    return muts, true_muts[include_id], read_data
+    return muts, true_muts, read_data
 
 
-def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
+def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
+            expand_root=False):
     from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace
     import matplotlib.pyplot as plt
     from matplotlib import cm
@@ -211,6 +211,9 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
     lw = 3
     fsize = 4
     for i, node in enumerate(tree.iter_descendants()):
+        if hasattr(node, 'plotted'):
+            continue
+
         style = NodeStyle()
 
         mut_no = node.dist
@@ -232,14 +235,15 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
             mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
             node.add_face(mut, column=0, position="branch-top")
 
-        if node.weights_norm_z[w_idx] == -1:
-            color_hex = '#000000'
-        else:
-            color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
+        if hasattr(node, 'weights_norm_z'):
+            if node.weights_norm_z[w_idx] == -1:
+                color_hex = '#000000'
+            else:
+                color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
+            style["vt_line_color"] = color_hex
+            style["hz_line_color"] = color_hex
 
         style["size"] = 0 # set internal node size to 0
-        style["vt_line_color"] = color_hex
-        style["hz_line_color"] = color_hex
         style["vt_line_width"] = lw
         style["hz_line_width"] = lw
         node.img_style = style
@@ -250,34 +254,36 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True):
             name.hz_align = 1
             node.add_face(name, column=0, position="branch-right")
 
-        if br_labels:
+        if br_labels and hasattr(node, 'weights_norm'):
             weight = round(node.weights_norm[w_idx], 1)
             if weight >= 0:
                 w_face = TextFace(f'{weight}', fsize=1)
                 node.add_face(w_face, column=0, position="branch-bottom")
 
-        for i, driver in enumerate(node.drivers):
-            if driver[2] < 0:
-                continue
+        if hasattr(node, 'drivers'):
+            for i, driver in enumerate(node.drivers):
+                if driver[2] < 0:
+                    continue
 
-            driver_face = TextFace(f'{driver[0]} ({driver[2]* 100:.0f}%)', fsize=3)
-            driver_face.hz_align = 1
+                driver_face = TextFace(f'{driver[0]} ({driver[2]* 100:.0f}%)',
+                    fsize=3)
+                driver_face.hz_align = 1
 
-            if driver[1]:
-                driver_face.background.color = 'LightGreen'
-            else:
-                continue
-                driver_face.background.color = 'PeachPuff'
-            node.add_face(driver_face, column=0, position="branch-bottom")
+                if driver[1]:
+                    driver_face.background.color = 'LightGreen'
+                else:
+                    continue
+                    driver_face.background.color = 'PeachPuff'
+                node.add_face(driver_face, column=0, position="branch-bottom")
+        node.plotted = True
 
-    root = tree.get_tree_root()
-    root.children[0].dist = 0
-    root.img_style = NodeStyle(size=0)
+    if not expand_root:
+        root = tree.get_tree_root()
+        root.children[0].dist = 0
+        root.img_style = NodeStyle(size=0)
 
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
-    # ts.arc_span = 180
-    # ts.root_opening_factor = 0.1
     # ts.rotation = 90
     ts.allow_face_overlap = True
     ts.show_leaf_name = False
@@ -411,9 +417,11 @@ def read_tree(tree_file, samples=[]):
     tree.set_outgroup(outg_node)
     outg_node.delete()
 
+
     # Remove terminals that are not in vcf (discrepancy vcf and newick; subsampling)
     for node in tree.get_leaves():
         if node.name not in samples:
+            print(node.name)
             node.delete()
 
     # Initialize node attributes on tree
@@ -453,7 +461,9 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     # Remove mutations that were only present in outgroup
     if outg in muts.columns:
         muts_red = muts.drop(outg, axis=1)
-    muts_red = muts_red[muts_red.sum(axis=1) > 0]
+        muts_red = muts_red[muts_red.sum(axis=1) > 0]
+    else:
+        muts_red = muts
 
     # if not (tree_file.endswith('.raxml.bestTree') \
     #         or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
@@ -467,8 +477,8 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
     MS_i = np.clip(muts_red.isna().mean(), LAMBDA_MIN, 1 - FN - 0.2)
-    M = map_mutations_gt(tree, muts_red, FP, FN + MS_i)
 
+    M = map_mutations_gt(tree, muts_red, FP, FN + MS_i)
     add_br_weights(tree, FP, FN, MS_i, w_max)
 
     return tree, FP, FN, M
@@ -529,6 +539,14 @@ def map_mutations_gt(tree, muts_in, FP, FN):
 
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in enumerate(muts):
+        # mut_data = np.stack([
+        #     np.nansum(S * mut, axis=1), # TP
+        #     np.nansum(S_inv * mut, axis=1), # FP
+        #     np.nansum(S_inv * muts_inv[i], axis=1), # TN
+        #     np.nansum(S * muts_inv[i], axis=1), # FN,
+        # ])
+        # probs = np.dot(errors, mut_data)
+
         # probs = np.stack([
         #     np.nansum(TP_m_all * mut, axis=1), # TP
         #     np.nansum(FP_m_all * mut, axis=1), # FP
@@ -548,7 +566,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
 
         best_nodes = np.argwhere(probs == np.max(probs)).flatten()
         max_prob = probs_norm.max()
-        unique =  best_nodes.size == 1
+        unique = best_nodes.size == 1
 
         for best_node in best_nodes:
             node_map[best_node].muts_br[0].append(idx_map[i])
@@ -556,6 +574,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
             node_map[best_node].muts_br[2].append(unique)
 
     soft_assigned = M.sum(axis=0)
+
     for i, node in node_map.items():
         node.mut_no_soft = soft_assigned[i]
         node.dist = soft_assigned[i]
@@ -886,6 +905,9 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
     cols_all = ['FN', 'FP']
     cols_wMax = ['-2logLR', 'dof', 'p-value', 'hypothesis', 'weights']
 
+    vcf_file = 'res_clock0_bulk100x_n100/ADO0-minDP5-minGQ1/vcf_dir/vcf.0001.final.gz'
+    tree_file = 'res_clock0_bulk100x_n100/trees_dir/trees.0001'
+
     call_data = get_mut_df(vcf_file, exclude, include)
 
     if not isinstance(w_maxs, list):
@@ -917,7 +939,7 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
         f_out.write(f'{header_str}\n{model_str}')
     # add_opt_muts(tree, Y, Y_opt)
     # show_tree(tree)
-    # import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
@@ -1057,6 +1079,10 @@ def parse_args():
     parser.add_argument('-w', '--w_max', type=float, nargs='+',
         default=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
         help='Maximum weight value. Defaut = 100, 200, ..., 1000')
+    parser.add_argument('-FN', '--FN_fix', type=float, default=None,
+        help='Fixed false negative value.')
+    parser.add_argument('-FP', '--FP_fix', type=float, default=None,
+        help='Fixed false positive value.')
     parser.add_argument('-b', '--biological_data', action='store_true',
         help='Test true data (instead of simulation data).')
     parser.add_argument('-p', '--plotting', action='store_true',
@@ -1088,7 +1114,7 @@ if __name__ == '__main__':
         import argparse
         args = parse_args()
         if not args.output:
-            args.output = [args.vcf + '.poissonTree_LRT.tsv']
+            args.output = args.vcf + '.poissonTree_LRT.tsv'
         if args.biological_data:
             run_poisson_tree_test_biological(
                 vcf_file=args.vcf,
@@ -1108,4 +1134,6 @@ if __name__ == '__main__':
                 w_maxs=args.w_max,
                 exclude=args.exclude,
                 include=args.include,
+                FN_fix=args.FN_fix,
+                FP_fix=args.FP_fix,
             )
