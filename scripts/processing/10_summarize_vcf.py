@@ -270,7 +270,10 @@ def get_rec_summary(rec, sample_maps, depth, quality):
         try:
             sample['PL'] = [int(i) for i in PL_vals]
         except TypeError:
-            sample['PL'] = [int(i) for i in PL_vals] + [None, None, None]
+            try:
+                sample['PL'] = [int(i) for i in PL_vals] + [None] * 3
+            except TypeError:
+                sample['PL'] = [int(i) for i in PL_vals] + [None] * 7
         sample['GQ'] = int(GQ_s)
 
         # Correct if GQ difference is between 0/1 and 1/1

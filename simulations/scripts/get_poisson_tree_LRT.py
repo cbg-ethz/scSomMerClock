@@ -238,7 +238,7 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
             node.add_face(mut, column=0, position="branch-top")
 
         if hasattr(node, 'weights_norm_z'):
-            if node.weights_norm_z[w_idx] == -1:
+            if np.abs(node.weights_norm_z[w_idx]) == 1:
                 color_hex = '#000000'
             else:
                 color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
