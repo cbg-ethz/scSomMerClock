@@ -160,6 +160,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
         if is_germline_snv:
             germline.append('{}:{}'.format(rec.chrom, rec.pos))
             continue
+        # No mutation in single cells
         if sc_calls.max() <= 0:
             if is_bulk_snv:
                 data['bulk'].append([rec.chrom, rec.pos, 0, 0, 1, 0, 0, 0, 0])
@@ -174,10 +175,6 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
         if is_bulk_snv:
             rec_data = (rec.chrom, rec.pos,
                     0, 0, 1, 0, monovar_only, sccaller_only, monovar_sccaller)
-            # Only detected in bulk:
-            if sum(rec_data[2:]) == 1:
-                data['bulk'].append(rec_data)
-                continue
             # Detected by both algorithms and in bulk
             if (monovar_sccaller > 0) or (monovar_only >= 1 and sccaller_only >= 1):
                 data['monovar1+_sccaller1+_bulk'].append(rec_data)
@@ -198,10 +195,7 @@ def iterate_chrom(chr_data, sample_maps, chrom, read_depth, quality):
                 monovar_only, sccaller_only, 0, monovar_sccaller, 0, 0, 0)
             no_snvs = sum(rec_data[2:])
 
-            # Only wildtype
-            if no_snvs == 0 :
-                continue
-            elif no_snvs == 1 \
+            if no_snvs == 1 \
                     or (no_snvs == 2 and monovar_only == 1 and sccaller_only == 1):
                 data['singletons'].append(rec_data)
                 continue
@@ -305,10 +299,10 @@ def get_rec_summary(rec, sample_maps, depth, quality):
     # Check if at least 1 good mutation call
     if rel_calls.sum() == 0:
         sc_calls[:] = -1
+    # If no bulk call, check at least two calls fullfill the DP and GQ criteria
     elif not snv_bulk:
-        # If no bulk call, check if at least 2 good call in 1 algorithm
         if not any(rel_calls.sum(axis=1) > 1) \
-                and not (any(rel_calls.sum(axis=0) == 2)):
+                and not any(rel_calls.sum(axis=0) == 2):
             sc_calls[:] = -1
 
     return sc_calls, snv_bulk, snv_germline
