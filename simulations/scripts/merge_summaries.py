@@ -6,6 +6,9 @@ import pandas as pd
 
 
 def merge_summaries(in_files, out_file):
+    if not in_files:
+        raise IOError('!ERROR: No summary files to merge!')
+
     df = pd.DataFrame()
 
     for i, in_file in enumerate(sorted(in_files)):

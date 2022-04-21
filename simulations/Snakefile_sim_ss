@@ -313,6 +313,19 @@ rule run_poisson:
 # --------------------------- POISSON TREE -------------------------------------
 
 
+def get_errors_bulk(wildcards):
+    errors = {'FN': None, 'FP': None}
+    if wildcards.tree == 'cellcoal':
+        if config.get('sc_from_bulk', {}).get('errors', True):
+            errors['FN'] = config['cellcoal']['scWGA']['ADO_rate'][0] / 2
+            errors['FP'] = config['cellcoal']['scWGA']['ampl_error'][0] \
+                + config['cellcoal']['NGS']['seq_error']
+        else:
+            errors['FN'] = 0.0
+            errors['FP'] = 0.0
+    return errors
+
+
 rule run_poissonTree:
     input:
         unpack(get_repl_data)
@@ -330,10 +343,7 @@ rule run_poissonTree:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
         w_maxs = W_MAXS,
-        FN = lambda wildcards: config['cellcoal']['scWGA']['ADO_rate'][0] / 2 \
-            if wildcards.tree == 'cellcoal' else None,
-        FP = lambda wildcards: config['cellcoal']['scWGA']['ampl_error'][0] + 0.01 \
-            if wildcards.tree == 'cellcoal' else None,
+        errors = get_errors_bulk
     script:
         f'{SCRIPT_DIR}/get_poisson_tree_LRT.py'
 

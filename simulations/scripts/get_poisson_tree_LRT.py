@@ -1110,8 +1110,8 @@ if __name__ == '__main__':
             w_maxs=snakemake.params.w_maxs,
             exclude=snakemake.params.exclude,
             include=snakemake.params.include,
-            FN_fix=snakemake.params.FN,
-            FP_fix=snakemake.params.FP,
+            FN_fix=snakemake.params.errors['FN'],
+            FP_fix=snakemake.params.errors['FP'],
         )
     else:
         import argparse
