@@ -301,10 +301,15 @@ def get_rec_summary(rec, sample_maps, depth, quality):
         else:
             sc_calls[alg, sample_map_id] = 1
 
-    # Check if at least 2 good call in 1 algorithm or 1 good call in each algorithm
-    rel_calls = (DP >= depth) & (GQ >= quality)
-    if not any(rel_calls.sum(axis=1) > 1) and not snv_bulk:
+    rel_calls = (sc_calls == 1) & (DP >= depth) & (GQ >= quality)
+    # Check if at least 1 good mutation call
+    if rel_calls.sum() == 0:
         sc_calls[:] = -1
+    elif not snv_bulk:
+        # If no bulk call, check if at least 2 good call in 1 algorithm
+        if not any(rel_calls.sum(axis=1) > 1) \
+                and not (any(rel_calls.sum(axis=0) == 2)):
+            sc_calls[:] = -1
 
     return sc_calls, snv_bulk, snv_germline
 
