@@ -44,20 +44,22 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
         sample_name = '.'.join(sample_detail[:-1])
         caller = sample_detail[-1]
         if caller == 'mutect':
+            print(f'\tBulk samples: {sample_name}')
             bulk_samples.add(sample_name)
         else:
             samples.add(sample_name)
 
     sc_map = OrderedDict([(j, i) for i, j in enumerate(sorted(samples))])
     bk_map = OrderedDict()
-    for i, j in enumerate(sorted(bulk_tumor)):
-        if j in bulk_samples:
-            bk_map[j] = i
-        else:
-            print(f'\nWARNING: Cannot find bulk sample: {j}\n')
+    if bulk_tumor:
+        for i, j in enumerate(sorted(bulk_tumor)):
+            if j in bulk_samples:
+                bk_map[j] = i
+            else:
+                print(f'\nWARNING: Cannot find bulk sample: {j}\n')
 
-    for i in bulk_samples - bk_map.keys():
-        print(f'\t Bulk normal sample: {i}')
+        for i in bulk_samples - bk_map.keys():
+            print(f'\t Bulk normal sample: {i}')
 
     sample_maps = (sc_map, bk_map)
 
