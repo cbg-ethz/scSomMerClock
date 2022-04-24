@@ -125,6 +125,7 @@ rule run_mobster:
     params:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
+        'conda activate r4; '
         '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
 
 
