@@ -87,7 +87,7 @@ def merge_LRT_tree(in_files, out_file):
     else:
         avg_id = -1
     df.loc[avg_id] = np.full(df.shape[1], -1, dtype=float)
-    df.loc[avg_id] = mean_col
+    df.loc[avg_id, num_cols] = mean_col
 
     for i, hyp_col in enumerate(df.columns):
         if not hyp_col.startswith('hypothesis'):
