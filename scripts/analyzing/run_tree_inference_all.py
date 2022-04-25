@@ -7,8 +7,10 @@ import subprocess
 
 
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
-MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
+# MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
+MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/variantcall2022/' #H65_filter2
 BASE_DIR = '/home/uvi/be/nbo/data/data/'
+
 
 DATA_DIRS = {
     'H65_Monica': ['all', 'cancer'],
@@ -103,10 +105,12 @@ def run_inference(args):
                 # Copy file from monicas dir
                 if sub_dir == 'all':
                     if 'dec21' in MONICA_DIR:
-                        # monica_file = os.path.join(MONICA_DIR, f'{data_set}_dec21',
-                        #     'all.all_chr.filtered.vcf')
                         monica_file = os.path.join(MONICA_DIR, f'{data_set}_dec21',
                             f'{data_set}_ado_filtered.vcf')
+                    elif [i for i in MONICA_DIR.split(os.path.sep) if i][-1] \
+                            == 'variantcall2022':
+                        monica_file = os.path.join(MONICA_DIR, f'{data_set}_filter3',
+                            'all_filtered.all_chr.vcf')
                     else:
                         monica_file = os.path.join(MONICA_DIR, f'{data_set}.vcf')
                     # Zip, add WT column, and index
