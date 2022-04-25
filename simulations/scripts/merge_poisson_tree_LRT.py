@@ -71,8 +71,10 @@ def merge_LRT_tree(in_files, out_file):
     if 'subsample_size' in df.columns:
         df.reset_index(inplace=True, drop=True)
         df.set_index(['run', 'subsample_size', 'subsample_rep'], inplace=True)
+        idx_row = (-1, -1, -1)
     else:
         df.set_index('run', inplace=True, drop=True)
+        idx_row = -1
 
     df.sort_index(inplace=True)
     # Add average row
@@ -85,7 +87,7 @@ def merge_LRT_tree(in_files, out_file):
     else:
         avg_id = -1
     df.loc[avg_id] = np.full(df.shape[1], -1, dtype=float)
-    df.iloc[-1] = mean_col
+    df.loc[avg_id] = mean_col
 
     for i, hyp_col in enumerate(df.columns):
         if not hyp_col.startswith('hypothesis'):
@@ -102,7 +104,7 @@ def merge_LRT_tree(in_files, out_file):
             except KeyError:
                 avg_hyp = f'0/{model_total}'
 
-        df.iloc[-1, i] = avg_hyp
+        df.loc[avg_id, i] = avg_hyp
 
     df.round(4).to_csv(out_file, sep='\t')
     print(df.loc[avg_id])
