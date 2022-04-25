@@ -109,6 +109,7 @@ rule VCF_to_VAF:
         vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
         vaf = os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
+    group: 'bulk_analysis'
     script:
         f'{SCRIPT_DIR}/VCF_to_VAF.py'
 
@@ -122,8 +123,8 @@ rule run_mobster:
     resources:
         mem_mb = 24576,
         runtime = 120,
-    conda:
-        'r4'
+    conda: 'r4'
+    group: 'bulk_analysis'
     params:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:

@@ -66,30 +66,27 @@ def merge_LRT_tree(in_files, out_file):
             new_df['subsample_rep'] = int(
                 re.search('\.ss\d+\.(\d+)\.LRT', in_file).group(1))
 
-        df = df.append(new_df, ignore_index=True)
+        df = pd.concat([df, new_df], ignore_index=True)
 
     if 'subsample_size' in df.columns:
         df.reset_index(inplace=True, drop=True)
         df.set_index(['run', 'subsample_size', 'subsample_rep'], inplace=True)
-        idx_row = (-1, -1, -1)
+        avg_id = (-1, -1, -1)
     else:
         df.set_index('run', inplace=True, drop=True)
-        idx_row = -1
+        avg_id = -1
 
     df.sort_index(inplace=True)
+
     # Add average row
     num_cols = [i for i, (j, k) in enumerate(df.dtypes.items()) if k != object]
     mean_col = df.iloc[:,num_cols].mean(axis=0)
 
     model_total = df.dropna().shape[0]
-    if isinstance(df.index, pd.MultiIndex):
-        avg_id = (-1, -1, -1)
-    else:
-        avg_id = -1
     df.loc[avg_id] = np.full(df.shape[1], -1, dtype=float)
-    df.loc[avg_id, num_cols] = mean_col
+    df.loc[avg_id, df.columns[num_cols]] = mean_col
 
-    for i, hyp_col in enumerate(df.columns):
+    for hyp_col in df.columns:
         if not hyp_col.startswith('hypothesis'):
             continue
 
@@ -103,8 +100,7 @@ def merge_LRT_tree(in_files, out_file):
                 avg_hyp = f'{df[hyp_col].value_counts()["H1"]}/{model_total}'
             except KeyError:
                 avg_hyp = f'0/{model_total}'
-
-        df.loc[avg_id, i] = avg_hyp
+        df.loc[avg_id, hyp_col] = avg_hyp
 
     df.round(4).to_csv(out_file, sep='\t')
     print(df.loc[avg_id])
