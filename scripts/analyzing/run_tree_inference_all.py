@@ -13,15 +13,15 @@ BASE_DIR = '/home/uvi/be/nbo/data/data/'
 
 
 DATA_DIRS = {
-    'H65_Monica': ['all', 'cancer'],
+    'H65': ['all', 'cancer'],
     'Li55': ['all', 'cancer', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
-    'Ni8_Monica': ['all', 'cancer'],
+    'Ni8': ['all', 'cancer'],
     'S21_P1': ['all'],
     'S21_P2': ['all', 'cancer'],
-    'W32_Monica': ['all', 'aneuploid', 'haploid', 'normal'],
+    'W32': ['all', 'aneuploid', 'haploid', 'normal'],
     'W55': ['all', 'cancer', 'normal'],
     'Wu61': ['all', 'cancer_C', 'cancer_CA', 'normal', 'polyps'],
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
@@ -71,6 +71,9 @@ def run_inference(args):
 
     # Iterate data sets
     for data_dir, sub_dirs in DATA_DIRS.items():
+        if data_dir not in args.dataset:
+            continue
+
         data_set = data_dir.replace('_Monica', '')
         # Iterate sub sets
         for sub_dir in sub_dirs:
@@ -104,11 +107,11 @@ def run_inference(args):
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
-                    if 'dec21' in MONICA_DIR:
+                    dir_name = [i for i in MONICA_DIR.split(os.path.sep) if i][-1]
+                    if dir_name == 'dec21':
                         monica_file = os.path.join(MONICA_DIR, f'{data_set}_dec21',
                             f'{data_set}_ado_filtered.vcf')
-                    elif [i for i in MONICA_DIR.split(os.path.sep) if i][-1] \
-                            == 'variantcall2022':
+                    elif dir_name == 'variantcall2022':
                         monica_file = os.path.join(MONICA_DIR, f'{data_set}_filter3',
                             'all_filtered.all_chr.vcf')
                     else:
@@ -177,9 +180,11 @@ def run_inference(args):
         print('All tree files exist')
 
 
-def print_masterlist(out_file='vcf_masterlist.txt'):
+def print_masterlist(data_sets, out_file='vcf_masterlist.txt'):
     out_str = ''
     for data_dir, sub_dirs in DATA_DIRS.items():
+        if data_dir not in data_sets:
+            continue
         data_set = data_dir.replace('_Monica', '')
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
@@ -210,6 +215,10 @@ def parse_args():
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-ma', '--master', default='', type=str,
         help='Print master file list and exit.')
+    parser.add_argument('-d', '--dataset', type=str, nargs='+',
+        choices=DATA_DIRS.keys(), default=DATA_DIRS.keys(),
+        help='Datasets to process. Default = all.')
+
     args = parser.parse_args()
     return args
 
@@ -220,6 +229,6 @@ if __name__ == '__main__':
     CLOCK_DIR = args.clock_dir
 
     if args.master:
-        print_masterlist(args.master)
+        print_masterlist(args.dataset, args.master)
     else:
         run_inference(args)
