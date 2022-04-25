@@ -27,6 +27,7 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
+STR_PREF = ['Ni8', 'H65', 'W32']
 DATA_FILTERS = ['all', '33nanFilter'] #, '50nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
@@ -70,11 +71,15 @@ def run_inference(args):
         tree_exist = True
 
     # Iterate data sets
-    for data_dir, sub_dirs in DATA_DIRS.items():
-        if data_dir not in args.dataset:
+    for data_set, sub_dirs in DATA_DIRS.items():
+        if data_set not in args.dataset:
             continue
 
-        data_set = data_dir.replace('_Monica', '')
+        if data_set in STR_PREF:
+            data_dir = f'{data_set}_Monica'
+        else:
+            data_dir = data_set
+
         # Iterate sub sets
         for sub_dir in sub_dirs:
             vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
@@ -124,7 +129,7 @@ def run_inference(args):
                             run_bash(wt_col_cmd, False)
 
                             unzip_file = vcf_file.replace('.gz', '')
-                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file}' \
+                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file} ' \
                                 f'&& chmod 755 {vcf_file}'
                             run_bash(zip_cmd, False)
                     # Filter
@@ -182,10 +187,15 @@ def run_inference(args):
 
 def print_masterlist(data_sets, out_file='vcf_masterlist.txt'):
     out_str = ''
-    for data_dir, sub_dirs in DATA_DIRS.items():
-        if data_dir not in data_sets:
+    for data_set, sub_dirs in DATA_DIRS.items():
+        if data_set not in args.dataset:
             continue
-        data_set = data_dir.replace('_Monica', '')
+
+        if data_set in STR_PREF:
+            data_dir = f'{data_set}_Monica'
+        else:
+            data_dir = data_set
+
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
