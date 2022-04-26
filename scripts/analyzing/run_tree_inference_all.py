@@ -26,7 +26,7 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-STR_PREF = ['Ni8', 'H65', 'W32']
+STR_PREF = [] #['Ni8', 'H65', 'W32']
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
@@ -81,7 +81,11 @@ def run_inference(args):
 
         # Iterate sub sets
         for sub_dir in sub_dirs:
-            vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+            if args.out_dir:
+                vcf_dir = os.path.join(args.out_dir, data_dir, sub_dir)
+            else:
+                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+
             if not os.path.exists(vcf_dir):
                 os.makedirs(vcf_dir)
             # Iterate nan filters
@@ -138,16 +142,23 @@ def run_inference(args):
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
-                        base_file = os.path.join(BASE_DIR, data_dir, CLOCK_DIR,
-                            'all', vcf_name)
+                        if args.out_dir:
+                            base_file = os.path.join(args.out_dir, data_dir,
+                                'all', vcf_name)
+                        else:
+                            base_file = os.path.join(BASE_DIR, data_dir,
+                                CLOCK_DIR, 'all', vcf_name)
                         sample_file = os.path.join(BASE_DIR, data_dir,
                             'ClockTest', sub_dir, 'samples.txt')
 
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                            f'-o {vcf_file} -O z {base_file} ' \
+                            f'{base_file} | bcftools filter -i ' \
+                            f'\'N_PASS(GT="alt") != 0)\' -O z -o {vcf_file} ' \
                             f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd, False)
 
+                if args.files_only:
+                    continue
 
                 tree_cmds = []
                 if 'cellphy' in args.method:
@@ -205,11 +216,15 @@ def parse_args():
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
+    parser.add_argument('-o', '--out_dir', type=str, default='',
+        help='Output directory. Default = BASEDIR.')
     parser.add_argument('-k', '--keep_going', action='store_true',
         help='Dont exit on errors.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellphy', 'scite'], default=['cellphy', 'scite'],
         help='Clock directory name.')
+    parser.add_argument('-f', '--files_only', action='store_true',
+        help='Create only subset files, do not run tree inference.')
     parser.add_argument('-cd', '--clock_dir', type=str, default='ClockTest',
         help='Clock directory name.')
     parser.add_argument('-c', '--check', action='store_true',
