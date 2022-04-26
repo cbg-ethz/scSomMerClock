@@ -103,6 +103,9 @@ def run_inference(args):
                     if not os.path.exists(vcf_file):
                         print(f'\tMissing vcf:\t\t{vcf_file}')
                         vcf_exist = False
+                    if args.files_only:
+                        continue
+
                     if not os.path.exists(cellphy_out) and (sub_dir != 'all' \
                             or (sub_dir == 'all' and len(sub_dirs) == 1)):
                         print(f'\tMissing cellphy tree:\t{cellphy_out}')
