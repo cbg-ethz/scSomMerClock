@@ -156,7 +156,7 @@ def run_inference(args):
 
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                             f'{base_file} | bcftools filter -i ' \
-                            f'\'N_PASS(GT="alt") != 0)\' -O z -o {vcf_file} ' \
+                            f'\'N_PASS(GT="alt") != 0\' -O z -o {vcf_file} - ' \
                             f'&& chmod 755 {vcf_file}'
                         run_bash(cp_cmd, False)
 
