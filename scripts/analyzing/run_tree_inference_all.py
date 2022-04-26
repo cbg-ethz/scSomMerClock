@@ -6,9 +6,8 @@ import shutil
 import subprocess
 
 
-# MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/dec21/'
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
-MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/variantcall2022/' #H65_filter2
+MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
 BASE_DIR = '/home/uvi/be/nbo/data/data/'
 
 
@@ -28,7 +27,7 @@ DATA_DIRS = {
     'X25': ['all', 'cancer']
 }
 STR_PREF = ['Ni8', 'H65', 'W32']
-DATA_FILTERS = ['all', '33nanFilter'] #, '50nanFilter']
+DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
@@ -112,15 +111,7 @@ def run_inference(args):
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
-                    dir_name = [i for i in MONICA_DIR.split(os.path.sep) if i][-1]
-                    if dir_name == 'dec21':
-                        monica_file = os.path.join(MONICA_DIR, f'{data_set}_dec21',
-                            f'{data_set}_ado_filtered.vcf')
-                    elif dir_name == 'variantcall2022':
-                        monica_file = os.path.join(MONICA_DIR, f'{data_set}_filter3',
-                            'all_filtered.all_chr.vcf')
-                    else:
-                        monica_file = os.path.join(MONICA_DIR, f'{data_set}.vcf')
+                    monica_file = os.path.join(MONICA_DIR, f'{data_set}.vcf')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
