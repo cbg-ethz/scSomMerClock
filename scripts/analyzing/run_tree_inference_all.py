@@ -26,7 +26,7 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-STR_PREF = [] #['Ni8', 'H65', 'W32']
+STR_PREF = ['Ni8', 'H65', 'W32']
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
@@ -82,7 +82,7 @@ def run_inference(args):
         # Iterate sub sets
         for sub_dir in sub_dirs:
             if args.out_dir:
-                vcf_dir = os.path.join(args.out_dir, data_dir, sub_dir)
+                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
             else:
                 vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
 
@@ -146,7 +146,7 @@ def run_inference(args):
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
                         if args.out_dir:
-                            base_file = os.path.join(args.out_dir, data_dir,
+                            base_file = os.path.join(args.out_dir, data_set,
                                 'all', vcf_name)
                         else:
                             base_file = os.path.join(BASE_DIR, data_dir,
