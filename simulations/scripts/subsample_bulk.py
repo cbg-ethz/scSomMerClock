@@ -7,15 +7,15 @@ import numpy as np
 import re
 
 
-
-def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
+def subsample_vcf(vcf_file, prefix, subsamples, reps, skip=[], outg_id=-1):
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')
     else:
         file_stream = open(vcf_file, 'r')
 
     header = ''
-    body = [''] * reps
+    ss_ids = []
+    body = [''] * len(subsamples) * reps
 
     with file_stream as f_in:
         for line in f_in:
@@ -38,19 +38,19 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                         outg_id = len(samples) + outg_id
                     samples = np.delete(samples, outg_id)
 
-                    ss_ids = np.zeros((reps, no,), dtype=int)
-                    for i in range(reps):
-                        ss_ids[i] = np.random.choice(np.arange(len(samples)),
-                            size=no, replace=False)
-                    ss_ids = np.sort(ss_ids)
+                    idx = 0
+                    for subsample in subsamples:
+                        for rep in range(reps):
+                            ss_id = np.random.choice(np.arange(len(samples)),
+                                    size=subsample, replace=False)
+                            ss_id = np.sort(ss_id)
 
-                    subsamples = np.append(samples[ss_ids],
-                        np.full((reps, 1), 'healthycell'), axis=1)
-                    ss_ids = np.append(ss_ids, np.full((reps, 1), outg_id), axis=1)
-                    sample_no = no + 1
+                            ss_name = np.append(samples[ss_id], ['healthycell'])
+                            ss_id = np.append(ss_id, outg_id)
 
-                    for i, subsample in enumerate(subsamples):
-                        body[i] += '\t'.join(line_cols[:9] + list(subsample)) + '\n'
+                            body[idx] += '\t'.join(line_cols[:9] + list(ss_name)) + '\n'
+                            ss_ids.append(ss_id)
+                            idx += 1
                 else:
                     header += line
                 continue
@@ -65,25 +65,23 @@ def subsample_vcf(vcf_file, out_files, no, reps, skip=[], outg_id=-1):
                     [k for j, k in enumerate(line_cols[9:]) if j in ss_id])
                 body[i] += f'{snv_cols}\t{sample_cols}\n'
 
-            # for s_i, s_rec_raw in enumerate(line_cols[9:]):
-            #     for i, ss_id in enumerate(ss_ids):
-            #         if s_i in ss_id:
-            #             body[i] += '\t' + s_rec_raw
-            #         body += '\n'
-
-    for i, out_file in enumerate(out_files):
-        with gzip.open(out_file, 'wb') as f_out:
-            f_out.write(f'{header}{body[i]}'.encode())
+    idx = 0
+    for sample in subsamples:
+        for rep in range(reps):
+            out_file = f'{prefix}.ss{sample}.{rep}.gz'
+            with gzip.open(out_file, 'wb') as f_out:
+                f_out.write(f'{header}{body[idx]}'.encode())
+            idx += 1
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,
         help='Absolute or relative path(s) to input file(s)')
-    parser.add_argument('-o', '--output', type=str, default='',
-        help='Path to the output file. Default = <INPUT_DIR>.subsample')
-    parser.add_argument('-n', '--no', type=int, required=True,
-        help='Size of subsample.')
+    parser.add_argument('-p', '--prefix', type=str, default='',
+        help='Prefix to output files. Default = <INPUT>.ss<NO>.<REP>.gz')
+    parser.add_argument('-n', '--no', nargs='+', type=int, required=True,
+        help='Size(s) of subsample(s).')
     parser.add_argument('-r', '--reps', type=int, default=1,
         help='Number of replicates.')
     parser.add_argument('-s', '--skip', nargs='+', type=int, default=[-1],
@@ -96,12 +94,24 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        subsample_vcf(snakemake.input[0], snakemake.output,
-            int(snakemake.wildcards.sample), snakemake.params.reps,
-            skip=[-1], outg_id=-1)
+        subsample_vcf(
+            vcf_file=snakemake.input[0],
+            prefix=snakemake.params.prefix,
+            subsamples=snakemake.params.subsamples,
+            reps=snakemake.params.reps,
+            skip=[-1],
+            outg_id=-1
+        )
     else:
         args = parse_args()
-        if not args.output:
-            args.output = args.input + f'.subsample{args.no}'
-        subsample_vcf(args.input, args.output, args.no, args.reps,
-            skip=args.skip, outg_id=args.outgroup)
+        if not args.prefix:
+            args.prefix = args.input
+
+        subsample_vcf(
+            vcf_file=args.input,
+            prefix=args.prefix,
+            subsamples=rgs.no,
+            reps=args.reps,
+            skip=args.skip,
+            outg_id=args.outgroup
+        )

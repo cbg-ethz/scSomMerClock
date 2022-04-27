@@ -109,7 +109,7 @@ rule VCF_to_VAF:
         vcf = os.path.join(out_dir, 'vcf_dir', 'vcf.{run}')
     output:
         vaf = os.path.join(out_dir, 'vaf_dir', 'vaf.{run}')
-    group: 'bulk_analysis'
+    # group: 'bulk_analysis'
     script:
         f'{SCRIPT_DIR}/VCF_to_VAF.py'
 
@@ -124,7 +124,7 @@ rule run_mobster:
         mem_mb = 24576,
         runtime = 120,
     conda: 'r4'
-    group: 'bulk_analysis'
+    # group: 'bulk_analysis'
     params:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
@@ -155,7 +155,7 @@ rule create_cellcoal_bulk_config:
         out_dir = out_dir,
     resources:
         mem_mb = 1024
-    group: 'sc_to_bulk'
+    # group: 'sc_to_bulk'
     script:
         f'{SCRIPT_DIR}/get_cellcoal_config.py'
 
@@ -169,7 +169,7 @@ rule run_cellcoal_from_bulk:
         mem_mb = 16384 \
             * min(5, (1 + config['cellcoal']['no_rep'] // 1000) * (BULK + 1)),
         runtime = 1200 if CELL_NO >= 10e0 else 300,
-    group: 'sc_to_bulk'
+    # group: 'sc_to_bulk'
     params:
         exe = config['cellcoal']['exe'],
     shell:
@@ -210,7 +210,7 @@ rule postprocess_vcf:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     resources:
         runtime = 120,
-    group: 'sc_to_bulk'
+    # group: 'sc_to_bulk'
     params:
         dp = config.get('SNP_filter', {}).get('depth', 1),
         gq = config.get('SNP_filter', {}).get('quality', 0),
@@ -228,9 +228,13 @@ rule subsample_vcf:
         ADO = ancient(os.path.join(base_dir, 'ADO_overview.tsv'))
     output:
         expand(os.path.join(base_dir, 'vcf_dir',
-            'vcf.{{run}}.ss{{sample}}.{rep}.gz'), rep=REPS)
+            'vcf.{{run}}.ss{sample}.{rep}.gz'), sample=SUBSAMPLES, rep=REPS)
+    # group: 'sc_to_bulk'
     params:
         reps = config['sc_from_bulk']['no_rep'],
+        subsamples = SUBSAMPLES,
+        prefix = lambda wildcards: os.path.join(base_dir, 'vcf_dir',
+            'vcf.{wildcards.run}'.format(wildcards=wildcards))
     script:
         f'{SCRIPT_DIR}/subsample_bulk.py'
 
@@ -343,7 +347,7 @@ rule run_poissonTree:
     resources:
         mem_mb = 768,
         runtime = lambda wildcards, attempt: attempt * 30,
-    #group: 'treeTest'
+    # group: 'treeTest'
     params:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),

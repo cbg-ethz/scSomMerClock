@@ -18,8 +18,17 @@ def merge_LRT_weight(in_files, out_file):
             new_df['subsample_size'] = int(subs_re.group(1))
             new_df['subsample_rep'] = int(
                 re.search('\.ss\d+\.(\d+)\.wMax', in_file).group(1))
-        df = df.append(new_df, ignore_index=True)
+        df = pd.concat([df, new_df], ignore_index=True)
 
+    if 'subsample_size' in df.columns:
+        df.reset_index(inplace=True, drop=True)
+        df.set_index(['run', 'subsample_size', 'subsample_rep'], inplace=True)
+        avg_id = (-1, -1, -1)
+    else:
+        df.set_index('run', inplace=True, drop=True)
+        avg_id = -1
+
+    # Add average row
     num_cols = df.columns[df.dtypes != object]
     mean_col = df.loc[:,num_cols].mean(axis=0)
 
@@ -36,17 +45,12 @@ def merge_LRT_weight(in_files, out_file):
         except KeyError:
             avg_hyp = f'0/{model_total}'
 
-    df.loc[-1] = np.full(df.shape[1], -1, dtype=float)
-    df.loc[-1, num_cols] = mean_col
-    df.loc[-1, 'run'] = -1
-    if subs_re:
-        df.loc[-1, 'subsample_size'] = ','.join(
-            [f'{i:.0f}' for i in df['subsample_size'].unique()])
-        df.loc[-1, 'subsample_rep'] = df['subsample_rep'].max()
+    df.loc[avg_id] = np.full(df.shape[1], -1, dtype=float)
+    df.loc[avg_id, num_cols] = mean_col
 
-    df.loc[-1, hyp_col] = avg_hyp
+    df.loc[avg_id, hyp_col] = avg_hyp
     df.round(4).to_csv(out_file, sep='\t', index=False)
-    print(df.loc[-1])
+    print(df.loc[avg_id])
 
 
 def merge_LRT_tree(in_files, out_file):

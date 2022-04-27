@@ -21,8 +21,10 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
     except AttributeError:
         run_no = ''
 
-    if not os.path.exists(out_dir):
+    try:
         os.mkdir(out_dir)
+    except FileExistsError:
+        pass
 
     data_raw, _ = get_sample_dict_from_vcf(vcf_file,
         GT=True, include=include, exclude=exclude)

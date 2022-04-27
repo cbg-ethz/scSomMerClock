@@ -84,7 +84,11 @@ def get_summary_df(input, chr, output, read_depth, quality, bulk_tumor=[],
 
             if prefix != '':
                 chrom = prefix + chrom
-            chr_data_in = vcf_in.fetch(chrom)
+
+            try:
+                chr_data_in = vcf_in.fetch(chrom)
+            except ValueError:
+                raise RuntimeError(f'Missing index for file: {vcf_file}')
             chr_data, chr_vcf_body, chr_germline = iterate_chrom(
                 chr_data_in, sample_maps, chrom, read_depth, quality)
 

@@ -46,6 +46,8 @@ bcftools filter --include 'TYPE="snp"' <VCF> -O z -o <OUTFILE>.gz
 # Split and filter indels
 bcftools norm -m-any -c s -f <FASTA> <VCF> | bcftools filter --include 'TYPE="snp"' - -O z -o <OUTFILE>.gz
 
+# subsample region from bam file
+samtools view <BAM_IN> "1:150620000-150622000" -b > <BAM_OUT>
 
 # run cellphy on slurm cluster
 sbatch -t 720 -p amd-shared --qos amd-shared --mem 2G --wrap '/home/uvi/be/nbo/cellphy/cellphy.sh SEARCH -r -t 1 -z -l /home/uvi/be/nbo/data/data/<VCF>.gz'
