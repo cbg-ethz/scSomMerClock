@@ -484,7 +484,7 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
     MS_i = np.clip(muts_red.isna().mean(), LAMBDA_MIN, 1 - FN - 0.2)
 
-    M = map_mutations_gt(tree, muts_red, FP, FN + MS_i)
+    M = map_mutations_gt(tree, muts_red, FP, FN)
     add_br_weights(tree, FP, FN, MS_i, w_max)
 
     return tree, FP, FN, M
@@ -528,20 +528,18 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
     muts_inv = 1 - muts
 
-    # -- Assume average missing value for all cells --
-    # # errors = np.log([1 - FN.mean(), FP, 1 - FP, FN.mean()])
-    # TP_m_all = S * np.log(1 - FN.mean())
-    # FP_m_all = S_inv * np.log(FP)
-    # TN_m_all = S_inv * np.log(1 - FP)
-    # FN_m_all = S * np.log(FN.mean())
+    # errors = np.log([1 - FN, FP, 1 - FP, FN])
+    TP_m_all = S * np.log(1 - FN)
+    FP_m_all = S_inv * np.log(FP)
+    TN_m_all = S_inv * np.log(1 - FP)
+    FN_m_all = S * np.log(FN)
 
     # -- Taking different missing value per cell into account --
-    FN_i = FN[muts_in.columns].values
-
-    TP_m = S * np.log(1 - FN_i)
-    FP_m = S_inv * np.log(FP)
-    TN_m = S_inv * np.log(1 - FP)
-    FN_m = S * np.log(FN_i)
+    # FN_i = FN[muts_in.columns].values
+    # TP_m = S * np.log(1 - FN_i)
+    # FP_m = S_inv * np.log(FP)
+    # TN_m = S_inv * np.log(1 - FP)
+    # FN_m = S * np.log(FN_i)
 
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in enumerate(muts):
@@ -553,19 +551,19 @@ def map_mutations_gt(tree, muts_in, FP, FN):
         # ])
         # probs = np.dot(errors, mut_data)
 
-        # probs = np.stack([
-        #     np.nansum(TP_m_all * mut, axis=1), # TP
-        #     np.nansum(FP_m_all * mut, axis=1), # FP
-        #     np.nansum(TN_m_all * muts_inv[i], axis=1), # TN
-        #     np.nansum(FN_m_all * muts_inv[i], axis=1), # FN,
-        # ]).sum(axis=0)
-
         probs = np.stack([
-            np.nansum(TP_m * mut, axis=1), # TP
-            np.nansum(FP_m * mut, axis=1), # FP
-            np.nansum(TN_m * muts_inv[i], axis=1), # TN
-            np.nansum(FN_m * muts_inv[i], axis=1), # FN,
+            np.nansum(TP_m_all * mut, axis=1), # TP
+            np.nansum(FP_m_all * mut, axis=1), # FP
+            np.nansum(TN_m_all * muts_inv[i], axis=1), # TN
+            np.nansum(FN_m_all * muts_inv[i], axis=1), # FN,
         ]).sum(axis=0)
+
+        # probs = np.stack([
+        #     np.nansum(TP_m * mut, axis=1), # TP
+        #     np.nansum(FP_m * mut, axis=1), # FP
+        #     np.nansum(TN_m * muts_inv[i], axis=1), # TN
+        #     np.nansum(FN_m * muts_inv[i], axis=1), # FN,
+        # ]).sum(axis=0)
 
         probs_norm = _normalize_log_probs(probs)
         M[i] = probs_norm
