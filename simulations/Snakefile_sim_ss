@@ -285,7 +285,7 @@ rule run_cellphy:
             'cellphy_tree.{run}.ss{sample}.{rep}.raxml.bestTree')
     resources:
         mem_mb = 2048,
-        runtime =  lambda wildcards, attempt: attempt * 120,
+        runtime =  lambda wildcards, attempt: attempt * 240,
     threads: 1 if config['tree']['cellphy'].get('command', 'SEARCH') == 'FAST' \
         else 4
     params:
