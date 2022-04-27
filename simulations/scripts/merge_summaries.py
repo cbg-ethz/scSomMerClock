@@ -79,7 +79,6 @@ def merge_summaries(in_files, out_file):
     else:
         df = df[['dof'] + list(df.columns[:-1])]
 
-    import pdb; pdb.set_trace()
     idx = df.index.tolist()
     df.reindex(idx[1:] + [idx[0]]).to_csv(out_file, sep='\t', index=True)
 
