@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gzip
 import os
 import re
 import pandas as pd
@@ -10,12 +11,15 @@ def merge_summaries(in_files, out_file):
         raise IOError('!ERROR: No summary files to merge!')
 
     df = pd.DataFrame()
+    sim_dir = in_files[0][:re.search('minGQ\d+', in_files[0]).end()]
+    subsampling = False
 
     for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
         if 'subsample_size' in new_df.columns:
             new_df.set_index(['run', 'subsample_size', 'subsample_rep'],
                 inplace=True)
+            subsampling = True
         else:
             new_df.set_index('run', inplace=True, drop=True)
             new_df.rename(index={'Avg.': '-1'}, inplace=True)
@@ -41,9 +45,22 @@ def merge_summaries(in_files, out_file):
                 if line.startswith('Data set'):
                     run_no = int(line.strip().split(' ')[2])
                 elif line.startswith('  node '):
-                    cells_raw = line.strip().split('(')[-1].rstrip(')').strip()
-                    cell_no = len(cells_raw.split(' '))
+                    cells_aff = {int(i) for i in \
+                        re.search('(?<=\( )[\d ]+(?= \))', line).group().split()}
+                    cell_no = len(cells_aff)
                     df.loc[run_no, 'aff. cells'] = cell_no
+                    if subsampling:
+                        for subs, subs_data in df.loc[run_no].groupby('subsample_size'):
+                            for rep_no, _ in subs_data.groupby('subsample_rep'):
+                                vcf_file = os.path.join(sim_dir, 'vcf_dir',
+                                    f'vcf.{run_no:0>4}.ss{subs}.{rep_no}.gz')
+
+                                cells_sampled = get_samples(vcf_file)
+                                ss_id = (run_no, subs, rep_no)
+                                df.loc[ss_id, 'aff. cells sampled'] \
+                                    = len(cells_sampled & cells_aff)
+        if subsampling:
+            df.loc[-1, 'aff. cells sampled'] = df['aff. cells sampled'].mean()
         df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
 
     snv_cols = [i for i in df.columns if i.startswith('SNVs_')]
@@ -54,12 +71,28 @@ def merge_summaries(in_files, out_file):
     df['dof'] = df[dof_cols[0]]
     df.drop(snv_cols + H_cols + dof_cols, inplace=True, axis=1)
     if not clock:
-        df = df[['aff. cells', 'dof'] + list(df.columns[:-2])]
+        if subsampling:
+            df = df[['aff. cells', 'aff. cells sampled', 'dof'] \
+                + list(df.columns[:-3])]
+        else:
+            df = df[['aff. cells', 'dof'] + list(df.columns[:-2])]
     else:
         df = df[['dof'] + list(df.columns[:-1])]
 
+    import pdb; pdb.set_trace()
     idx = df.index.tolist()
     df.reindex(idx[1:] + [idx[0]]).to_csv(out_file, sep='\t', index=True)
+
+
+def get_samples(vcf_file):
+    with gzip.open(vcf_file, 'rb') as f:
+        for line in f:
+            line = line.decode()
+            if line.startswith('#CHROM'):
+                sampled_raw = line.strip().split('\t')[9:-1]
+                sampled = {int(i[4:]) for i in sampled_raw}
+                break
+    return sampled
 
 
 def parse_args():

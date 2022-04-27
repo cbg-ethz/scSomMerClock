@@ -13,7 +13,7 @@ MUT_REV = {0: 'A', 1: 'C', 2: 'G', 3: 'T'}
 # MUT_VAR = {'A': np.array([1, 2, 3]), 'C': np.array([0, 2, 3]),
 #     'G': np.array([0, 1, 3]), 'T': np.array([0, 1, 2])}
 
-def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell', fmin=1e-6, fmax=1):
+def vcf_to_vaf_sc(vcf_file, incl_re='', excl_re='healthycell|outgcell', fmin=1e-6, fmax=1):
 
     if vcf_file.endswith('gz'):
         file_stream = gzip.open(vcf_file, 'rb')

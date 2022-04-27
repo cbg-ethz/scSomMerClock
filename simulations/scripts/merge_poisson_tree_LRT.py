@@ -178,13 +178,11 @@ if __name__ == '__main__':
 
         if args.weight:
             merge_LRT_weight_column(args.input[0], args.output)
-            exit()
-
-        if args.weight_summary:
+        elif args.weight_summary:
             get_LRT_weight_summary(args.input[0], args.output)
             exit()
-
-        if args.tree:
-            merge_LRT_tree(args.input, args.output)
         else:
-            merge_LRT_weight(args.input, args.output)
+            if args.tree:
+                merge_LRT_tree(args.input, args.output)
+            else:
+                merge_LRT_weight(args.input, args.output)
