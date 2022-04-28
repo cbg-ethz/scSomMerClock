@@ -106,12 +106,16 @@ def run_inference(args):
                     if args.files_only:
                         continue
 
-                    if not os.path.exists(cellphy_out) and (sub_dir != 'all' \
-                            or (sub_dir == 'all' and len(sub_dirs) == 1)):
+                    if 'cellphy' in args.method \
+                            and not os.path.exists(cellphy_out) \
+                            and (sub_dir != 'all' \
+                                or (sub_dir == 'all' and len(sub_dirs) == 1)):
                         print(f'\tMissing cellphy tree:\t{cellphy_out}')
                         tree_exist = False
-                    if not os.path.exists(scite_out) and (sub_dir != 'all' \
-                            or (sub_dir == 'all' and len(sub_dirs) == 1)):
+                    if 'scite' in args.method \
+                            and not os.path.exists(scite_out) \
+                            and (sub_dir != 'all' \
+                                or (sub_dir == 'all' and len(sub_dirs) == 1)):
                         print(f'\tMissing scite tree:\t{scite_out}')
                         tree_exist = False
                     continue
@@ -167,14 +171,16 @@ def run_inference(args):
                 if 'cellphy' in args.method:
                     if not os.path.exists(cellphy_out) or args.replace:
                         tree_cmds.append(
-                            (f'{cellphy_exe} FULL -r -y -z -l {vcf_file}',
-                                cellphy_time, cellphy_mem)
+                            (f'{cellphy_exe} FULL -o healthycell -r -z -l -y ' \
+                                f'{vcf_file}',
+                            cellphy_time, cellphy_mem)
                         )
                 if 'scite' in args.method:
                     if not os.path.exists(scite_out) or args.replace:
                         tree_cmds.append(
                             (f'python3 {scite_script} -e {scite_exe} -s 1000000 ' \
-                                f'--verbose -p {data_set}.{data_filter}_outg {vcf_file}',
+                                f'--verbose -p {data_set}.{data_filter}_outg ' \
+                                f'{vcf_file}',
                             scite_time, scite_mem)
                         )
 
