@@ -113,17 +113,14 @@ def run_inference(args):
                         vcf_exist = False
                     if args.files_only:
                         continue
+                    if sub_dir == 'all' and len(sub_dirs) > 1:
+                        continue
 
                     if 'cellphy' in args.method \
-                            and not os.path.exists(cellphy_out) \
-                            and (sub_dir != 'all' \
-                                or (sub_dir == 'all' and len(sub_dirs) == 1)):
+                            and not os.path.exists(cellphy_out):
                         print(f'\tMissing cellphy tree:\t{cellphy_out}')
                         tree_exist = False
-                    if 'scite' in args.method \
-                            and not os.path.exists(scite_out) \
-                            and (sub_dir != 'all' \
-                                or (sub_dir == 'all' and len(sub_dirs) == 1)):
+                    if 'scite' in args.method and not os.path.exists(scite_out) :
                         print(f'\tMissing scite tree:\t{scite_out}')
                         tree_exist = False
                     continue
@@ -180,7 +177,7 @@ def run_inference(args):
                     if not os.path.exists(cellphy_out) or args.replace:
                         tree_cmds.append(
                             (f'{cellphy_exe} FULL -o healthycell -r -z -l -y ' \
-                                f'{vcf_file}',
+                                f'-t {cellphy_cores} {vcf_file}',
                             cellphy_time, cellphy_mem, cellphy_cores)
                         )
                 if 'scite' in args.method:
