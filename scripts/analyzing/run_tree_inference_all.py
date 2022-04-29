@@ -37,17 +37,24 @@ scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
 scite_time = 1440
 scite_mem = 12
+cellphy_cores = 4
 cellphy_time = 1440
 cellphy_mem = 3
 
 KEEP_GOING = False
 CLOCK_DIR = ''
 
+SLURM=True
 
-def run_bash(cmd_raw, bsub=True, time=30, mem=2):
+
+def run_bash(cmd_raw, bsub=True, cores=1, time=30, mem=2):
     if bsub:
-        cmd = f"sbatch -t {time} -p amd-shared --qos amd-shared --mem {mem}G " \
-            f"--wrap '{cmd_raw}'"
+        if SLURM:
+            cmd = f"sbatch --cpus-per-task {cores} -t {time} -p amd-shared " \
+                f"--qos amd-shared --mem {mem}G --wrap '{cmd_raw}'"
+        else:
+            cmd = f'bsub -n {cores} -W {time} -R "rusage[mem={mem*1000}]" ' \
+                f'"{cmd_raw}"'
     else:
         cmd = cmd_raw
 
@@ -174,7 +181,7 @@ def run_inference(args):
                         tree_cmds.append(
                             (f'{cellphy_exe} FULL -o healthycell -r -z -l -y ' \
                                 f'{vcf_file}',
-                            cellphy_time, cellphy_mem)
+                            cellphy_time, cellphy_mem, cellphy_cores)
                         )
                 if 'scite' in args.method:
                     if not os.path.exists(scite_out) or args.replace:
@@ -182,14 +189,14 @@ def run_inference(args):
                             (f'python3 {scite_script} -e {scite_exe} -s 1000000 ' \
                                 f'--verbose -p {data_set}.{data_filter}_outg ' \
                                 f'{vcf_file}',
-                            scite_time, scite_mem)
+                            scite_time, scite_mem, 1)
                         )
 
-                for cmd, time, mem in tree_cmds:
+                for cmd, time, mem, cores in tree_cmds:
                     if args.local:
                         run_bash(cmd, False)
                     else:
-                        run_bash(cmd, True, time, mem)
+                        run_bash(cmd, True, cores, time, mem)
 
     if args.check and vcf_exist:
         print('All vcf files exist')
@@ -315,6 +322,9 @@ def parse_args():
     parser.add_argument('-d', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS.keys(), default=DATA_DIRS.keys(),
         help='Datasets to process. Default = all.')
+    parser.add_argument('--lsf', action='store_true',
+        help='Run lsf queue submit command (bsub) instead of slurm (sbatch).')
+
 
     args = parser.parse_args()
     return args
@@ -324,6 +334,8 @@ if __name__ == '__main__':
     args = parse_args()
     KEEP_GOING = args.keep_going
     CLOCK_DIR = args.clock_dir
+    if args.lsf:
+        SLURM = False
 
     if args.master:
         print_masterlist(args)
