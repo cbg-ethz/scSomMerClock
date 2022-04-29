@@ -251,7 +251,7 @@ def compress_files(args):
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
-                base_name = f'{dataset}_{sub_dir}_{data_filter}'
+                base_name = f'{data_set}_{sub_dir}_{data_filter}'
 
                 if not os.path.exists(vcf_file):
                     print(f'\tMissing vcf file: {vcf_file}')
