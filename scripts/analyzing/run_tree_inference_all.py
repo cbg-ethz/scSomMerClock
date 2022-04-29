@@ -273,9 +273,9 @@ def compress_files(args):
 
                 if 'scite' in args.method:
                     tree_file = os.path.join(vcf_dir, 'scite_dir',
-                        f'{dataset}.{data_filter}_outg_ml0.newick')
+                        f'{data_set}.{data_filter}_outg_ml0.newick')
                     log_file = os.path.join(vcf_dir, 'scite_dir',
-                        f'{dataset}.{data_filter}_outg.log')
+                        f'{data_set}.{data_filter}_outg.log')
                     if not os.path.exists(tree_file):
                         print(f'\tMissing tree file: {tree_file}')
                     else:
