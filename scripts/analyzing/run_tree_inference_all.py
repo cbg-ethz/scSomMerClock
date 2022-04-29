@@ -35,10 +35,10 @@ cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
-scite_time = 1000
-scite_mem = 10
-cellphy_time = 1000
-cellphy_mem = 2
+scite_time = 1440
+scite_mem = 12
+cellphy_time = 1440
+cellphy_mem = 3
 
 KEEP_GOING = False
 CLOCK_DIR = ''
