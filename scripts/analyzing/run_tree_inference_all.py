@@ -264,7 +264,7 @@ def compress_files(args):
                     tree_file = os.path.join(vcf_dir, f'{vcf_name}.raxml.supportFBP')
                     log_file = os.path.join(vcf_dir, f'{vcf_name}.raxml.log')
                     if not os.path.exists(tree_file):
-                        print(f'\tMissing tree file: {tree_file}')
+                        print(f'\tMissing cellphy tree file: {tree_file}')
                     else:
                         shutil.copyfile(tree_file,
                             os.path.join(args.compress, f'{base_name}.cellphy.newick'))
@@ -277,7 +277,7 @@ def compress_files(args):
                     log_file = os.path.join(vcf_dir, 'scite_dir',
                         f'{data_set}.{data_filter}_outg.log')
                     if not os.path.exists(tree_file):
-                        print(f'\tMissing tree file: {tree_file}')
+                        print(f'\tMissing scite tree file: {tree_file}')
                     else:
                         shutil.copyfile(tree_file,
                             os.path.join(args.compress, f'{base_name}.scite.newick'))
