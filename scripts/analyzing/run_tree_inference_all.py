@@ -4,6 +4,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import tarfile
 
 
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
@@ -196,7 +197,7 @@ def run_inference(args):
         print('All tree files exist')
 
 
-def print_masterlist(data_sets, out_file='vcf_masterlist.txt'):
+def print_masterlist(args):
     out_str = ''
     for data_set, sub_dirs in DATA_DIRS.items():
         if data_set not in args.dataset:
@@ -210,13 +211,82 @@ def print_masterlist(data_sets, out_file='vcf_masterlist.txt'):
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
-            vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+
+            if args.out_dir:
+                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
+            else:
+                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+
             for data_filter in DATA_FILTERS:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
-    with open(out_file, 'w') as f:
+    with open(args.master, 'w') as f:
         f.write(out_str)
+
+
+def compress_files(args):
+    if not os.path.exists(args.compress):
+        os.makedirs(args.compress)
+
+    for data_set, sub_dirs in DATA_DIRS.items():
+        if data_set not in args.dataset:
+            continue
+
+        if data_set in STR_PREF:
+            data_dir = f'{data_set}_Monica'
+        else:
+            data_dir = data_set
+
+        for sub_dir in sub_dirs:
+            if sub_dir == 'all' and len(sub_dirs) > 1:
+                continue
+
+            if args.out_dir:
+                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
+            else:
+                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+
+            for data_filter in DATA_FILTERS:
+                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
+                vcf_file = os.path.join(vcf_dir, vcf_name)
+
+                base_name = f'{dataset}_{sub_dir}_{data_filter}'
+
+                if not os.path.exists(vcf_file):
+                    print(f'\tMissing vcf file: {vcf_file}')
+                    continue
+                else:
+                    shutil.copyfile(vcf_file,
+                        os.path.join(args.compress, f'{base_name}.vcf.gz'))
+
+                if 'cellphy' in args.method:
+                    tree_file = os.path.join(vcf_dir, f'{vcf_name}.raxml.supportFBP')
+                    log_file = os.path.join(vcf_dir, f'{vcf_name}.raxml.log')
+                    if not os.path.exists(tree_file):
+                        print(f'\tMissing tree file: {tree_file}')
+                    else:
+                        shutil.copyfile(tree_file,
+                            os.path.join(args.compress, f'{base_name}.cellphy.newick'))
+                        shutil.copyfile(log_file,
+                            os.path.join(args.compress, f'{base_name}.cellphy.log'))
+
+                if 'scite' in args.method:
+                    tree_file = os.path.join(vcf_dir, 'scite_dir',
+                        f'{dataset}.{data_filter}_outg_ml0.newick')
+                    log_file = os.path.join(vcf_dir, 'scite_dir',
+                        f'{dataset}.{data_filter}_outg.log')
+                    if not os.path.exists(tree_file):
+                        print(f'\tMissing tree file: {tree_file}')
+                    else:
+                        shutil.copyfile(tree_file,
+                            os.path.join(args.compress, f'{base_name}.scite.newick'))
+                        shutil.copyfile(log_file,
+                            os.path.join(args.compress, f'{base_name}.scite.log'))
+
+    tar = tarfile.open(args.compress + '.tar.gz', 'w:gz')
+    tar.add(args.compress)
+    tar.close()
 
 
 def parse_args():
@@ -240,6 +310,8 @@ def parse_args():
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-ma', '--master', default='', type=str,
         help='Print master file list and exit.')
+    parser.add_argument('-comp', '--compress', default='', type=str,
+        help='Compress files to folder and exit.')
     parser.add_argument('-d', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS.keys(), default=DATA_DIRS.keys(),
         help='Datasets to process. Default = all.')
@@ -254,6 +326,8 @@ if __name__ == '__main__':
     CLOCK_DIR = args.clock_dir
 
     if args.master:
-        print_masterlist(args.dataset, args.master)
+        print_masterlist(args)
+    elif args.compress:
+        compress_files(args)
     else:
         run_inference(args)
