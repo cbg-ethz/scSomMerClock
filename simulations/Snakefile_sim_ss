@@ -30,6 +30,20 @@ if BULK:
 else:
     base_dir = os.path.join(out_dir, filter_dir)
 
+
+def get_all_files(wildcards):
+    if config.get('sc_from_bulk', {}).get('run', False):
+        return [os.path.join(out_dir, 'bulk_summary.tsv'),
+            os.path.join(base_dir, 'subsampling_summary.tsv')]
+    else:
+        return os.path.join(out_dir, 'bulk_summary.tsv')
+
+
+rule all:
+    input:
+        get_all_files
+
+
 def get_final_files(wildcards):
     files = []
     for tree in TREES:
@@ -43,12 +57,6 @@ def get_final_files(wildcards):
     #     files.append(os.path.join(base_dir, 'poissonDisp.summary.tsv'))
 
     return files
-
-
-rule all:
-    input:
-        os.path.join(out_dir, 'bulk_summary.tsv'),
-        os.path.join(base_dir, 'subsampling_summary.tsv'),
 
 
 rule merge_bulk_summary_files:
@@ -285,7 +293,7 @@ rule run_cellphy:
             'cellphy_tree.{run}.ss{sample}.{rep}.raxml.bestTree')
     resources:
         mem_mb = 2048,
-        runtime =  lambda wildcards, attempt: attempt * 240,
+        runtime = lambda wildcards, attempt: attempt * 360,
     threads: 1 if config['tree']['cellphy'].get('command', 'SEARCH') == 'FAST' \
         else 4
     params:
