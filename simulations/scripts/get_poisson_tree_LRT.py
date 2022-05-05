@@ -14,6 +14,7 @@ from scipy.special import binom as binomCoeff
 from scipy.optimize import minimize
 
 from ete3 import Tree
+from ete3.parser.newick import NewickError
 
 
 LAMBDA_MIN = 1e-6
@@ -166,7 +167,7 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
 
             data[1].append(line_muts[2])
 
-            pos = (int(line_cols[0]), int(line_cols[1]))
+            pos = (int(line_cols[0].replace('chr', '')), int(line_cols[1]))
 
             idx[1].append(pos)
             if 'PASS' in line_cols[6] or line_cols[6] == 's50' \
@@ -206,6 +207,9 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
     from matplotlib import cm
     from matplotlib.colors import rgb2hex
 
+
+    sup_vals = np.unique([i.support for i in tree.iter_descendants()])
+
     mut_cutoff = max(50,
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
 
@@ -233,7 +237,7 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
                 mut.margin_right = 2
                 node.add_face(mut, column=0, position="branch-top")
 
-        if hasattr(node, 'mut_no_true'):
+        if hasattr(node, 'mut_no_true') and node.mut_no_true >= 0:
             mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
             node.add_face(mut, column=0, position="branch-top")
 
@@ -245,9 +249,19 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
             style["vt_line_color"] = color_hex
             style["hz_line_color"] = color_hex
 
+        # Add support
+        if sup_vals.size > 1 and not node.is_leaf():
+            bs = TextFace(f'{node.support:.0f}', fsize=fsize - 1)
+            bs.border.width = 1
+            bs.margin_top = 1
+            bs.margin_right = 1
+            bs.margin_left = 1
+            bs.margin_bottom = 1
+            node.add_face(bs, column=0, position='branch-right')
+
         style["size"] = 0 # set internal node size to 0
-        style["vt_line_width"] = lw
-        style["hz_line_width"] = lw
+        style['vt_line_width'] = lw
+        style['hz_line_width'] = lw
         node.img_style = style
 
         if node.is_leaf():
@@ -300,15 +314,6 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
     # ts.optimal_scale_level = 'full' # "mid" | "full"
     ts.scale = 1
 
-    leaves = tree.get_leaves()
-    leaf_root_dist = np.zeros(len(leaves))
-    for i, node in enumerate(leaves):
-        while node:
-           leaf_root_dist[i] += node.dist
-           node = node.up
-    h = (max(leaf_root_dist) - min(leaf_root_dist)) / 400
-    # ts.scale = 1 / max(leaf_root_dist) * 5
-
     if out_file:
         # ts.show_border = True
         # Plot cMap to file
@@ -340,20 +345,15 @@ def read_tree(tree_file, samples=[]):
     with open(tree_file, 'r') as f:
         tree_raw = f.read().strip()
 
-    if tree_file.endswith('.raxml.bestTree') \
-            or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
-            or 'cellphy' in tree_file:
-
+    cellphy_ends = ('.raxml.bestTree', 'raxml.mutationMapTree',
+        'raxml.supportFBP', 'raxml.supportTBE')
+    if tree_file.endswith(cellphy_ends) or 'cellphy' in tree_file:
         tree_raw = re.sub('\[\d+\]', '', tree_raw)
         if tree_raw.count('tumcell') == 0:
             tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
         if tree_raw.count('healthycell') == 0:
             tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
-        log_file = tree_file.replace('.mutationMapTree', '.log') \
-            .replace('.bestTree', '.log')
-
-        if log_file == tree_file:
-            log_file = tree_file.replace('newick', 'log')
+        log_file = '.'.join(tree_file.split('.')[:-1]) + '.log'
 
         with open(log_file, 'r') as f:
             log = f.read().strip()
@@ -420,7 +420,10 @@ def read_tree(tree_file, samples=[]):
             FN = LAMBDA_MIN
 
     outg_name = 'healthycell'
-    tree = Tree(tree_raw, format=1)
+    try:
+        tree = Tree(tree_raw, format=2)
+    except NewickError:
+        tree = Tree(tree_raw, format=1)
     outg_node = tree&outg_name
     tree.set_outgroup(outg_node)
     outg_node.delete()
@@ -470,15 +473,6 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
         muts_red = muts_red[muts_red.sum(axis=1) > 0]
     else:
         muts_red = muts
-
-    # if not (tree_file.endswith('.raxml.bestTree') \
-    #         or tree_file.endswith('.Mapped.raxml.mutationMapTree') \
-    #         or tree_file.endswith('_ml0.newick') \
-    #         or 'scite' in tree_file or 'cellphy' in tree_file):
-    #     true_red = call_data[1].drop(outg, axis=1)
-
-    #     FN = max(((true_red == 1) & (muts_red == 0)).mean().mean(), LAMBDA_MIN)
-    #     FP = max(((true_red == 0) & (muts_red == 1)).mean().mean(), LAMBDA_MIN)
 
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
@@ -914,8 +908,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
     if not isinstance(w_maxs, list):
         w_maxs = [w_maxs]
 
-    header_str = 'run\t'
-    model_str = f'{run}\t'
+    header_str = 'run'
+    model_str = f'{run}'
     for i, w_max in enumerate(sorted(w_maxs)):
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max, FN_fix, FP_fix)
         add_true_muts(tree, call_data[1])
@@ -928,18 +922,20 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
             get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
 
         if i == 0:
-            header_str += f'FN\tFP\t'
-            model_str += f'{FN:.4f}\t{FP:.6f}\t'
+            header_str += f'\tFN\tFP'
+            model_str += f'\t{FN:.4f}\t{FP:.6f}'
 
         weight_str = ",".join([str(j) for j in weights_norm[:,w_idx].round(3)])
-        header_str += '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
-        model_str += f'{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
+        header_str += '\t' + \
+            '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
+        model_str += f'\t{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
             f'H{int(p_val < 0.05)}\t{weight_str}'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
+
     # add_opt_muts(tree, Y, Y_opt)
-    # show_tree(tree)
+    # show_tree(tree , 'test_cellphy.pdf')
     # import pdb; pdb.set_trace()
 
 
@@ -960,7 +956,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         dataset = file_ids[0]
         filters = file_ids[1]
 
-    if driver_file:
+    if driver_file and plot_only:
         drivers = pd.read_csv(driver_file, sep='\t')
         drivers.set_index('SYMBOL', inplace=True)
 
@@ -993,8 +989,9 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
         if plot_only:
-            annotate_drivers(dataset, tree, drivers, annot)
-            tree_fig = out_file + f'_w{w_max:.0f}_mapped'
+            if driver_file:
+                annotate_drivers(dataset, tree, drivers, annot)
+            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
             show_tree(tree, tree_fig, w_idx)
             exit()
 
@@ -1026,7 +1023,7 @@ def annotate_drivers(dataset, tree, drivers, annot):
         for i, (chr, pos) in enumerate(node.muts_br[0]):
             try:
                 SNV = annot.loc[chr, pos]
-            except TypeError:
+            except (KeyError, TypeError):
                 continue
 
             gene = SNV['SYMBOL']
@@ -1062,7 +1059,7 @@ def annotate_drivers(dataset, tree, drivers, annot):
                     c_type = False
                     driver_str = '    ' + driver_str
                     driver_str += f' (cancer types: {",".join(c_types)})'
-            print(driver_str)
+            # print(driver_str)
 
             node.drivers.append((gene, c_type, node.muts_br[1][i]))
 

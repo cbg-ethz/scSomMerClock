@@ -13,7 +13,8 @@ def generate_pval_plot_bulk(args):
     df = pd.DataFrame(
         columns=['area_pVal', 's_Bayes', 'clones_Bayes', 'aff. cells', 'Amplifier'])
     for res_file in sorted(os.listdir(args.input)):
-        if not res_file.startswith('res_clock') or not 'bulk' in res_file:
+        if not res_file.startswith('res_clock') or not 'bulk' in res_file \
+                or '_ss_' in res_file:
             continue
         bulk_file = os.path.join(args.input, res_file)
         df_new = pd.read_csv(bulk_file, sep='\t', index_col='run')
@@ -29,15 +30,7 @@ def generate_pval_plot_bulk(args):
             continue
         df_new['Amplifier'] = ampl
 
-        print(res_file)
-        for cl, data in df_new.groupby('clones_Bayes'):
-            if ampl > 1:
-                data = data[data['aff. cells'] > 30]
-            print(f'\tC{cl:.0f}: n={data.shape[0]: >3}\t{data["s_Bayes"].mean():.4f}')
-
-        df = df.append(df_new, ignore_index=True)
-
-    cell_no = int(re.search('_bulk(\d+)_', bulk_file).group(1))
+        df = pd.concat([df, df_new], axis=0, ignore_index=True)
 
     ampl_vals = df['Amplifier'].unique()
     ampl_vals.sort()
@@ -46,25 +39,19 @@ def generate_pval_plot_bulk(args):
 
     single_plot = clone_sizes.size < 3 and ampl_vals.size == 1
 
-    if single_plot:
-        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
-        fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
-        axes = np.reshape(axes, (1, 1))
-        axes2 = np.reshape(axes2, (1, 1))
-    elif clone_sizes.size == 2:
-        fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=1,
-            figsize=(3, ampl_vals.size + 2))
-        fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=1,
-            figsize=(3, ampl_vals.size + 2))
-        axes = np.reshape(axes, (ampl_vals.size, 1))
-        axes2 = np.reshape(axes2, (ampl_vals.size, 1))
+    row_no = ampl_vals.size
+    if clone_sizes.size < 3:
+        col_no = 1
     else:
-        fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=clone_sizes.size,
-            figsize=(3 * clone_sizes.size, ampl_vals.size + 2))
-        fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=clone_sizes.size,
-            figsize=(3 * clone_sizes.size, ampl_vals.size + 2))
-        axes = np.reshape(axes, (ampl_vals.size, clone_sizes.size))
-        axes2 = np.reshape(axes2, (ampl_vals.size, clone_sizes.size))
+        col_no = clone_sizes.size
+
+    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(2 * col_no, row_no + 1))
+    fig2, axes2 = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(2 * col_no, row_no + 1))
+
+    axes = np.reshape(axes, (row_no, col_no))
+    axes2 = np.reshape(axes2, (row_no, col_no))
 
     for i, clone_size_max in enumerate(clone_sizes):
         if clone_size_max == 0:
@@ -88,16 +75,13 @@ def generate_pval_plot_bulk(args):
                 f'[{clone_size_min}, {clone_size_max}]!')
             continue
 
+        plot_neutralitytest(df_plot, axes[:, i], (i, col_no))
+        plot_mobster(df_plot, axes2[:, i], (i, col_no))
         if clone_sizes.size == 2:
             fig3 = plot_mobster_box(df_plot)
-            plot_neutralitytest(df_plot, axes[:, i], (i, 1))
-            plot_mobster(df_plot, axes2[:, i], (i, 1))
             break
-        else:
-            plot_neutralitytest(df_plot, axes[:, i], (i, clone_sizes.size))
-            plot_mobster(df_plot, axes2[:, i], (i, clone_sizes.size))
 
-        if not single_plot:
+        if col_no > 1:
             if clone_size_max == 0:
                 header = 'All data'
             else:
@@ -110,20 +94,15 @@ def generate_pval_plot_bulk(args):
                 xycoords='axes fraction', textcoords='offset points',
                 size='large', ha='center', va='baseline')
 
-    if single_plot:
-        fig.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
-        fig2.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.75)
-    else:
-        fig.subplots_adjust(left=0.2, right=0.85, bottom=0.15, top=0.95,
-            hspace=0.5, wspace=0.5)
-        fig2.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.85,
-            hspace=0.5, wspace=0.5)
+    fig.tight_layout()
+    fig2.tight_layout()
+    if clone_sizes.size == 2:
+        fig3.tight_layout()
 
     if args.output:
         fig.savefig(args.output + '_neutralitytest.png', dpi=300)
         fig2.savefig(args.output + '_mobster.png', dpi=300)
         if clone_sizes.size == 2:
-            fig3.subplots_adjust(left=0.15, right=0.95, bottom=0.15, top=0.85)
             fig3.savefig(args.output + '_mobster_box.png', dpi=300)
     else:
         plt.show()
@@ -166,7 +145,7 @@ def plot_neutralitytest(df, axes, col):
 
         ax.spines['top'].set_visible(False)
 
-        ax.annotate(f'n = {data.size:.0f}', xy=(0.95, 0.75), xytext=(0, 5),
+        ax.annotate(f'n = {data.size:.0f}', xy=(0.9, 0.825), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 ha='right', va='top', bbox=bbox_props)
 
@@ -185,7 +164,7 @@ def plot_neutralitytest(df, axes, col):
             if ampl == 1:
                 ax2.set_ylabel(f'\nClock')
             else:
-                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}')
+                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 
@@ -195,41 +174,62 @@ def plot_mobster_box(df):
 
     bar_vals = []
     for ampl, ampl_df in df.groupby('Amplifier'):
+        if ampl == 1:
+            ampl_n = ampl_df.shape[0]
+        else:
+            ampl_n = ampl_df.dropna().shape[0]
         for cl, cl_df in ampl_df.groupby('clones_Bayes'):
-            bar_vals.append([ampl, cl, cl_df.shape[0] / ampl_df.shape[0] * 100])
+            if cl == 0:
+                bar_vals.append([ampl, cl, 100])
+            else:
+                bar_vals.append([ampl, cl, cl_df.shape[0] / ampl_n * 100])
     bar_df = pd.DataFrame(bar_vals, columns=['Amplifier', 'clones_Bayes', 'sum'])
 
     sns.barplot(data=bar_df, y="Amplifier", x="sum", hue='clones_Bayes',
-        hue_order=[0, 1, 2], palette=colors, ax=ax2, dodge=True, alpha=.2,
+        hue_order=[0, 1], palette=colors, ax=ax2, dodge=False, alpha=.2,
         orient='h')
-    sns.stripplot(data=df, y="Amplifier", x="s_Bayes", hue='clones_Bayes',
-        hue_order=[0, 1, 2], palette=colors, ax=ax, dodge=True, linewidth=1,
-        jitter=0.25, alpha=.4, orient='h', size=2)
-    sns.boxplot(data=df, y="Amplifier", x="s_Bayes", hue='clones_Bayes',
-        hue_order=[0, 1, 2], palette=colors, ax=ax, fliersize=2, orient='h',
+    sns.stripplot(data=df[df['clones_Bayes'] > 0], y="Amplifier", x="s_Bayes",
+        color=colors['mobster'], ax=ax, dodge=True, linewidth=1,
+        jitter=0.25, alpha=.4, orient='h', size=5)
+    sns.boxplot(data=df[df['clones_Bayes'] > 0], y="Amplifier", x="s_Bayes",
+        color=colors['mobster'], ax=ax, fliersize=2, orient='h', showfliers = False,
         linewidth=1)
 
-    ax2.set_xticks(np.array([100/6]) * np.arange(-2, 7, 1))
-    ax2.set_xticklabels(['', '', 0, 16.7, 33.3, 50, 66.7, 83.3, 100])
+    # x_ticks = np.array([-2.5, 0, 2.5, 5, 7.5])
+    x_ticks = np.arange(-1, 4, 0.5)
+    ax.set_xlim((x_ticks.min(), x_ticks.max()))
+    ax.set_xticks(x_ticks)
+
+    neg_ticks = np.sum(x_ticks < 0)
+    pos_ticks = np.sum(x_ticks >= 0)
+
+    ax2_ticks = [100 / (pos_ticks - 1)] * np.arange(-neg_ticks, pos_ticks, 1)
+    ax2.set_xticks(ax2_ticks)
+    ax2.set_xticklabels([f'{i:.0f}%' if i >= 0 else '' for i in ax2_ticks])
+    ax2.set_xlim((ax2_ticks.min(), ax2_ticks.max()))
     ax2.grid(False)
-    ax.set_xlim((-5, 15))
 
     y_labels = []
     for i in sorted(df['Amplifier'].unique()):
         if i == 1:
             y_labels.append('Clock')
         else:
-            y_labels.append(f'{i: >2.0f}')
+            y_labels.append(f'{i: >2.0f}x')
 
     ax.set_ylabel('Amplifier')
     ax.set_yticklabels(y_labels)
     ax.set_xlabel('Fitness coefficient s')
     ax2.set_xlabel('Frequency')
 
-    handles, labels = ax.get_legend_handles_labels()
+    handles = []
+    labels = []
+    for i in [0, 1]:
+        handles.append(plt.Rectangle((0,0),1,1, color=colors[i]))
+        labels.append(i)
+
     ax2.get_legend().remove()
-    ax.legend(handles[:3], labels[:3], title='Clones', facecolor='white',
-        framealpha=1)
+    ax.legend(handles, labels, title='Clones', facecolor='white',
+        framealpha=1, loc='upper left')
 
     return fig
 
@@ -265,14 +265,14 @@ def plot_mobster(df, axes, col):
             palette=colors, log_scale=(False, False), legend=False, ax=ax,
         )
 
-        ax.set_xlim((-0.5, 15))
+        ax.set_xlim((-0.5, 4))
         # ax.set_ylim((0, 0.7))
         ax.set_yticks([0.25, 0.5])
 
         for cl, cl_data in data.groupby('clones_Bayes'):
             add_rugs(cl_data['s_Bayes'], offset=0, ax=ax, color=colors[cl])
             if cl > 0:
-                ax.axvline(cl_data['s_Bayes'].mean(), ls='--', color=colors[cl],
+                ax.axvline(cl_data['s_Bayes'].median(), ls='--', color=colors[cl],
                     alpha=0.9, lw=1)
 
         # ax.spines['right'].set_visible(False)
@@ -282,12 +282,12 @@ def plot_mobster(df, axes, col):
             ann_text = f'n = {data.shape[0]} / {runs}'
         else:
             ann_text = f'n = {data.shape[0]}'
-        ax.annotate(ann_text, xy=(0.95, 0.75), xytext=(0, 5),
+        ax.annotate(ann_text, xy=(0.9, 0.825), xytext=(0, 5),
                 xycoords='axes fraction', textcoords='offset points',
                 ha='right', va='top', bbox=bbox_props)
 
         if col[0] == np.floor((col[1] - 1) / 2) and i == len(ampl_vals) - 1:
-            ax.set_xlabel('Selective advantage s')
+            ax.set_xlabel('Fitness coefficient s')
         else:
             ax.set_xlabel('')
 
@@ -310,12 +310,12 @@ def parse_args():
     parser.add_argument('-t', '--total_cells', type=int, default=100,
         help='Number of simulated cells. Default = 100')
     parser.add_argument('-c', '--clone_size', nargs='+',
-        default = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        default = [10, 90],
         #default = [0, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95],
-        type=float, help='Amplified clone size subsets. Default = [0, 10, 20, 30, 40, 50].')
+        type=float, help='Amplified clone size subsets. Default = [10, 90].')
     parser.add_argument('-a', '--amplifier', nargs='+', type=float,
         default=[1, 2, 5, 10, 20],
-        help='Amplifier values to plot. Clock = 1. Default = [1, 5, 10, 20].')
+        help='Amplifier values to plot. Clock = 1. Default = [1, 2, 5, 10, 20].')
     args = parser.parse_args()
     return args
 

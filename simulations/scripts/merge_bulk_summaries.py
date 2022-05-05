@@ -21,15 +21,18 @@ def merge_bulk_summaries(in_files, out_file):
                 line = line_raw.strip()
                 if line.startswith('mu'):
                     header = re.split('\s+', line)
-                    if not 'cluster' in header:
+                    if len(header) == 2: # only mu & exponent: no clone
                         df.loc[i, 's_Bayes'] = 0
                         df.loc[i, 'clones_Bayes'] = 0
-                    if 's' in header:
+                    elif 's' in header:
                         s_idx = header.index('s') + 1
-                        freq1 = float(re.split('\s+', log_lines[j + 1])[5])
                         s1 = float(re.split('\s+', log_lines[j + 1])[s_idx])
-                        if log_lines[j + 2].startswith('2'):
-                            freq2 = float(re.split('\s+', log_lines[j + 2])[5])
+                        if log_lines[j + 2].strip().startswith('2'):
+                            freq_idx = header.index('subclonefrequency') + 1
+                            freq1 = float(
+                                re.split('\s+', log_lines[j + 1])[freq_idx])
+                            freq2 = float(
+                                re.split('\s+', log_lines[j + 2])[freq_idx])
                             s2 = float(re.split('\s+', log_lines[j + 2])[s_idx])
                             df.loc[i, 's_Bayes'] = (s1 * freq1 + s2 * freq2) \
                                 / (freq1 + freq2)

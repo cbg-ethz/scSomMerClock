@@ -43,12 +43,15 @@ def postprocess_vcf(vcf_file, out_file, minDP=1, minGQ=0, s_minDP=5,
                     header += '##FILTER=<ID=singleton,Description="SNP ' \
                         'is singleton">\n##FILTER=<ID=wildtype,Description="' \
                         'Only 0|0 called">\n##droppedRows=0\n'
-                    sample_no = len(line.strip().split('\t')[9:])
-                    if re.search('_bulk(\d+)x_', vcf_file):
-                        sample_no -= 1
+                    samples = line.strip().split('\t')[9:]
+                    sample_no = len(samples)
+                    outg_no = samples.count('healthycell') + samples.count('outgcell')
+
+                    if outg_no > 1:
+                        sample_no -= outg_no - 1
                         # Remove doubled outgrp from sample list
                         line = '\t'.join(
-                            line.split('\t')[:-2] + [line.split('\t')[-1]])
+                            line.split('\t')[:-outg_no] + ['outgcell'])
                     ADOs = np.zeros((2, sample_no), dtype=int)
                     header += '##FORMAT=<ID=GQ,Number=1,Type=Integer,' \
                         'Description="Genotype Quality">\n'

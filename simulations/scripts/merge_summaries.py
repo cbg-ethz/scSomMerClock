@@ -16,6 +16,7 @@ def merge_summaries(in_files, out_file):
 
     for i, in_file in enumerate(sorted(in_files)):
         new_df = pd.read_csv(in_file, sep='\t')
+
         if 'subsample_size' in new_df.columns:
             new_df.set_index(['run', 'subsample_size', 'subsample_rep'],
                 inplace=True)
@@ -54,7 +55,6 @@ def merge_summaries(in_files, out_file):
                             for rep_no, _ in subs_data.groupby('subsample_rep'):
                                 vcf_file = os.path.join(sim_dir, 'vcf_dir',
                                     f'vcf.{run_no:0>4}.ss{subs}.{rep_no}.gz')
-
                                 cells_sampled = get_samples(vcf_file)
                                 ss_id = (run_no, subs, rep_no)
                                 df.loc[ss_id, 'aff. cells sampled'] \
@@ -64,12 +64,14 @@ def merge_summaries(in_files, out_file):
         df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
 
     snv_cols = [i for i in df.columns if i.startswith('SNVs_')]
+    weight_cols = [i for i in df.columns if i.startswith('weights_')]
     dof_cols = [i for i in df.columns if i.startswith('dof_')]
     H_cols = [i for i in df.columns \
         if i.startswith('H0_') or i.startswith('H1_')]
 
     df['dof'] = df[dof_cols[0]]
-    df.drop(snv_cols + H_cols + dof_cols, inplace=True, axis=1)
+    df.drop(snv_cols + weight_cols + H_cols + dof_cols, inplace=True, axis=1)
+
     if not clock:
         if subsampling:
             df = df[['aff. cells', 'aff. cells sampled', 'dof'] \

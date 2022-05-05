@@ -58,7 +58,7 @@ library(mobster)
 fit = mobster_fit(
     data,
     maxIter = argv$maxIter,
-    K = 1,
+    K = 1:2,
 )
 if (argv$bootstrap) {
     bootstrap_results = mobster_bootstrap(

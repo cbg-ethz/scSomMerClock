@@ -84,8 +84,8 @@ def parse_args():
         help='Size(s) of subsample(s).')
     parser.add_argument('-r', '--reps', type=int, default=1,
         help='Number of replicates.')
-    parser.add_argument('-s', '--skip', nargs='+', type=int, default=[-1],
-        help='Samples to skip. Default = [-1] (CellCoal user tree artefact).')
+    parser.add_argument('-s', '--skip', nargs='+', type=int,
+        help='Samples to skip. Default = [] (CellCoal user tree artefact).')
     parser.add_argument('-outg', '--outgroup', type=int, default=-1,
         help='Outgroup sample number AFTER skipping. Default = -1')
     args = parser.parse_args()
@@ -99,19 +99,20 @@ if __name__ == '__main__':
             prefix=snakemake.params.prefix,
             subsamples=snakemake.params.subsamples,
             reps=snakemake.params.reps,
-            skip=[-1],
             outg_id=-1
         )
     else:
         args = parse_args()
         if not args.prefix:
             args.prefix = args.input
+        if not args.skip:
+            args.skip = []
 
         subsample_vcf(
             vcf_file=args.input,
             prefix=args.prefix,
             subsamples=rgs.no,
             reps=args.reps,
+            outg_id=args.outgroup,
             skip=args.skip,
-            outg_id=args.outgroup
         )

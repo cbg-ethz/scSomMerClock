@@ -270,7 +270,7 @@ def parse_args():
         help='ADO values to plot (columns). Default = all.')
     parser.add_argument('-amp', '--amplifier', nargs='+', type=float,
         default=[1, 2, 5],
-        help='Amplifier values to plot. Clock = 1. Default = [1, 5, 10].')
+        help='Amplifier values to plot. Clock = 1. Default = [1, 2, 5].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
         default=['cellcoal', 'scite', 'cellphy', 'poissonDisp', 'PAUP*'],
