@@ -242,6 +242,11 @@ def compress_files(args):
         else:
             data_dir = data_set
 
+        maf_file = os.path.join(args.out_dir, f'{data_set}.maf')
+        if os.path.exists(maf_file):
+            shutil.copyfile(maf_file,
+                os.path.join(args.compress, f'{data_set}.maf'))
+
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
@@ -291,6 +296,8 @@ def compress_files(args):
     tar = tarfile.open(args.compress + '.tar.gz', 'w:gz')
     tar.add(args.compress)
     tar.close()
+    # Remove uncompressed folder
+    shutil.rmtree(args.compress)
 
 
 def parse_args():
