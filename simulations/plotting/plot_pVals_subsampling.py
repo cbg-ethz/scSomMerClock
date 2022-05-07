@@ -55,11 +55,11 @@ def generate_pval_plot_ss(args):
                     continue
 
                 new_df = df_summary[rel_cols + [col]]
-                new_df.loc[:,'method'] = tree
-                new_df.loc[:,'amplifier'] = ampl
-                new_df.rename({col: 'P-value', 'subsample_size': 'ss_size',
+                new_df.insert(0, 'method', tree)
+                new_df.insert(0, 'amplifier', ampl)
+                new_df = new_df.rename({col: 'P-value', 'subsample_size': 'ss_size',
                     'subsample_rep': 'ss_rep', 'aff. cells sampled': 'ss_aff'},
-                    axis=1, inplace=True)
+                    axis=1)
 
                 df = df.append(new_df, ignore_index=True)
 
@@ -80,7 +80,7 @@ def generate_pval_plot_ss(args):
         if ampl == 1:
             row_title = f'Clock'
         else:
-            row_title = f'\nAmplifier:\n{ampl:.0f}x'
+            row_title = f'Amplifier:\n{ampl:.0f}x'
 
         df_plot = df[(df['amplifier'] == ampl)]
         plot_pVal_dist(df_plot, subsamples, axes[i], (i, row_no), row_title)
@@ -126,7 +126,7 @@ def plot_pVal_dist(df, subsamples, axes, row_no, row_title=''):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
 
-        ax.annotate(f'n = {data.shape[0]}', xy=(0.9, 0.825),
+        ax.annotate(f'n = {data["method"].value_counts().min()}', xy=(0.9, 0.825),
             xytext=(0, 5), xycoords='axes fraction', textcoords='offset points',
             ha='right', va='top', bbox=bbox_props)
 

@@ -185,29 +185,32 @@ def plot_mobster_box(df):
                 bar_vals.append([ampl, cl, cl_df.shape[0] / ampl_n * 100])
     bar_df = pd.DataFrame(bar_vals, columns=['Amplifier', 'clones_Bayes', 'sum'])
 
-    sns.barplot(data=bar_df, y="Amplifier", x="sum", hue='clones_Bayes',
-        hue_order=[0, 1], palette=colors, ax=ax2, dodge=False, alpha=.2,
+    ax_box = ax2
+    ax_bar = ax
+    sns.barplot(data=bar_df, y='Amplifier', x='sum', hue='clones_Bayes',
+        hue_order=[0, 1], palette=colors, ax=ax_bar, dodge=False, alpha=.2,
         orient='h')
-    sns.stripplot(data=df[df['clones_Bayes'] > 0], y="Amplifier", x="s_Bayes",
-        color=colors['mobster'], ax=ax, dodge=True, linewidth=1,
-        jitter=0.25, alpha=.4, orient='h', size=5)
-    sns.boxplot(data=df[df['clones_Bayes'] > 0], y="Amplifier", x="s_Bayes",
-        color=colors['mobster'], ax=ax, fliersize=2, orient='h', showfliers = False,
+    sns.boxplot(data=df[df['clones_Bayes'] > 0], y='Amplifier', x='s_Bayes',
+        color=colors['mobster'], ax=ax_box, fliersize=2, orient='h', showfliers = False,
         linewidth=1)
+    sns.stripplot(data=df[df['clones_Bayes'] > 0], y='Amplifier', x='s_Bayes',
+        color=colors['mobster'], ax=ax_box, dodge=True, linewidth=1,
+        jitter=0.25, alpha=.2, orient='h', size=4)
 
     # x_ticks = np.array([-2.5, 0, 2.5, 5, 7.5])
-    x_ticks = np.arange(-1, 4, 0.5)
-    ax.set_xlim((x_ticks.min(), x_ticks.max()))
-    ax.set_xticks(x_ticks)
+    box_ticks = np.arange(-1, 3.01, 1)
+    ax_box.set_xlim((box_ticks.min(), box_ticks.max()))
+    ax_box.set_xticks(box_ticks)
+    ax.set_xticklabels(box_ticks)
 
-    neg_ticks = np.sum(x_ticks < 0)
-    pos_ticks = np.sum(x_ticks >= 0)
+    neg_ticks = np.sum(box_ticks < 0)
+    pos_ticks = np.sum(box_ticks >= 0)
 
-    ax2_ticks = [100 / (pos_ticks - 1)] * np.arange(-neg_ticks, pos_ticks, 1)
-    ax2.set_xticks(ax2_ticks)
-    ax2.set_xticklabels([f'{i:.0f}%' if i >= 0 else '' for i in ax2_ticks])
-    ax2.set_xlim((ax2_ticks.min(), ax2_ticks.max()))
-    ax2.grid(False)
+    bar_ticks = [100 / (pos_ticks - 1)] * np.arange(-neg_ticks, pos_ticks, 1)
+    ax_bar.set_xticks(bar_ticks)
+    ax2.set_xticklabels([f'{i:.0f}%' if i >= 0 else '' for i in bar_ticks])
+    ax_bar.set_xlim((bar_ticks.min(), bar_ticks.max()))
+    ax_bar.grid(False)
 
     y_labels = []
     for i in sorted(df['Amplifier'].unique()):
@@ -216,8 +219,8 @@ def plot_mobster_box(df):
         else:
             y_labels.append(f'{i: >2.0f}x')
 
-    ax.set_ylabel('Amplifier')
-    ax.set_yticklabels(y_labels)
+    ax_box.set_ylabel('Amplifier')
+    ax_box.set_yticklabels(y_labels)
     ax.set_xlabel('Fitness coefficient s')
     ax2.set_xlabel('Frequency')
 
@@ -225,10 +228,10 @@ def plot_mobster_box(df):
     labels = []
     for i in [0, 1]:
         handles.append(plt.Rectangle((0,0),1,1, color=colors[i]))
-        labels.append(i)
+        labels.append(i+1)
 
-    ax2.get_legend().remove()
-    ax.legend(handles, labels, title='Clones', facecolor='white',
+    ax_bar.get_legend().remove()
+    ax_box.legend(handles, labels, title='Clones', facecolor='white',
         framealpha=1, loc='upper left')
 
     return fig
@@ -265,7 +268,7 @@ def plot_mobster(df, axes, col):
             palette=colors, log_scale=(False, False), legend=False, ax=ax,
         )
 
-        ax.set_xlim((-0.5, 4))
+        ax.set_xlim((-0.5, 3))
         # ax.set_ylim((0, 0.7))
         ax.set_yticks([0.25, 0.5])
 
@@ -298,7 +301,10 @@ def plot_mobster(df, axes, col):
 
         if col[0] == col[1] - 1:
             ax2 = ax.twinx()
-            ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+            if ampl == 1:
+                ax2.set_ylabel(f'\nClock')
+            else:
+                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 

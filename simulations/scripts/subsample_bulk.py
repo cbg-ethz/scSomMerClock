@@ -111,7 +111,7 @@ if __name__ == '__main__':
         subsample_vcf(
             vcf_file=args.input,
             prefix=args.prefix,
-            subsamples=rgs.no,
+            subsamples=args.no,
             reps=args.reps,
             outg_id=args.outgroup,
             skip=args.skip,

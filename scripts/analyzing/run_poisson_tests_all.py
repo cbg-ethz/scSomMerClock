@@ -11,6 +11,9 @@ import tarfile
 
 
 MODULE_STR = 'module load ete;'
+DRIVER_FILE = '../data/resources/2020-02-02_IntOGen-Drivers-20200213/Compendium_Cancer_Genes.tsv'
+DATA_DIRS = ['H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
+    'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
 
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
@@ -18,7 +21,7 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
         cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
             f"--wrap '{module_str} {cmd_raw}'"
     else:
-        cmd = f'{module_str} {cmd_raw}'
+        cmd = f'{cmd_raw}'
 
     print(f'Running:\n{cmd}')
     subp = subprocess.Popen(cmd,
@@ -32,17 +35,20 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     print()
 
 
-
 def run_tests(vcf_files, args):
-    if args.tests == 'both' or args.tests == 'dispersion':
+    if 'dispersion' in args.tests:
         run_poisson_disp(vcf_files, args)
-    if args.tests == 'both' or args.tests == 'tree':
+    if 'poissonTree' in args.tests:
         run_poissonTree(vcf_files, args)
 
 
 def run_poisson_disp(vcf_files, args):
     out_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
-    if not args.replace and os.path.exists(out_file):
+    if not os.path.exists(out_file) and args.check:
+        print(f'!Missing! Poisson Dispersion file: {out_file}')
+        return
+
+    if os.path.exists(out_file) and not args.replace:
         return
     cmd = f'python {args.exe_disp} {" ".join(vcf_files)} -o {out_file} -b'
     run_bash(cmd, args.local, '')
@@ -55,101 +61,76 @@ def run_poissonTree(vcf_files, args):
 
 
 def run_poissonTree_single(vcf_file, tree, args):
-    path_strs = vcf_file.split(os.path.sep)
-    try:
-        clock_dir_no = path_strs.index('ClockTest')
-    except ValueError:
-        dataset = 'unknown'
-        subset = 'unknown'
-        filters = 'unknown'
+    file_ids = os.path.basename(vcf_file).replace('.vcf.gz', '').split('_')
+
+    dataset = file_ids[0]
+
+    if dataset == 'S21':
+        dataset = '_'.join(file_ids[:2])
+        subset = file_ids[2]
+        filters = file_ids[3]
+        if filters == 'all':
+            return
     else:
-        subset = path_strs[clock_dir_no + 1]
-        file_ids = path_strs[-1].split('.')
+        subset = file_ids[1]
+        filters = file_ids[2]
+
+    if dataset == 'Wu61':
         dataset = file_ids[0]
-        filters = file_ids[1]
+        subset = '_'.join(file_ids[1:-1])
+        filters = file_ids[-1]
 
-    w_max = np.arange(100, 1001, 100)
-    w_max_str = ' '.join([str(i) for i in w_max])
+    if dataset not in args.dataset:
+        return
 
-    out_file = os.path.join(args.out_dir,
-        f'Poisson_tree_{tree}_{dataset}_{subset}_{filters}.tsv')
+    out_base = f'{dataset}_{subset}_{filters}_{tree}'
+    tree_file = os.path.join(args.input,
+        f'{dataset}_{subset}_{filters}.{tree}.newick')
 
+    # Run poisson tree test
+    out_file = os.path.join(args.out_dir, f'{out_base}.poissonTree.tsv')
     if os.path.exists(out_file) and not args.replace:
-        return
-
-    if tree == 'cellphy':
-        tree_file = vcf_file + '.raxml.bestTree'
-    elif tree == 'scite':
-        vcf_dir = os.path.dirname(vcf_file)
-        tree_file = os.path.join(vcf_dir, 'scite_dir',
-            f'{dataset}.{filters}_ml0.newick')
+        pass
     else:
-        raise RuntimeError(f'Unknown tree file: {tree}')
+        if args.check:
+            print(f'!Missing! Poisson tree file: {out_file}')
+            return
 
-    if not os.path.exists(tree_file):
-        print(f'!WARNING! Missing {tree: >7} tree file: {tree_file}')
-        return
+        if not os.path.exists(tree_file):
+            print(f'!WARNING! Missing file: {tree_file}')
+            return
+        cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} -b'
+        run_bash(cmd, args.local)
 
-    cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} ' \
-        f'-w {w_max_str} -b'
+    # Plot phylogenic tree
+    fig_file = os.path.join(args.out_dir,
+        f'{out_base}.w{args.plotting_wmax:.0f}_mapped.pdf')
+    if os.path.exists(fig_file) and not args.replace:
+        pass
+    else:
+        if args.check:
+            print(f'!Missing! Phylogenetic tree file: {fig_file}')
+            return
 
-    run_bash(cmd, args.local)
-
-
-def get_plot_data(vcf_files, args):
-    phyl_dir = os.path.join(args.out_dir, 'phylogeny')
-    if not os.path.exists(phyl_dir):
-        os.makedirs(phyl_dir)
-
-    for vcf_file in vcf_files:
-        path_strs = vcf_file.split(os.path.sep)
-        clock_dir_no = path_strs.index('ClockTest')
-
-        file_ids = path_strs[-1].split('.')
-        dataset = file_ids[0]
-        filters = file_ids[1]
-        subset = path_strs[clock_dir_no + 1]
-
-        if 'all' in subset and not dataset.startswith(('Lo-P', 'S21_P1')):
-            continue
-
-        for tree in ['cellphy', 'scite']:
-            if tree == 'cellphy':
-                tree_file = vcf_file + '.raxml.bestTree'
-                log_file = vcf_file + '.raxml.log'
-            else:
-                tree_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
-                    f'{dataset}.{filters}_ml0.newick')
-                log_file = os.path.join(os.path.dirname(vcf_file), 'scite_dir',
-                    f'{dataset}.{filters}.log')
-
-            base_name = f'{dataset}_{subset}_{filters.replace("_outg", "")}_{tree}'
-
-            if not os.path.exists(tree_file):
-                print(f'\tMissing tree file: {tree_file}')
-            else:
-                shutil.copyfile(tree_file,
-                    os.path.join(phyl_dir, f'{base_name}.newick'))
-                shutil.copyfile(log_file,
-                    os.path.join(phyl_dir, f'{base_name}.log'))
-
-                shutil.copyfile(vcf_file,
-                    os.path.join(phyl_dir, f'{base_name}.vcf.gz'))
-            continue
-
-    tar = tarfile.open(phyl_dir + '.tar.gz', 'w:gz')
-    tar.add(phyl_dir)
-    tar.close()
+        if not os.path.exists(tree_file):
+            print(f'!WARNING! Missing file: {tree_file}')
+            return
+        prefix = os.path.join(args.out_dir, out_base)
+        cmd_plt = f'python {args.exe_tree} {vcf_file} {tree_file} -o {prefix} ' \
+            f'-b --plotting --w_max {args.plotting_wmax}'
+        if args.drivers:
+            cmd_plt += f' --drivers {args.drivers}'
+        run_bash(cmd_plt, args.local)
 
 
 def merge_datasets(vcf_files, args):
-    if args.tests == 'both' or args.tests == 'dispersion':
+    if 'dispersion' in args.tests:
         disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
     else:
         disp_file = None
 
     tree_files = []
-    if args.tests == 'both' or args.tests == 'tree':
+    if 'poissonTree' in args.tests:
         tree_files.extend(get_poisson_tree_files(vcf_files))
 
     if disp_file:
@@ -279,24 +260,35 @@ def get_summary_files(vcf_files):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=str,  help='vcf master file')
-    parser.add_argument('-o', '--out_dir', type=str,
-        default='poisson_tests_all', help='Output file.')
-    parser.add_argument('-m', '--mode', type=str,
-        choices=['run', 'merge', 'compress', 'plot_data'],
-        default='run', help='Which task to do. Default = run.')
+    parser.add_argument('input', type=str,  help='Input directory')
+    parser.add_argument('-o', '--out_dir', type=str, default='',
+        help='Output directory. Default = <INPUT>/poissonTests_all')
+    parser.add_argument('-m', '--mode', type=str, default='run',
+        choices=['run', 'merge', 'compress'],
+        help='Which task to do. Default = run.')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
     parser.add_argument('-ed', '--exe_disp', type=str,
         default='simulations/scripts/get_poisson_LRT.py',
         help='Poisson Dispersion exe.')
-    parser.add_argument('-t', '--tests', choices=['both', 'tree', 'dispersion'],
-        default='both', help='Which tests to perform.')
+    parser.add_argument('-dr', '--drivers', type=str,
+        default=DRIVER_FILE,
+        help=f'Path to IntOGen driver file. Default = {DRIVER_FILE}.')
+    parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=500,
+        help='W_max value used for coloring braches in Phylogentic tree. ' \
+            'Default = 500.')
+    parser.add_argument('-t', '--tests', default=['poissonTree', 'dispersion'],
+        choices=['poissonTree', 'dispersion'], help='Tests to perform.')
+    parser.add_argument('-da', '--dataset', type=str, nargs='+',
+        choices=DATA_DIRS, default=DATA_DIRS,
+        help='Datasets to process. Default = all.')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
+    parser.add_argument('-c', '--check', action='store_true',
+        help='Check only if files exist, do not run anything.')
     args = parser.parse_args()
     return args
 
@@ -304,8 +296,14 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    with open(args.input, 'r') as f:
-        vcf_files = f.read().strip().split('\n')
+    vcf_files = []
+    for file in sorted(os.listdir(args.input)):
+        if not file.endswith(('.vcf.gz', '.vcf')):
+            continue
+        vcf_files.append(os.path.join(args.input, file))
+
+    if not args.out_dir:
+        args.out_dir = os.path.join(args.input, 'poissonTests_all')
 
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
@@ -314,7 +312,5 @@ if __name__ == '__main__':
         run_tests(vcf_files, args)
     elif args.mode == 'merge':
         merge_datasets(vcf_files, args)
-    elif args.mode == 'plot_data':
-        get_plot_data(vcf_files, args)
     else:
         compress_results(vcf_files, args)
