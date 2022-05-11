@@ -13,14 +13,14 @@ BASE_DIR = '/home/uvi/be/nbo/data/data/'
 
 
 DATA_DIRS = {
-    'H65': ['all', 'cancer'],
+    'H65': ['all'],
     'Li55': ['all', 'cancer', 'normal'],
     'Lo-P1': ['all'],
     'Lo-P2': ['all'],
     'Lo-P3': ['all'],
-    'Ni8': ['all', 'cancer'],
+    'Ni8': ['all'],
     'S21_P1': ['all'],
-    'S21_P2': ['all', 'cancer'],
+    'S21_P2': ['all'],
     'W32': ['all', 'aneuploid', 'haploid', 'normal'],
     'W55': ['all', 'cancer', 'normal'],
     'Wu61': ['all', 'cancer_C', 'cancer_CA', 'normal', 'polyps'],
@@ -28,7 +28,7 @@ DATA_DIRS = {
     'X25': ['all', 'cancer']
 }
 STR_PREF = ['Ni8', 'H65', 'W32']
-DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
+DATA_FILTERS = ['all', '33nanFilter', '50nanFilter', '99nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
@@ -98,7 +98,7 @@ def run_inference(args):
                 os.makedirs(vcf_dir)
             # Iterate nan filters
             for data_filter in DATA_FILTERS:
-                vcf_raw_name = f'{data_set}.{data_filter}.vcf'
+                vcf_raw_name = f'{data_set}.{data_filter}.vcf.gz'
                 vcf_raw_file = os.path.join(vcf_dir, vcf_raw_name)
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
@@ -128,13 +128,20 @@ def run_inference(args):
                 # Copy file from monicas dir
                 if sub_dir == 'all':
                     monica_file = os.path.join(MONICA_DIR, f'{data_set}.vcf')
+                    samples_file = os.path.join(vcf_dir, 'samples.txt')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
-                            shutil.copyfile(monica_file, vcf_raw_file)
+                            # Copy and filter cells that did not pass QC
+                            cp_cmd = f'bcftools view --samples-file {samples_file} ' \
+                                f'{monica_file} -O z -o {vcf_raw_name}'
+                            run_bash(cp_cmd, False)
+
+                            # Add wild type column
                             wt_col_cmd = f'python {WT_col_script} -i {vcf_raw_file}'
                             run_bash(wt_col_cmd, False)
 
+                            # Zip and tabify
                             unzip_file = vcf_file.replace('.gz', '')
                             zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file} ' \
                                 f'&& chmod 755 {vcf_file}'

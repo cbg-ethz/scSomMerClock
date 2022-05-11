@@ -122,6 +122,28 @@ def run_poissonTree_single(vcf_file, tree, args):
             cmd_plt += f' --drivers {args.drivers}'
         run_bash(cmd_plt, args.local)
 
+    # Generate mutation-branch mapping file
+    mapping_dir = os.path.join(args.out_dir, 'Mappings')
+    if not os.path.exists(mapping_dir):
+        os.mkdir(mapping_dir)
+    map_file = os.path.join(mapping_dir,
+        f'{out_base}.w{args.plotting_wmax:.0f}_branchMuts.tsv')
+    if os.path.exists(map_file) and not args.replace:
+        pass
+    else:
+        if args.check:
+            print(f'!Missing! Branch-mutation mapping file: {map_file}')
+            return
+
+        if not os.path.exists(tree_file):
+            print(f'!WARNING! Missing file: {tree_file}')
+            return
+        prefix = os.path.join(args.out_dir, out_base)
+        cmd_map = f'python {args.exe_tree} {vcf_file} {tree_file} -b ' \
+            f'--w_max {args.plotting_wmax} -mbm {map_file}'
+        run_bash(cmd_map, args.local)
+
+
 
 def merge_datasets(vcf_files, args):
     if 'dispersion' in args.tests:
