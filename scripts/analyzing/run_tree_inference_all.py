@@ -116,12 +116,12 @@ def run_inference(args):
                 # Copy file from monicas dir
                 if sub_dir == 'all':
                     in_file = os.path.join(args.in_dir, f'{data_set}.vcf')
-                    samples_file = os.path.join(vcf_dir, 'samples.txt')
+                    sample_file = os.path.join(vcf_dir, 'samples.txt')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
                             # Copy and filter cells that did not pass QC
-                            cp_cmd = f'bcftools view --samples-file {samples_file} ' \
+                            cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                                 f'{in_file} -O z -o {vcf_raw_file}'
                             run_bash(cp_cmd, False)
 
