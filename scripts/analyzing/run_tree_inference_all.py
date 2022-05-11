@@ -120,10 +120,11 @@ def run_inference(args):
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
-                            # Compress and index
-                            idx_cmd = f'bgzip -f {infile} && tabix {in_file}.gz' \
-                                f' && chmod 755 {in_file}.gz'
-                            run_bash(idx_cmd, False)
+                            # Compress and index if not done
+                            if not os.path.exists(in_file + '.gz'):
+                                idx_cmd = f'bgzip -f {infile} && tabix {in_file}.gz' \
+                                    f' && chmod 755 {in_file}.gz'
+                                run_bash(idx_cmd, False)
                             # Copy and filter cells that did not pass QC
                             cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                                 f'{in_file}.gz -O z -o {vcf_raw_file}'
