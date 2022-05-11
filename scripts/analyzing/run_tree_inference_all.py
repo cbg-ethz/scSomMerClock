@@ -122,7 +122,7 @@ def run_inference(args):
                         if not os.path.exists(vcf_file) or args.replace:
                             # Compress and index if not done
                             if not os.path.exists(in_file + '.gz'):
-                                idx_cmd = f'bgzip -f {infile} && tabix {in_file}.gz' \
+                                idx_cmd = f'bgzip -f {in_file} && tabix {in_file}.gz' \
                                     f' && chmod 755 {in_file}.gz'
                                 run_bash(idx_cmd, False)
                             # Copy and filter cells that did not pass QC
