@@ -9,8 +9,6 @@ import tarfile
 
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
 MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
-BASE_DIR = '/home/uvi/be/nbo/data/data/'
-
 
 DATA_DIRS = {
     'H65': ['all'],
@@ -27,7 +25,6 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-STR_PREF = ['Ni8', 'H65', 'W32']
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter', '99nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
@@ -42,7 +39,6 @@ cellphy_time = 1440
 cellphy_mem = 3
 
 KEEP_GOING = False
-CLOCK_DIR = ''
 
 SLURM=True
 
@@ -82,20 +78,12 @@ def run_inference(args):
         if data_set not in args.dataset:
             continue
 
-        if data_set in STR_PREF:
-            data_dir = f'{data_set}_Monica'
-        else:
-            data_dir = data_set
-
         # Iterate sub sets
         for sub_dir in sub_dirs:
-            if args.out_dir:
-                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
-            else:
-                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
-
+            vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
             if not os.path.exists(vcf_dir):
                 os.makedirs(vcf_dir)
+
             # Iterate nan filters
             for data_filter in DATA_FILTERS:
                 vcf_raw_name = f'{data_set}.{data_filter}.vcf.gz'
@@ -127,14 +115,14 @@ def run_inference(args):
 
                 # Copy file from monicas dir
                 if sub_dir == 'all':
-                    monica_file = os.path.join(MONICA_DIR, f'{data_set}.vcf')
+                    in_file = os.path.join(args.in_dir, f'{data_set}.vcf')
                     samples_file = os.path.join(vcf_dir, 'samples.txt')
                     # Zip, add WT column, and index
                     if data_filter == 'all':
                         if not os.path.exists(vcf_file) or args.replace:
                             # Copy and filter cells that did not pass QC
                             cp_cmd = f'bcftools view --samples-file {samples_file} ' \
-                                f'{monica_file} -O z -o {vcf_raw_name}'
+                                f'{in_file} -O z -o {vcf_raw_file}'
                             run_bash(cp_cmd, False)
 
                             # Add wild type column
@@ -161,15 +149,8 @@ def run_inference(args):
                 # Copy file from 'all' dir
                 else:
                     if not os.path.exists(vcf_file) or args.replace:
-                        if args.out_dir:
-                            base_file = os.path.join(args.out_dir, data_set,
+                        base_file = os.path.join(args.out_dir, data_set,
                                 'all', vcf_name)
-                        else:
-                            base_file = os.path.join(BASE_DIR, data_dir,
-                                CLOCK_DIR, 'all', vcf_name)
-                        sample_file = os.path.join(BASE_DIR, data_dir,
-                            'ClockTest', sub_dir, 'samples.txt')
-
                         cp_cmd = f'bcftools view --samples-file {sample_file} ' \
                             f'{base_file} | bcftools filter -i ' \
                             f'\'N_PASS(GT="alt") != 0\' -O z -o {vcf_file} - ' \
@@ -214,19 +195,11 @@ def print_masterlist(args):
         if data_set not in args.dataset:
             continue
 
-        if data_set in STR_PREF:
-            data_dir = f'{data_set}_Monica'
-        else:
-            data_dir = data_set
-
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
 
-            if args.out_dir:
-                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
-            else:
-                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+            vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
 
             for data_filter in DATA_FILTERS:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
@@ -244,11 +217,6 @@ def compress_files(args):
         if data_set not in args.dataset:
             continue
 
-        if data_set in STR_PREF:
-            data_dir = f'{data_set}_Monica'
-        else:
-            data_dir = data_set
-
         maf_file = os.path.join(args.out_dir, f'{data_set}.maf')
         if os.path.exists(maf_file):
             shutil.copyfile(maf_file,
@@ -258,10 +226,7 @@ def compress_files(args):
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
 
-            if args.out_dir:
-                vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
-            else:
-                vcf_dir = os.path.join(BASE_DIR, data_dir, CLOCK_DIR, sub_dir)
+            vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
 
             for data_filter in DATA_FILTERS:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
@@ -309,6 +274,8 @@ def compress_files(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--in_dir', type=str, default=MONICA_DIR,
+        help=f'Input directory. Default = {MONICA_DIR}.')
     parser.add_argument('-l', '--local', action='store_true',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
@@ -322,8 +289,6 @@ def parse_args():
         help='Clock directory name.')
     parser.add_argument('-f', '--files_only', action='store_true',
         help='Create only subset files, do not run tree inference.')
-    parser.add_argument('-cd', '--clock_dir', type=str, default='ClockTest',
-        help='Clock directory name.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-ma', '--master', default='', type=str,
@@ -344,7 +309,10 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     KEEP_GOING = args.keep_going
-    CLOCK_DIR = args.clock_dir
+
+    if not args.out_dir:
+        args.out_dir = args.in_dir
+
     if args.lsf:
         SLURM = False
 
