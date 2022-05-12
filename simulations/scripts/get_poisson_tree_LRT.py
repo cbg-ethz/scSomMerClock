@@ -20,6 +20,7 @@ from ete3.parser.newick import NewickError
 LAMBDA_MIN = 1e-6
 log_LAMBDA_MIN = -100
 MUT = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
+MUT_REV = {0: 'A',1: 'C', 2: 'G', 3: 'T'}
 
 
 def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
@@ -195,7 +196,12 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
         true_muts = true_muts[include_id]
         reads = np.array(reads)
 
-    read_data = (np.array(idx[0]), np.array(ref_gt), reads, np.array(include_id))
+    mlt_idx = pd.MultiIndex.from_arrays(
+        [[i[0] for i in idx[0]], [i[1] for i in idx[0]]], names=('chr', 'pos'))
+    df_alt = pd.DataFrame(ref_gt, columns=['ref', 'alt'], index=mlt_idx)
+    df_alt.replace({'ref': MUT_REV, 'alt': MUT_REV}, inplace=True)
+
+    read_data = (df_alt, reads, np.array(include_id))
 
     return muts, true_muts, read_data
 
@@ -939,8 +945,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
     # import pdb; pdb.set_trace()
 
 
-def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
-        w_maxs=[1000], plot_only=False, driver_file='', exclude='', include=''):
+def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000],
+            plot_only=False, mbm_file='', driver_file='', exclude='', include=''):
     path_strs = vcf_file.split(os.path.sep)
     try:
         clock_dir_no = path_strs.index('ClockTest')
@@ -977,6 +983,10 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
     call_data = get_mut_df(vcf_file, exclude, include)
     for w_max in w_maxs:
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max)
+        if mbm_file:
+            safe_mapped_mutations(tree, call_data[2][0], mbm_file, vcf_file)
+            exit()
+
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
         # weights: 0 = variance, 1 = odds ratio
@@ -1003,6 +1013,26 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file,
 
     # NOTE: has to be here, otherwise subprocess calling script fails
     print('success')
+
+
+def safe_mapped_mutations(tree, gt_map, out_file, vcf_file=''):
+    header = f'## vcf_file={vcf_file}\n'
+    body = ''
+
+    for i, node in enumerate(tree.iter_descendants()):
+        br_name = f'Branch{i:0>3}'
+        header += f'## {br_name} ({node.mut_no_soft:.2f}): {node.name}\n'
+        for i, mut in enumerate(node.muts_br[0]):
+            if node.muts_br[1][i] < 0.5:
+                continue
+            body += f'{br_name}\t{mut[0]}\t{mut[1]}\t' \
+                f'{gt_map.loc[mut]["ref"]}\t{gt_map.loc[mut]["alt"]}\n'
+
+    header += '# samplename\tchr\tpos\tref\talt\n'
+    body = body.rstrip()
+
+    with open(out_file, 'w') as f:
+        f.write(f'{header}{body}')
 
 
 def annotate_drivers(dataset, tree, drivers, annot):
@@ -1085,6 +1115,8 @@ def parse_args():
         help='Test true data (instead of simulation data).')
     parser.add_argument('-p', '--plotting', action='store_true',
         help='Plot phylogeny of biological data only.')
+    parser.add_argument('-mbm', '--muts_branch_mapping', type=str, default='',
+        help='Only map mutations of biological data to branch and safe to file.')
     parser.add_argument('-d', '--drivers', type=str, default='',
         help='Path to IntOGen driver genes for annotation of real data sets.')
     args = parser.parse_args()
@@ -1120,6 +1152,7 @@ if __name__ == '__main__':
                 out_file=args.output,
                 w_maxs=args.w_max,
                 plot_only=args.plotting,
+                mbm_file=args.muts_branch_mapping,
                 driver_file=args.drivers,
                 exclude=args.exclude,
                 include=args.include,

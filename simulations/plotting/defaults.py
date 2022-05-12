@@ -31,6 +31,7 @@ sns.set_context('paper',
 
 vis_names = {
     'poissondisp': 'Poisson Dispersion',
+    'poissonDisp': 'Poisson Dispersion',
     'paup': 'PAUP*',
     'poissontree': 'Poisson Tree',
     'cellcoal': 'True Tree',
@@ -40,6 +41,7 @@ vis_names = {
 }
 vis_names_short = {
     'poissondisp': 'Poisson Dispersion',
+    'poissonDisp': 'Poisson Dispersion',
     'paup': 'PAUP*',
     'poissontree': 'Poisson Tree',
     'cellcoal': 'True Tree',
@@ -47,21 +49,16 @@ vis_names_short = {
     'scite': 'Scite',
     'cellphy': 'CellPhy',
 }
-methods_names = {
+METHODS = {
     'PAUP*': 'PAUP*',
-    '-': 'Poisson Dispersion',
-    'cellcoal': 'Poisson Tree (True Tree)',
+    'poissonDisp': 'Poisson Dispersion',
+    'cellcoal': 'Poisson Tree (True)',
     'cellphy': 'Poisson Tree (CellPhy)',
     'scite': 'Poisson Tree (+Scite)',
+    'mobster': 'mobster',
+    'neutrality': r'Williams $\it{et}$ $\it{al.}$'
 }
 
-COLORS = [
-     # Blue     # Green    # Red      # Orange   # Purple
-    '#1F78B4', '#33A02C', '#E31A1C', '#FF7F00', '#6A3D9A', # dark
-    '#A6CEE3', '#B2DF8A', '#FB9A99', '#FDBF6F', '#CAB2D6', # light
-    '#62A3CB', '#72BF5B', '#EF5A5A', '#FE9F37', '#9A77B8', # medium
-    '#FFFF99', '#B15928', #ugly
-]
 colors = {
     'Poisson Dispersion': '#FFC514', # '#994EA3', # purple
     'PAUP*': '#4FAF4A', # green
@@ -73,22 +70,67 @@ colors = {
     'CellPhy': '#377DB8', # blue
     'scite': '#FF7F00', # orange
     'Scite': '#FF7F00', # orange
-    '-': '#FFC514', #'#994EA3', # purple
+    'poissonDisp': '#FFC514', #'#994EA3', # purple
     'mobster': '#33A02C', # dark green
     'neutrality': '#FF7F00', #'#B2DF8A', #light green
-    'gap': '',
-    0: '#719819', # '#B2DF8A', #light green
+    0: '#217875', #'719819', # '#B2DF8A', #light green
     1: '#33A02C', # green
     2: '#116360', # dark green
 }
+COLORS = {
+    'PAUP*': '#f4a259',
+    'poissonDisp': '#6ec15d',
+    'cellcoal': '#e06c78',
+    'cellphy': '#5874dc',
+    'scite': '#bb4430',
+    'neutrality': '#2E851C',
+    'mobster': '#ffca52', # mobster
+    1: '#ffca52', # mobster
+    0: '#384e78', # mobster
+}
+
+
 poisson_colors = { # red, blue, orange
     'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
     'CellPhy Tree': ['#8C0000', '#094D85', '#9B4D00'], # darker
     'SCITE Tree': ['#F04949', '#84B5DE', '#FFB164'] #brigher
 }
+asdfg = [
+"#e06c78", # pink = PoissonTree + True
+"#f4a259", # orange = PAUP*
+"#6ec15d", # green = PoissonDisp
+"#384e78", # orange = Mobster 1
+"#ffca52", # blue = Mobster 2
+"#5874dc", # indigo = PoissonTree + Cellphy
+"#bb4430", # dark red = PoissonTree + scite
+"#2E851C", # purple = neutralitytest
+]
 
 
-HUE_ORDER = ['cellcoal', 'cellphy', 'scite', 'PAUP*', '-']
+HUE_ORDER = ['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*', 'scite']
+HIST_DEFAULT = {
+    'alpha': 0.75,
+    'fill': True,
+    'binwidth': 0.05,
+    'binrange': (0, 1),
+    'element': 'bars',
+    'stat': 'probability',
+    'kde': False,
+    'common_norm': False,
+    'fill': True,
+    'multiple': 'layer',
+    'palette': COLORS,
+    'hue_order': HUE_ORDER,
+    'legend': False,
+}
+LINE_STYLE ={
+    10: (0, (1, 4, 1, 4)), # . . . .
+    30: (0, (2, 3, 1, 3)), # - . - .
+    50: (0, (2, 3, 2, 3)), # -- . -- .
+    70: (0, (4, 2, 2, 2)),
+    90: (0, (4, 1, 4, 1)), # -- -- -- --
+    100: (0, (1, 0, 0, 0)), # solid
+}
 
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
@@ -103,3 +145,19 @@ def add_rugs(data, offset, ax, color, height=None):
     lc = LineCollection(segs, transform=ax.get_xaxis_transform(),
         clip_on=False, color=color, linewidth=0.06)
     ax.add_collection(lc)
+
+
+def add_col_header(ax, title):
+    ax.annotate(title, xy=(0.5, 1.2), xytext=(0, 5), xycoords='axes fraction',
+        textcoords='offset points', ha='center', va='baseline',
+        annotation_clip=False)
+
+
+def add_row_header(ax, title):
+    ax2 = ax.twinx()
+    ax2.set_ylabel(title)
+    ax2.set_yticks([])
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    for tick in  ax.yaxis.majorTicks:
+        tick.tick1line.set_markersize(0)

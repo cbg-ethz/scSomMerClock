@@ -25,7 +25,9 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-DATA_FILTERS = ['all', '33nanFilter', '50nanFilter', '99nanFilter']
+WGS = ['Lo-P1', 'Lo-P2', 'Lo-P3', 'S21_P1', 'S21_P2']
+DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
+METHODS = ['cellphy', 'scite']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
@@ -84,8 +86,13 @@ def run_inference(args):
             if not os.path.exists(vcf_dir):
                 os.makedirs(vcf_dir)
 
+            if data_set in WGS:
+                data_filters = DATA_FILTERS + ['99nanFilter']
+            else:
+                data_filters = DATA_FILTERS
+
             # Iterate nan filters
-            for data_filter in DATA_FILTERS:
+            for data_filter in data_filters:
                 vcf_raw_name = f'{data_set}.{data_filter}.vcf.gz'
                 vcf_raw_file = os.path.join(vcf_dir, vcf_raw_name)
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
@@ -206,7 +213,12 @@ def print_masterlist(args):
 
             vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
 
-            for data_filter in DATA_FILTERS:
+            if data_set in WGS:
+                data_filters = DATA_FILTERS + ['99nanFilter']
+            else:
+                data_filters = DATA_FILTERS
+
+            for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 out_str += os.path.join(vcf_dir, vcf_name) + '\n'
 
@@ -232,8 +244,12 @@ def compress_files(args):
                 continue
 
             vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
+            if data_set in WGS:
+                data_filters = DATA_FILTERS + ['99nanFilter']
+            else:
+                data_filters = DATA_FILTERS
 
-            for data_filter in DATA_FILTERS:
+            for data_filter in data_filters:
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
@@ -242,9 +258,9 @@ def compress_files(args):
                 if not os.path.exists(vcf_file):
                     print(f'\tMissing vcf file: {vcf_file}')
                     continue
-                else:
-                    shutil.copyfile(vcf_file,
-                        os.path.join(args.compress, f'{base_name}.vcf.gz'))
+
+                shutil.copyfile(vcf_file,
+                    os.path.join(args.compress, f'{base_name}.vcf.gz'))
 
                 if 'cellphy' in args.method:
                     tree_file = os.path.join(vcf_dir, f'{vcf_name}.raxml.supportFBP')
@@ -281,28 +297,28 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--in_dir', type=str, default=MONICA_DIR,
         help=f'Input directory. Default = {MONICA_DIR}.')
+    parser.add_argument('-o', '--out_dir', type=str, default='',
+        help='Output directory. Default = BASEDIR.')
     parser.add_argument('-l', '--local', action='store_true',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
-    parser.add_argument('-o', '--out_dir', type=str, default='',
-        help='Output directory. Default = BASEDIR.')
     parser.add_argument('-k', '--keep_going', action='store_true',
         help='Dont exit on errors.')
-    parser.add_argument('-m', '--method', nargs='+', type=str,
-        choices=['cellphy', 'scite'], default=['cellphy', 'scite'],
-        help='Clock directory name.')
     parser.add_argument('-f', '--files_only', action='store_true',
         help='Create only subset files, do not run tree inference.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
+    parser.add_argument('-m', '--method', nargs='+', type=str,
+        choices=METHODS, default=METHODS,
+        help=f'Tree inference method. Default = {METHODS}')
     parser.add_argument('-ma', '--master', default='', type=str,
         help='Print master file list and exit.')
     parser.add_argument('-comp', '--compress', default='', type=str,
         help='Compress files to folder and exit.')
     parser.add_argument('-d', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS.keys(), default=DATA_DIRS.keys(),
-        help='Datasets to process. Default = all.')
+        help=f'Datasets to process. Default = {DATA_DIRS.keys()}.')
     parser.add_argument('--lsf', action='store_true',
         help='Run lsf queue submit command (bsub) instead of slurm (sbatch).')
 

@@ -13,6 +13,7 @@ specific:
   pair_end: True
   bulk_normal: BGI_YH-Control # SRR412870 
   bulk_samples: [BGI_YH1, BGI_YH2]  # SRR412865 SRR412866
+  # bulk_samples: [BGI_LC-T1, BGI_LN-T1]
   normal_regex: BGI_LN-\d+
   tumor_regex: BGI_LC-\d+
   WGA_library: REPLIG

@@ -48,7 +48,7 @@ def plot_affected_cells(df, out_file):
 
     if out_file:
         fig.savefig(os.path.splitext(out_file)[0] + '_affectedCells.png',
-            dpi=300)
+            dpi=DPI)
     else:
         plt.show()
     plt.close()
@@ -173,125 +173,151 @@ def generate_sign_over_cells(args):
 
 
 def generate_pval_plot_noClock(args):
-    df_in = pd.read_csv(args.input, sep='\t', index_col=0)
-    df_in.drop([-1], inplace=True)
-    rel_cols = ['aff. cells'] + [i for i in df_in.columns if 'p-value' in i]
-    df_in = df_in[rel_cols]
+    cols =  ['ADO', 'amplifier', 'aff. cells', 'method', 'P-value']
+    df = pd.DataFrame(columns=cols)
 
-    # plot_affected_cells(df_in, args.output)
-
-    vals = []
-    for i, run_data in df_in.iterrows():
-        for name, value in run_data.items():
-            if name == 'aff. cells':
-                cell_no = value
-            elif name == 'p-value_poissonDisp':
-                if not 'poissonDisp' in args.method:
-                    continue
-                vals.append(['-', -1, cell_no, value])
-            else:
-                tree = name.split('.')[-1]
-                if tree.startswith('0_'):
-                    tree = tree[2:]
-                if not tree in args.method:
-                    continue
-                wMax = int(re.search('_wMax(\d+)', name).group(1))
-                vals.append([tree, wMax, cell_no, value])
-    df = pd.DataFrame(vals,
-        columns=['Tree', 'wMax', 'aff. cells', 'P-value'])
-
-    if args.wMax:
-        df = df[df['wMax'].isin(args.wMax)]
-
-    min_cells = np.array(args.min_cell)
-    wMax_vals = df['wMax'].unique()
-    wMax_vals.sort()
-
-    single_plot = wMax_vals.size == 1 and min_cells.size == 1
-
-    if single_plot:
-        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
-    else:
-        fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=min_cells.size,
-            figsize=(2 * min_cells.size, wMax_vals.size + 1))
-    axes = np.reshape(axes, (wMax_vals.size, min_cells.size))
-
-    for i, min_cell in enumerate(min_cells):
-        df_plot = df[(df['aff. cells'] >= min_cell) \
-            & (df['aff. cells'] <= CELL_NO - min_cell)]
-        if df_plot.size == 0:
-            print(f'!WARNING - No run with {min_cell} cells affected!')
+    for res_file in sorted(os.listdir(args.input)):
+        if not res_file.startswith('res_clock') or 'bulk' in res_file:
             continue
-        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], (i, min_cells.size))
 
-        if not single_plot:
-            wMax_max = df_plot['wMax'].value_counts().index[0]
-            n = ((df_plot['Tree'] == 'cellcoal') & (df_plot['wMax'] == wMax_max)) \
-                .sum()
-            header = f'{min_cell}' + r'$\leq$' + f'# ampl. cells' + r'$\leq$' \
-                + f'{CELL_NO - min_cell}' + f'\n(n = {n})'
-            axes[0,i].annotate(header, xy=(0.5, 1.1), xytext=(0, 5),
-                xycoords='axes fraction', textcoords='offset points',
-                size='large', ha='center', va='baseline')
+        ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
+        if ADO not in args.ADO:
+            continue
+
+        ampl = float(re.search('res_clock(\d[\.\d]*)', res_file).group(1))
+        if ampl == 0:
+            ampl = 1
+
+        if ampl not in args.amplifier:
+            continue
+
+        print(f'Including summary file: {res_file}')
+
+        df_new = pd.read_csv(
+            os.path.join(args.input, res_file), sep='\t', index_col='run')
+        df_new.drop([-1], inplace=True)
+
+        if ampl > 1:
+            df_new = df_new[
+                (df_new['aff. cells'] >= args.total_cells * args.clone_size[0]) \
+                & (df_new['aff. cells'] <= args.total_cells * args.clone_size[1])]
+
+        for col in df_new.columns:
+            if col.startswith('p-value'):
+                if col.endswith('poissonDisp'):
+                    tree = 'poissonDisp'
+                    wMax = args.wMax
+                elif 'paup_dir' in col:
+                    tree = 'PAUP*'
+                    wMax = args.wMax
+                else:
+                    tree = re.split('[\._]', col)[-1]
+                    if ampl == 1:
+                        try:
+                            wMax = int(re.search('wMax(\d+)', col).group(1))
+                        except AttributeError:
+                            wMax = int(re.split('[\._]', col)[2])
+                            if wMax == 1:
+                                wMax = args.wMax
+                    else:
+                        wMax = int(re.search('wMax(\d+)', col).group(1))
+
+                    if wMax != args.wMax:
+                        continue
+
+                if tree not in args.method:
+                    continue
+
+                if ampl == 1:
+                    df_subset = df_new[[col]]
+                else:
+                    df_subset = df_new[['aff. cells', col]]
+
+                df_subset.insert(0, 'ADO', ADO)
+                df_subset.insert(0, 'method', tree)
+                df_subset.insert(0, 'amplifier', ampl)
+                df_subset = df_subset.rename({col: 'P-value'}, axis=1)
+
+                df = df.append(df_subset, ignore_index=True)
+
+    ADO_vals = df['ADO'].unique()
+    ADO_vals.sort()
+
+    ampl_vals = df['amplifier'].unique()
+    ampl_vals.sort()
+
+    col_no = ADO_vals.size
+    row_no = ampl_vals.size
+
+    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(col_no + 1, row_no + 1))
+    axes = np.reshape(axes, (row_no, col_no))
+
+    for i, ampl_val in enumerate(ampl_vals):
+        df_plot = df[df['amplifier'] == ampl_val]
+        plot_pVal_dist(df_plot, ADO_vals, axes[i], (i, row_no))
+        if ampl_val == 1:
+            row_title = 'Clock'
+        else:
+            row_title = f'Amplifier:\n{ampl_val:.0f}x'
+        add_row_header(axes[i, -1], row_title)
+
+    if col_no > 1:
+        for j, ADO_val in enumerate(ADO_vals):
+            add_col_header(axes[0, j], f'FN rate: {ADO_val / 2}')
 
     fig.tight_layout()
-
     if args.output:
-        fig.savefig(args.output, dpi=300)
+        if not args.output.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            args.output += '.png'
+        fig.savefig(args.output, dpi=DPI)
     else:
         plt.show()
     plt.close()
 
 
-def plot_pVal_dist(df, wMax, axes, col_no):
-    hue_order = ['-', 'cellcoal', 'cellphy', 'scite']
-    for i, j in enumerate(wMax):
+def plot_pVal_dist(df, ADO_vals, axes, row):
+    for i, ADO_val in enumerate(ADO_vals):
         ax = axes[i]
-        data = df[df['wMax'] == j]
-        dp = sns.histplot(data, x='P-value', hue='Tree', element='bars',
-            stat='probability', multiple='layer', fill=True, common_norm=False,
-            hue_order=['-', 'cellcoal', 'cellphy', 'scite'], binwidth=0.05,
-            binrange=(0, 1), palette=colors, shrink=1, legend=False, ax=ax,
-        )
+        data = df[df['ADO'] == ADO_val]
 
-        ax.set_xlim((0, 1))
+        dp = sns.histplot(data, x='P-value', hue='method', ax=ax, **HIST_DEFAULT)
+        # # import pdb; pdb.set_trace()
+        # dp = sns.violinplot(x='wMax', y='P-value', data=df, hue='method',
+        #     cut=0, split=True, inner='point',
+        #     palette=colors,
+        #     hue_order=hue_order,
+        #     ax=ax,
+        # )
+
+        ax.set_xlim((0, 1.01))
+        ax.set_xticks([0.0, 0.5, 1])
         ax.set_ylim((0, 1))
+        ax.set_yticks([0.0, 0.5, 1])
 
         # Add rugplots
         k = 0
-        for method in hue_order:
-            rug_data = data[data['Tree'] == method]['P-value'].values
+        for method in HUE_ORDER:
+            rug_data = data[data['method'] == method]['P-value'].values
             if rug_data.size == 0:
                 continue
-            add_rugs(rug_data, offset=k, ax=ax, color=colors[method])
+            add_rugs(rug_data, offset=k, ax=ax, color=COLORS[method])
             k += 1
 
-        # l = 0
-        # for tree, col in colors.items():
-        #     df_sub = df[(df['Tree'] == tree) & (df['wMax'] == j)]
-        #     if df_sub.size > 0:
-        #         y_pval = (df_sub['P-value'] <= 0.05).mean()
-        #         if y_pval > 0.33:
-        #             va = 'top'
-        #             y_dist = -0.02
-        #         else:
-        #             va = 'bottom'
-        #             y_dist = 0.02
-
-        #         ax.axhline(y_pval, ls='--', color=col, lw=1)
-        #         # ax.axvline(0.05, ls='--', color='grey', lw=1)
-        #         ax.text(0.05 + l * 0.15, y_pval + y_dist, f'{y_pval:.2f}',
-        #             color=col, ha='left', va=va, rotation=45)
-        #         l += 1
+        ax.annotate(f'n = {data["method"].value_counts().min():.0f}',
+            xy=(0.9, 0.825), xytext=(0, 5),  xycoords='axes fraction',
+            textcoords='offset points', ha='right', va='top', bbox=bbox_props)
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
-        if i < wMax.size - 1:
+        #
+        if row[0] < row[1] - 1:
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
-        if col_no[0] == 0:
-            if i != np.floor(wMax.size / 2):
+        # First col
+        if i == 0:
+            if row[0] != np.floor(row[1] / 2):
                 ax.set_ylabel('')
             else:
                 ax.set_ylabel('Probability')
@@ -299,36 +325,32 @@ def plot_pVal_dist(df, wMax, axes, col_no):
             ax.set_ylabel(None)
             ax.set_yticklabels([])
 
-        if col_no[0] == np.floor(col_no[1] / 2)  and i == wMax.size - 1:
+        # Middle col
+        if i == np.floor(ADO_vals.size / 2) and row[0] == row[1] - 1:
             ax.set_xlabel('P-value')
         else:
             ax.set_xlabel('')
-
-        if col_no[0] == col_no[1] - 1:
-            ax2 = ax.twinx()
-            if j >= 0:
-                ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
-            else:
-                ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
-            ax2.set_yticks([])
-            for tick in  ax.yaxis.majorTicks:
-                tick.tick1line.set_markersize(0)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         'Generate p-value plots for CellCoal simulations with branch multiplier')
-    parser.add_argument('input', type=str, help='Summary file.')
+    parser.add_argument('input', type=str, help='Input directory.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-w', '--wMax', nargs='+', type=float,
-        default=[1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
-        help='wMax values to plot. Default = all.')
-    parser.add_argument('-c', '--min_cell', nargs='+',default = [1, 2, 3, 4, 5],
-        type=float, help='Min. #cells affected. Default = [1, 2, 3, 4, 5].')
+    parser.add_argument('-w', '--wMax', type=float, default=400,
+        help='wMax value to plot. Default = 400.')
+    parser.add_argument('-a', '--ADO', nargs='+', type=float,
+        default=[0, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
+    parser.add_argument('-amp', '--amplifier', nargs='+', default=[2, 5, 10],
+        type=float, help='Amplifier value to plot. Default = [2, 5, 10]')
+    parser.add_argument('-c', '--clone_size', default = [0.1, 0.9],
+        type=float, help='Amplified clone size subsets. Default = [0.1, 0.9].')
+    parser.add_argument('-t', '--total_cells', type=int, default=30,
+        help='Total number of simualted cells. Default = 30.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp'],
-        default=['cellcoal', 'scite', 'cellphy', 'poissonDisp'],
+        default=['cellcoal', 'cellphy', 'poissonDisp'],
         help='Method to plot. Default = all.')
     parser.add_argument('-scd', '--sign_cell_dist', action='store_true',
         help='Plot sign. p-values per aff. cells dist.')

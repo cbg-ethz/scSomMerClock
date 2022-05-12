@@ -73,12 +73,12 @@ def generate_pval_plot_ss(args):
     col_no = subsamples.size
     row_no = ampl_vals.size
     fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-            figsize=(2 * col_no, row_no + 1))
+            figsize=(col_no + 1, row_no + 1))
     axes = np.reshape(axes, (row_no, col_no))
 
     for i, ampl in enumerate(ampl_vals):
         if ampl == 1:
-            row_title = f'Clock'
+            row_title = 'Clock'
         else:
             row_title = f'Amplifier:\n{ampl:.0f}x'
 
@@ -87,14 +87,11 @@ def generate_pval_plot_ss(args):
 
     if col_no > 1:
         for i, ss in enumerate(subsamples):
-            axes[0, i].annotate(f'Cells:\n{ss}/{args.total_cells}',
-                xy=(0.5, 1.1), xytext=(0, 5), xycoords='axes fraction',
-                textcoords='offset points', size='large', ha='center',
-                va='baseline')
+            add_col_header(axes[0, i], f'Cells:\n{ss}/{args.total_cells}')
 
     fig.tight_layout()
     if args.output:
-        fig.savefig(args.output, dpi=300)
+        fig.savefig(args.output, dpi=DPI)
     else:
         plt.show()
     plt.close()
@@ -105,14 +102,24 @@ def plot_pVal_dist(df, subsamples, axes, row_no, row_title=''):
     for col_no, ss in enumerate(subsamples):
         ax = axes[col_no]
         data = df[df['ss_size'] == ss]
-        dp = sns.histplot(data, x='P-value', hue='method', element='bars',
-            stat='probability', multiple='layer', fill=True, common_norm=False,
-            hue_order=hue_order, binwidth=0.05,
-            binrange=(0, 1), palette=colors, shrink=1, legend=False, ax=ax,
-        )
+        if row_title.lower() == 'clock':
+            n_annot = r'$n$' + f' = {data["method"].value_counts().min()}'
+        else:
+            no_ampl = np.sum(data['ss_aff'] == 0) / data["method"].unique().size
+            data = data[data['ss_aff'] > 0]
+            if len(str(no_ampl)) == 1:
+                n_annot = r'$n$' + f'  = {data["method"].value_counts().min(): >3}\n' \
+                    + r'$n_0$' + f' = {no_ampl: >5.0f}'
+            else:
+                n_annot = r'$n$' + f'  = {data["method"].value_counts().min(): >3}\n' \
+                    + r'$n_0$' + f' = {no_ampl: >4.0f}'
+
+        dp = sns.histplot(data, x='P-value', hue='method', ax=ax, **HIST_DEFAULT)
 
         ax.set_xlim((0, 1))
+        ax.set_xticks([0.0, 0.5, 1])
         ax.set_ylim((0, 1))
+        ax.set_yticks([0.0, 0.5, 1])
 
         # Add rugplots
         k = 0
@@ -120,13 +127,13 @@ def plot_pVal_dist(df, subsamples, axes, row_no, row_title=''):
             rug_data = data[data['method'] == method]['P-value'].values
             if rug_data.size == 0:
                 continue
-            add_rugs(rug_data, offset=k, ax=ax, color=colors[method])
+            add_rugs(rug_data, offset=k, ax=ax, color=COLORS[method])
             k += 1
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
 
-        ax.annotate(f'n = {data["method"].value_counts().min()}', xy=(0.9, 0.825),
+        ax.annotate(n_annot, xy=(0.9, 0.825),
             xytext=(0, 5), xycoords='axes fraction', textcoords='offset points',
             ha='right', va='top', bbox=bbox_props)
 
@@ -153,11 +160,7 @@ def plot_pVal_dist(df, subsamples, axes, row_no, row_title=''):
             ax.set_xlabel('')
 
         if col_no == subsamples.size - 1:
-            ax2 = ax.twinx()
-            ax2.set_ylabel(f'\n{row_title}', fontsize=12)
-            ax2.set_yticks([])
-            for tick in  ax.yaxis.majorTicks:
-                tick.tick1line.set_markersize(0)
+            add_row_header(ax, f'\n{row_title}')
 
 
 def parse_args():
@@ -167,14 +170,14 @@ def parse_args():
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
     parser.add_argument('-w', '--wMax', type=float, default=400,
-        help='wMax values to plot. Default = all.')
+        help='wMax value to plot. Default = 400.')
     parser.add_argument('-a', '--amplifier', nargs='+', default=[1, 2, 5],
         type=int, help='Amplifier values to plot. Default = all.')
     parser.add_argument('--ADO', default=0.2, type=float,
         help='Simulated ADO value to plot. Default = 0.2.')
     parser.add_argument('-ss', '--subsamples', nargs='+', type=int,
         choices=[10, 30, 50, 70, 90], default=[10, 30, 50, 70, 90],
-        help='Min. #cells affected. Default = all.')
+        help='# Cells subsampled. Default = [10, 30, 50, 70, 90].')
     parser.add_argument('-t', '--total_cells', type=int, default=100,
         help='Total number of simualted cells. Default = 100.')
     parser.add_argument('--aff_min', type=float, default=0.1,

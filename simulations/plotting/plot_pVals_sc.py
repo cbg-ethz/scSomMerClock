@@ -58,7 +58,7 @@ def generate_pval_plot(args):
             elif col[8:].startswith('poissonDisp'):
                 if 'poissonDisp' not in args.method or ampl > 1:
                     continue
-                tree = '-'
+                tree = 'poissonDisp'
             elif col[8:].startswith('paup'):
                 if 'PAUP*' not in args.method:
                     continue
@@ -125,24 +125,12 @@ def generate_pval_plot(args):
     plt.close()
 
 
-
 def plot_pVal_dist(df, ampl_vals, axes, col):
     for i, ampl in enumerate(ampl_vals):
         ax = axes[i]
         data = df[df['Amplifier'] == ampl]
 
-        hue_order = sorted(data['Tree'].unique())
-        if len(hue_order) > 1:
-            hue_order.append('gap')
-
-        dp = sns.histplot(data, x='P-value', hue='Tree',
-            element='bars', stat='probability', kde=False,
-            common_norm=False, fill=True,
-            binwidth=0.05, binrange=(0, 1), multiple='layer',
-            palette=colors,
-            hue_order=hue_order,
-            legend=False, ax=ax,
-        )
+        dp = sns.histplot(data, x='P-value', hue='Tree', ax=ax, **HIST_DEFAULT)
 
         ax.set_xlim((0, 1))
         ax.set_ylim((0, 1))
@@ -273,7 +261,7 @@ def parse_args():
         help='Amplifier values to plot. Clock = 1. Default = [1, 2, 5].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
-        default=['cellcoal', 'scite', 'cellphy', 'poissonDisp', 'PAUP*'],
+        default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],
         help='Method to plot. Default = all.')
     parser.add_argument('-l', '--legend', action='store_true',
         help='Plot legend as separate figure.')

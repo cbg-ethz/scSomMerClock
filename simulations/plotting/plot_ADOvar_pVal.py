@@ -20,7 +20,7 @@ def plot_ADO_distr(ADO, out_file, title_str=''):
     plt.legend()
     plt.title(title_str)
 
-    fig.savefig(out_file, dpi=300)
+    fig.savefig(out_file, dpi=DPI)
     plt.close()
 
 
@@ -64,7 +64,7 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
             plt.title(title_str + f'Method: {method_str}')
 
             out_file = os.path.join(out_dir, f'ADO_pVal_{method_str}_{y_label}.png')
-            fig.savefig(out_file, dpi=300)
+            fig.savefig(out_file, dpi=DPI)
             plt.close()
 
         # 3D plot
@@ -78,7 +78,7 @@ def generate_pval_plot(ADO_file, data_file, out_dir):
         plt.title(title_str + f'Method: {method_str}')
 
         out_file = os.path.join(out_dir, f'ADO_pVal_{method_str}_3D.png')
-        fig.savefig(out_file, dpi=300)
+        fig.savefig(out_file, dpi=DPI)
         plt.close()
 
 

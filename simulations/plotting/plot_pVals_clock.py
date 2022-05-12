@@ -13,7 +13,7 @@ from defaults import *
 
 
 def generate_pval_plot_clock(args):
-    df = pd.DataFrame(columns=['ADO', 'wMax', 'Tree', 'P-value', 'Lambda'])
+    df = pd.DataFrame(columns=['ADO', 'wMax', 'method', 'P-value', 'Lambda'])
 
     for res_file in os.listdir(args.input):
         if not res_file.startswith('res_clock0') or 'bulk' in res_file:
@@ -21,6 +21,7 @@ def generate_pval_plot_clock(args):
         ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
         if ADO not in args.ADO:
             continue
+        print(f'Including file: {res_file}')
 
         df_summary = pd.read_csv(
             os.path.join(args.input, res_file), sep='\t', index_col='run')
@@ -28,35 +29,37 @@ def generate_pval_plot_clock(args):
         df_summary = df_summary.T.reset_index().drop_duplicates() \
             .set_index('index').T
 
-        cols = [i for i in df_summary.columns if i.startswith('p-value')]
+        cols = [i for i in df_summary.columns if i.startswith('p-value') \
+            and not 'poissonTree_0' in i]
+
         for col in cols:
             if col[8:].startswith('poissonTree'):
                 try:
                     wMax = int(re.search('wMax(\d+)', col).group(1))
                 except AttributeError:
-                    # No errors
+                    # No errors simulated
                     wMax = args.wMax
                 else:
                     if wMax not in args.wMax:
                         continue
                     wMax = [wMax]
-                tree = col.split('.')[-1]
-                if tree not in colors:
-                    tree = col.split('_')[-1]
-                if tree not in args.method:
+                method = col.split('.')[-1]
+                if method not in colors:
+                    method = col.split('_')[-1]
+                if method not in args.method:
                     continue
             elif col[8:].startswith('poissonDisp'):
                 if 'poissonDisp' not in args.method:
                     continue
-                wMax = [-1]
-                tree = '-'
+                wMax = args.wMax
+                method = 'poissonDisp'
             elif col[8:].startswith('paup'):
                 if 'PAUP*' not in args.method:
                     continue
-                wMax = [-1]
-                tree = col.split('.')[-1]
-                if tree == 'cellcoal':
-                    tree = 'PAUP*'
+                wMax = args.wMax
+                method = col.split('.')[-1]
+                if method == 'cellcoal':
+                    method = 'PAUP*'
                 else:
                     continue
             else:
@@ -66,15 +69,11 @@ def generate_pval_plot_clock(args):
             df_new.columns = ['P-value', 'Lambda']
 
             df_new['ADO'] = ADO
-            df_new['Tree'] = tree
+            df_new['method'] = method
+
             for wMax_i in wMax:
                 df_new['wMax'] = wMax_i
                 df = df.append(df_new, ignore_index=True)
-
-    # If single ADO and wMax value, plot all available data in one plot
-    single_plot = len(args.wMax) == 1 and len(args.ADO) == 1
-    if single_plot:
-        df.loc[df['wMax'] == -1, 'wMax'] = args.wMax[0]
 
     for col in ['ADO', 'wMax', 'P-value', 'Lambda']:
         df[col] = df[col].astype(float)
@@ -85,54 +84,38 @@ def generate_pval_plot_clock(args):
     ADO_vals.sort()
 
     if args.legend:
-        generate_legend_plot(df['Tree'].unique(), args.output)
+        generate_legend_plot(df['method'].unique(), args.output)
 
-    if single_plot:
-        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
-        fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+    if args.statistic:
+        plt_fct = plot_lambda_dist
     else:
-        fig, axes = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-            figsize=(2 * ADO_vals.size, wMax_vals.size + 1))
-        fig2, axes2 = plt.subplots(nrows=wMax_vals.size, ncols=ADO_vals.size,
-            figsize=(2 * ADO_vals.size, wMax_vals.size + 1))
-    axes = np.reshape(axes, (wMax_vals.size, ADO_vals.size))
-    axes2 = np.reshape(axes2, (wMax_vals.size, ADO_vals.size))
+        plt_fct = plot_pVal_dist
+
+    row_no = wMax_vals.size
+    col_no = ADO_vals.size
+    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(col_no + 1, row_no + 1))
+    axes = np.reshape(axes, (row_no, col_no))
 
     for i, ADO_val in enumerate(ADO_vals):
-        if single_plot:
-            col_type = 'only'
-        elif i == 0:
-            col_type = 'first'
-        elif i == ADO_vals.size - 1:
-            col_type = 'last'
-        elif i == np.floor(ADO_vals.size / 2):
-            col_type = 'middle'
-        else:
-            col_type = 'intermediate'
-
         df_plot = df[df['ADO'] == ADO_val]
-        plot_pVal_dist(df_plot, wMax_vals, axes[:,i], (i, ADO_vals.size))
-        plot_lambda_dist(df_plot, wMax_vals, axes2[:,i], col_type)
+        plt_fct(df_plot, wMax_vals, axes[:,i], (i, col_no))
 
-        if not single_plot:
-            axes[0,i].annotate(f'FN rate: {ADO_val / 2}', xy=(0.5, 1.1),
-                xytext=(0, 5), xycoords='axes fraction',
-                textcoords='offset points', size='large', ha='center',
-                va='baseline')
-            axes2[0,i].annotate(f'FN rate: {ADO_val / 2}', xy=(0.5, 1.1),
-                xytext=(0, 5), xycoords='axes fraction',
-                textcoords='offset points', size='large', ha='center',
-                va='baseline')
+        if col_no > 1:
+            if ADO_val > 0:
+                col_title = f'FN rate: {ADO_val / 2}'
+            else:
+                col_title = 'No Errors'
+            add_col_header(axes[0, i], col_title)
+
     fig.tight_layout()
-    fig2.tight_layout()
-
     if args.output:
+        if not args.output.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            args.output += '.png'
         fig.savefig(args.output, dpi=DPI)
-        fig2.savefig(os.path.splitext(args.output)[0] + '_lambda.png', dpi=DPI)
     else:
         plt.show()
     plt.close()
-
 
 
 def plot_pVal_dist(df, wMax, axes, col_no):
@@ -140,21 +123,9 @@ def plot_pVal_dist(df, wMax, axes, col_no):
         ax = axes[i]
         data = df[df['wMax'] == j]
 
-        hue_order = sorted(data['Tree'].unique())
-        if len(hue_order) > 1:
-            hue_order.append('gap')
-
-        dp = sns.histplot(data, x='P-value', hue='Tree',
-            element='bars', stat='probability', kde=False,
-            common_norm=False, fill=True,
-            binwidth=0.05, binrange=(0, 1), multiple='layer',
-            palette=colors,
-            hue_order=hue_order,
-            legend=False, ax=ax,
-        )
-
+        dp = sns.histplot(data, x='P-value', hue='method', ax=ax, **HIST_DEFAULT)
         # # import pdb; pdb.set_trace()
-        # dp = sns.violinplot(x='wMax', y='P-value', data=df, hue='Tree',
+        # dp = sns.violinplot(x='wMax', y='P-value', data=df, hue='method',
         #     cut=0, split=True, inner='point',
         #     palette=colors,
         #     hue_order=hue_order,
@@ -162,37 +133,26 @@ def plot_pVal_dist(df, wMax, axes, col_no):
         # )
 
         ax.set_xlim((0, 1))
+        ax.set_xticks([0.0, 0.5, 1])
         ax.set_ylim((0, 1))
+        ax.set_yticks([0.0, 0.5, 1])
 
         # Add rugplots
         k = 0
         for method in HUE_ORDER:
-            rug_data = data[data['Tree'] == method]['P-value'].values
+            rug_data = data[data['method'] == method]['P-value'].values
             if rug_data.size == 0:
                 continue
-            add_rugs(rug_data, offset=k, ax=ax, color=colors[method])
+            add_rugs(rug_data, offset=k, ax=ax, color=COLORS[method])
             k += 1
 
-        # l = 0
-        # for tree, col in colors.items():
-        #     df_sub = df[(df['Tree'] == tree) & (df['wMax'] == j)]
-        #     if df_sub.size > 0:
-        #         y_pval = (df_sub['P-value'] <= 0.05).mean()
-        #         if y_pval > 0.33:
-        #             va = 'top'
-        #             y_dist = -0.02
-        #         else:
-        #             va = 'bottom'
-        #             y_dist = 0.02
-
-        #         ax.axhline(y_pval, ls='--', color=col, lw=1)
-        #         # ax.axvline(0.05, ls='--', color='grey', lw=1)
-        #         ax.text(0.05 + l * 0.15, y_pval + y_dist, f'{y_pval:.2f}',
-        #             color=col, ha='left', va=va, rotation=45)
-        #         l += 1
+        ax.annotate(f'n = {data["method"].value_counts().min():.0f}',
+            xy=(0.9, 0.825), xytext=(0, 5),  xycoords='axes fraction',
+            textcoords='offset points', ha='right', va='top', bbox=bbox_props)
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
+        # Not last row
         if i < wMax.size - 1:
             ax.set_xticklabels([])
             ax.set_xlabel(None)
@@ -214,18 +174,15 @@ def plot_pVal_dist(df, wMax, axes, col_no):
             ax.set_xlabel('')
 
         # Last col
-        if col_no[0] == col_no[1] - 1:
-            ax2 = ax.twinx()
-            if j >= 0:
-                ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
-            else:
-                ax.set_ylabel(None)
-            ax2.set_yticks([])
-            for tick in  ax.yaxis.majorTicks:
-                tick.tick1line.set_markersize(0)
+        # if col_no[0] == col_no[1] - 1:
+        #     ax2 = ax.twinx()
+        #     ax2.set_ylabel('Clock')
+        #     ax2.set_yticks([])
+        #     for tick in  ax.yaxis.majorTicks:
+        #         tick.tick1line.set_markersize(0)
 
 
-def plot_lambda_dist(df, wMax, axes, column_type):
+def plot_lambda_dist(df, wMax, axes, col_no):
     dof = 29 # TODO <NB> remove hardcoding
     bins = 100
 
@@ -237,7 +194,7 @@ def plot_lambda_dist(df, wMax, axes, column_type):
         ax = axes[i]
         data = df[df['wMax'] == j]
 
-        dp = sns.histplot(data, x='Lambda', hue='Tree', stat='density', bins=bins,
+        dp = sns.histplot(data, x='Lambda', hue='method', stat='density', bins=bins,
             common_norm=False, common_bins=False, legend=False,
             hue_order=HUE_ORDER, palette=colors, ax=ax,
         )
@@ -252,30 +209,29 @@ def plot_lambda_dist(df, wMax, axes, column_type):
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
-        if column_type == 'first':
+        # First col
+        if col_no[0] == 0:
             if i != np.floor(wMax.size / 2):
                 ax.set_ylabel('')
             else:
                 ax.set_ylabel(f'Density')
         else:
-            ax.set_ylabel('')
+            ax.set_ylabel(None)
+            ax.set_yticklabels([])
 
-        if column_type == 'middle' and i == wMax.size - 1:
+        # Middle col
+        if col_no[0] == np.floor(col_no[1] / 2) and i == wMax.size - 1:
             ax.set_xlabel(r'$\lambda$')
         else:
             ax.set_xlabel('')
 
-        if column_type == 'last':
-            ax2 = ax.twinx()
-            if j >= 0:
-                ax2.set_ylabel('\n' + r'$w_{max}=$ '+ f'\n{j:.0f}', fontsize=12)
-            else:
-                ax2.set_ylabel('\nPoisson\nDispersion', fontsize=12)
-            ax2.set_yticks([])
-
-        if column_type == 'only':
-            ax.set_xlabel(r'$\lambda$')
-            ax.set_ylabel(f'Density')
+        # Last col
+        # if col_no[0] == col_no[1] - 1:
+        #     ax2 = ax.twinx()
+        #     ax2.set_ylabel('Clock')
+        #     ax2.set_yticks([])
+        #     for tick in  ax.yaxis.majorTicks:
+        #         tick.tick1line.set_markersize(0)
 
 
 def generate_legend_plot(methods, output):
@@ -286,19 +242,19 @@ def generate_legend_plot(methods, output):
     for method in HUE_ORDER:
         if method not in methods:
             continue
-        labels.append(methods_names[method])
+        labels.append(METHODS[method])
         # handles.append(Line2D([0], [0], color=colors[method], lw=2))
         handles.append(
-            mpatches.Patch(color=colors[method], label=methods_names[method]))
+            mpatches.Patch(color=COLORS[method], label=METHODS[method]))
     # handles.extend([Line2D([0], [0], color='white'),
     #     Line2D([0], [0], color='black', lw=2, ls='--')])
     # labels.extend(['', r'% of p-values $\leq$ 0.05'])
 
     ax.grid(False)
     ax.axis('off')
-    ax.legend(handles[::-1], labels, frameon=True, title=r'$\bf{Test}$')
+    ax.legend(handles, labels, frameon=True, title=r'$\bf{Test}$')
 
-    fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
+    fig.tight_layout()
     if output:
         fig.savefig(os.path.splitext(output)[0] + '_legend.png', dpi=DPI)
     else:
@@ -308,23 +264,24 @@ def generate_legend_plot(methods, output):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, help='Input file.')
+    parser.add_argument('input', type=str, help='Input directory.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
     parser.add_argument('-spd', '--skip_poisson', action='store_true',
         help='Skip Poisson distribution test.')
-    parser.add_argument('-w', '--wMax', nargs='+', type=float,
-        default=[1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+    parser.add_argument('-w', '--wMax', nargs='+', type=float, default=[400],
         help='wMax values to plot. Default = all.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.2, 0.4, 0.6],
+        default=[0, 0.2, 0.4],
         help='ADO values to plot. Default = all.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
-        default=['cellcoal', 'scite', 'cellphy', 'poissonDisp', 'PAUP*'],
+        default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],
         help='Method to plot. Default = all.')
     parser.add_argument('-l', '--legend', action='store_true',
         help='Plot legend as separate figure.')
+    parser.add_argument('-s', '--statistic', action='store_true',
+        help='Plot test statistic as separate figure.')
     args = parser.parse_args()
     return args
 

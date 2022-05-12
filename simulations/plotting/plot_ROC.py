@@ -5,6 +5,7 @@ import os
 import re
 
 import pandas as pd
+from matplotlib.colors import to_rgba
 
 from defaults import *
 CELL_NO = 30
@@ -52,7 +53,7 @@ def generate_PRC(args):
 
             if rel_col[8:].startswith('poissonTree'):
                 method = rel_col.split('.')[-1]
-                if method not in colors:
+                if method not in COLORS:
                     method = rel_col.split('_')[-1]
                 if method not in args.method:
                     continue
@@ -76,66 +77,81 @@ def generate_PRC(args):
 
     assert df['predicted'].unique().size == 4
 
-    min_cells = np.array(args.min_cell)
     ADO_vals = df['ADO'].unique()
+    ADO_vals.sort()
+    col_no = ADO_vals.size
 
-    single_plot = min_cells.size == 1 and ADO_vals.size == 1
-
-    if single_plot:
-        fig1, axes1 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
-        fig2, axes2 = plt.subplots(nrows=1, ncols=1, figsize=(4, 3))
+    clone_sizes = np.array(args.clone_size)
+    if clone_sizes.size < 3:
+        row_no = 1
     else:
-        fig1, axes1 = plt.subplots(nrows=min_cells.size, ncols=ADO_vals.size,
-            figsize=(3 * ADO_vals.size, min_cells.size * 3))
-        fig2, axes2 = plt.subplots(nrows=min_cells.size, ncols=ADO_vals.size,
-            figsize=(3 * ADO_vals.size, min_cells.size * 3))
-    axes1 = np.reshape(axes1, (min_cells.size, ADO_vals.size))
-    axes2 = np.reshape(axes2, (min_cells.size, ADO_vals.size))
+        row_no = clone_sizes.size
+
+    fig1, axes1 = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(col_no + 1, row_no + 1))
+    fig2, axes2 = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(col_no + 1, row_no + 1))
+    axes1 = np.reshape(axes1, (row_no, col_no))
+    axes2 = np.reshape(axes2, (row_no, col_no))
+
+    for i, clone_size_max in enumerate(clone_sizes):
+        if clone_size_max == 0:
+            df_plot = df
+        elif clone_sizes.size == 2:
+            min_cells = clone_sizes[0] * args.total_cells / 100
+            max_cells = clone_sizes[1] * args.total_cells / 100
+            df_plot = df[((df['aff. cells'] >= min_cells) \
+                    & (df['aff. cells'] < max_cells)) |
+                (df['aff. cells'] == np.inf)]
+        else:
+            clone_size_min = clone_sizes[i - 1]
+            min_cells = clone_size_min * args.total_cells / 100
+            max_cells = clone_size_max * args.total_cells / 100
+            df_plot = df[((df['aff. cells'] >= min_cells) \
+                    & (df['aff. cells'] < max_cells)) |
+                (df['aff. cells'] == np.inf)]
+
+        if df_plot.size == 0:
+            print('!WARNING - No run with amplified clone sizes: '\
+                f'[{clone_size_min}, {clone_size_max}]!')
+            continue
+
+
+        plot_curves(df_plot, axes1, axes2, ADO_vals, (i, row_no))
+
+        if clone_sizes.size == 2:
+            break
 
     for i, ADO_val in enumerate(ADO_vals):
-        df_plot = df[df['ADO'] == ADO_val]
-        plot_curves(df_plot, axes1, axes2, min_cells, (i, ADO_vals.size), args.amplifier)
+        if ADO_val == 0:
+            col_title = 'No Errors'
+        else:
+            col_title = f'FN rate: {ADO_val / 2}'
 
-        if not single_plot:
-            if ADO_val == 0:
-                col_title = 'No Errors'
-            else:
-                col_title = f'FN rate: {ADO_val / 2}'
-
-            axes1[0,i].annotate(col_title, xy=(0.5, 1), xytext=(0, 5),
-                xycoords='axes fraction', textcoords='offset points', size='large',
-                ha='center', va='baseline')
-            axes2[0,i].annotate(col_title, xy=(0.5, 1), xytext=(0, 5),
-                xycoords='axes fraction', textcoords='offset points', size='large',
-                ha='center', va='baseline')
+        for ax in [axes1, axes2]:
+            add_col_header(ax[0, i], col_title)
 
     fig1.tight_layout()
     fig2.tight_layout()
-
     if args.output:
-        fig1.savefig(f'PRC_{args.output}.png', dpi=300)
-        fig2.savefig(f'ROC_{args.output}.png', dpi=300)
+        fig1.savefig(f'PRC_{args.output}.png', dpi=DPI)
+        fig2.savefig(f'ROC_{args.output}.png', dpi=DPI)
     else:
         plt.show()
     plt.close()
 
 
-def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
+def plot_curves(df_in, axes1, axes2, ADO_vals, row, row_title=''):
     wMax_map = {j: i for i, j in enumerate(sorted(df_in['wMax'].unique()))}
     cmap = cm.get_cmap('viridis_r', len(wMax_map))
 
-    for j, min_cell in enumerate(min_cells):
-        df_cell = df_in[(df_in['aff. cells'] >= min_cell) \
-            & ((df_in['aff. cells'] <= CELL_NO - min_cell) | (df_in['aff. cells'] == np.inf))]
+    for j, ADO_val in enumerate(ADO_vals):
+        df_ADO = df_in[df_in['ADO'] == ADO_val]
 
-        if df_cell.size == 0:
-            print(f'!WARNING - No run with {min_cell} cells affected!')
-            continue
+        ax1 = axes1[row[0], j]
+        ax2 = axes2[row[0], j]
 
-        ax1 = axes1[j, col_id[0]]
-        ax2 = axes2[j, col_id[0]]
-
-        for method, df in df_cell.groupby('method'):
+        for method, df in df_ADO.groupby('method'):
             if method != 'Poisson Dispersion':
                 rec = [0, 1]
                 prec = [1, 0]
@@ -164,54 +180,59 @@ def plot_curves(df_in, axes1, axes2, min_cells, col_id, ampl):
                 rec = [vals.TP / (vals.TP + vals.FN)]
                 prec = [vals.TP / (vals.TP + vals.FP)]
 
-            sns.lineplot(x=rec, y=prec, ax=ax1, color=colors[method],
-                markersize=0, alpha=0.75) #PRC
-            sns.lineplot(x=fprs, y=rec, ax=ax2, color=colors[method],
-               markersize=0, alpha=0.75) # ROC
+            sns.lineplot(x=rec, y=prec, ax=ax1, color=COLORS[method],
+                markersize=0, alpha=0.75, lw=1) #PRC
+            sns.lineplot(x=fprs, y=rec, ax=ax2, color=COLORS[method],
+               markersize=0, alpha=0.75, lw=1) # ROC
 
             for k, wMax in enumerate(w_max, 2):
-                ax1.plot(rec[k], prec[k], marker='o', markersize=6,
-                    mec=colors[method], mfc=cmap(k - 2))
-                ax2.plot(fprs[k], rec[k], marker='o', markersize=6,
-                    mec=colors[method], mfc=cmap(k - 2))
-            ax2.plot([0, 1], [0, 1], color='grey', ls='--')
+                color = [i for i in to_rgba(COLORS[method])[:3]] + [0.75]
+                ax1.plot(rec[k], prec[k], marker='o', markersize=4,
+                    mec=color, mfc=cmap(k - 2))
+                ax2.plot(fprs[k], rec[k], marker='o', markersize=4,
+                    mec=color, mfc=cmap(k - 2))
+            ax2.plot([0, 1], [0, 1], color='grey', ls='--', lw=1)
 
-        format_ax(ax1, col_id, j, min_cells, True)
-        format_ax(ax2, col_id, j, min_cells, False)
+        format_ax(ax1, row, (j, ADO_vals.size), True, row_title)
+        format_ax(ax2, row, (j, ADO_vals.size), False, row_title)
 
 
-def format_ax(ax, col_id, j, min_cells, PRC):
-    ax.set_xlim((-0.05, 1.05))
-
+def format_ax(ax, row, col, PRC, row_title):
     if PRC:
+        ax.set_xlim((0.05, 1.05))
+        ax.set_xticks([0, 0.5, 1])
         ax.set_ylim((0.4, 1.05))
+        ax.set_yticks([0.5, 1])
     else:
-        ax.set_ylim((-0.05, 1.05))
+        ax.set_xlim((-0.05, 1.05))
+        ax.set_xticks([0, 0.5, 1])
+        ax.set_ylim((0, 1.05))
+        ax.set_yticks([0, 0.5, 1])
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    if j < min_cells.size - 1:
+    # not bottom row
+    if row[0] < row[1] - 1:
         ax.set_xticklabels([])
         ax.set_xlabel(None)
 
     # First col
-    if col_id[0] == 0:
+    if col[0] == 0:
         # middle row
-        if j == np.floor(min_cells.size / 2):
+        if row[0] == np.floor(row[1] / 2):
             if PRC:
                 ax.set_ylabel('Precision')
             else:
                 ax.set_ylabel('True positive rate')
         else:
             ax.set_ylabel(None)
-
     else:
         ax.set_ylabel(None)
         ax.set_yticklabels([])
 
     # Middle col, last row
-    if col_id[0] == np.floor((col_id[1] - 1) / 2) and j == min_cells.size - 1:
+    if col[0] == np.floor((col[1] - 1) / 2) and row[0] == row[1] - 1:
         if PRC:
             ax.set_xlabel('Recall')
         else:
@@ -220,18 +241,8 @@ def format_ax(ax, col_id, j, min_cells, PRC):
         ax.set_xlabel('')
 
     # Last column
-    if col_id[0] == col_id[1] - 1:
-        ax2 = ax.twinx()
-        ax2.set_yticks([])
-        ax2.spines['top'].set_visible(False)
-        ax2.spines['right'].set_visible(False)
-        if len(min_cells) == 1:
-            ax1.set_ylabel(f'\nAmplifier:\n{ampl:.0f}')
-        else:
-            ax2.set_ylabel(f'\n{min_cells[j]}' + r'$\leq$' + f'# ampl. cells' \
-                + r'$\leq$' + f'{CELL_NO - min_cells[j]}')
-        for tick in  ax.yaxis.majorTicks:
-            tick.tick1line.set_markersize(0)
+    if col[0] == col[1] - 1:
+        add_row_header(ax, f'\n{row_title}')
 
 
 def parse_args():
@@ -239,15 +250,19 @@ def parse_args():
     parser.add_argument('input', type=str, help='Directory with summary files.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-c', '--min_cell', nargs='+', default = [1, 2, 3, 4, 5],
-        type=float, help='Min. #cells affected. Default = [1, 2, 3, 4, 5].')
+    parser.add_argument('-t', '--total_cells', type=int, default=30,
+        help='Number of simulated cells. Default = 30')
+    parser.add_argument('-c', '--clone_size', nargs='+',
+        default = [10, 90],
+        #default = [0, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95],
+        type=float, help='Amplified clone size subsets. Default = [10, 90].')
     parser.add_argument('-a', '--amplifier', default=2, type=float,
         help='Amplifier value to plot. Default = 2.')
-    parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.2, 0.4, 0.6],
+    parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.2, 0.4],
         type=float,
-        help='Simulated ADO value to plot. Default = [0, 0.2, 0.4, 0.6].')
+        help='Simulated ADO value to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
-        default=['cellcoal', 'scite', 'cellphy'],
+        default=['cellcoal', 'cellphy'],
         help='Method to plot. Default = all.')
     args = parser.parse_args()
     return args

@@ -42,7 +42,7 @@ def generate_ADO_mut_plot(ADO_file, data_file, out_dir):
     plt.title(title_str)
 
     out_file = os.path.join(out_dir, f'ADO_mut_scatter.png')
-    fig.savefig(out_file, dpi=300)
+    fig.savefig(out_file, dpi=DPI)
     plt.close()
 
 
@@ -91,7 +91,7 @@ def plot_ADO_est(df, out_file):
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.8, top=0.9, hspace=0.33)
 
     if out_file:
-        fig.savefig(out_file, dpi=300)
+        fig.savefig(out_file, dpi=DPI)
     else:
         plt.show()
     plt.close()
