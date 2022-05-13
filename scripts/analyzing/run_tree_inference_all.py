@@ -36,10 +36,11 @@ cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
 scite_script = '/home/uvi/be/nbo/MolClockAnalysis/simulations/scripts/run_scite.py'
 scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 
-scite_time = 1440
+scite_time = 2880
+scite_time_WGS = 4320
 scite_mem = 12
 cellphy_cores = 4
-cellphy_time = 1440
+cellphy_time = 2880
 cellphy_mem = 3
 
 KEEP_GOING = False
@@ -50,8 +51,8 @@ SLURM=True
 def run_bash(cmd_raw, bsub=True, cores=1, time=30, mem=2):
     if bsub:
         if SLURM:
-            cmd = f"sbatch --cpus-per-task {cores} -t {time} -p amd-shared " \
-                f"--qos amd-shared --mem {mem}G --wrap '{cmd_raw}'"
+            cmd = f"sbatch --cpus-per-task {cores} -t {time} -p shared " \
+                f"--qos shared --mem {mem}G --wrap '{cmd_raw}'"
         else:
             cmd = f'bsub -n {cores} -W {time} -R "rusage[mem={mem*1000}]" ' \
                 f'"{cmd_raw}"'
