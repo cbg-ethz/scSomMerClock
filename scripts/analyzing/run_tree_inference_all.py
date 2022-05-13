@@ -137,7 +137,8 @@ def run_inference(args):
                                 run_bash(idx_cmd, False)
                             # Copy and filter cells that did not pass QC
                             cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                                f'{in_file}.gz -O z -o {vcf_raw_file}'
+                                f'--force-samples {in_file}.gz -O z ' \
+                                f'-o {vcf_raw_file}'
                             run_bash(cp_cmd, False)
 
                             # Add wild type column
