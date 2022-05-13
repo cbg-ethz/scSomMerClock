@@ -68,7 +68,7 @@ def run_bash(cmd_raw, bsub=True, cores=1, time=30, mem=2):
 
     if not cmd.startswith('sbatch'):
         print(str(stdout), str(stderr))
-    if stderr != b'' and not KEEP_GOING:
+    if not KEEP_GOING and (stderr != b'' and not stderr.startswith(b'Warn:')):
         exit()
     print('\n')
 
