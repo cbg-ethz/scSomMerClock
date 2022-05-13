@@ -11,6 +11,8 @@ import tarfile
 MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
 
 DATA_DIRS = {
+    'CRC08': ['all', 'cancer', 'normal'],
+    'CRC09': ['all'],
     'H65': ['all'],
     'Li55': ['all', 'cancer', 'normal'],
     'Lo-P1': ['all'],
@@ -201,31 +203,6 @@ def run_inference(args):
         print('All tree files exist')
 
 
-def print_masterlist(args):
-    out_str = ''
-    for data_set, sub_dirs in DATA_DIRS.items():
-        if data_set not in args.dataset:
-            continue
-
-        for sub_dir in sub_dirs:
-            if sub_dir == 'all' and len(sub_dirs) > 1:
-                continue
-
-            vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
-
-            if data_set in WGS:
-                data_filters = DATA_FILTERS + ['99nanFilter']
-            else:
-                data_filters = DATA_FILTERS
-
-            for data_filter in data_filters:
-                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
-                out_str += os.path.join(vcf_dir, vcf_name) + '\n'
-
-    with open(args.master, 'w') as f:
-        f.write(out_str)
-
-
 def compress_files(args):
     if not os.path.exists(args.compress):
         os.makedirs(args.compress)
@@ -312,8 +289,6 @@ def parse_args():
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=METHODS, default=METHODS,
         help=f'Tree inference method. Default = {METHODS}')
-    parser.add_argument('-ma', '--master', default='', type=str,
-        help='Print master file list and exit.')
     parser.add_argument('-comp', '--compress', default='', type=str,
         help='Compress files to folder and exit.')
     parser.add_argument('-d', '--dataset', type=str, nargs='+',
@@ -337,9 +312,7 @@ if __name__ == '__main__':
     if args.lsf:
         SLURM = False
 
-    if args.master:
-        print_masterlist(args)
-    elif args.compress:
+    if args.compress:
         compress_files(args)
     else:
         run_inference(args)

@@ -297,9 +297,9 @@ def parse_args():
     parser.add_argument('-dr', '--drivers', type=str,
         default=DRIVER_FILE,
         help=f'Path to IntOGen driver file. Default = {DRIVER_FILE}.')
-    parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=500,
+    parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=400,
         help='W_max value used for coloring braches in Phylogentic tree. ' \
-            'Default = 500.')
+            'Default = 400.')
     parser.add_argument('-t', '--tests', default=['poissonTree', 'dispersion'],
         choices=['poissonTree', 'dispersion'], help='Tests to perform.')
     parser.add_argument('-da', '--dataset', type=str, nargs='+',

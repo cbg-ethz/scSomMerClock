@@ -97,7 +97,7 @@ def plot_sign_over_cells(df_in, axes, trees, col_no):
 
         if col_no[0] == col_no[1] - 1:
             ax2 = ax.twinx()
-            ax2.set_ylabel(vis_names[tree], fontsize=12)
+            ax2.set_ylabel(METHODS[tree], fontsize=12)
             ax2.set_yticks([])
 
 
@@ -150,7 +150,7 @@ def generate_sign_over_cells(args):
     tree_vals = df['Tree'].unique()
 
     fig, axes = plt.subplots(nrows=tree_vals.size, ncols=ampl_vals.size,
-        figsize=(3 * ampl_vals.size, tree_vals.size + 2))
+        figsize=(ampl_vals.size + 1, tree_vals.size + 1))
     axes = np.reshape(axes, (tree_vals.size, ampl_vals.size))
 
     for i, ampl_val in enumerate(ampl_vals):
@@ -249,9 +249,7 @@ def generate_pval_plot_noClock(args):
     col_no = ADO_vals.size
     row_no = ampl_vals.size
 
-    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    axes = np.reshape(axes, (row_no, col_no))
+    fig, axes = get_subplots(row_no, col_no)
 
     for i, ampl_val in enumerate(ampl_vals):
         df_plot = df[df['amplifier'] == ampl_val]
@@ -266,14 +264,7 @@ def generate_pval_plot_noClock(args):
         for j, ADO_val in enumerate(ADO_vals):
             add_col_header(axes[0, j], f'FN rate: {ADO_val / 2}')
 
-    fig.tight_layout()
-    if args.output:
-        if not args.output.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-            args.output += '.png'
-        fig.savefig(args.output, dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    plot_fig(fig, args.output)
 
 
 def plot_pVal_dist(df, ADO_vals, axes, row):

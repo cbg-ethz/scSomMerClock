@@ -87,12 +87,7 @@ def generate_PRC(args):
     else:
         row_no = clone_sizes.size
 
-    fig1, axes1 = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    fig2, axes2 = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    axes1 = np.reshape(axes1, (row_no, col_no))
-    axes2 = np.reshape(axes2, (row_no, col_no))
+    fig, axes = get_subplots(row_no, col_no)
 
     for i, clone_size_max in enumerate(clone_sizes):
         if clone_size_max == 0:
@@ -116,8 +111,7 @@ def generate_PRC(args):
                 f'[{clone_size_min}, {clone_size_max}]!')
             continue
 
-
-        plot_curves(df_plot, axes1, axes2, ADO_vals, (i, row_no))
+        plot_curve(df_plot, axes[i], ADO_vals, (i, row_no), curve=args.curve)
 
         if clone_sizes.size == 2:
             break
@@ -127,29 +121,19 @@ def generate_PRC(args):
             col_title = 'No Errors'
         else:
             col_title = f'FN rate: {ADO_val / 2}'
+        add_col_header(axes[0, i], col_title)
 
-        for ax in [axes1, axes2]:
-            add_col_header(ax[0, i], col_title)
-
-    fig1.tight_layout()
-    fig2.tight_layout()
-    if args.output:
-        fig1.savefig(f'PRC_{args.output}.png', dpi=DPI)
-        fig2.savefig(f'ROC_{args.output}.png', dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    plot_fig(fig, args.output)
 
 
-def plot_curves(df_in, axes1, axes2, ADO_vals, row, row_title=''):
+
+def plot_curve(df_in, axes,ADO_vals, row, row_title='', curve='ROC'):
     wMax_map = {j: i for i, j in enumerate(sorted(df_in['wMax'].unique()))}
     cmap = cm.get_cmap('viridis_r', len(wMax_map))
 
     for j, ADO_val in enumerate(ADO_vals):
         df_ADO = df_in[df_in['ADO'] == ADO_val]
-
-        ax1 = axes1[row[0], j]
-        ax2 = axes2[row[0], j]
+        ax = axes[j]
 
         for method, df in df_ADO.groupby('method'):
             if method != 'Poisson Dispersion':
@@ -180,21 +164,25 @@ def plot_curves(df_in, axes1, axes2, ADO_vals, row, row_title=''):
                 rec = [vals.TP / (vals.TP + vals.FN)]
                 prec = [vals.TP / (vals.TP + vals.FP)]
 
-            sns.lineplot(x=rec, y=prec, ax=ax1, color=COLORS[method],
-                markersize=0, alpha=0.75, lw=1) #PRC
-            sns.lineplot(x=fprs, y=rec, ax=ax2, color=COLORS[method],
-               markersize=0, alpha=0.75, lw=1) # ROC
+            if curve == 'ROC':
+                sns.lineplot(x=fprs, y=rec, ax=ax, color=COLORS[method],
+                    markersize=0, alpha=0.75, lw=1)
+            else:
+                sns.lineplot(x=rec, y=prec, ax=ax, color=COLORS[method],
+                    markersize=0, alpha=0.75, lw=1)
 
             for k, wMax in enumerate(w_max, 2):
                 color = [i for i in to_rgba(COLORS[method])[:3]] + [0.75]
-                ax1.plot(rec[k], prec[k], marker='o', markersize=4,
-                    mec=color, mfc=cmap(k - 2))
-                ax2.plot(fprs[k], rec[k], marker='o', markersize=4,
-                    mec=color, mfc=cmap(k - 2))
-            ax2.plot([0, 1], [0, 1], color='grey', ls='--', lw=1)
+                if curve == 'ROC':
+                    ax.plot(fprs[k], rec[k], marker='o', markersize=4,
+                        mec=color, mfc=cmap(k - 2))
+                    ax.plot([0, 1], [0, 1], color='grey', ls='--', lw=1)
+                else:
+                    ax.plot(rec[k], prec[k], marker='o', markersize=4,
+                        mec=color, mfc=cmap(k - 2))
 
-        format_ax(ax1, row, (j, ADO_vals.size), True, row_title)
-        format_ax(ax2, row, (j, ADO_vals.size), False, row_title)
+
+        format_ax(ax, row, (j, ADO_vals.size), curve == 'PRC', row_title)
 
 
 def format_ax(ax, row, col, PRC, row_title):
@@ -250,13 +238,15 @@ def parse_args():
     parser.add_argument('input', type=str, help='Directory with summary files.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
+    parser.add_argument('-cu', '--curve', type=str, default='ROC',
+        choices=['ROC', 'PRC'], help='Which curve to plot. Default = ROC.')
     parser.add_argument('-t', '--total_cells', type=int, default=30,
         help='Number of simulated cells. Default = 30')
     parser.add_argument('-c', '--clone_size', nargs='+',
         default = [10, 90],
         #default = [0, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95],
         type=float, help='Amplified clone size subsets. Default = [10, 90].')
-    parser.add_argument('-a', '--amplifier', default=2, type=float,
+    parser.add_argument('-amp', '--amplifier', default=2, type=float,
         help='Amplifier value to plot. Default = 2.')
     parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.2, 0.4],
         type=float,

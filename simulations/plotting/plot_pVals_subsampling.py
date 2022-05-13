@@ -72,9 +72,7 @@ def generate_pval_plot_ss(args):
 
     col_no = subsamples.size
     row_no = ampl_vals.size
-    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-            figsize=(col_no + 1, row_no + 1))
-    axes = np.reshape(axes, (row_no, col_no))
+    fig, axes = get_subplots(row_no, col_no)
 
     for i, ampl in enumerate(ampl_vals):
         if ampl == 1:
@@ -89,12 +87,7 @@ def generate_pval_plot_ss(args):
         for i, ss in enumerate(subsamples):
             add_col_header(axes[0, i], f'Cells:\n{ss}/{args.total_cells}')
 
-    fig.tight_layout()
-    if args.output:
-        fig.savefig(args.output, dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    plot_fig(fig, args.output)
 
 
 def plot_pVal_dist(df, subsamples, axes, row_no, row_title=''):

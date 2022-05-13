@@ -38,7 +38,7 @@ def generate_wmax_plot(args):
             except AttributeError:
                 continue
             tree = col.split('.')[-1]
-            if not tree in vis_names:
+            if not tree in METHODS:
                 tree = col.split('_')[-1]
 
             if not tree in args.method:
@@ -82,7 +82,7 @@ def generate_wmax_plot(args):
 
         if not single_plot:
             ax2 = ax.twinx()
-            ax2.set_ylabel(vis_names[tree])
+            ax2.set_ylabel(METHODS[tree])
             ax2.set_yticks([])
 
         ax.get_legend().remove()

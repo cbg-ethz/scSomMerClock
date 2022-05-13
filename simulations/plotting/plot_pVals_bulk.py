@@ -47,13 +47,13 @@ def generate_pval_plot_bulk(args):
     else:
         col_no = clone_sizes.size
 
-    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    fig2, axes2 = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
+    # fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
+    #     figsize=(col_no + 1, row_no + 1))
+    # fig2, axes2 = plt.subplots(nrows=row_no, ncols=col_no,
+    #     figsize=(col_no + 1, row_no + 1))
 
-    axes = np.reshape(axes, (row_no, col_no))
-    axes2 = np.reshape(axes2, (row_no, col_no))
+    # axes = np.reshape(axes, (row_no, col_no))
+    # axes2 = np.reshape(axes2, (row_no, col_no))
 
     for i, clone_size_max in enumerate(clone_sizes):
         if clone_size_max == 0:
@@ -83,28 +83,30 @@ def generate_pval_plot_bulk(args):
             fig3 = plot_mobster_box(df_plot)
             break
 
-        if col_no > 1:
-            if clone_size_max == 0:
-                header = 'All data'
-            else:
-                header = 'Amplified clone size:\n' \
-                    f'({clone_size_min}, {clone_size_max}] %'
-            add_col_header(axes[0, i], header)
-            add_col_header(axes2[0, i], header)
+        # if col_no > 1:
+        #     if clone_size_max == 0:
+        #         header = 'All data'
+        #     else:
+        #         header = 'Amplified clone size:\n' \
+        #             f'({clone_size_min}, {clone_size_max}] %'
+        #     add_col_header(axes[0, i], header)
+        #     add_col_header(axes2[0, i], header)
 
-    fig.tight_layout()
-    fig2.tight_layout()
     if clone_sizes.size == 2:
-        fig3.tight_layout()
+        if args.output:
+            plot_fig(fig3, args.output + '_mobster_box.png')
+        else:
+            plot_fig()
+        exit()
 
-    if args.output:
-        fig.savefig(args.output + '_neutralitytest.png', dpi=DPI)
-        fig2.savefig(args.output + '_mobster.png', dpi=DPI)
-        if clone_sizes.size == 2:
-            fig3.savefig(args.output + '_mobster_box.png', dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    # fig.tight_layout()
+    # fig2.tight_layout()
+    # if args.output:
+    #     fig.savefig(args.output + '_neutralitytest.png', dpi=DPI)
+    #     fig2.savefig(args.output + '_mobster.png', dpi=DPI)
+    # else:
+    #     plt.show()
+    # plt.close()
 
 
 def plot_neutralitytest(df, axes, col):
@@ -167,7 +169,7 @@ def plot_neutralitytest(df, axes, col):
 
 
 def plot_mobster_box(df):
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(4, 2))
+    fig, axes = get_subplots(1, 2)
 
     y_labels = []
     for i in sorted(df['Amplifier'].unique()):
@@ -187,36 +189,38 @@ def plot_mobster_box(df):
                 bar_vals.append([ampl, 1, cl_df.shape[0] / ampl_n * 100])
     bar_df = pd.DataFrame(bar_vals, columns=['Amplifier', 'clones_Bayes', 'sum'])
 
+    box_ax = axes[0, 1]
     sns.boxplot(data=df[df['clones_Bayes'] > 0], x='Amplifier', y='s_Bayes',
-        color=COLORS[1], ax=axes[1], fliersize=2, showfliers = False,
+        color=COLORS[1], ax=box_ax, fliersize=2, showfliers = False,
         linewidth=1)
     sns.stripplot(data=df[df['clones_Bayes'] > 0], x='Amplifier', y='s_Bayes',
-        color=COLORS[1], ax=axes[1], dodge=True, linewidth=1,
+        color=COLORS[1], ax=box_ax, dodge=True, linewidth=1,
         jitter=0.25, alpha=.2, size=4)
 
-    axes[1].set_ylim((-0.5, 3))
-    axes[1].set_yticks([0, 1, 2])
-    axes[1].set_ylabel('Fitness coefficient s')
-    axes[1].set_xlabel('Amplifier')
-    axes[1].set_xticklabels(y_labels, rotation=90)
+    box_ax.set_ylim((-0.5, 3))
+    box_ax.set_yticks([0, 1, 2])
+    box_ax.set_ylabel('Fitness coefficient s')
+    box_ax.set_xlabel('Amplifier')
+    box_ax.set_xticklabels(y_labels, rotation=90)
 
+    bar_ax = axes[0, 0]
     sns.barplot(data=bar_df, x='Amplifier', y='sum', hue='clones_Bayes',
-        hue_order=[0, 1], palette=COLORS, ax=axes[0], dodge=False)
-    axes[0].set_ylabel('% subclone inferred')
-    axes[0].set_yticks([0, 25, 50, 75, 100])
-    axes[0].set_ylim((0, 100))
+        hue_order=[0, 1], palette=COLORS, ax=bar_ax, dodge=False)
+    bar_ax.set_ylabel(r'subclone ($s \neq 0$) [%]')
+    bar_ax.set_yticks([0, 25, 50, 75, 100])
+    bar_ax.set_ylim((0, 100))
 
-    axes[0].set_xlabel('Amplifier')
-    axes[0].set_xticklabels(y_labels, rotation=90)
+    bar_ax.set_xlabel('Amplifier')
+    bar_ax.set_xticklabels(y_labels, rotation=90)
 
-    axes[0].get_legend().remove()
+    bar_ax.get_legend().remove()
 
     # handles = []
     # labels = []
     # for i in [1, 0]:
     #     handles.append(plt.Rectangle((0, 0), 1, 1, color=COLORS[i]))
     #     labels.append(i + 1)
-    # axes[0].legend(handles, labels, title='Inf. clones', facecolor='white',
+    # bar_ax.legend(handles, labels, title='Inf. clones', facecolor='white',
     #     framealpha=1, loc='lower left', labelspacing=0)
 
     return fig

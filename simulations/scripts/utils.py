@@ -89,14 +89,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
     else:
         file_stream = open(vcf_file, 'r')
 
-    full_gt_file = vcf_file.replace('vcf_dir', 'full_genotypes_dir') \
-        .replace('vcf', 'full_gen')
-    if os.path.exists(full_gt_file):
-        get_bg = True
-        mut_i = []
-    else:
-        get_bg = False
-
     if GT:
         missing = '3'
     else:
@@ -146,9 +138,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
             if not 'PASS' in line_cols[6]:
                 continue
 
-            if get_bg:
-                mut_i.append(int(line_cols[1]))
-
             ref = line_cols[3]
             alts = line_cols[4].split(',')
             FORMAT_col = line_cols[8].split(':')
@@ -178,23 +167,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
                     else:
                         samples[s_i] += alts[max(int(s_rec_ref), int(s_rec_alt)) - 1]
 
-    if get_bg:
-        true_GT = tail(open(full_gt_file, 'r'), 1).strip().split(' ')[2:]
-        cnts = {}
-        for i, j in enumerate(true_GT):
-            if len(mut_i) > 0 and i == mut_i[0] -1:
-                mut_i.pop(0)
-            else:
-                try:
-                    cnts[j] += 1
-                except KeyError:
-                    cnts[j] = 1
-
-        bg_out_dir = full_gt_file.replace('full_gen.', 'background.')
-        with open(bg_out_dir, 'w') as bg_out:
-            bg_out.write(' ' \
-                .join([str(cnts[i]) for i in ['AA', 'CC', 'GG', 'TT']]))
-
     # Remove excluded samples
     for i in sorted(exclude_i, reverse=True):
         samples.pop(i)
@@ -203,7 +175,6 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
         samples.pop(sample_names.index(''))
     except (ValueError, KeyError):
         pass
-
 
     return samples, [i.replace('-', '_') for i in sample_names]
 
@@ -305,6 +276,68 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
     assert tree_new != '', 'Failed to root/unroot tree with PAUP'
 
     return tree, tree_new
+
+
+def change_tree_root(tree_file, sample_names=[], outg='healthycell'):
+
+    from ete3 import Tree
+    from ete3.parser.newick import NewickError
+
+    with open(tree_file, 'r') as f:
+        tree_raw = f.read().strip()
+    rooted = True
+
+    cellphy_ends = ('.raxml.bestTree', 'raxml.mutationMapTree',
+        'raxml.supportFBP', 'raxml.supportTBE')
+    if tree_file.endswith(cellphy_ends) or 'cellphy' in tree_file:
+        rooted = False
+        tree_raw = re.sub('\[\d+\]', '', tree_raw)
+        if tree_raw.count('tumcell') == 0:
+            tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
+        if tree_raw.count('healthycell') == 0:
+            tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
+    elif tree_file.endswith('_ml0.newick') or 'scite' in tree_file:
+        sem_count = tree_raw.count(';')
+        if sem_count == 0:
+            tree_raw += ';'
+        elif sem_count > 1:
+            tree_raw = tree_raw.split(';')[0].strip() + ';'
+
+        nodes = [int(i) for i in \
+            re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree_raw)]
+        int_node_idx = 1
+        for i, s_i in enumerate(sorted(nodes)):
+            if i < samples.size:
+                pat = f'(?<=[\(\),]){s_i}(?=[,\)\(;)])'
+                repl = f'{samples[i]}:1.0'
+            else:
+                pat = f'(?<=[\(\),]){s_i}(?=[,\)\(;)])'
+                repl = f'Node{int_node_idx}:1.0'
+                int_node_idx += 1
+            tree_raw = re.sub(pat, repl, tree_raw)
+        tree_raw = tree_raw[tree_raw.index('('):]
+    else:
+        if tree_raw.count('tumcell') == 0:
+            tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
+        if tree_raw.count('healthycell') == 0:
+            tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
+
+    try:
+        tree = Tree(tree_raw, format=2)
+    except NewickError:
+        tree = Tree(tree_raw, format=1)
+
+    outg_node = tree&outg
+    if rooted:
+        tree_rooted = tree.write()
+        tree.unroot()
+        tree_unrooted = tree.write()
+    else:
+        tree_unrooted = tree.write()
+        tree.set_outgroup(outg_node)
+        tree_rooted = tree.write()
+
+    return tree_rooted, tree_unrooted
 
 
 if __name__ == '__main__':

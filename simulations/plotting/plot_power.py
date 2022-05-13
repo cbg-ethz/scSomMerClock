@@ -69,9 +69,7 @@ def generate_power_plot(args):
     ADO_vals.sort()
     col_no = ADO_vals.size
 
-    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    axes = np.reshape(axes, (row_no, col_no))
+    fig, axes = get_subplots(row_no, col_no)
 
     for i, ADO_val in enumerate(ADO_vals):
         df_plot = df[df['ADO'] == ADO_val]
@@ -83,14 +81,7 @@ def generate_power_plot(args):
                 col_title = 'No Errors'
             add_col_header(axes[0, i], col_title)
 
-    fig.tight_layout()
-    if args.output:
-        if not args.output.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-            args.output += '.png'
-        fig.savefig(args.output, dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    plot_fig(fig, args.output)
 
 
 def plot_power(df, ax, n_total, col):

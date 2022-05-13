@@ -97,7 +97,7 @@ def plot_ADO_estimate(in_dir, out_file='', bulk=False):
                 continue
             new_df = pd.DataFrame(content)
             new_df.rename({col: 'Inferred ADO'}, axis=1, inplace=True)
-            new_df['Tree'] = vis_names_short[tree]
+            new_df['Tree'] = METHODS[tree]
             new_df['Missing'] = 'not added'
 
             new_df = new_df.merge(ADO_mean, left_index=True, right_index=True)

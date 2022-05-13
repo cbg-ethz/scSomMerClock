@@ -29,83 +29,28 @@ sns.set_context('paper',
 #         'lines.markersize': 6.0}
 # })
 
-vis_names = {
-    'poissondisp': 'Poisson Dispersion',
-    'poissonDisp': 'Poisson Dispersion',
-    'paup': 'PAUP*',
-    'poissontree': 'Poisson Tree',
-    'cellcoal': 'True Tree',
-    '-': '-',
-    'scite': 'Scite Tree',
-    'cellphy': 'CellPhy Tree',
-}
-vis_names_short = {
-    'poissondisp': 'Poisson Dispersion',
-    'poissonDisp': 'Poisson Dispersion',
-    'paup': 'PAUP*',
-    'poissontree': 'Poisson Tree',
-    'cellcoal': 'True Tree',
-    '-': '-',
-    'scite': 'Scite',
-    'cellphy': 'CellPhy',
-}
+
 METHODS = {
-    'PAUP*': 'PAUP*',
+    'PAUP*': 'PAUP* (True)',
     'poissonDisp': 'Poisson Dispersion',
     'cellcoal': 'Poisson Tree (True)',
     'cellphy': 'Poisson Tree (CellPhy)',
-    'scite': 'Poisson Tree (+Scite)',
+    'scite': 'Poisson Tree (Scite)',
     'mobster': 'mobster',
-    'neutrality': r'Williams $\it{et}$ $\it{al.}$'
+    'neutrality': 'neutralitytest'
 }
 
-colors = {
-    'Poisson Dispersion': '#FFC514', # '#994EA3', # purple
-    'PAUP*': '#4FAF4A', # green
-    'PAUP* + True Tree': '#4FAF4A', # green
-    'PAUP* + CellPhy Tree': '#177512', # darker green
-    'PAUP* + SCITE Tree': '#AAE3A7', #  lighter green
-    'cellcoal': '#E41A1A', # red
-    'cellphy': '#377DB8', # blue
-    'CellPhy': '#377DB8', # blue
-    'scite': '#FF7F00', # orange
-    'Scite': '#FF7F00', # orange
-    'poissonDisp': '#FFC514', #'#994EA3', # purple
-    'mobster': '#33A02C', # dark green
-    'neutrality': '#FF7F00', #'#B2DF8A', #light green
-    0: '#217875', #'719819', # '#B2DF8A', #light green
-    1: '#33A02C', # green
-    2: '#116360', # dark green
-}
 COLORS = {
     'PAUP*': '#f4a259',
     'poissonDisp': '#6ec15d',
     'cellcoal': '#e06c78',
     'cellphy': '#5874dc',
     'scite': '#bb4430',
-    'neutrality': '#2E851C',
-    'mobster': '#ffca52', # mobster
-    1: '#ffca52', # mobster
+    'neutrality': '#FFE652',
+    'mobster': '#2E851C', # mobster
+    1: '#2E851C', # mobster
     0: '#384e78', # mobster
 }
-
-
-poisson_colors = { # red, blue, orange
-    'True Tree': ['#E41A1A', '#377DB8', '#FF7F00'], # normal
-    'CellPhy Tree': ['#8C0000', '#094D85', '#9B4D00'], # darker
-    'SCITE Tree': ['#F04949', '#84B5DE', '#FFB164'] #brigher
-}
-asdfg = [
-"#e06c78", # pink = PoissonTree + True
-"#f4a259", # orange = PAUP*
-"#6ec15d", # green = PoissonDisp
-"#384e78", # orange = Mobster 1
-"#ffca52", # blue = Mobster 2
-"#5874dc", # indigo = PoissonTree + Cellphy
-"#bb4430", # dark red = PoissonTree + scite
-"#2E851C", # purple = neutralitytest
-]
-
 
 HUE_ORDER = ['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*', 'scite']
 HIST_DEFAULT = {
@@ -131,8 +76,36 @@ LINE_STYLE ={
     90: (0, (4, 1, 4, 1)), # -- -- -- --
     100: (0, (1, 0, 0, 0)), # solid
 }
+MARGINS = {
+    'left': 0.15,
+    'right': 0.9,
+    'top': 0.8,
+    'bottom': 0.3,
+    'wspace': 0.35,
+    'hspace': 0.35,
+}
 
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
+
+
+def get_subplots(row_no, col_no):
+    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
+        figsize=(col_no * 2, row_no * 2))
+    axes = np.reshape(axes, (row_no, col_no))
+    return fig, axes
+
+
+def plot_fig(fig=None, out_file=''):
+    # fig.tight_layout()
+    plt.subplots_adjust(**MARGINS)
+    if out_file:
+        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            out_file += '.png'
+        fig.savefig(out_file, dpi=DPI)
+    else:
+        plt.show()
+
+
 
 def add_rugs(data, offset, ax, color, height=None):
     if not height:
@@ -148,7 +121,7 @@ def add_rugs(data, offset, ax, color, height=None):
 
 
 def add_col_header(ax, title):
-    ax.annotate(title, xy=(0.5, 1.2), xytext=(0, 5), xycoords='axes fraction',
+    ax.annotate(title, xy=(0.5, 1.1), xytext=(0, 5), xycoords='axes fraction',
         textcoords='offset points', ha='center', va='baseline',
         annotation_clip=False)
 

@@ -91,9 +91,9 @@ def generate_pval_plot(args):
         generate_legend_plot(df['Tree'].unique(), args.output)
 
     fig, axes = plt.subplots(nrows=ampl_vals.size, ncols=ADO_vals.size,
-        figsize=(3 * ADO_vals.size, ampl_vals.size + 1))
+        figsize=(2 * ADO_vals.size, ampl_vals.size * 2))
     fig2, axes2 = plt.subplots(nrows=ampl_vals.size, ncols=ADO_vals.size,
-        figsize=(3 * ADO_vals.size, ampl_vals.size + 1))
+        figsize=(2 * ADO_vals.size, ampl_vals.size * 2))
     axes = np.reshape(axes, (ampl_vals.size, ADO_vals.size))
     axes2 = np.reshape(axes2, (ampl_vals.size, ADO_vals.size))
 
@@ -116,7 +116,6 @@ def generate_pval_plot(args):
 
     fig.tight_layout()
     fig2.tight_layout()
-
     if args.output:
         fig.savefig(args.output, dpi=DPI)
         fig2.savefig(os.path.splitext(args.output)[0] + '_lambda.png', dpi=DPI)

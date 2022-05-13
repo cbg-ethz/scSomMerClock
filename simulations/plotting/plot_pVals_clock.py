@@ -51,12 +51,12 @@ def generate_pval_plot_clock(args):
             elif col[8:].startswith('poissonDisp'):
                 if 'poissonDisp' not in args.method:
                     continue
-                wMax = args.wMax
+                wMax = [-1]
                 method = 'poissonDisp'
             elif col[8:].startswith('paup'):
                 if 'PAUP*' not in args.method:
                     continue
-                wMax = args.wMax
+                wMax = [-1]
                 method = col.split('.')[-1]
                 if method == 'cellcoal':
                     method = 'PAUP*'
@@ -83,9 +83,6 @@ def generate_pval_plot_clock(args):
     ADO_vals = df['ADO'].unique()
     ADO_vals.sort()
 
-    if args.legend:
-        generate_legend_plot(df['method'].unique(), args.output)
-
     if args.statistic:
         plt_fct = plot_lambda_dist
     else:
@@ -93,9 +90,7 @@ def generate_pval_plot_clock(args):
 
     row_no = wMax_vals.size
     col_no = ADO_vals.size
-    fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no + 1, row_no + 1))
-    axes = np.reshape(axes, (row_no, col_no))
+    fig, axes = get_subplots(row_no, col_no)
 
     for i, ADO_val in enumerate(ADO_vals):
         df_plot = df[df['ADO'] == ADO_val]
@@ -108,14 +103,7 @@ def generate_pval_plot_clock(args):
                 col_title = 'No Errors'
             add_col_header(axes[0, i], col_title)
 
-    fig.tight_layout()
-    if args.output:
-        if not args.output.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-            args.output += '.png'
-        fig.savefig(args.output, dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
+    plot_fig(fig, args.output)
 
 
 def plot_pVal_dist(df, wMax, axes, col_no):
@@ -132,7 +120,7 @@ def plot_pVal_dist(df, wMax, axes, col_no):
         #     ax=ax,
         # )
 
-        ax.set_xlim((0, 1))
+        ax.set_xlim((0, 1.01))
         ax.set_xticks([0.0, 0.5, 1])
         ax.set_ylim((0, 1))
         ax.set_yticks([0.0, 0.5, 1])
@@ -146,9 +134,9 @@ def plot_pVal_dist(df, wMax, axes, col_no):
             add_rugs(rug_data, offset=k, ax=ax, color=COLORS[method])
             k += 1
 
-        ax.annotate(f'n = {data["method"].value_counts().min():.0f}',
-            xy=(0.9, 0.825), xytext=(0, 5),  xycoords='axes fraction',
-            textcoords='offset points', ha='right', va='top', bbox=bbox_props)
+        # ax.annotate(f'n = {data["method"].value_counts().min():.0f}',
+        #     xy=(0.9, 0.825), xytext=(0, 5),  xycoords='axes fraction',
+        #     textcoords='offset points', ha='right', va='top', bbox=bbox_props)
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -159,10 +147,7 @@ def plot_pVal_dist(df, wMax, axes, col_no):
 
         # First col
         if col_no[0] == 0:
-            if i != np.floor(wMax.size / 2):
-                ax.set_ylabel('')
-            else:
-                ax.set_ylabel('Probability')
+            ax.set_ylabel('Probability')
         else:
             ax.set_ylabel(None)
             ax.set_yticklabels([])
@@ -234,34 +219,6 @@ def plot_lambda_dist(df, wMax, axes, col_no):
         #         tick.tick1line.set_markersize(0)
 
 
-def generate_legend_plot(methods, output):
-    fig, ax = plt.subplots(figsize=(4, 3))
-
-    handles = []
-    labels = []
-    for method in HUE_ORDER:
-        if method not in methods:
-            continue
-        labels.append(METHODS[method])
-        # handles.append(Line2D([0], [0], color=colors[method], lw=2))
-        handles.append(
-            mpatches.Patch(color=COLORS[method], label=METHODS[method]))
-    # handles.extend([Line2D([0], [0], color='white'),
-    #     Line2D([0], [0], color='black', lw=2, ls='--')])
-    # labels.extend(['', r'% of p-values $\leq$ 0.05'])
-
-    ax.grid(False)
-    ax.axis('off')
-    ax.legend(handles, labels, frameon=True, title=r'$\bf{Test}$')
-
-    fig.tight_layout()
-    if output:
-        fig.savefig(os.path.splitext(output)[0] + '_legend.png', dpi=DPI)
-    else:
-        plt.show()
-    plt.close()
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input directory.')
@@ -278,8 +235,6 @@ def parse_args():
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
         default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],
         help='Method to plot. Default = all.')
-    parser.add_argument('-l', '--legend', action='store_true',
-        help='Plot legend as separate figure.')
     parser.add_argument('-s', '--statistic', action='store_true',
         help='Plot test statistic as separate figure.')
     args = parser.parse_args()

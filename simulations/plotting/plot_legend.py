@@ -3,6 +3,7 @@
 import argparse
 
 from matplotlib.colors import Normalize
+from matplotlib.colorbar import ColorbarBase
 from matplotlib.lines import Line2D
 import matplotlib.patches as mpatches
 
@@ -27,13 +28,14 @@ def plot_test_legend(args):
     handles = []
     labels = []
     tests_all = {
-        'general': ['poissonDisp', 'PAUP*'],
         'single-cell': ['cellcoal', 'cellphy', 'scite'],
-        'bulk': ['neutrality', 'mobster']
+        'general': ['PAUP*', 'poissonDisp'],
+        'bulk': ['neutrality']
     }
     for test_type, tests in tests_all.items():
         labels.append(fr'$\bf{{{test_type}}}$')
         handles.append(mpatches.Patch(color='white'))
+
         for test in tests:
             if test not in args.method:
                 continue
@@ -51,19 +53,32 @@ def plot_test_legend(args):
 
 
 def plot_wMax_legend(args):
-    fig, ax = plt.subplots(figsize=(5, 2))
-    ax.grid(False)
-    ax.axis('off')
+    fig, ax = plt.subplots(figsize=(5, 1))
 
     wMax_vals = [1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     cmap =cm.get_cmap('viridis_r')
     norm = Normalize(vmin=wMax_vals[0], vmax=wMax_vals[-1])
 
-    handles = []
-    for wMax in wMax_vals:
-        handles.append(Line2D(
-            [0], [0], marker='o', color=cmap(norm(wMax)), markersize=5, lw=0))
-    ax.legend(handles, wMax_vals, ncol=NCOL, frameon=True, title=r'$\bf{w_{max}}$')
+    # handles = []
+    # labels = []
+    # for wMax in wMax_vals:
+    #     if wMax > 300 and wMax < 1000:
+    #         handles.append(Line2D([0], [0],
+    #             marker='o', color=cmap(norm(wMax)), markersize=5, lw=0))
+    #         labels.append('...')
+    #     else:
+    #         handles.append(Line2D([0], [0],
+    #             marker='o', color=cmap(norm(wMax)), markersize=5, lw=0))
+    #         labels.append(wMax)
+    # ax.legend(handles, labels, ncol=2, frameon=True, title=r'$\bf{w_{max}}$')
+
+    cb = ColorbarBase(
+        ax,
+        orientation='horizontal',
+        cmap=cmap,
+        norm=norm,
+        ticks=[1, 100, 400, 1000]
+    )
 
     fig.tight_layout()
     if args.output:
