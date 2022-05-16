@@ -124,54 +124,55 @@ def run_inference(args):
                     continue
 
                 sample_file = os.path.join(vcf_dir, 'samples.txt')
-                # Copy file from monicas dir
-                if sub_dir == 'all':
-                    in_file = os.path.join(args.in_dir, f'{data_set}.vcf')
-                    # Zip, add WT column, and index
-                    if data_filter == 'all':
-                        if not os.path.exists(vcf_file) or args.replace:
-                            # Compress and index if not done
-                            if not os.path.exists(in_file + '.gz'):
-                                idx_cmd = f'bgzip -f {in_file} && tabix {in_file}.gz' \
-                                    f' && chmod 755 {in_file}.gz'
-                                run_bash(idx_cmd, False)
-                            # Copy and filter cells that did not pass QC
-                            cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                                f'--force-samples {in_file}.gz -O z ' \
-                                f'-o {vcf_raw_file}'
-                            run_bash(cp_cmd, False)
+                if not args.tree_only:
+                    # Arrange files for processing
+                    if sub_dir == 'all':
+                        # Zip, add WT column, and index
+                        if data_filter == 'all':
+                            if not os.path.exists(vcf_file) or args.replace:
+                                in_file = os.path.join(args.in_dir, f'{data_set}.vcf')
+                                # Compress and index if not done
+                                if not os.path.exists(in_file + '.gz'):
+                                    idx_cmd = f'bgzip -f {in_file} && tabix ' \
+                                        f'{in_file}.gz && chmod 755 {in_file}.gz'
+                                    run_bash(idx_cmd, False)
+                                # Copy and filter cells that did not pass QC
+                                cp_cmd = f'bcftools view --samples-file {sample_file} ' \
+                                    f'--force-samples {in_file}.gz -O z ' \
+                                    f'-o {vcf_raw_file}'
+                                run_bash(cp_cmd, False)
 
-                            # Add wild type column
-                            wt_col_cmd = f'python {WT_col_script} -i {vcf_raw_file}'
-                            run_bash(wt_col_cmd, False)
+                                # Add wild type column
+                                wt_col_cmd = f'python {WT_col_script} -i {vcf_raw_file}'
+                                run_bash(wt_col_cmd, False)
 
-                            # Zip and tabify
-                            unzip_file = vcf_file.replace('.gz', '')
-                            zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file} ' \
-                                f'&& chmod 755 {vcf_file}'
-                            run_bash(zip_cmd, False)
-                    # Filter
+                                # Zip and tabify
+                                unzip_file = vcf_file.replace('.gz', '')
+                                zip_cmd = f'bgzip -f {unzip_file} && tabix {vcf_file} ' \
+                                    f'&& chmod 755 {vcf_file}'
+                                run_bash(zip_cmd, False)
+                        # Filter
+                        else:
+                            if not os.path.exists(vcf_file) or args.replace:
+                                base_file = os.path.join(vcf_dir, f'{data_set}.all_outg.vcf.gz')
+                                flt_val = float(data_filter[:2]) / 100
+                                flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
+                                    f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
+                                    f'&& chmod 755 {vcf_file}'
+                                run_bash(flt_cmd, False)
+                        # Skip 'all' subdir if other subsets exist
+                        if len(sub_dirs) > 1:
+                            continue
+                    # Copy file from 'all' dir
                     else:
                         if not os.path.exists(vcf_file) or args.replace:
-                            base_file = os.path.join(vcf_dir, f'{data_set}.all_outg.vcf.gz')
-                            flt_val = float(data_filter[:2]) / 100
-                            flt_cmd = f'bcftools filter -i \'F_PASS(GT!="mis") ' \
-                                f'> {flt_val}\' -O z -o {vcf_file} {base_file} ' \
+                            base_file = os.path.join(args.out_dir, data_set,
+                                    'all', vcf_name)
+                            cp_cmd = f'bcftools view --samples-file {sample_file} ' \
+                                f'{base_file} | bcftools filter -i ' \
+                                f'\'N_PASS(GT="alt") != 0\' -O z -o {vcf_file} - ' \
                                 f'&& chmod 755 {vcf_file}'
-                            run_bash(flt_cmd, False)
-                    # Skip 'all' subdir if other subsets exist
-                    if len(sub_dirs) > 1:
-                        continue
-                # Copy file from 'all' dir
-                else:
-                    if not os.path.exists(vcf_file) or args.replace:
-                        base_file = os.path.join(args.out_dir, data_set,
-                                'all', vcf_name)
-                        cp_cmd = f'bcftools view --samples-file {sample_file} ' \
-                            f'{base_file} | bcftools filter -i ' \
-                            f'\'N_PASS(GT="alt") != 0\' -O z -o {vcf_file} - ' \
-                            f'&& chmod 755 {vcf_file}'
-                        run_bash(cp_cmd, False)
+                            run_bash(cp_cmd, False)
 
                 if args.files_only:
                     continue
@@ -286,6 +287,8 @@ def parse_args():
         help='Dont exit on errors.')
     parser.add_argument('-f', '--files_only', action='store_true',
         help='Create only subset files, do not run tree inference.')
+    parser.add_argument('-t', '--tree_only', action='store_true',
+        help='Rerun only tree inference, do not re-create subset files.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
