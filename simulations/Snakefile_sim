@@ -21,10 +21,11 @@ def get_final_files(wildcards):
     files = []
     for tree in TREES:
         if config.get('paup', {}).get('run', False):
-            files.append(f'paup_{tree}.summary.tsv')
+            files.append(os.path.join(f'paup_{tree}', 'paup.summary.tsv'))
         if config.get('poisson', {}).get('tree', True) or \
                 config.get('poisson', {}).get('run', False):
-            files.append(f'poissonTree_{tree}.summary.tsv')
+            files.append(
+                os.path.join(f'poissonTree_{tree}', 'poissonTree.summary.tsv'))
     if config.get('poisson', {}).get('dispersion', False) or \
                 config.get('poisson', {}).get('run', False):
         files.append('poissonDisp.summary.tsv')
@@ -175,7 +176,7 @@ def get_repl_data(wildcards):
 
     if wildcards.tree == 'cellphy':
         tree = os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{wildcards.run}.Mapped.raxml.mutationMapTree' \
+            'cellphy_tree.{wildcards.run}.raxml.bestTree' \
                 .format(wildcards=wildcards))
     elif wildcards.tree == 'scite':
         tree = os.path.join(base_dir, 'scite_dir',
@@ -210,7 +211,7 @@ rule run_cellphy:
         os.path.join(base_dir, 'vcf_dir', 'vcf.{run}.final.gz')
     output:
         os.path.join(base_dir, 'cellphy_dir',
-            'cellphy_tree.{run}.Mapped.raxml.mutationMapTree')
+            'cellphy_tree.{run}.raxml.bestTree')
     resources:
         mem_mb = 2048,
         runtime =  lambda wildcards, attempt: attempt * 60,
@@ -283,7 +284,7 @@ rule merge_poissonTree_tree:
         expand(os.path.join(base_dir, 'poissonTree_{{tree}}',
                 'poissonTree.{run}.LRT.txt'), run=RUNS)
     output:
-        os.path.join(base_dir, 'poissonTree_{tree}.summary.tsv')
+        os.path.join(base_dir, 'poissonTree_{tree}', 'poissonTree.summary.tsv')
     resources:
         mem_mb = 2048,
     script:
@@ -296,7 +297,7 @@ rule run_PAUP:
     input:
         unpack(get_repl_data)
     output:
-        os.path.join(base_dir, 'paup_dir_{tree}', 'paup.{run}')
+        os.path.join(base_dir, 'paup_{tree}', 'paup.{run}')
     resources:
         mem_mb = 1024,
         runtime = 30,
@@ -305,18 +306,16 @@ rule run_PAUP:
         exclude = config.get('poisson', {}).get('exclude', ''),
         include = config.get('poisson', {}).get('include', ''),
     script:
-        f'{SCRIPT_DIR}/convert_vcf_to_nexus.py'
+        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
 
 
-rule merge_paup_results:
+rule merge_PAUP_results:
     input:
-        expand(os.path.join(base_dir, 'paup_dir_{{tree}}', 'paup.{run}'),
+        expand(os.path.join(base_dir, 'paup_{{tree}}', 'paup.{run}'),
             run=RUNS)
     output:
-        os.path.join(base_dir, 'paup_{tree}.summary.tsv')
+        os.path.join(base_dir, 'paup_{tree}', 'paup.summary.tsv')
     resources:
         mem_mb = 2048
-    params:
-        no_cells = CELL_NO + 1,
     script:
-        f'{SCRIPT_DIR}/get_PAUP_LRT.py'
+        f'{SCRIPT_DIR}/merge_PAUP_LRT.py'

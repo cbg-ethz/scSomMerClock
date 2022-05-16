@@ -22,7 +22,7 @@ def run_plotting_from_folder(args):
     if not os.path.exists(args.out_dir):
         os.makedirs(args.out_dir)
 
-    for vcf_file_raw in os.listdir(args.in_dir):
+    for vcf_file_raw in sorted(os.listdir(args.in_dir)):
         if not (vcf_file_raw.endswith('.vcf') or vcf_file_raw.endswith('.vcf.gz')):
             continue
 

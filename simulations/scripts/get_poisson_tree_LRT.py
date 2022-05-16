@@ -1045,9 +1045,12 @@ def annotate_drivers(dataset, tree, drivers, annot):
         'W32': 'BRCA', 'W55': 'BRCA',
         'Wu61': 'COREAD', 'Wu63': 'COREAD',
         'X25': 'RCCC',
+        'CRC08': 'COREAD',
+        'CRC09': 'COREAD',
     }
+    cancer = CANCER_TYPE[dataset]
 
-    print(f'{dataset}: {CANCER_TYPE[dataset]}')
+    print(f'{dataset}: {cancer}')
 
     for node in tree.iter_descendants():
         for i, (chr, pos) in enumerate(node.muts_br[0]):
@@ -1068,8 +1071,9 @@ def annotate_drivers(dataset, tree, drivers, annot):
 
             driver_str = f'{SNV["Variant_Classification"]: <17} in '\
                 f'driver gene {gene: <15}'
+
             if isinstance(driver, pd.Series):
-                if driver['CANCER_TYPE'] == CANCER_TYPE[dataset]:
+                if driver['CANCER_TYPE'] == cancer or cancer == None:
                     c_type = True
                     driver_str = '  * ' + driver_str
                     driver_str += f' ({driver["ROLE"]})'
@@ -1079,17 +1083,21 @@ def annotate_drivers(dataset, tree, drivers, annot):
                     driver_str += f' (cancer type: {driver["CANCER_TYPE"]})'
             else:
                 c_types = driver['CANCER_TYPE'].unique()
-                if CANCER_TYPE[dataset] in c_types:
+                if cancer in c_types or cancer == None:
                     c_type = True
-                    role = driver[driver['CANCER_TYPE'] == CANCER_TYPE[dataset]] \
-                        ['ROLE'].unique()
+                    if cancer == None:
+                        driver_str += f' (cancer types: {",".join(c_types)})'
+                        role = driver['ROLE'].unique()
+                    else:
+                        role = driver[driver['CANCER_TYPE'] == cancer]['ROLE'] \
+                            .unique()
                     driver_str = '  * ' + driver_str
                     driver_str += f' ({",".join(role)})'
                 else:
                     c_type = False
                     driver_str = '    ' + driver_str
                     driver_str += f' (cancer types: {",".join(c_types)})'
-            # print(driver_str)
+            print(driver_str)
 
             node.drivers.append((gene, c_type, node.muts_br[1][i]))
 

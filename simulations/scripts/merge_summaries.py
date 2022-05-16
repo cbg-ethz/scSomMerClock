@@ -33,6 +33,9 @@ def merge_summaries(in_files, out_file):
         elif base_name.startswith('poissonTree'):
             tree = in_file.split(os.sep)[-2].split('_')[-1]
             new_df.columns = [f'{i}_{tree}' for i in new_df.columns]
+        elif base_name.startswith('paup'):
+            tree = in_file.split(os.sep)[-2].split('_')[-1]
+            new_df.columns = [f'{i}_paup_{tree}' for i in new_df.columns]
 
         df = pd.concat([df, new_df], axis=1)
 

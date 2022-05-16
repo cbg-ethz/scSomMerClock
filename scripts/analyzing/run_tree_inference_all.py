@@ -39,9 +39,9 @@ scite_exe = '/home/uvi/be/nbo/infSCITE/infSCITE'
 scite_time = 2880
 scite_time_WGS = 4320
 scite_mem = 12
-cellphy_cores = 4
+cellphy_cores = 8
 cellphy_time = 2880
-cellphy_mem = 3
+cellphy_mem = 6
 
 KEEP_GOING = False
 
