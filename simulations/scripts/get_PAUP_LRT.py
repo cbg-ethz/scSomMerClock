@@ -2,82 +2,97 @@
 
 import os
 import re
-from statistics import mean, stdev
-from scipy.stats.distributions import chi2
+import argparse
+import tempfile
+import subprocess
+from utils import get_sample_dict_from_vcf, change_tree_root
 
 
-def get_LRT(in_files, out_file, cell_no, alpha=0.05):
-    scores = {}
-    for in_file in in_files:
-        _, run, _, model, _, _ = os.path.basename(in_file).split('.')
-        with open(in_file, 'r') as f_score:
-            score_raw = f_score.read().strip().split('\n')
-        try:
-            score = -float(score_raw[-1].split('\t')[1])
-        except (ValueError, IndexError):
-            print(f'Cannot read: {in_file}')
-            continue
+NEXUS_TEMPLATE = """#NEXUS
 
-        if not run in scores:
-            scores[run] ={'clock': -1, 'noClock': -1}
-        scores[run][model] = score
+begin data;
+    dimensions ntax={sample_no} nchar={rec_no};
+    format datatype=dna missing=? gap=-;
+    matrix
+{matrix}
+    ;
+end;
 
-    clock = '_clock0_' in out_file
+begin trees;
+    {tree_str}
+end;
 
-    out_str = ''
-    avg = [[], [], [], [], [], 0]
-    for run, run_info in sorted(scores.items()):
-        h0 = run_info['clock']
-        h1 = run_info['noClock']
-        if h0 == -1 or h1 == -1:
-            continue
+begin PAUP;
+    Set autoclose=yes warnreset=no warntree=no warntsave=No;
+    Set criterion=like;
+    Outgroup {outg};
+    exclude constant;
+    LSet nst=1 rates=gamma shape=est ncat=4 condvar=no;
 
-        LR = -2 * (h0 - h1)
-        dof = cell_no - 1
-        p_val = chi2.sf(LR, dof)
+    ClockChecker;
+    quit;
+end;
+    
+"""
 
-        for i, j in [(0, h0), (1, h1), (2, LR), (3, dof), (4, p_val)]:
-            avg[i].append(j)
 
-        if p_val < alpha:
-            hyp = 'H1'
-            if not clock:
-                avg[5] += 1
-        else:
-            hyp = 'H0'
-            if clock:
-                avg[5] += 1
+def vcf_to_nex(vcf_file, tree, out_file, paup_exe=None, exclude='', include='',
+            outg='healthycell'):
 
-        out_str += f'{run}\t{h0:0>5.2f}\t{h1:0>5.2f}\t{LR:0>5.2f}\t{dof}\t' \
-            f'{p_val:.2E}\t{hyp}\n'
+    samples, sample_names = get_sample_dict_from_vcf(vcf_file, include=include,
+        exclude=exclude)
 
-    avg_line = f'\n-1\t{mean(avg[0]):0>5.2f}\t{mean(avg[1]):0>5.2f}\t' \
-        f'{mean(avg[2]):0>5.2f}\t{mean(avg[3]):.2f}\t{mean(avg[4]):.2E}\t' \
-        f'{avg[5]}/{len(scores)}\n'
+    mat_str = ''
+    for sample_idx, genotypes in samples.items():
+        mat_str += '{}    {}\n'.format(sample_names[sample_idx],  genotypes)
+    sample_names = [j for i, j in enumerate(sample_names) if i in samples]
 
-    with open(out_file, 'w') as f_out:
-        f_out.write('run\tH0\tH1\t-2logLR\tdof\tp-value\thypothesis\n')
-        f_out.write(out_str + avg_line)
+    tree_str_rooted, tree_str_unrooted = change_tree_root(tree, sample_names)
 
-    print(avg_line)
+    tree_str = f'tree simulatedTree = [&R] {tree_str_rooted}'
+
+    nex_str = NEXUS_TEMPLATE.format(sample_no=len(sample_names),
+        rec_no=len(genotypes), matrix=mat_str.strip('\n'), tree_str=tree_str,
+        outg=outg)
+
+    nex_file = tempfile.NamedTemporaryFile(delete=False)
+    nex_file.write(str.encode(nex_str))
+    nex_file.close()
+
+    shell_cmd = ' '.join([paup_exe, '-n', nex_file.name, '>', out_file])
+    paup = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = paup.communicate()
+    paup.wait()
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Input files')
+    parser.add_argument('input', type=str, help='Input file')
+    parser.add_argument('tree', type=str, help='Newick tree file')
     parser.add_argument('-o', '--output', type=str, help='Output file.')
-    parser.add_argument('-nc', '--no_cells', type=int, help='Number of cells.')
-    parser.add_argument('-a', '--alpha', type=float, default=0.05,
-        help='Significance threshold. Default = 0.05.')
+    parser.add_argument('-e', '--exe', type=str, help='Path to PAUP exe.')
+    parser.add_argument('-ex', '--exclude', type=str, default='',
+        help='Regex pattern for samples to exclude from LRT test,')
+    parser.add_argument('-in', '--include', type=str, default='',
+        help='Regex pattern for samples to include from LRT test,')
+    parser.add_argument('--outg', type=str, default='healthycell',
+        help='Outgroup for PAUP block')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        get_LRT(snakemake.input, snakemake.output[0],
-            snakemake.params.no_cells)
+        if snakemake.params.exclude == None:
+            snakemake.params.exclude = ''
+        if snakemake.params.include == None:
+            snakemake.params.include = ''
+
+        vcf_to_nex(snakemake.input.vcf, snakemake.input.tree, snakemake.output[0],
+            paup_exe=snakemake.params.paup_exe, exclude=snakemake.params.exclude,
+            include=snakemake.params.include)
     else:
-        import argparse
         args = parse_args()
-        get_LRT(args.input, args.output, args.no_cells , args.alpha)
+        vcf_to_nex(args.input, args.tree, args.output, paup_exe=args.exe,
+            exclude=args.exclude, include=args.include, outg=args.outg)

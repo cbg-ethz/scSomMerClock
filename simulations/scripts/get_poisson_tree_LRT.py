@@ -986,6 +986,12 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
         if mbm_file:
             safe_mapped_mutations(tree, call_data[2][0], mbm_file, vcf_file)
             exit()
+        if plot_only:
+            if driver_file:
+                annotate_drivers(dataset, tree, drivers, annot)
+            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
+            show_tree(tree, tree_fig, w_idx)
+            exit()
 
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
@@ -997,13 +1003,6 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
 
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
-
-        if plot_only:
-            if driver_file:
-                annotate_drivers(dataset, tree, drivers, annot)
-            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
-            show_tree(tree, tree_fig, w_idx)
-            exit()
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
 
