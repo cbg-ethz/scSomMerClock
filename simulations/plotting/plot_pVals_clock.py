@@ -15,7 +15,7 @@ from defaults import *
 def generate_pval_plot_clock(args):
     df = pd.DataFrame(columns=['ADO', 'wMax', 'method', 'P-value', 'Lambda'])
 
-    for res_file in os.listdir(args.input):
+    for res_file in sorted(os.listdir(args.input)):
         if not res_file.startswith('res_clock0') or 'bulk' in res_file:
             continue
         ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
@@ -44,7 +44,7 @@ def generate_pval_plot_clock(args):
                         continue
                     wMax = [wMax]
                 method = col.split('.')[-1]
-                if method not in colors:
+                if method not in COLORS:
                     method = col.split('_')[-1]
                 if method not in args.method:
                     continue
@@ -58,6 +58,8 @@ def generate_pval_plot_clock(args):
                     continue
                 wMax = [-1]
                 method = col.split('.')[-1]
+                if method.startswith('p-value'):
+                    method = col.split('_')[-1]
                 if method == 'cellcoal':
                     method = 'PAUP*'
                 else:

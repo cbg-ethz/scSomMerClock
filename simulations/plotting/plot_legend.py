@@ -77,8 +77,10 @@ def plot_wMax_legend(args):
         orientation='horizontal',
         cmap=cmap,
         norm=norm,
-        ticks=[1, 100, 400, 1000]
+        ticks=[1, 500, 1000],
+
     )
+    cb.ax.tick_params(labelsize=18)
 
     fig.tight_layout()
     if args.output:

@@ -15,6 +15,11 @@ import pandas as pd
 MODULE_STR = ''
 
 DEPTH = {
+    'CRC08_ND_WGS': {'CRC08_ND_WGS': 100},
+    'CRC08_NP_WGS': {'CRC08_NP_WGS': 100},
+    'CRC08_TD_WGS': {'CRC08_TD_WGS': 100},
+    'CRC09_TI_WGS_MG': {'CRC09_TI_WGS_MG': 100},
+    'CRC09_TM_WGS_MG': {'CRC09_TM_WGS_MG': 100},
     'Li55': {'BGI_BC-T': 176.1, 'BGI_BN-T': 24.3},
     'Ni8_P01M01E': {'SRR975206': 35.5, 'SRR975210': 51.0},
     'Ni8_P01P01E': {'SRR975206': 35.5, 'SRR975212': 65.9},
@@ -31,6 +36,11 @@ DEPTH = {
 }
 
 CELLULARITY = {
+    'CRC08_ND_WGS': {'CRC08_ND_WGS': 0.1},
+    'CRC08_NP_WGS': {'CRC08_NP_WGS': 0.99},
+    'CRC08_TD_WGS': {'CRC08_TD_WGS': 0.99},
+    'CRC09_TI_WGS_MG': {'CRC09_TI_WGS_MG': 0.92},
+    'CRC09_TM_WGS_MG': {'CRC09_TM_WGS_MG': 0.87},
     'Li55': {'BGI_BC-T': 0.91},
     'Ni8_P01M01E': {'SRR975210': 0.98},
     'Ni8_P01P01E': {'SRR975212': 0.19},
