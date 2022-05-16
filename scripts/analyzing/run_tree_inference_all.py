@@ -27,7 +27,7 @@ DATA_DIRS = {
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-WGS = ['Lo-P1', 'Lo-P2', 'Lo-P3', 'S21_P1', 'S21_P2']
+WGS = ['Lo-P1', 'Lo-P2', 'Lo-P3', 'S21_P1', 'S21_P2', 'CRC08', 'CRC09']
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
 METHODS = ['cellphy', 'scite']
 
