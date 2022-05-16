@@ -980,6 +980,9 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
     model_str = ''
     w_cols = ['-2logLR', 'dof', 'p-value', 'hypothesis']
 
+    # weights: 0 = variance, 1 = odds ratio
+    w_idx = 0
+
     call_data = get_mut_df(vcf_file, exclude, include)
     for w_max in w_maxs:
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max)
@@ -995,8 +998,6 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
 
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
-        # weights: 0 = variance, 1 = odds ratio
-        w_idx = 0
         LR, dof, on_bound, p_val, _ = \
             get_LRT_poisson(Y, constr, init, weights_norm[:,w_idx])
         hyp = int(p_val < 0.05)
