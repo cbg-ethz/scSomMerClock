@@ -334,9 +334,19 @@ def get_errors_bulk(wildcards):
     errors = {'FN': None, 'FP': None}
     if wildcards.tree == 'cellcoal':
         if config.get('sc_from_bulk', {}).get('errors', True):
-            errors['FN'] = config['cellcoal']['scWGA']['ADO_rate'][0] / 2
-            errors['FP'] = config['cellcoal']['scWGA']['ampl_error'][0] \
-                + config['cellcoal']['NGS']['seq_error']
+            ADO_rate = config['cellcoal']['scWGA']['ADO_rate']
+            if isinstance(ADO_rate, float):
+                errors['FN'] = ADO_rate / 2
+            elif isinstance(ADO_rate, list):
+                errors['FN'] = ADO_rate[0] / 2
+
+            ampl_error = config['cellcoal']['scWGA']['ampl_error']
+            if isinstance(ampl_error, float):
+                errors['FP'] = ampl_error
+            elif isinstance(ampl_error, list):
+                errors['FP'] = ampl_error[0]
+
+            errors['FP'] += config['cellcoal']['NGS']['seq_error']
         else:
             errors['FN'] = 0.0
             errors['FP'] = 0.0
