@@ -104,7 +104,7 @@ def run_poissonTree_single(vcf_file, tree, args):
 
     # Plot phylogenic tree
     fig_file = os.path.join(args.out_dir,
-        f'{out_base}.w{args.plotting_wmax:.0f}_mapped.pdf')
+        f'{out_base}.w{args.plotting_wmax:.0f}.png')
     if os.path.exists(fig_file) and not args.replace:
         pass
     else:

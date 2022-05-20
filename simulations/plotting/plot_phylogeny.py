@@ -5,6 +5,8 @@ import re
 
 from ete3 import Tree, TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace
 from ete3.parser.newick import NewickError
+from matplotlib import cm
+from matplotlib.colors import Normalize, rgb2hex
 import numpy as np
 
 
@@ -88,6 +90,161 @@ def show_tree(tree, out_file='', out_type='pdf'):
         tree.show(tree_style=ts)
 
 
+def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
+            expand_root=True):
+    sup_vals = np.unique([i.support for i in tree.iter_descendants()])
+    max_dist_node, _ = tree.get_farthest_leaf()
+    node_dists = [i.dist for i in max_dist_node.get_ancestors()] \
+        + [max_dist_node.dist]
+    max_dist = np.sum(np.clip(node_dists, None, 50))
+
+    max_dist_node
+
+    mut_cutoff = max(50,
+        np.percentile([i.dist for i in tree.iter_descendants()], 90))
+    try:
+        dist_fracs = [i.dist_fraction for i in tree.iter_descendants()]
+    except AttributeError:
+        pass
+
+    cmap =cm.get_cmap('inferno') # RdYlBu_r
+    norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
+
+    lw = 1
+    fsize = 4
+    for i, node in enumerate(tree.iter_descendants()):
+        if hasattr(node, 'plotted'):
+            continue
+
+        style = NodeStyle()
+
+        mut_no = node.dist
+        if mut_no > mut_cutoff:
+            br_break = TextFace(f'||', fsize=fsize*2)
+            br_break.margin_right = 25
+            br_break.margin_top = 5
+            node.add_face(br_break, column=0, position="float-behind")
+
+            br_break_txt = TextFace(f'{node.dist:.0f}', fsize=fsize)
+            br_break_txt.margin_right = 25
+            node.add_face(br_break_txt, column=0, position="float-behind")
+
+            node.dist = mut_cutoff
+        else:
+            if br_labels:
+                node.dist = mut_no
+                mut = TextFace(f'{mut_no:.1f}', fsize=fsize)
+                mut.margin_right = 2
+                node.add_face(mut, column=0, position="branch-top")
+
+        if hasattr(node, 'mut_no_true') and node.mut_no_true >= 0:
+            mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
+            node.add_face(mut, column=0, position="branch-top")
+
+        if hasattr(node, 'dist_fraction'):
+            color_hex = rgb2hex(cmap(norm(node.dist_fraction)))
+            style["vt_line_color"] = color_hex
+            style["hz_line_color"] = color_hex
+        elif hasattr(node, 'weights_norm_z'):
+            if np.abs(node.weights_norm_z[w_idx]) == 1:
+                color_hex = '#000000'
+            else:
+                color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
+            style["vt_line_color"] = color_hex
+            style["hz_line_color"] = color_hex
+
+        # Add support
+        if sup_vals.size > 1 and not node.is_leaf():
+            c1 = CircleFace(4, 'black', )
+            c1.margin_top = -3
+            c1.margin_right = -2
+            c1.margin_left = 0
+            c1.margin_bottom = 0
+            node.add_face(c1, column=0, position='branch-right')
+
+            c2 = CircleFace(3.5, 'white')
+            c2.margin_top = -7.5
+            c2.margin_right = -2
+            c2.margin_left = 0.5
+            c1.margin_bottom = 0
+            node.add_face(c2, column=0, position='branch-right')
+
+            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
+            supp.margin_left = 1
+            supp.margin_top = -5.5
+            supp.tight_text = True
+            node.add_face(supp, column=0, position="branch-right")
+
+        style["size"] = 0 # set internal node size to 0
+        style['vt_line_width'] = lw
+        style['hz_line_width'] = lw
+        node.img_style = style
+
+        if node.is_leaf():
+            name = TextFace(node.name, fsize=fsize)
+            name.margin_left = 2
+            name.hz_align = 1
+            node.add_face(name, column=0, position="branch-right")
+
+        if br_labels and hasattr(node, 'weights_norm'):
+            weight = round(node.weights_norm[w_idx], 1)
+            if weight >= 0:
+                w_face = TextFace(f'{weight}', fsize=1)
+                node.add_face(w_face, column=0, position="branch-bottom")
+
+        if hasattr(node, 'drivers'):
+            for i, driver in enumerate(node.drivers):
+                if driver[2] < 0:
+                    continue
+
+                driver_face = TextFace(f'{driver[0]}', fsize=3)
+                driver_face.hz_align = 1
+
+                if driver[1]:
+                    driver_face.background.color = 'LightGreen'
+                else:
+                    continue
+                    driver_face.background.color = 'PeachPuff'
+                node.add_face(driver_face, column=0, position="branch-bottom")
+        node.plotted = True
+
+    root = tree.get_tree_root()
+    if not expand_root:
+        root.children[0].dist = 0
+    root.img_style = NodeStyle(size=0)
+    root.img_style = style
+
+
+    ts = TreeStyle()
+    ts.mode = 'r' # c = circular, r = rectangular
+    # ts.rotation = 90
+    ts.allow_face_overlap = True
+    ts.show_leaf_name = False
+    ts.show_branch_support = False
+    ts.show_branch_length = False
+    ts.branch_vertical_margin = 5
+    ts.min_leaf_separation = 2
+    ts.margin_left = 10
+    ts.margin_right = 10
+    ts.margin_top = 10
+    ts.margin_bottom = 10
+    # ts.optimal_scale_level = 'full' # "mid" | "full"
+    ts.scale = 1
+
+    if out_file:
+        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            out_file += f'.{out_type}'
+
+        try:
+            tree.render(out_file, tree_style=ts, w=2400,  dpi=300)
+            print(f'Tree written to: {out_file}')
+        except:
+            tree.render(out_file, dpi=300, h=h, units='mm')
+            print(f'Simple Tree written to: {out_file}')
+    else:
+        tree.show(tree_style=ts)
+
+
 def read_tree(tree_file, samples=[]):
     with open(tree_file, 'r') as f:
         tree_raw = f.read().strip()
@@ -113,7 +270,6 @@ def read_tree(tree_file, samples=[]):
             tree_raw = re.sub('cell(?=\d+)', 'tumcell', tree_raw)
         if tree_raw.count('healthycell') == 0:
             tree_raw = re.sub('outgcell', 'healthycell', tree_raw)
-
 
     try:
         tree = Tree(tree_raw, format=2)

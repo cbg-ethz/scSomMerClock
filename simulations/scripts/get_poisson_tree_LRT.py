@@ -206,174 +206,6 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     return muts, true_muts, read_data
 
 
-def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
-            expand_root=True):
-    from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace
-    import matplotlib.pyplot as plt
-    from matplotlib import cm
-    from matplotlib.colors import Normalize, rgb2hex
-
-    sup_vals = np.unique([i.support for i in tree.iter_descendants()])
-
-    mut_cutoff = max(50,
-        np.percentile([i.dist for i in tree.iter_descendants()], 90))
-    try:
-        dist_fracs = [i.dist_fraction for i in tree.iter_descendants()]
-    except AttributeError:
-        pass
-
-    cmap =cm.get_cmap('inferno') # RdYlBu_r
-    norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
-
-    lw = 1
-    fsize = 4
-    for i, node in enumerate(tree.iter_descendants()):
-        if hasattr(node, 'plotted'):
-            continue
-
-        style = NodeStyle()
-
-        mut_no = node.dist
-        if mut_no > mut_cutoff:
-            br_break = TextFace(f'||', fsize=fsize*2)
-            br_break.margin_right = 75
-            br_break.margin_top = 5
-            node.add_face(br_break, column=0, position="float")
-
-            br_break_txt = TextFace(f'{node.dist:.0f}', fsize=fsize)
-            br_break_txt.margin_right = 25
-            node.add_face(br_break_txt, column=0, position="float")
-
-            node.dist = mut_cutoff
-        else:
-            if br_labels:
-                node.dist = mut_no
-                mut = TextFace(f'{mut_no:.1f}', fsize=fsize)
-                mut.margin_right = 2
-                node.add_face(mut, column=0, position="branch-top")
-
-        if hasattr(node, 'mut_no_true') and node.mut_no_true >= 0:
-            mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
-            node.add_face(mut, column=0, position="branch-top")
-
-        if hasattr(node, 'dist_fraction'):
-            color_hex = rgb2hex(cmap(norm(node.dist_fraction)))
-            style["vt_line_color"] = color_hex
-            style["hz_line_color"] = color_hex
-        elif hasattr(node, 'weights_norm_z'):
-            if np.abs(node.weights_norm_z[w_idx]) == 1:
-                color_hex = '#000000'
-            else:
-                color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
-            style["vt_line_color"] = color_hex
-            style["hz_line_color"] = color_hex
-
-        # Add support
-        if sup_vals.size > 1 and not node.is_leaf():
-            c1 = CircleFace(4, 'black', )
-            c1.margin_top = -3
-            c1.margin_right = -2
-            c1.margin_left = 0
-            c1.margin_bottom = 0
-            node.add_face(c1, column=0, position='branch-right')
-
-            c2 = CircleFace(3.5, 'white')
-            c2.margin_top = -7.5
-            c2.margin_right = -2
-            c2.margin_left = 0.5
-            c1.margin_bottom = 0
-            node.add_face(c2, column=0, position='branch-right')
-
-            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
-            supp.margin_left = 1
-            supp.margin_top = -5.5
-            supp.tight_text = True
-            node.add_face(supp, column=0, position="branch-right")
-
-        style["size"] = 0 # set internal node size to 0
-        style['vt_line_width'] = lw
-        style['hz_line_width'] = lw
-        node.img_style = style
-
-        if node.is_leaf():
-            name = TextFace(node.name, fsize=fsize)
-            name.margin_left = 2
-            name.hz_align = 1
-            node.add_face(name, column=0, position="branch-right")
-
-        if br_labels and hasattr(node, 'weights_norm'):
-            weight = round(node.weights_norm[w_idx], 1)
-            if weight >= 0:
-                w_face = TextFace(f'{weight}', fsize=1)
-                node.add_face(w_face, column=0, position="branch-bottom")
-
-        if hasattr(node, 'drivers'):
-            for i, driver in enumerate(node.drivers):
-                if driver[2] < 0:
-                    continue
-
-                driver_face = TextFace(f'{driver[0]} ({driver[2]* 100:.0f}%)',
-                    fsize=3)
-                driver_face.hz_align = 1
-
-                if driver[1]:
-                    driver_face.background.color = 'LightGreen'
-                else:
-                    continue
-                    driver_face.background.color = 'PeachPuff'
-                node.add_face(driver_face, column=0, position="branch-bottom")
-        node.plotted = True
-
-    root = tree.get_tree_root()
-    if not expand_root:
-        root.children[0].dist = 0
-    root.img_style = NodeStyle(size=0)
-    root.img_style = style
-
-
-    ts = TreeStyle()
-    ts.mode = 'r' # c = circular, r = rectangular
-    # ts.rotation = 90
-    ts.allow_face_overlap = True
-    ts.show_leaf_name = False
-    ts.show_branch_support = False
-    ts.show_branch_length = False
-    ts.branch_vertical_margin = 5
-    ts.min_leaf_separation = 2
-    ts.margin_left = 10
-    ts.margin_right = 10
-    ts.margin_top = 10
-    ts.margin_bottom = 10
-    # ts.optimal_scale_level = 'full' # "mid" | "full"
-    ts.scale = 1
-
-    if out_file:
-        # ts.show_border = True
-        # Plot cMap to file
-        # cmap_file = os.path.splitext(out_file)[0] + '.cmap.png'
-        # colors = cmap(np.arange(cmap.N))
-        # fig, ax = plt.subplots(figsize=(5, 1),
-        #     subplot_kw=dict(xticks=[0, 5, 10], yticks=[]))
-        # cax = ax.imshow([colors], extent=[0, 10, 0, 1])
-        # fig.subplots_adjust(left=0.1, bottom=0, right=0.9, top=1.5)
-        # fig.savefig(cmap_file, dpi=300)
-
-        # ts.legend.add_face(ImgFace(cmap_file, height=40), column=0)
-        # ts.legend_position = 4
-
-        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-            out_file += f'.{out_type}'
-
-        try:
-            tree.render(out_file, tree_style=ts, w=2400,  dpi=300)
-            print(f'Tree written to: {out_file}')
-        except:
-            tree.render(out_file, dpi=300, h=h, units='mm')
-            print(f'Simple Tree written to: {out_file}')
-    else:
-        tree.show(tree_style=ts)
-
-
 def read_tree(tree_file, samples=[]):
     with open(tree_file, 'r') as f:
         tree_raw = f.read().strip()
@@ -560,42 +392,28 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     muts = np.where(nans, np.nan, muts_in.values.astype(bool).astype(float))
     muts_inv = 1 - muts
 
-    # errors = np.log([1 - FN, FP, 1 - FP, FN])
-    TP_m_all = S * np.log(1 - FN)
-    FP_m_all = S_inv * np.log(FP)
-    TN_m_all = S_inv * np.log(1 - FP)
-    FN_m_all = S * np.log(FN)
-
-    # -- Taking different missing value per cell into account --
-    # FN_i = FN[muts_in.columns].values
-    # TP_m = S * np.log(1 - FN_i)
-    # FP_m = S_inv * np.log(FP)
-    # TN_m = S_inv * np.log(1 - FP)
-    # FN_m = S * np.log(FN_i)
+    # -- Assume average FN value for all cells --
+    if isinstance(FN, float):
+        TP_m = S * np.log(1 - FN)
+        FP_m = S_inv * np.log(FP)
+        TN_m = S_inv * np.log(1 - FP)
+        FN_m = S * np.log(FN)
+    # -- Taking different FN value per cell into account --
+    elif isinstance(FN, pd.Series):
+        FN_i = FN[muts_in.columns].values
+        TP_m = S * np.log(1 - FN_i)
+        FP_m = S_inv * np.log(FP)
+        TN_m = S_inv * np.log(1 - FP)
+        FN_m = S * np.log(FN_i)
 
     M = np.zeros((muts_in.shape[0], S.shape[0]))
     for i, mut in enumerate(muts):
-        # mut_data = np.stack([
-        #     np.nansum(S * mut, axis=1), # TP
-        #     np.nansum(S_inv * mut, axis=1), # FP
-        #     np.nansum(S_inv * muts_inv[i], axis=1), # TN
-        #     np.nansum(S * muts_inv[i], axis=1), # FN,
-        # ])
-        # probs = np.dot(errors, mut_data)
-
         probs = np.stack([
-            np.nansum(TP_m_all * mut, axis=1), # TP
-            np.nansum(FP_m_all * mut, axis=1), # FP
-            np.nansum(TN_m_all * muts_inv[i], axis=1), # TN
-            np.nansum(FN_m_all * muts_inv[i], axis=1), # FN,
+            np.nansum(TP_m * mut, axis=1), # TP
+            np.nansum(FP_m * mut, axis=1), # FP
+            np.nansum(TN_m * muts_inv[i], axis=1), # TN
+            np.nansum(FN_m * muts_inv[i], axis=1), # FN,
         ]).sum(axis=0)
-
-        # probs = np.stack([
-        #     np.nansum(TP_m * mut, axis=1), # TP
-        #     np.nansum(FP_m * mut, axis=1), # FP
-        #     np.nansum(TN_m * muts_inv[i], axis=1), # TN
-        #     np.nansum(FN_m * muts_inv[i], axis=1), # FN,
-        # ]).sum(axis=0)
 
         probs_norm = _normalize_log_probs(probs)
         M[i] = probs_norm
@@ -619,7 +437,7 @@ def map_mutations_gt(tree, muts_in, FP, FN):
     return pd.DataFrame(M, index=muts_in.index, columns=cols)
 
 
-def add_br_weights(tree, FP, FN, MS_i, w_max):
+def add_br_weights(tree, FP, FN, MS, w_max):
     m = len(tree)
     n = 2 * m - 1
 
@@ -628,57 +446,27 @@ def add_br_weights(tree, FP, FN, MS_i, w_max):
     leaf_names = sorted([i.name for i in tree.get_leaves()])
     leaf_map = {j: i for i, j in enumerate(leaf_names)}
 
-    S = np.zeros((n, m), dtype=int)
+    S = np.zeros((n, m), dtype=bool)
     for i, node in enumerate(nodes):
         cells = [leaf_map[i] for i in node.name.split('+')]
-        S[i, cells] = 1
+        S[i, cells] = True
 
     l_TN = np.log(1 - FP)
     weights = np.zeros((n, 2), dtype=float)
 
     # # -- Assume average missing value for all cells --
-    # l_FN = np.log(FN + MS_i[leaf_names].mean())
-    # t = S.sum(axis=1)
-    # p_ADO_all = np.exp(t * l_FN.mean() + (m - t) * l_TN)
-    # p_noADO_all = 1 - p_ADO_all
-
+    if isinstance(MS, float):
+        l_FN = np.log(FN + MS)
+        t = S.sum(axis=1)
+        p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
     # -- Taking different missing value per cell into account --
-    l_FN = np.log(FN)
-    MS_vals = MS_i[leaf_names].values
+    elif isinstance(MS, pd.Series):
+        l_DO_all = np.log(FN + MS)
+        l_DO = l_DO_all[leaf_names].values
 
-    p_ADO = np.zeros(n, dtype=float)
-    for i, br in enumerate(S):
-        p_br = log_LAMBDA_MIN
-
-        l_mut = br.sum()
-        mut_coeffs = np.log(binomCoeff(l_mut, np.arange(l_mut + 1)))
-        l_mut_MS_avg = np.log(MS_vals[br].mean())
-
-        l_no_mut = m - l_mut
-        no_mut_coeffs = np.log(binomCoeff(l_no_mut, np.arange(l_no_mut + 1)))
-        l_no_mut_MS_avg = np.log(MS_vals[1 - br].mean())
-
-        for FN_no, mut_coeff in enumerate(mut_coeffs):
-            MS_mut_no = l_mut - FN_no
-
-            tbl_prob = log_LAMBDA_MIN
-            for TN_no, no_mut_coeff in enumerate(no_mut_coeffs):
-                MS_no_mut_no = l_no_mut - TN_no
-
-                tbl_prob_new = no_mut_coeff \
-                    + FN_no * l_FN + MS_mut_no * l_mut_MS_avg \
-                    + TN_no * l_TN + MS_no_mut_no * l_no_mut_MS_avg
-                try:
-                    tbl_prob = np.logaddexp(tbl_prob, tbl_prob_new)
-                except FloatingPointError:
-                    tbl_prob = max(tbl_prob, tbl_prob_new)
-
-            try:
-                p_br = np.logaddexp(p_br, mut_coeff + tbl_prob_new)
-            except FloatingPointError:
-                p_br = max(p_br, mut_coeff + tbl_prob_new)
-
-        p_ADO[i] = np.exp(p_br)
+        p_ADO = np.zeros(n, dtype=float)
+        for i, br in enumerate(S):
+            p_ADO[i] = np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN)
     p_noADO = 1 - p_ADO
 
     # weight 0: inv variance
@@ -980,8 +768,14 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
         f_out.write(f'{header_str}\n{model_str}')
 
     # add_opt_muts(tree, Y, Y_opt)
-    # show_tree(tree , 'test_cellphy.pdf')
-    # import pdb; pdb.set_trace()
+    # this_file_raw = os.path.abspath(__file__).split(os.path.sep)
+    # plotting_file = os.path.sep.join(this_file_raw[:-2] + ['plotting'])
+
+    # import sys
+    # sys.path.append(plotting_file)
+    # from plot_phylogeny import show_tree_full
+    # # show_tree_full(tree , 'test_cellphy.pdf')
+
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000],
@@ -1039,12 +833,18 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
         if plot_only:
+            this_file_raw = os.path.abspath(__file__).split(os.path.sep)
+            plotting_file = os.path.sep.join(this_file_raw[:-2] + ['plotting'])
+
+            import sys
+            sys.path.append(plotting_file)
+            from plot_phylogeny import show_tree_full
+
             print(LR, p_val)
             add_opt_muts(tree, Y, opt_vals)
             if driver_file:
                 annotate_drivers(dataset, tree, drivers, annot)
-            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
-            show_tree(tree, tree_fig, w_idx)
+            show_tree_full(tree, out_file, w_idx)
             exit()
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str

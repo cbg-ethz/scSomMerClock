@@ -257,6 +257,7 @@ def get_errors_bulk(wildcards):
             + config['cellcoal']['NGS']['seq_error']
     return errors
 
+
 rule run_poissonTree:
     input:
         unpack(get_repl_data)
