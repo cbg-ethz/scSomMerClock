@@ -115,8 +115,7 @@ def run_poissonTree_single(vcf_file, tree, args):
         if not os.path.exists(tree_file):
             print(f'!WARNING! Missing file: {tree_file}')
             return
-        prefix = os.path.join(args.out_dir, out_base)
-        cmd_plt = f'python {args.exe_tree} {vcf_file} {tree_file} -o {prefix} ' \
+        cmd_plt = f'python {args.exe_tree} {vcf_file} {tree_file} -o {fig_file} ' \
             f'-b --plotting --w_max {args.plotting_wmax}'
         if args.drivers:
             cmd_plt += f' --drivers {args.drivers}'

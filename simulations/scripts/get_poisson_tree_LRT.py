@@ -453,12 +453,11 @@ def add_br_weights(tree, FP, FN, MS, w_max):
 
     l_TN = np.log(1 - FP)
     weights = np.zeros((n, 2), dtype=float)
-
     # # -- Assume average missing value for all cells --
     if isinstance(MS, float):
-        l_FN = np.log(FN + MS)
+        l_DO = np.log(FN + MS)
         t = S.sum(axis=1)
-        p_ADO = np.exp(t * l_FN + (m - t) * l_TN)
+        p_ADO = np.exp(t * l_DO + (m - t) * l_TN)
     # -- Taking different missing value per cell into account --
     elif isinstance(MS, pd.Series):
         l_DO_all = np.log(FN + MS)
