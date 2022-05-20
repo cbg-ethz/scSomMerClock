@@ -190,12 +190,12 @@ def plot_mobster_box(df):
     bar_df = pd.DataFrame(bar_vals, columns=['Amplifier', 'clones_Bayes', 'sum'])
 
     box_ax = axes[0, 1]
-    sns.boxplot(data=df[df['clones_Bayes'] > 0], x='Amplifier', y='s_Bayes',
+    sns.boxplot(data=df, x='Amplifier', y='s_Bayes',
         color=COLORS[1], ax=box_ax, fliersize=2, showfliers = False,
         linewidth=1)
-    sns.stripplot(data=df[df['clones_Bayes'] > 0], x='Amplifier', y='s_Bayes',
+    sns.stripplot(data=df, x='Amplifier', y='s_Bayes',
         color=COLORS[1], ax=box_ax, dodge=True, linewidth=1,
-        jitter=0.25, alpha=.2, size=4)
+        jitter=0.15, alpha=.2, size=4)
 
     box_ax.set_ylim((-0.5, 3))
     box_ax.set_yticks([0, 1, 2])

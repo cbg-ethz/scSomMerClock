@@ -105,13 +105,29 @@ def generate_pval_plot_clock(args):
                 col_title = 'No Errors'
             add_col_header(axes[0, i], col_title)
 
+    if wMax_vals.size > 2:
+        for j, wMax in enumerate(wMax_vals):
+            if wMax == -1:
+                continue
+            add_row_header(axes[j, -1], r'$w_{{max}}=$' + f'\n{wMax:.0f}')
+
     plot_fig(fig, args.output)
 
 
 def plot_pVal_dist(df, wMax, axes, col_no):
-    for i, j in enumerate(wMax):
+    for i, wMax in enumerate(wMax):
         ax = axes[i]
-        data = df[df['wMax'] == j]
+        data = df[df['wMax'] == wMax]
+        if wMax == -1:
+            if not 'PAUP*' in data['method'].unique():
+                sig_data = np.repeat(
+                    [[data['ADO'].unique()[0], -1, 'PAUP*', 0.001, 99]],
+                    data.shape[0],
+                    axis=0
+                )
+                dtypes = data.dtypes.to_dict()
+                data = data.append(pd.DataFrame(sig_data, columns=data.columns))
+                data = data.astype(dtypes)
 
         dp = sns.histplot(data, x='P-value', hue='method', ax=ax, **HIST_DEFAULT)
         # # import pdb; pdb.set_trace()

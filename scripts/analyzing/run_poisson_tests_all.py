@@ -145,58 +145,49 @@ def run_poissonTree_single(vcf_file, tree, args):
 
 
 
-def merge_datasets(vcf_files, args):
-    if 'dispersion' in args.tests:
-        disp_file = os.path.join(args.out_dir, 'Poisson_dispersion_all.tsv')
-    else:
-        disp_file = None
+def merge_datasets(tsv_files, args):
+    for file in tsv_files:
+        file_name = os.path.basename(file)
 
-    tree_files = []
-    if 'poissonTree' in args.tests:
-        tree_files.extend(get_poisson_tree_files(vcf_files))
+        print(file)
+        if file_name.startswith('Poisson_dispersion'):
+            continue
+        elif file_name.startswith('S21_P1'):
+            dataset = 'S21_P1'
+            _, _, subset, filter_str, tree_raw = file_name.split('_')
+        elif file_name.startswith('S21_P2'):
+            dataset = 'S21_P2'
+            _, _, subset, filter_str, tree_raw = file_name.split('_')
+        elif file_name.startswith('Wu61'):
+            dataset = 'Wu61'
+            tree_raw = file_name.split('_')[-1]
+            filter_str = file_name.split('_')[-2]
+            subset = '_'.join(file_name.split('_')[1:-2])
+        else:
+            dataset, subset, filter_str, tree_raw = file_name.split('_')
+        tree = tree_raw.split('.')[0]
+        df_new = pd.read_csv(file, sep='\t')
+        df_new.loc[0, 'subset'] = subset
+        df_new.loc[0, 'filters'] = filter_str
 
-    if disp_file:
-        df_disp = pd.read_csv(disp_file, sep='\t', index_col=[0, 1, 2])
-        df_disp.drop(['H0', 'H1', 'hypothesis', '-2logLR'], axis=1, inplace=True)
-        df_disp.columns = [f'{i}.dispersion' for i in df_disp.columns]
+        df_new.insert(3, 'tree', tree)
 
-    if tree_files:
-        df_trees = pd.DataFrame()
-        for tree_file in tree_files:
-            if not os.path.exists(tree_file):
-                print(f'!WARNING! Missing tree file: {tree_file}')
-                continue
-            tree = os.path.basename(tree_file).split('_')[2]
-            df_tree = pd.read_csv(tree_file, sep='\t', index_col=[0, 1, 2])
-            drop_cols = [i for i in df_tree.columns \
-                if 'hypothesis' in i or '-2logLR' in i]
-            df_tree.drop(drop_cols, axis=1, inplace=True)
-            df_tree.columns = [f'{i}.tree.{tree}' for i in df_tree.columns]
-            dataset = df_tree.iloc[0].name
-            if dataset in df_trees.index:
-                try:
-                    df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
-                except KeyError:
-                    df_trees = pd.concat([df_trees, df_tree], axis=1)
-            else:
-                try:
-                    df_trees.loc[dataset, df_tree.columns] = df_tree.iloc[0]
-                except KeyError:
-                    df_trees = df_trees.append(df_tree)
+        drop_cols = [i for i in df_new.columns \
+            if 'hypothesis' in i or '-2logLR' in i]
+        df_new.drop(drop_cols, axis=1, inplace=True)
 
-    if disp_file and tree_files:
-        df = df_disp.merge(df_trees, left_index=True, right_index=True)
-    elif disp_file:
-        df = df_disp
-    else:
-        df = df_trees
+        try:
+            df = pd.concat([df, df_new], axis=0, ignore_index=True)
+        except NameError:
+            df = df_new
+
     dof_cols = [i for i in df.columns if 'dof' in i]
     df.rename({dof_cols[0]: 'dof'}, axis=1, inplace=True)
     df.drop(dof_cols[1:], axis=1, inplace=True)
     df.sort_index(inplace=True)
 
-    out_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
-    df.to_csv(out_file, sep='\t')
+    out_file = os.path.join(args.out_dir, '00_summary_biological_data.tsv')
+    df.to_csv(out_file, sep='\t', index=False)
 
 
 def compress_results(vcf_files, args):
@@ -236,23 +227,6 @@ def compress_results(vcf_files, args):
     tar.close()
 
 
-def get_poisson_tree_files(vcf_files):
-    files = []
-    for vcf_file in vcf_files:
-        path_strs = vcf_file.split(os.path.sep)
-        clock_dir_no = path_strs.index('ClockTest')
-        subset = path_strs[clock_dir_no + 1]
-        file_ids = path_strs[-1].split('.')
-        dataset = file_ids[0]
-        filters = file_ids[1]
-
-        files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_cellphy_{dataset}_{subset}_{filters}.tsv'))
-        files.append(os.path.join(args.out_dir,
-            f'Poisson_tree_scite_{dataset}_{subset}_{filters}.tsv'))
-    return files
-
-
 def get_plot_files(vcf_files):
     files = []
     for vcf_file in vcf_files:
@@ -269,17 +243,6 @@ def get_plot_files(vcf_files):
     return files
 
 
-def get_summary_files(vcf_files):
-    files = []
-    for vcf_file in vcf_files:
-        path_strs = vcf_file.split(os.path.sep)
-        clock_dir_no = path_strs.index('ClockTest')
-        subset = path_strs[clock_dir_no + 1]
-        file_ids = path_strs[-1].split('.')
-        dataset = file_ids[0]
-        filters = file_ids[1]
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,  help='Input directory')
@@ -294,8 +257,7 @@ def parse_args():
     parser.add_argument('-ed', '--exe_disp', type=str,
         default='simulations/scripts/get_poisson_LRT.py',
         help='Poisson Dispersion exe.')
-    parser.add_argument('-dr', '--drivers', type=str,
-        default=DRIVER_FILE,
+    parser.add_argument('-dr', '--drivers', type=str, default=DRIVER_FILE,
         help=f'Path to IntOGen driver file. Default = {DRIVER_FILE}.')
     parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=400,
         help='W_max value used for coloring braches in Phylogentic tree. ' \
@@ -319,10 +281,12 @@ if __name__ == '__main__':
     args = parse_args()
 
     vcf_files = []
+    tsv_files = []
     for file in sorted(os.listdir(args.input)):
-        if not file.endswith(('.vcf.gz', '.vcf')):
-            continue
-        vcf_files.append(os.path.join(args.input, file))
+        if file.endswith(('.vcf.gz', '.vcf')):
+            vcf_files.append(os.path.join(args.input, file))
+        elif file.endswith('tsv') and not 'summary' in file:
+            tsv_files.append(os.path.join(args.input, file))
 
     if not args.out_dir:
         args.out_dir = os.path.join(args.input, 'poissonTests_all')
@@ -333,6 +297,6 @@ if __name__ == '__main__':
     if args.mode == 'run':
         run_tests(vcf_files, args)
     elif args.mode == 'merge':
-        merge_datasets(vcf_files, args)
+        merge_datasets(tsv_files, args)
     else:
         compress_results(vcf_files, args)

@@ -93,6 +93,7 @@ def plot_power(df, ax, n_total, col):
             x = ss_df['amplifier'].values
             y = ss_df['power'].values
             labels.append(f'{method} ({ss} / {n_total} cells)')
+            print(method, '\n', ss_df, '\n\n')
             sns.lineplot(x=x, y=y, ax=ax, color=COLORS[method],
                 linestyle=LINE_STYLE[ss], linewidth=1)
 
@@ -141,12 +142,12 @@ def parse_args():
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-amp', '--amplifier', nargs='+', default=[0, 2, 5, 10],
-        type=float, help='Amplifier value to plot. Default = [2, 5, 10]')
+        type=float, help='Amplifier value to plot. Default = [1, 2, 5, 10]')
     parser.add_argument('-c', '--clone_size', default = [0.1, 0.9],
         type=float, help='Amplified clone size subsets. Default = [0.1, 0.9].')
     parser.add_argument('-ss', '--subsamples', nargs='+', type=int,
         choices=[10, 30, 50, 70, 90], default=[10, 50, 90],
-        help='# Cells subsampled. Default = [10, 30, 50, 70, 90].')
+        help='# Cells subsampled. Default = [10, 50, 90].')
     parser.add_argument('-t', '--total_cells', type=int, default=100,
         help='Total number of simulated cells. Default = 100.')
     parser.add_argument('-m', '--method', nargs='+', type=str,

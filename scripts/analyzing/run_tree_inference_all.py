@@ -101,6 +101,8 @@ def run_inference(args):
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
+                sample_file = os.path.join(vcf_dir, 'samples.txt')
+
                 cellphy_out = vcf_file + '.raxml.bestTree'
                 scite_out = os.path.join(vcf_dir, 'scite_dir',
                     f'{data_set}.{data_filter}_outg_ml0.newick')
@@ -123,7 +125,6 @@ def run_inference(args):
                         tree_exist = False
                     continue
 
-                sample_file = os.path.join(vcf_dir, 'samples.txt')
                 if not args.tree_only:
                     # Arrange files for processing
                     if sub_dir == 'all':

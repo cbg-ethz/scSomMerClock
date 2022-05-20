@@ -206,21 +206,26 @@ def get_mut_df(vcf_file, exclude_pat, include_pat, filter=True):
     return muts, true_muts, read_data
 
 
-def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
-            expand_root=False):
-    from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace
+def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
+            expand_root=True):
+    from ete3 import TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace
     import matplotlib.pyplot as plt
     from matplotlib import cm
-    from matplotlib.colors import rgb2hex
-
+    from matplotlib.colors import Normalize, rgb2hex
 
     sup_vals = np.unique([i.support for i in tree.iter_descendants()])
 
     mut_cutoff = max(50,
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
+    try:
+        dist_fracs = [i.dist_fraction for i in tree.iter_descendants()]
+    except AttributeError:
+        pass
 
-    cmap =cm.get_cmap('RdYlBu_r')
-    lw = 3
+    cmap =cm.get_cmap('inferno') # RdYlBu_r
+    norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
+
+    lw = 1
     fsize = 4
     for i, node in enumerate(tree.iter_descendants()):
         if hasattr(node, 'plotted'):
@@ -230,12 +235,16 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
 
         mut_no = node.dist
         if mut_no > mut_cutoff:
+            br_break = TextFace(f'||', fsize=fsize*2)
+            br_break.margin_right = 75
+            br_break.margin_top = 5
+            node.add_face(br_break, column=0, position="float")
+
+            br_break_txt = TextFace(f'{node.dist:.0f}', fsize=fsize)
+            br_break_txt.margin_right = 25
+            node.add_face(br_break_txt, column=0, position="float")
+
             node.dist = mut_cutoff
-            style['hz_line_type'] = 1
-            mut = TextFace(f'{mut_no:.1f}', fsize=fsize)
-            mut.margin_right = 5
-            mut.vt_align = 1
-            node.add_face(mut, column=0, position="branch-top")
         else:
             if br_labels:
                 node.dist = mut_no
@@ -247,7 +256,11 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
             mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
             node.add_face(mut, column=0, position="branch-top")
 
-        if hasattr(node, 'weights_norm_z'):
+        if hasattr(node, 'dist_fraction'):
+            color_hex = rgb2hex(cmap(norm(node.dist_fraction)))
+            style["vt_line_color"] = color_hex
+            style["hz_line_color"] = color_hex
+        elif hasattr(node, 'weights_norm_z'):
             if np.abs(node.weights_norm_z[w_idx]) == 1:
                 color_hex = '#000000'
             else:
@@ -257,13 +270,25 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
 
         # Add support
         if sup_vals.size > 1 and not node.is_leaf():
-            bs = TextFace(f'{node.support:.0f}', fsize=fsize - 1)
-            bs.border.width = 1
-            bs.margin_top = 1
-            bs.margin_right = 1
-            bs.margin_left = 1
-            bs.margin_bottom = 1
-            node.add_face(bs, column=0, position='branch-right')
+            c1 = CircleFace(4, 'black', )
+            c1.margin_top = -3
+            c1.margin_right = -2
+            c1.margin_left = 0
+            c1.margin_bottom = 0
+            node.add_face(c1, column=0, position='branch-right')
+
+            c2 = CircleFace(3.5, 'white')
+            c2.margin_top = -7.5
+            c2.margin_right = -2
+            c2.margin_left = 0.5
+            c1.margin_bottom = 0
+            node.add_face(c2, column=0, position='branch-right')
+
+            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
+            supp.margin_left = 1
+            supp.margin_top = -5.5
+            supp.tight_text = True
+            node.add_face(supp, column=0, position="branch-right")
 
         style["size"] = 0 # set internal node size to 0
         style['vt_line_width'] = lw
@@ -299,10 +324,12 @@ def show_tree(tree, out_file='', w_idx=0, out_type='pdf', br_labels=True,
                 node.add_face(driver_face, column=0, position="branch-bottom")
         node.plotted = True
 
+    root = tree.get_tree_root()
     if not expand_root:
-        root = tree.get_tree_root()
         root.children[0].dist = 0
-        root.img_style = NodeStyle(size=0)
+    root.img_style = NodeStyle(size=0)
+    root.img_style = style
+
 
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
@@ -431,6 +458,11 @@ def read_tree(tree_file, samples=[]):
     except NewickError:
         tree = Tree(tree_raw, format=1)
     outg_node = tree&outg_name
+    anc_node = outg_node.get_ancestors()[0]
+    if anc_node.is_root():
+        outg_node.support = 100
+    else:
+        outg_node.support = anc_node.support
     tree.set_outgroup(outg_node)
     outg_node.delete()
 
@@ -711,11 +743,18 @@ def add_true_muts(tree, df_true):
 
 def add_opt_muts(tree, Y, Y_opt):
     Y_map = dict(zip(Y, Y_opt))
+    dist_total = np.sum([i[1] for i in Y_map.values()])
     for node in tree.iter_descendants():
         if len(tree) == len(node):
-            node.mut_no_opt = -1
+            node.mut_no_opt = 0
         else:
             node.mut_no_opt = Y_map[node.mut_no_soft][0]
+            node.dist_fraction = Y_map[node.mut_no_soft][1] / dist_total
+            # print(f'\n{node.name}:\n\t{node.mut_no_soft:.0f} -> {node.mut_no_opt:.0f} ' \
+            #     f'(d:{node.dist_fraction:.2f}, w={Y_map[node.mut_no_soft][2]:.2f})')
+    root = tree.get_tree_root()
+    root.dist_fraction = np.nan
+    root.children[0].dist_fraction = np.nan
 
 
 def get_model_data(tree, pseudo_mut=0, true_data=False):
@@ -900,7 +939,7 @@ def get_LRT_poisson(Y, constr, init, weights=np.array([]), alg='trust-constr'):
     devi = ((Y * np.log(np.where(Y > 0, Y, 1)) - Y) * weights) \
         - ((Y * np.log(opt.x) - opt.x) * weights)
 
-    return LR, dof, on_bound, p_val, zip(opt.x, devi)
+    return LR, dof, on_bound, p_val, zip(opt.x, devi, weights)
 
 
 def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
@@ -989,21 +1028,24 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
         if mbm_file:
             safe_mapped_mutations(tree, call_data[2][0], mbm_file, vcf_file)
             exit()
-        if plot_only:
-            if driver_file:
-                annotate_drivers(dataset, tree, drivers, annot)
-            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
-            show_tree(tree, tree_fig, w_idx)
-            exit()
 
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
-        LR, dof, on_bound, p_val, _ = \
+        LR, dof, on_bound, p_val, opt_vals = \
             get_LRT_poisson(Y, constr, init, weights_norm[:,w_idx])
         hyp = int(p_val < 0.05)
 
         header_str += '\t' + '\t'.join([f'{i}_{w_max:.0f}' for i in w_cols])
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
+
+        if plot_only:
+            print(LR, p_val)
+            add_opt_muts(tree, Y, opt_vals)
+            if driver_file:
+                annotate_drivers(dataset, tree, drivers, annot)
+            tree_fig = out_file + f'.w{w_max:.0f}_mapped'
+            show_tree(tree, tree_fig, w_idx)
+            exit()
 
     model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
 
