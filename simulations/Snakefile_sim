@@ -251,7 +251,7 @@ rule run_poisson:
 
 def get_errors_bulk(wildcards):
     errors = {'FN': None, 'FP': None}
-    if wildcards.tree == 'cellcoal' and config['scWGA']['errors'] == True:
+    if wildcards.tree == 'cellcoal' and config['cellcoal']['scWGA']['errors'] == True:
         ADO_rate = config['cellcoal']['scWGA']['ADO_rate']
         if isinstance(ADO_rate, float):
             errors['FN'] = ADO_rate / 2
