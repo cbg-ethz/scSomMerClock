@@ -23,7 +23,7 @@ def get_final_files(wildcards):
         if config.get('paup', {}).get('run', False):
             # Just take the true true as input for PAIP*
             if 'cellcoal' in TREES and tree != 'cellcoal':
-                pass:
+                pass
             else:
                 files.append(os.path.join(f'paup_{tree}', 'paup.summary.tsv'))
         if config.get('poisson', {}).get('tree', True) or \
