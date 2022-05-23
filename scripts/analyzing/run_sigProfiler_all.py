@@ -90,7 +90,7 @@ def parse_args():
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory. Default = <INPUT>/sigProfiles')
     parser.add_argument('-ep', '--exe_profiler', type=str,
-        default='./get_signatures.py', help='Signature Profiler exe.')
+        default='scripts/analyzing/get_signatures.py', help='Signature Profiler exe.')
     parser.add_argument('-da', '--dataset', type=str, nargs='+',
         choices=DATASETS, default=DATASETS,
         help='Datasets to process. Default = all.')
