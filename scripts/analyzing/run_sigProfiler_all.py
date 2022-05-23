@@ -47,7 +47,7 @@ def run_sigProfiler(args):
             dataset = '_'.join(file_name_raw.split('_')[:2])
 
         if dataset not in args.dataset:
-            return
+            continue
 
         out_dir = os.path.join(args.out_dir, file_name_raw + '.mutSigs')
         final_file = os.path.join(out_dir, 'SBS96', 'Suggested_Solution',
@@ -56,7 +56,7 @@ def run_sigProfiler(args):
         if args.check:
             if not os.path.exists(final_file):
                 print(f'!Missing! Signature file: {final_file}')
-            return
+            continue
 
         if os.path.exists(out_dir):
             if args.replace:
