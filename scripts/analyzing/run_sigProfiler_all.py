@@ -9,7 +9,7 @@ import subprocess
 DATASETS = ['CRC08', 'CRC09', 'H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
     'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
 
-MODULE_STR = ''
+MODULE_STR = 'module load bcftools; '
 SLURM = False
 
 
