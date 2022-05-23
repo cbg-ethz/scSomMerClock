@@ -133,7 +133,7 @@ def run_inference(args):
                         # Zip, add WT column, and index
                         if data_filter == 'all':
                             if not os.path.exists(vcf_file) or args.replace:
-                                in_file = os.path.join(args.in_dir, f'{data_set}.vcf')
+                                in_file = os.path.join(args.input, f'{data_set}.vcf')
                                 # Compress and index if not done
                                 if not os.path.exists(in_file + '.gz'):
                                     idx_cmd = f'bgzip -f {in_file} && tabix ' \
@@ -286,7 +286,7 @@ def check_errors(args):
         for sub_dir in sub_dirs:
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
-            vcf_dir = os.path.join(args.in_dir, data_set, sub_dir)
+            vcf_dir = os.path.join(args.input, data_set, sub_dir)
             if data_set in WGS:
                 data_filters = DATA_FILTERS + ['99nanFilter']
             else:
@@ -295,15 +295,16 @@ def check_errors(args):
             for data_filter in data_filters:
                 if data_filter not in args.filters:
                     continue
-                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
 
+                data_id = f'{data_set}_{sub_dir}_{data_filter}'
                 if 'cellphy' in args.method:
-                    log_file1 = os.path.join(vcf_dir, f'{vcf_name}.raxml.log')
-                    log_file2 = os.path.join(args.in_dir,
+                    log_file1 = os.path.join(vcf_dir,
+                        f'{data_set}.{data_filter}_outg.vcf.gz.raxml.log')
+                    log_file2 = os.path.join(args.input,
                         f'{data_set}_{sub_dir}_{data_filter}.cellphy.log')
                     if not os.path.exists(log_file1) \
                             and not os.path.exists(log_file2):
-                        print(f'\tMissing cellphy log file: {log_file}')
+                        print(f'\tMissing cellphy log file: {data_id}')
                     else:
                         if os.path.exists(log_file1):
                             log_file = log_file1
@@ -315,11 +316,11 @@ def check_errors(args):
                         FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log) \
                             .group(1))
                         if FN == 0:
-                            print(f'\tCELLPHY - No errors detected in: {vcf_name}')
+                            print(f'\tCELLPHY - No errors detected in: {log_file}')
                 if 'scite' in args.method:
                     log_file1 = os.path.join(vcf_dir, 'scite_dir',
                         f'{data_set}.{data_filter}_outg.log')
-                    log_file2 = os.path.join(args.in_dir,
+                    log_file2 = os.path.join(args.input,
                         f'{data_set}_{sub_dir}_{data_filter}.scite.log')
                     if not os.path.exists(log_file1) \
                             and not os.path.exists(log_file2):
@@ -336,11 +337,11 @@ def check_errors(args):
                             'best value for beta:\\\\t(\d.\d+(e-\d+)?)', log) \
                                 .group(1))
                         if FN == 0:
-                            print(f'\tSCITE - No errors detected in: {vcf_name}')
+                            print(f'\tSCITE - No errors detected in: {log_file}')
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--in_dir', type=str, default=MONICA_DIR,
+    parser.add_argument('--input', type=str, default=MONICA_DIR,
         help=f'Input directory. Default = {MONICA_DIR}.')
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory. Default = BASEDIR.')
@@ -374,7 +375,6 @@ def parse_args():
     parser.add_argument('--lsf', action='store_true',
         help='Run lsf queue submit command (bsub) instead of slurm (sbatch).')
 
-
     args = parser.parse_args()
     return args
 
@@ -384,7 +384,7 @@ if __name__ == '__main__':
     KEEP_GOING = args.keep_going
 
     if not args.out_dir:
-        args.out_dir = args.in_dir
+        args.out_dir = args.input
 
     if args.lsf:
         SLURM = False

@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import shutil
 import subprocess
 
 
@@ -34,34 +35,59 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     print()
 
 
-def run_sigProfiler(vcf_files, args):
-    for vcf_file in vcf_files:
-        file_ids = os.path.basename(vcf_file).replace('.vcf.gz', '').split('_')
-        dataset = file_ids[0]
+def run_sigProfiler(args):
+    for file_name in sorted(os.listdir(args.input)):
+        if not file_name.endswith(('.vcf.gz', '.vcf')):
+            continue
+        in_file = os.path.join(args.input, file_name)
+        file_name_raw = file_name.replace('.vcf.gz', '').replace('.vcf', '')
+
+        dataset = file_name_raw.split('_')[0]
         if dataset == 'S21':
-            dataset = '_'.join(file_ids[:2])
+            dataset = '_'.join(file_name_raw.split('_')[:2])
 
         if dataset not in args.dataset:
             return
 
-        out_dir = vcf_file.replace('.vcf.gz', '') + '_signatures'
-        out_file = f'{vcf_file}'
-        if os.path.exists(out_file) and not args.replace:
-            pass
-        else:
-            if args.check:
-                print(f'!Missing! Signature file: {out_file}')
-                return
+        out_dir = os.path.join(args.out_dir, file_name_raw + '.mutSigs')
+        if args.check:
+            final_file = os.path.join(out_dir, 'SBS96', 'Suggested_Solution',
+                'COSMIC_SBS96_Decomposed_Solution',
+                'De_Novo_map_to_COSMIC_SBS96.csv')
 
-            cmd = f'python {args.exe_profiler} {vcf_file} -o {out_file}'
-            run_bash(cmd, args.local)
+            if not os.path.exists(final_file):
+                print(f'!Missing! Signature file: {final_file}')
+            return
+
+        if os.path.exists(out_dir):
+            if args.replace:
+                shutil.rmtree(out_dir)
+            else:
+                print('Signature directory already present: {out_dir}')
+                continue
+
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+
+        vcf_file_uncomp = os.path.join(out_dir, file_name_raw + '.vcf')
+        if file_name.endswith('.vcf'):
+            shutil.copy(in_file, vcf_file_uncomp)
+        else:
+            # Unzip vcf file
+            uncomp_cmd = f'bcftools view {in_file} -O v -o {vcf_file_uncomp}'
+            run_bash(uncomp_cmd, False)
+
+        out_dir_temp = os.path.join(args.input, file_name_raw + '.temp')
+        cmd = f'python {args.exe_profiler} {vcf_file_uncomp} -o {out_dir_temp} ' \
+            f'&& mv {out_dir_temp} {out_dir}'
+        run_bash(cmd, args.local)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,  help='Input directory')
     parser.add_argument('-o', '--out_dir', type=str, default='',
-        help='Output directory. Default = <INPUT>/poissonTests_all')
+        help='Output directory. Default = <INPUT>/sigProfiles')
     parser.add_argument('-ep', '--exe_profiler', type=str,
         default='./get_signatures.py', help='Signature Profiler exe.')
     parser.add_argument('-da', '--dataset', type=str, nargs='+',
@@ -85,15 +111,9 @@ if __name__ == '__main__':
     if args.slurm:
         SLURM = True
 
-    vcf_files = []
-    for file in sorted(os.listdir(args.input)):
-        if file.endswith(('.vcf.gz', '.vcf')):
-            vcf_files.append(os.path.join(args.input, file))
-
-    if not vcf_files:
-        raise IOError(f'\nNo vcf files found in: {args.input}\n')
-
-    if args.out_dir and not os.path.exists(args.out_dir):
+    if not args.out_dir:
+        args.out_dir = os.path.join(args.input, 'sigProfiles')
+    if os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
-    run_sigProfiler(vcf_files, args)
+    run_sigProfiler(args)
