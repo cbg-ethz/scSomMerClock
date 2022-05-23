@@ -16,10 +16,10 @@ SLURM = False
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
         if SLURM:
-            cmd = f"sbatch -t 30 --mem 2G -p amd-shared --qos amd-shared " \
+            cmd = f"sbatch -n 2 -t 60 --mem 4G -p amd-shared --qos amd-shared " \
                 f"--wrap '{module_str} {cmd_raw}'"
         else:
-            cmd = f'bsub -W 30 -R "rusage[mem=2048]" "{cmd_raw}"'
+            cmd = f'bsub -n 2 -W 60 -R "rusage[mem=4096]" "{cmd_raw}"'
     else:
         cmd = f'{cmd_raw}'
 
@@ -79,7 +79,7 @@ def run_sigProfiler(args):
             run_bash(uncomp_cmd, False)
 
         out_dir_temp = os.path.join(args.input, file_name_raw + '.temp')
-        cmd = f'python {args.exe_profiler} {vcf_file_uncomp} -o {out_dir_temp} ' \
+        cmd = f'python {args.exe_profiler} {vcf_file_uncomp} -o {out_dir_temp} -n 2 ' \
             f'&& mv {out_dir_temp} {out_dir}'
         run_bash(cmd, args.local)
 
