@@ -50,11 +50,10 @@ def run_sigProfiler(args):
             return
 
         out_dir = os.path.join(args.out_dir, file_name_raw + '.mutSigs')
-        if args.check:
-            final_file = os.path.join(out_dir, 'SBS96', 'Suggested_Solution',
+        final_file = os.path.join(out_dir, 'SBS96', 'Suggested_Solution',
                 'COSMIC_SBS96_Decomposed_Solution',
                 'De_Novo_map_to_COSMIC_SBS96.csv')
-
+        if args.check:
             if not os.path.exists(final_file):
                 print(f'!Missing! Signature file: {final_file}')
             return
@@ -63,8 +62,10 @@ def run_sigProfiler(args):
             if args.replace:
                 shutil.rmtree(out_dir)
             else:
-                print('Signature directory already present: {out_dir}')
-                continue
+                print(f'Signature directory already present: {out_dir}')
+                if len(os.listdir(out_dir)) > 1:
+                    print('\t and continues more than vcf file: Skipping')
+                    continue
 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
@@ -113,7 +114,8 @@ if __name__ == '__main__':
 
     if not args.out_dir:
         args.out_dir = os.path.join(args.input, 'sigProfiles')
-    if os.path.exists(args.out_dir):
+
+    if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
     run_sigProfiler(args)
