@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -29,7 +30,6 @@ DATA_DIRS = {
 }
 WGS = ['Lo-P1', 'Lo-P2', 'Lo-P3', 'S21_P1', 'S21_P2'] # 'CRC08', 'CRC09'
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
-METHODS = ['cellphy', 'scite']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
 cellphy_exe = '/home/uvi/be/nbo/cellphy/cellphy.sh'
@@ -44,8 +44,7 @@ cellphy_time = 2880
 cellphy_mem = 6
 
 KEEP_GOING = False
-
-SLURM=True
+SLURM = True
 
 
 def run_bash(cmd_raw, bsub=True, cores=1, time=30, mem=2):
@@ -96,6 +95,9 @@ def run_inference(args):
 
             # Iterate nan filters
             for data_filter in data_filters:
+                if data_filter not in args.filters:
+                    continue
+
                 vcf_raw_name = f'{data_set}.{data_filter}.vcf.gz'
                 vcf_raw_file = os.path.join(vcf_dir, vcf_raw_name)
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
@@ -231,6 +233,9 @@ def compress_files(args):
                 data_filters = DATA_FILTERS
 
             for data_filter in data_filters:
+                if data_filter not in args.filters:
+                    continue
+
                 vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
                 vcf_file = os.path.join(vcf_dir, vcf_name)
 
@@ -274,6 +279,65 @@ def compress_files(args):
     shutil.rmtree(args.compress)
 
 
+def check_errors(args):
+    for data_set, sub_dirs in DATA_DIRS.items():
+        if data_set not in args.dataset:
+            continue
+        for sub_dir in sub_dirs:
+            if sub_dir == 'all' and len(sub_dirs) > 1:
+                continue
+            vcf_dir = os.path.join(args.in_dir, data_set, sub_dir)
+            if data_set in WGS:
+                data_filters = DATA_FILTERS + ['99nanFilter']
+            else:
+                data_filters = DATA_FILTERS
+
+            for data_filter in data_filters:
+                if data_filter not in args.filters:
+                    continue
+                vcf_name = f'{data_set}.{data_filter}_outg.vcf.gz'
+
+                if 'cellphy' in args.method:
+                    log_file1 = os.path.join(vcf_dir, f'{vcf_name}.raxml.log')
+                    log_file2 = os.path.join(args.in_dir,
+                        f'{data_set}_{sub_dir}_{data_filter}.cellphy.log')
+                    if not os.path.exists(log_file1) \
+                            and not os.path.exists(log_file2):
+                        print(f'\tMissing cellphy log file: {log_file}')
+                    else:
+                        if os.path.exists(log_file1):
+                            log_file = log_file1
+                        else:
+                            log_file = log_file2
+
+                        with open(log_file, 'r') as f:
+                            log = f.read().strip()
+                        FN = float(re.search('ADO_RATE: (0.\d+(e-\d+)?)', log) \
+                            .group(1))
+                        if FN == 0:
+                            print(f'\tCELLPHY - No errors detected in: {vcf_name}')
+                if 'scite' in args.method:
+                    log_file1 = os.path.join(vcf_dir, 'scite_dir',
+                        f'{data_set}.{data_filter}_outg.log')
+                    log_file2 = os.path.join(args.in_dir,
+                        f'{data_set}_{sub_dir}_{data_filter}.scite.log')
+                    if not os.path.exists(log_file1) \
+                            and not os.path.exists(log_file2):
+                        print(f'\tMissing cellphy log file: {log_file}')
+                    else:
+                        if os.path.exists(log_file1):
+                            log_file = log_file1
+                        else:
+                            log_file = log_file2
+
+                        with open(log_file, 'r') as f:
+                            log = f.read()
+                        FN = float(re.search(
+                            'best value for beta:\\\\t(\d.\d+(e-\d+)?)', log) \
+                                .group(1))
+                        if FN == 0:
+                            print(f'\tSCITE - No errors detected in: {vcf_name}')
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--in_dir', type=str, default=MONICA_DIR,
@@ -293,13 +357,20 @@ def parse_args():
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
-        choices=METHODS, default=METHODS,
-        help=f'Tree inference method. Default = {METHODS}')
+        choices=['cellphy', 'scite'], default=['cellphy'],
+        help=f'Tree inference method. Default = cellphy.')
     parser.add_argument('-comp', '--compress', default='', type=str,
         help='Compress files to folder and exit.')
     parser.add_argument('-d', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS.keys(), default=DATA_DIRS.keys(),
         help=f'Datasets to process. Default = {DATA_DIRS.keys()}.')
+    parser.add_argument('-fl', '--filters', type=str, nargs='+',
+        choices=DATA_FILTERS + ['99nanFilter'],
+        default=DATA_FILTERS + ['99nanFilter'],
+        help=f'Datafilters to process. ' \
+            f'Default = {[DATA_FILTERS + ["99nanFilter"]]}.')
+    parser.add_argument('-cerr', '--check_errors', action='store_true',
+        help='Check for runs where inferred error is 0.')
     parser.add_argument('--lsf', action='store_true',
         help='Run lsf queue submit command (bsub) instead of slurm (sbatch).')
 
@@ -320,5 +391,7 @@ if __name__ == '__main__':
 
     if args.compress:
         compress_files(args)
+    elif args.check_errors:
+        check_errors(args)
     else:
         run_inference(args)

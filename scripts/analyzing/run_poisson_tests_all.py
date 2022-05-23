@@ -14,12 +14,18 @@ MODULE_STR = 'module load ete;'
 DRIVER_FILE = '../data/resources/2020-02-02_IntOGen-Drivers-20200213/Compendium_Cancer_Genes.tsv'
 DATA_DIRS = ['CRC08', 'CRC09', 'H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
     'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
+METHODS = ['cellphy', 'scite']
+
+SLURM = True
 
 
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
-        cmd = f"sbatch -t 30 -p amd-shared --qos amd-shared --mem 2G " \
-            f"--wrap '{module_str} {cmd_raw}'"
+        if SLURM:
+            cmd = f"sbatch -t 30 --mem 2G -p amd-shared --qos amd-shared " \
+                f"--wrap '{module_str} {cmd_raw}'"
+        else:
+            cmd = f'bsub -W 30 -R "rusage[mem=2048]" "{cmd_raw}"'
     else:
         cmd = f'{cmd_raw}'
 
@@ -56,7 +62,7 @@ def run_poisson_disp(vcf_files, args):
 
 def run_poissonTree(vcf_files, args):
     for vcf_file in vcf_files:
-        for tree in ['cellphy', 'scite']:
+        for tree in args.method:
             run_poissonTree_single(vcf_file, tree, args)
 
 
@@ -88,67 +94,68 @@ def run_poissonTree_single(vcf_file, tree, args):
         f'{dataset}_{subset}_{filters}.{tree}.newick')
 
     # Run poisson tree test
-    out_file = os.path.join(args.out_dir, f'{out_base}.poissonTree.tsv')
-    if os.path.exists(out_file) and not args.replace:
-        pass
-    else:
-        if args.check:
-            print(f'!Missing! Poisson tree file: {out_file}')
-            return
+    if 'poissonTree' in args.mode:
+        out_file = os.path.join(args.out_dir, f'{out_base}.poissonTree.tsv')
+        if os.path.exists(out_file) and not args.replace:
+            pass
+        else:
+            if args.check:
+                print(f'!Missing! Poisson tree file: {out_file}')
+                return
 
-        if not os.path.exists(tree_file):
-            print(f'!WARNING! Missing file: {tree_file}')
-            return
-        cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} -b'
-        run_bash(cmd, args.local)
+            if not os.path.exists(tree_file):
+                print(f'!WARNING! Missing file: {tree_file}')
+                return
+            cmd = f'python {args.exe_tree} {vcf_file} {tree_file} -o {out_file} -b'
+            run_bash(cmd, args.local)
 
-    # Plot phylogenic tree
-    fig_file = os.path.join(args.out_dir,
-        f'{out_base}.w{args.plotting_wmax:.0f}.png')
-    if os.path.exists(fig_file) and not args.replace:
-        pass
-    else:
-        if args.check:
-            print(f'!Missing! Phylogenetic tree file: {fig_file}')
-            return
+    if 'phylogeny' in args.mode:
+        # Plot phylogenic tree
+        fig_file = os.path.join(args.out_dir,
+            f'{out_base}.w{args.plotting_wmax:.0f}.png')
+        if os.path.exists(fig_file) and not args.replace:
+            pass
+        else:
+            if args.check:
+                print(f'!Missing! Phylogenetic tree file: {fig_file}')
+                return
 
-        if not os.path.exists(tree_file):
-            print(f'!WARNING! Missing file: {tree_file}')
-            return
-        cmd_plt = f'python {args.exe_tree} {vcf_file} {tree_file} -o {fig_file} ' \
-            f'-b --plotting --w_max {args.plotting_wmax}'
-        if args.drivers:
-            cmd_plt += f' --drivers {args.drivers}'
-        run_bash(cmd_plt, args.local)
+            if not os.path.exists(tree_file):
+                print(f'!WARNING! Missing file: {tree_file}')
+                return
+            cmd_plt = f'python {args.exe_tree} {vcf_file} {tree_file} -o {fig_file} ' \
+                f'-b --plotting --w_max {args.plotting_wmax}'
+            if args.drivers:
+                cmd_plt += f' --drivers {args.drivers}'
+            run_bash(cmd_plt, args.local)
 
-    # Generate mutation-branch mapping file
-    mapping_dir = os.path.join(args.out_dir, 'Mappings')
-    if not os.path.exists(mapping_dir):
-        os.mkdir(mapping_dir)
-    map_file = os.path.join(mapping_dir,
-        f'{out_base}.w{args.plotting_wmax:.0f}_branchMuts.tsv')
-    if os.path.exists(map_file) and not args.replace:
-        pass
-    else:
-        if args.check:
-            print(f'!Missing! Branch-mutation mapping file: {map_file}')
-            return
+    if 'mutMapping' in args.mode:
+        # Generate mutation-branch mapping file
+        mapping_dir = os.path.join(args.out_dir, 'Mappings')
+        if not os.path.exists(mapping_dir):
+            os.mkdir(mapping_dir)
+        map_file = os.path.join(mapping_dir,
+            f'{out_base}.w{args.plotting_wmax:.0f}_branchMuts.tsv')
+        if os.path.exists(map_file) and not args.replace:
+            pass
+        else:
+            if args.check:
+                print(f'!Missing! Branch-mutation mapping file: {map_file}')
+                return
 
-        if not os.path.exists(tree_file):
-            print(f'!WARNING! Missing file: {tree_file}')
-            return
-        prefix = os.path.join(args.out_dir, out_base)
-        cmd_map = f'python {args.exe_tree} {vcf_file} {tree_file} -b ' \
-            f'--w_max {args.plotting_wmax} -mbm {map_file}'
-        run_bash(cmd_map, args.local)
-
+            if not os.path.exists(tree_file):
+                print(f'!WARNING! Missing file: {tree_file}')
+                return
+            prefix = os.path.join(args.out_dir, out_base)
+            cmd_map = f'python {args.exe_tree} {vcf_file} {tree_file} -b ' \
+                f'--w_max {args.plotting_wmax} -mbm {map_file}'
+            run_bash(cmd_map, args.local)
 
 
 def merge_datasets(tsv_files, args):
     for file in tsv_files:
         file_name = os.path.basename(file)
 
-        print(file)
         if file_name.startswith('Poisson_dispersion'):
             continue
         elif file_name.startswith('S21_P1'):
@@ -165,6 +172,8 @@ def merge_datasets(tsv_files, args):
         else:
             dataset, subset, filter_str, tree_raw = file_name.split('_')
         tree = tree_raw.split('.')[0]
+        if tree not in args.method:
+            continue
         df_new = pd.read_csv(file, sep='\t')
         df_new.loc[0, 'subset'] = subset
         df_new.loc[0, 'filters'] = filter_str
@@ -189,43 +198,6 @@ def merge_datasets(tsv_files, args):
     df.to_csv(out_file, sep='\t', index=False)
 
 
-def compress_results(vcf_files, args):
-    comp_dir = os.path.join(args.out_dir,
-        f'{datetime.now():%Y%m%d_%H:%M:%S}_compressed')
-    print(f'Writing files to: {comp_dir}.tar.gz')
-    os.mkdir(comp_dir)
-
-    old_file = os.path.join(args.out_dir, 'Summary_biological_data.tsv')
-    new_file = os.path.join(comp_dir, os.path.basename(old_file))
-    run_bash(f'cp {old_file} {new_file}', False, '')
-
-    for old_file in get_plot_files(vcf_files):
-        path_parts = old_file.split(os.path.sep)
-        old_name = path_parts[-1]
-        if 'scite_dir' in path_parts:
-            tree = 'scite'
-            subset = path_parts[-3]
-            new_name = old_name \
-                .replace('_outg_ml0.newick_w500_mapped.png', '')
-        else:
-            tree = 'cellphy'
-            subset = path_parts[-2]
-            new_name = old_name \
-                .replace('_outg.vcf.gz.raxml.bestTree_w500_mapped.png', '')
-
-        dataset, filters = new_name.split('.')
-        new_name = f'{dataset}_{subset}_{filters}_{tree}.png'
-        new_file = os.path.join(comp_dir, new_name)
-        if not os.path.exists(old_file):
-            print(f'\tMissing file: {old_file}')
-            continue
-        run_bash(f'cp {old_file} {new_file}', False, '')
-
-    tar = tarfile.open(comp_dir + '.tar.gz', 'w:gz')
-    tar.add(comp_dir)
-    tar.close()
-
-
 def get_plot_files(vcf_files):
     files = []
     for vcf_file in vcf_files:
@@ -247,8 +219,9 @@ def parse_args():
     parser.add_argument('input', type=str,  help='Input directory')
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory. Default = <INPUT>/poissonTests_all')
-    parser.add_argument('-m', '--mode', type=str, default='run',
-        choices=['run', 'merge', 'compress'],
+    parser.add_argument('-m', '--mode', nargs='+', type=str,
+        choices=['poissonTree', 'phylogeny', 'mutMapping'],
+        default=['poissonTree', 'phylogeny', 'mutMapping'],
         help='Which task to do. Default = run.')
     parser.add_argument('-et', '--exe_tree', type=str,
         default='simulations/scripts/get_poisson_tree_LRT.py',
@@ -261,23 +234,34 @@ def parse_args():
     parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=400,
         help='W_max value used for coloring braches in Phylogentic tree. ' \
             'Default = 400.')
-    parser.add_argument('-t', '--tests', default=['poissonTree', 'dispersion'],
+    parser.add_argument('-t', '--tests', default=['poissonTree'],
         choices=['poissonTree', 'dispersion'], help='Tests to perform.')
     parser.add_argument('-da', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS, default=DATA_DIRS,
         help='Datasets to process. Default = all.')
+    parser.add_argument('-me', '--method', nargs='+', type=str,
+        choices=METHODS, default=METHODS,
+        help=f'Tree inference method. Default = {METHODS}')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
         help='Overwrite already existing files.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
+    parser.add_argument('--merge', action='store_true',
+        help='Merge individual clock test to final table.')
+    parser.add_argument('--lsf', action='store_true',
+        help='Run lsf queue submit command (bsub) instead of slurm (sbatch).')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
+
+    if args.lsf:
+        SLURM = False
+        MODULE_STR = 'conda activate ete3;'
 
     vcf_files = []
     tsv_files = []
@@ -287,15 +271,19 @@ if __name__ == '__main__':
         elif file.endswith('tsv') and not 'summary' in file:
             tsv_files.append(os.path.join(args.input, file))
 
-    if not args.out_dir:
-        args.out_dir = os.path.join(args.input, 'poissonTests_all')
-
-    if not os.path.exists(args.out_dir):
-        os.mkdir(args.out_dir)
-
-    if args.mode == 'run':
-        run_tests(vcf_files, args)
-    elif args.mode == 'merge':
+    if args.merge:
+        if not tsv_files:
+            raise IOError(f'\nNo tsv files found in: {args.input}\n')
+        if not args.out_dir:
+            args.out_dir = args.input
         merge_datasets(tsv_files, args)
     else:
-        compress_results(vcf_files, args)
+        if not vcf_files:
+            raise IOError(f'\nNo vcf files found in: {args.input}\n')
+
+        if not args.out_dir:
+                args.out_dir = os.path.join(args.input, 'poissonTests_all')
+        if not os.path.exists(args.out_dir):
+            os.mkdir(args.out_dir)
+
+        run_tests(vcf_files, args)
