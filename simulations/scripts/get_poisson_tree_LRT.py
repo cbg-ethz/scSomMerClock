@@ -465,7 +465,12 @@ def add_br_weights(tree, FP, FN, MS, w_max):
 
         p_ADO = np.zeros(n, dtype=float)
         for i, br in enumerate(S):
-            p_ADO[i] = np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN)
+            try:
+                p_ADO[i] = np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN)
+            except FloatingPointError:
+                p_ADO[i] = LAMBDA_MIN
+
+    p_ADO = np.clip(p_ADO, None, 0.5)
     p_noADO = 1 - p_ADO
 
     # weight 0: inv variance
