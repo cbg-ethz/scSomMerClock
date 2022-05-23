@@ -79,7 +79,7 @@ def run_sigProfiler(args):
             run_bash(uncomp_cmd, False)
 
         out_dir_temp = os.path.join(args.input, file_name_raw + '.temp')
-        cmd = f'python {args.exe_profiler} {vcf_file_uncomp} -o {out_dir_temp} -n 2 ' \
+        cmd = f'python {args.exe_profiler} {out_dir} -o {out_dir_temp} -n 2 ' \
             f'&& mv {out_dir_temp} {out_dir}'
         run_bash(cmd, args.local)
 
