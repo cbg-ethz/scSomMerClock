@@ -9,7 +9,7 @@ import tarfile
 
 
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/VariantCallsApril/filter2'
-MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
+# MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
 
 DATA_DIRS = {
     'CRC08': ['all', 'cancer', 'normal'],
@@ -341,8 +341,7 @@ def check_errors(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, default=MONICA_DIR,
-        help=f'Input directory. Default = {MONICA_DIR}.')
+    parser.add_argument('--input', type=str, help=f'Input directory.')
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory. Default = BASEDIR.')
     parser.add_argument('-l', '--local', action='store_true',
