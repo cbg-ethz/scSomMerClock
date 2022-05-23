@@ -180,7 +180,7 @@ def get_sample_dict_from_vcf(vcf_file, GT=False, include='', exclude=''):
 
 
 def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
-        sample_names=[], br_length=False):
+        samples=[], br_length=False):
     paup_file = tempfile.NamedTemporaryFile(delete=False)
     out_file = tempfile.NamedTemporaryFile(delete=False)
     temp_tree_file = tempfile.NamedTemporaryFile(delete=False)
@@ -197,14 +197,14 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
             tree = tree.split(';')[0].strip() + ';'
 
         nodes = [int(i) for i in re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree)]
-        cells = len(sample_names)
+        cells = len(samples)
         for i, s_i in enumerate(sorted(nodes)):
             if i < cells:
                 pat = '(?<=[\(\),]){}(?=[,\)\(;)])'.format(s_i)
                 if br_length:
-                    repl = '{}:0.1'.format(sample_names[i])
+                    repl = '{}:0.1'.format(samples[i])
                 else:
-                    repl = str(sample_names[i])
+                    repl = str(samples[i])
             # elif i == cells:
             #     import pdb; pdb.set_trace()
             #     pat = '(?<=[\(\),]){},?(?=[\)\(;)])'.format(s_i)
@@ -278,7 +278,7 @@ def change_newick_tree_root(in_file, paup_exe, root=True, outg='healthycell',
     return tree, tree_new
 
 
-def change_tree_root(tree_file, sample_names=[], outg='healthycell'):
+def change_tree_root(tree_file, samples=[], outg='healthycell'):
 
     from ete3 import Tree
     from ete3.parser.newick import NewickError
@@ -307,7 +307,7 @@ def change_tree_root(tree_file, sample_names=[], outg='healthycell'):
             re.findall('(?<=[\(\),])\d+(?=[,\)\(;])', tree_raw)]
         int_node_idx = 1
         for i, s_i in enumerate(sorted(nodes)):
-            if i < samples.size:
+            if i < len(samples):
                 pat = f'(?<=[\(\),]){s_i}(?=[,\)\(;)])'
                 repl = f'{samples[i]}:1.0'
             else:

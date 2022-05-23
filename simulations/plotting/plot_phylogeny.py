@@ -6,7 +6,7 @@ import re
 from ete3 import Tree, TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace
 from ete3.parser.newick import NewickError
 from matplotlib import cm
-from matplotlib.colors import Normalize, rgb2hex
+from matplotlib.colors import LinearSegmentedColormap, Normalize, rgb2hex
 import numpy as np
 
 
@@ -107,7 +107,9 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
     except AttributeError:
         pass
 
-    cmap =cm.get_cmap('inferno') # RdYlBu_r
+    # cmap =cm.get_cmap('inferno') # RdYlBu_r
+    cmap = LinearSegmentedColormap.from_list(
+        'blRd', [(0, 0, 0), (1, 0, 0)], N=256)
     norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
 
     lw = 1
@@ -154,7 +156,7 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
             style["hz_line_color"] = color_hex
 
         # Add support
-        if sup_vals.size > 1 and not node.is_leaf():
+        if sup_vals.size > 2 and not node.is_leaf():
             c1 = CircleFace(4, 'black', )
             c1.margin_top = -3
             c1.margin_right = -2
