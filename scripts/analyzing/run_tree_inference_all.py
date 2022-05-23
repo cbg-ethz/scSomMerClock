@@ -341,7 +341,7 @@ def check_errors(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, help=f'Input directory.')
+    parser.add_argument('input', type=str, help=f'Input directory.')
     parser.add_argument('-o', '--out_dir', type=str, default='',
         help='Output directory. Default = BASEDIR.')
     parser.add_argument('-l', '--local', action='store_true',
