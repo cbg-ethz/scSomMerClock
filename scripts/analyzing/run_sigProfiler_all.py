@@ -16,7 +16,7 @@ SLURM = False
 def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
     if bsub:
         if SLURM:
-            cmd = f"sbatch -n 2 -t 0 --mem 4G -p amd-shared --qos amd-shared " \
+            cmd = f"sbatch -n 2 -t 90 --mem 4G -p amd-shared --qos amd-shared " \
                 f"--wrap '{module_str} {cmd_raw}'"
         else:
             cmd = f'bsub -n 2 -W 90 -R "rusage[mem=4096]" "{cmd_raw}"'

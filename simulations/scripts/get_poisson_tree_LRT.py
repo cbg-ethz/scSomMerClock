@@ -822,7 +822,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
         annot.dropna(inplace=True)
         annot = annot[~annot['Variant_Classification'].str.contains('Intron|Silent')]
 
-    header_str = 'dataset\tsubset\tfilters\tFN\tFP'
+    header_str = 'dataset\tsubset\tfilters\tmuts\tFN\tFP'
     model_str = ''
     w_cols = ['-2logLR', 'dof', 'p-value', 'hypothesis']
 
@@ -860,7 +860,8 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
             show_tree_full(tree, out_file, w_idx)
             exit()
 
-    model_str = f'{dataset}\t{subset}\t{filters}\t{FN:.4f}\t{FP:.4f}' + model_str
+    model_str = f'{dataset}\t{subset}\t{filters}\t{M.shape[0]}\t{FN:.4f}\t{FP:.4f}' \
+        + model_str
 
     summary_file = re.sub('(?<=_)w\d+_', '', out_file)
     with open(summary_file, 'w') as f_out:
