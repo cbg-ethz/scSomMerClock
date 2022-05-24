@@ -79,8 +79,9 @@ def run_sigProfiler(args):
             run_bash(uncomp_cmd, False)
 
         out_dir_temp = os.path.join(args.out_dir, file_name_raw + '.temp')
-        if not os.path.exists(out_dir_temp):
-            os.mkdir(out_dir_temp)
+        if os.path.exists(out_dir_temp):
+            shutil.rmtree(out_dir_temp)
+        os.mkdir(out_dir_temp)
         cmd = f'python {args.exe_profiler} {out_dir} -o {out_dir_temp} -n 2 ' \
             f'&& mv {out_dir_temp}/SBS96 {out_dir} && rm -r {out_dir_temp}'
         run_bash(cmd, args.local)
