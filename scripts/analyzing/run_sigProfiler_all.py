@@ -36,6 +36,8 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
 
 
 def run_sigProfiler(args):
+    all_sigs = True
+
     for file_name in sorted(os.listdir(args.input)):
         if not file_name.endswith(('.vcf.gz', '.vcf')):
             continue
@@ -56,6 +58,7 @@ def run_sigProfiler(args):
         if args.check:
             if not os.path.exists(final_file):
                 print(f'!Missing! Signature file: {final_file}')
+                all_sigs = False
             continue
 
         if os.path.exists(out_dir):
@@ -85,6 +88,9 @@ def run_sigProfiler(args):
         cmd = f'python {args.exe_profiler} {out_dir} -o {out_dir_temp} -n 2 ' \
             f'&& mv {out_dir_temp}/SBS96 {out_dir} && rm -r {out_dir_temp}'
         run_bash(cmd, args.local)
+
+    if args.check and all_sigs:
+        print('All signature files exist!')
 
 
 def parse_args():
