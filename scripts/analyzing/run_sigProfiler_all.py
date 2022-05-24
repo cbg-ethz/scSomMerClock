@@ -111,7 +111,7 @@ def merge_sigProfiler(args):
         with open(sig_file, 'r') as f:
             sig_raw = f.read()
         sig = sig_raw.split('\n')[1].split(',')[1]
-        str_out += f'{dataset}\t{subset}\t{filters}\t{signatures}\n'
+        str_out += f'{dataset}\t{subset}\t{filters}\t{sig}\n'
 
     with open(args.merge, 'w') as f:
         f.write(str_out)
