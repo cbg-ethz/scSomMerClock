@@ -135,7 +135,7 @@ def parse_args():
         help='Overwrite already existing files.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
-    parser.add_argument('--merge', action='store_true',
+    parser.add_argument('--merge', type=str, default='',
         help='Merge individual signature to summary file.')
     parser.add_argument('--slurm', action='store_true',
         help='Run slurm (sbatch) submit command instead of lsf queue (bsub).')
