@@ -65,10 +65,13 @@ def run_sigProfiler(args):
             if args.replace:
                 shutil.rmtree(out_dir)
             else:
-                print(f'Signature directory already present: {out_dir}')
-                if len(os.listdir(out_dir)) > 1:
-                    print('\t and continues more than vcf file: Skipping')
+                if os.path.exists(final_file):
                     continue
+                else:
+                    print(f'Signature directory BUT NOT signature present: {out_dir}')
+                    if len(os.listdir(out_dir)) > 1:
+                        print('\t and continues more than vcf file: Skipping')
+                        continue
 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
