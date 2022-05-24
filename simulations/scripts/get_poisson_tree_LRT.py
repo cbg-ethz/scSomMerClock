@@ -763,10 +763,19 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
             model_str += f'\t{FN:.4f}\t{FP:.6f}'
 
         weight_str = ",".join([str(j) for j in weights_norm[:,w_idx].round(3)])
-        header_str += '\t' + \
-            '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
-        model_str += f'\t{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
-            f'H{int(p_val < 0.05)}\t{weight_str}'
+        # No change with increasing w_max value
+        if weights_norm[:, w_idx].max() < w_max:
+            for w_max2 in sorted(w_maxs)[i:]:
+                header_str += '\t' + \
+                    '\t'.join([f'{j}_poissonTree_wMax{w_max2}' for j in cols_wMax])
+                model_str += f'\t{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
+                    f'H{int(p_val < 0.05)}\t{weight_str}'
+            break
+        else:
+            header_str += '\t' + \
+                '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
+            model_str += f'\t{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
+                f'H{int(p_val < 0.05)}\t{weight_str}'
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
