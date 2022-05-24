@@ -78,7 +78,7 @@ def run_sigProfiler(args):
             uncomp_cmd = f'bcftools view {in_file} -O v -o {vcf_file_uncomp}'
             run_bash(uncomp_cmd, False)
 
-        out_dir_temp = os.path.join(args.input, file_name_raw + '.temp')
+        out_dir_temp = os.path.join(args.out_dir, file_name_raw + '.temp')
         if not os.path.exists(out_dir_temp):
             os.mkdir(out_dir_temp)
         cmd = f'python {args.exe_profiler} {out_dir} -o {out_dir_temp} -n 2 ' \
