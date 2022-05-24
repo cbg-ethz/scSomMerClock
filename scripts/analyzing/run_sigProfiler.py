@@ -7,16 +7,25 @@ from SigProfilerExtractor import sigpro as sig
 
 
 def main(args):
-    sig.sigProfilerExtractor(
-        'vcf',
-        args.out_dir,
-        args.input,
-        minimum_signatures=args.min_signatures,
-        maximum_signatures=args.max_signatures,
-        context_type='96',
-        exome=args.exome,
-        cpu=args.cpu,
-    )
+    try:
+        sig.sigProfilerExtractor(
+            'vcf',
+            args.out_dir,
+            args.input,
+            minimum_signatures=args.min_signatures,
+            maximum_signatures=args.max_signatures,
+            context_type='96',
+            exome=args.exome,
+            cpu=args.cpu,
+        )
+    except KeyError:
+        out_file = os.path.join(args.out_dir, 'SBS96', 'Suggested_Solution',
+            'COSMIC_SBS96_Decomposed_Solution',
+            'De_Novo_map_to_COSMIC_SBS96.csv')
+        if not os.path.exists(out_file):
+            raise RunTimeError('\n!ERROR! sigProfilerExtractor failed\n')
+        else:
+            print('success')
 
 
 def parse_args():
