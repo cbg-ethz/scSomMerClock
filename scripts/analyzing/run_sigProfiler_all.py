@@ -93,6 +93,31 @@ def run_sigProfiler(args):
         print('All signature files exist!')
 
 
+def merge_sigProfiler(args):
+    str_out = 'dataset\tsubset\tfilters\tsignatures\n'
+    for dataset_dir in sorted(os.listdir(args.input)):
+        sig_file = os.path.join(args.input, dataset_dir, 'SBS96',
+            'Suggested_Solution', 'COSMIC_SBS96_Decomposed_Solution',
+            'De_Novo_map_to_COSMIC_SBS96.csv')
+        if not os.path.exists(sig_file):
+            print(f'\n!WARNING! Missing file: {sig_file}')
+            continue
+
+        file_ids = dataset_dir.replace('.mutSigs', '').split('_')
+        dataset = '_'.join(file_ids[:-2])
+        subset = file_ids[-2]
+        filters = file_ids[-1]
+
+        with open(sig_file, 'r') as f:
+            sig_raw = f.read()
+        sig = sig_raw.split('\n')[1].split(',')[1]
+        str_out += f'{dataset}\t{subset}\t{filters}\t{signatures}\n'
+
+    with open(args.merge, 'w') as f:
+        f.write(str_out)
+
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str,  help='Input directory')
@@ -110,6 +135,8 @@ def parse_args():
         help='Overwrite already existing files.')
     parser.add_argument('-c', '--check', action='store_true',
         help='Check only if files exist, do not run anything.')
+        parser.add_argument('--merge', action='store_true',
+        help='Merge individual signature to summary file.')
     parser.add_argument('--slurm', action='store_true',
         help='Run slurm (sbatch) submit command instead of lsf queue (bsub).')
     args = parser.parse_args()
@@ -128,4 +155,7 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
-    run_sigProfiler(args)
+    if args.merge:
+        merge_sigProfiler(args)
+    else:
+        run_sigProfiler(args)
