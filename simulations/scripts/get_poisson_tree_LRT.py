@@ -277,8 +277,7 @@ def read_tree(tree_file, samples=[]):
         # Extract data from tree file paths
         try:
             FP = float(re.search('WGA0[\.\d,]*-0[\.\d]*-(0[\.\d]*)', tree_file) \
-                .group(1)) + 0.01 # + 0.01 = Seq. error
-
+                .group(1))
             FN = float(re.search('WGA(0[\.\d]*)[,\.\d]*?-', tree_file).group(1))
         except AttributeError:
             FP = LAMBDA_MIN
@@ -473,7 +472,7 @@ def add_br_weights(tree, FP, FN, MS, w_max):
     p_ADO = np.clip(p_ADO, None, 0.5)
     p_noADO = 1 - p_ADO
 
-    # weight 0: inv variance
+    # weight 0: inverse variance
     weights[:,0] = np.clip(1 / (p_noADO * p_ADO), None, w_max)
     # weight 1: odds ratio
     weights[:,1] = np.clip(p_noADO / p_ADO, None, w_max)
@@ -747,6 +746,8 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
 
     header_str = 'run'
     model_str = f'{run}'
+
+    weights_old = np.zeros((call_data[0].shape[1] - 2) * 2)
     for i, w_max in enumerate(sorted(w_maxs)):
         tree, FP, FN, M = get_gt_tree(tree_file, call_data, w_max, FN_fix, FP_fix)
         add_true_muts(tree, call_data[1])
@@ -754,17 +755,18 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
         Y, constr, init, weights_norm, constr_cols = get_model_data(tree)
 
         # weights: 0 = variance, 1 = odds ratio,
-        w_idx = 0
+        weights_rel = weights_norm[:, 0]
         LR, dof, on_bound, p_val, Y_opt = \
-            get_LRT_poisson(Y, constr, init, weights_norm[:, w_idx])
+            get_LRT_poisson(Y, constr, init, weights_rel)
 
         if i == 0:
             header_str += f'\tFN\tFP'
             model_str += f'\t{FN:.4f}\t{FP:.6f}'
 
-        weight_str = ",".join([str(j) for j in weights_norm[:,w_idx].round(3)])
+        weight_str = ",".join([str(j) for j in weights_rel.round(3)])
         # No change with increasing w_max value
-        if weights_norm[:, w_idx].max() < w_max:
+
+        if all(weights_rel == weights_old):
             for w_max2 in sorted(w_maxs)[i:]:
                 header_str += '\t' + \
                     '\t'.join([f'{j}_poissonTree_wMax{w_max2}' for j in cols_wMax])
@@ -776,19 +778,20 @@ def run_poisson_tree_test_simulations(vcf_file, tree_file, out_file, w_maxs,
                 '\t'.join([f'{j}_poissonTree_wMax{w_max}' for j in cols_wMax])
             model_str += f'\t{LR:0>5.2f}\t{dof+on_bound}\t{p_val:.2E}\t' \
                 f'H{int(p_val < 0.05)}\t{weight_str}'
+            weights_old = weights_rel
 
     with open(out_file, 'w') as f_out:
         f_out.write(f'{header_str}\n{model_str}')
 
     # add_opt_muts(tree, Y, Y_opt)
+
     # this_file_raw = os.path.abspath(__file__).split(os.path.sep)
     # plotting_file = os.path.sep.join(this_file_raw[:-2] + ['plotting'])
-
     # import sys
     # sys.path.append(plotting_file)
     # from plot_phylogeny import show_tree_full
-    # # show_tree_full(tree , 'test_cellphy.pdf')
-
+    # show_tree_full(tree )
+    # import pdb; pdb.set_trace()
 
 
 def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000],

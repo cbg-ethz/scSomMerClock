@@ -3,7 +3,7 @@
 import os
 import re
 
-from ete3 import Tree, TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace
+from ete3 import Tree, TreeStyle, NodeStyle, ImgFace, TextFace, CircleFace, RectFace
 from ete3.parser.newick import NewickError
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap, Normalize, rgb2hex
@@ -102,15 +102,16 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
 
     mut_cutoff = max(50,
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
+    cmap = LinearSegmentedColormap.from_list(
+            'blRd', [(0, 0, 0), (1, 0, 0)], N=256)
     try:
         dist_fracs = [i.dist_fraction for i in tree.iter_descendants()]
+        # cmap =cm.get_cmap('inferno') # RdYlBu_r
+        norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
     except AttributeError:
         pass
 
-    # cmap =cm.get_cmap('inferno') # RdYlBu_r
-    cmap = LinearSegmentedColormap.from_list(
-        'blRd', [(0, 0, 0), (1, 0, 0)], N=256)
-    norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
+
 
     lw = 1
     fsize = 4
@@ -159,14 +160,14 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
         if sup_vals.size > 2 and not node.is_leaf():
             c1 = CircleFace(4, 'black', )
             c1.margin_top = -3
-            c1.margin_right = -2
+            c1.margin_right = -5
             c1.margin_left = 0
             c1.margin_bottom = 0
             node.add_face(c1, column=0, position='branch-right')
 
             c2 = CircleFace(3.5, 'white')
             c2.margin_top = -7.5
-            c2.margin_right = -2
+            c2.margin_right = -5
             c2.margin_left = 0.5
             c1.margin_bottom = 0
             node.add_face(c2, column=0, position='branch-right')
@@ -196,11 +197,18 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
 
         if hasattr(node, 'drivers'):
             for i, driver in enumerate(node.drivers):
+                if i == 0:
+                    space_face = RectFace(1, 2, 'white', 'white')
+                    space_face.opacity = 0
+                    node.add_face(space_face, column=0, position="branch-bottom")
                 if driver[2] < 0:
                     continue
 
                 driver_face = TextFace(f'{driver[0]}', fsize=3)
+                driver_face.margin_top = 0
+                driver_face.margin_right = 0
                 driver_face.hz_align = 1
+
 
                 if driver[1]:
                     driver_face.background.color = 'LightGreen'

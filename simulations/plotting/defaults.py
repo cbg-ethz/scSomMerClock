@@ -81,8 +81,8 @@ MARGINS = {
     'right': 0.9,
     'top': 0.8,
     'bottom': 0.3,
-    'wspace': 0.35,
-    'hspace': 0.35,
+    'wspace': 0.5,
+    'hspace': 0.75,
 }
 
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)

@@ -18,6 +18,10 @@ def generate_pval_plot_clock(args):
     for res_file in sorted(os.listdir(args.input)):
         if not res_file.startswith('res_clock0') or 'bulk' in res_file:
             continue
+
+        if re.match('res_clock\d+x_', res_file):
+            continue
+
         ADO = float(re.search('WGA(0[\.\d]*)', res_file).group(1))
         if ADO not in args.ADO:
             continue
@@ -40,12 +44,16 @@ def generate_pval_plot_clock(args):
                     # No errors simulated
                     wMax = args.wMax
                 else:
+                    if ADO == 0 and len(cols) < 6:
+                        wMax = args.wMax[0]
                     if wMax not in args.wMax:
                         continue
                     wMax = [wMax]
                 method = col.split('.')[-1]
+
                 if method not in COLORS:
                     method = col.split('_')[-1]
+
                 if method not in args.method:
                     continue
             elif col[8:].startswith('poissonDisp'):

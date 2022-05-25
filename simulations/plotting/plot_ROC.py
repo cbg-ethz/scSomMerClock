@@ -23,7 +23,7 @@ def generate_PRC(args):
         if ADO not in args.ADO:
             continue
 
-        if res_file.startswith('res_clock0'):
+        if re.match('res_clock0+_', res_file):
             clock = True
         else:
             ampl = float(re.search('res_clock(\d[\.\d]*)x', res_file).group(1))
@@ -58,7 +58,10 @@ def generate_PRC(args):
                 if method not in args.method:
                     continue
                 if ADO == 0 and clock:
-                    wMax = int(rel_col.split('_')[-1].split('.')[0])
+                    try:
+                        wMax = int(rel_col.split('_')[-1].split('.')[0])
+                    except:
+                        wMax = 1
                     if wMax == 0:
                         continue
                 else:
@@ -246,8 +249,8 @@ def parse_args():
         default = [10, 90],
         #default = [0, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95],
         type=float, help='Amplified clone size subsets. Default = [10, 90].')
-    parser.add_argument('-amp', '--amplifier', default=2, type=float,
-        help='Amplifier value to plot. Default = 2.')
+    parser.add_argument('-amp', '--amplifier', default=5, type=float,
+        help='Amplifier value to plot. Default = 5.')
     parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.2, 0.4],
         type=float,
         help='Simulated ADO value to plot. Default = [0, 0.2, 0.4].')

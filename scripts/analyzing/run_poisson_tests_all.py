@@ -14,7 +14,6 @@ MODULE_STR = 'module load ete;'
 DRIVER_FILE = '../data/resources/2020-02-02_IntOGen-Drivers-20200213/Compendium_Cancer_Genes.tsv'
 DATA_DIRS = ['CRC08', 'CRC09', 'H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
     'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
-METHODS = ['cellphy', 'scite']
 
 SLURM = True
 
@@ -240,8 +239,8 @@ def parse_args():
         choices=DATA_DIRS, default=DATA_DIRS,
         help='Datasets to process. Default = all.')
     parser.add_argument('-me', '--method', nargs='+', type=str,
-        choices=METHODS, default=METHODS,
-        help=f'Tree inference method. Default = {METHODS}')
+        choices=['cellphy', 'scite'], default=['cellphy'],
+        help=f'Tree inference method. Default = cellphy.')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',
