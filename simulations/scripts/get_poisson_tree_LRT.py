@@ -469,7 +469,6 @@ def add_br_weights(tree, FP, FN, MS, w_max):
             except FloatingPointError:
                 p_ADO[i] = LAMBDA_MIN
 
-    p_ADO = np.clip(p_ADO, None, 0.5)
     p_noADO = 1 - p_ADO
 
     # weight 0: inverse variance
