@@ -66,49 +66,52 @@ get.mobster.fit <- function(data, maxIter, maxK) {
             )
         },
         error = function(e) {
-            return( 'MOBSTER: error in fitting' )
+            return( FALSE )
         }
     )
 }
 
 fit <- get.mobster.fit(data, argv$maxIter, argv$K)
 
-if (argv$bootstrap) {
-    bootstrap_results = mobster_bootstrap(
-      fit$best,
-      n.resamples = 20,
-      auto_setup = 'FAST' # forwarded to mobster_fit
-    )
+if (fit) {
+    if (argv$bootstrap) {
+        bootstrap_results = mobster_bootstrap(
+          fit$best,
+          n.resamples = 20,
+          auto_setup = 'FAST' # forwarded to mobster_fit
+        )
 
-    bootstrap_statistics = bootstrapped_statistics(
-      fit$best,
-      bootstrap_results = bootstrap_results
-    )
-}
+        bootstrap_statistics = bootstrapped_statistics(
+          fit$best,
+          bootstrap_results = bootstrap_results
+        )
+    }
 
-mobster.evo <- function(fit){
-    tryCatch(
-        expr = {
-            return( data.frame(evolutionary_parameters(fit)) )
-        },
-        error = function(e) {
-            return( 'MOBSTER: no evolutionary parameters' )
-        }
-    )
-}
+    mobster.evo <- function(fit){
+        tryCatch(
+            expr = {
+                return( data.frame(evolutionary_parameters(fit)) )
+            },
+            error = function(e) {
+                return( 'MOBSTER: no evolutionary parameters' )
+            }
+        )
+    }
 
-if (argv$plot) {
-    out.file2 = paste(as.character(argv$in_path), '_mobster.png', sep = '')
-    gout2 <- plot(fit$best)
-    ggsave(out.file2,
-        plot = gout2,
-        devic = 'png',
-        width = 12,
-        height = 4,
-        units = 'in',
-        dpi = 300,
-        bg = 'white'
-    )
+
+    if (argv$plot) {
+        out.file2 = paste(as.character(argv$in_path), '_mobster.png', sep = '')
+        gout2 <- plot(fit$best)
+        ggsave(out.file2,
+            plot = gout2,
+            devic = 'png',
+            width = 12,
+            height = 4,
+            units = 'in',
+            dpi = 300,
+            bg = 'white'
+        )
+    }
 }
 
 # Safe both outputs
@@ -117,11 +120,15 @@ if (!argv$stdout) {
 }
 
 cat('MOBSTER Population Genetics statistics:\n')
-print(fit$best)
-print(mobster.evo(fit))
-if (argv$bootstrap) {
-    cat('\nMOBSTER Model bootstrap:\n')
-    print(data.frame(bootstrap_statistics$bootstrap_model))
+if (fit) {
+    print(fit$best)
+    print(mobster.evo(fit))
+    if (argv$bootstrap) {
+        cat('\nMOBSTER Model bootstrap:\n')
+        print(data.frame(bootstrap_statistics$bootstrap_model))
+    }
+} else {
+    cat('\nERROR\n')
 }
 cat('\n\n')
 print(summary(s))
