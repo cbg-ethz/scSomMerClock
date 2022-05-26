@@ -91,14 +91,14 @@ def show_tree(tree, out_file='', out_type='pdf'):
 
 
 def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
-            expand_root=True):
+            leaf_labels=False, expand_root=True):
     sup_vals = np.unique([i.support for i in tree.iter_descendants()])
-    max_dist_node, _ = tree.get_farthest_leaf()
-    node_dists = [i.dist for i in max_dist_node.get_ancestors()] \
-        + [max_dist_node.dist]
-    max_dist = np.sum(np.clip(node_dists, None, 50))
-
-    max_dist_node
+    sup_vals = np.ones(1)
+    # max_dist_node, _ = tree.get_farthest_leaf()
+    # node_dists = [i.dist for i in max_dist_node.get_ancestors()] \
+    #     + [max_dist_node.dist]
+    # max_dist = np.sum(np.clip(node_dists, None, 50))
+    # max_dist_node
 
     mut_cutoff = max(50,
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
@@ -111,26 +111,27 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
     except AttributeError:
         pass
 
-
-
-    lw = 1
-    fsize = 4
+    lw = 2
+    fsize = 5
     for i, node in enumerate(tree.iter_descendants()):
         if hasattr(node, 'plotted'):
             continue
 
         style = NodeStyle()
 
+        node.dist += 2
         mut_no = node.dist
+
         if mut_no > mut_cutoff:
-            br_break = TextFace(f'||', fsize=fsize*2)
+            br_break = TextFace(f'||', fsize=fsize*3)
             br_break.margin_right = 25
-            br_break.margin_top = 5
+            br_break.margin_top = -4
             node.add_face(br_break, column=0, position="float-behind")
 
-            br_break_txt = TextFace(f'{node.dist:.0f}', fsize=fsize)
-            br_break_txt.margin_right = 25
-            node.add_face(br_break_txt, column=0, position="float-behind")
+            br_break_txt = TextFace(f'{node.dist: <3.0f}', fsize=fsize*2)
+            br_break_txt.margin_right = 15
+            br_break_txt.margin_bottom = 7
+            node.add_face(br_break_txt, column=0, position="branch-top")
 
             node.dist = mut_cutoff
         else:
@@ -184,10 +185,13 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
         node.img_style = style
 
         if node.is_leaf():
-            name = TextFace(node.name, fsize=fsize)
-            name.margin_left = 2
-            name.hz_align = 1
-            node.add_face(name, column=0, position="branch-right")
+            leaf = CircleFace(3, 'black') # RectFace(3, 3, 'black', 'black')
+            node.add_face(leaf, column=0, position="branch-right")
+            if leaf_labels:
+                name = TextFace(node.name, fsize=fsize)
+                name.margin_left = 2
+                name.hz_align = 1
+                node.add_face(name, column=0, position="branch-right")
 
         if br_labels and hasattr(node, 'weights_norm'):
             weight = round(node.weights_norm[w_idx], 1)
@@ -198,24 +202,25 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
         if hasattr(node, 'drivers'):
             for i, driver in enumerate(node.drivers):
                 if i == 0:
-                    space_face = RectFace(1, 2, 'white', 'white')
-                    space_face.opacity = 0
-                    node.add_face(space_face, column=0, position="branch-bottom")
+                    space_face = RectFace(0, 0, 'red', 'red')
+                    rel_driver_no = len([i for i in node.drivers if i[1]])
+                    space_face.margin_top = 20 * rel_driver_no
+                    space_face.opacity = 1
+                    node.add_face(space_face, column=0, position="float")
                 if driver[2] < 0:
                     continue
 
-                driver_face = TextFace(f'{driver[0]}', fsize=3)
+                driver_face = TextFace(f'{driver[0]}', fsize=fsize*2)
                 driver_face.margin_top = 0
                 driver_face.margin_right = 0
                 driver_face.hz_align = 1
-
 
                 if driver[1]:
                     driver_face.background.color = 'LightGreen'
                 else:
                     continue
                     driver_face.background.color = 'PeachPuff'
-                node.add_face(driver_face, column=0, position="branch-bottom")
+                node.add_face(driver_face, column=0, position="float")
         node.plotted = True
 
     root = tree.get_tree_root()
@@ -224,22 +229,25 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
     root.img_style = NodeStyle(size=0)
     root.img_style = style
 
-
     ts = TreeStyle()
     ts.mode = 'r' # c = circular, r = rectangular
     # ts.rotation = 90
-    ts.allow_face_overlap = True
+    ts.allow_face_overlap = False
     ts.show_leaf_name = False
     ts.show_branch_support = False
     ts.show_branch_length = False
-    ts.branch_vertical_margin = 5
-    ts.min_leaf_separation = 2
-    ts.margin_left = 10
-    ts.margin_right = 10
-    ts.margin_top = 10
-    ts.margin_bottom = 10
+
+    ts.min_leaf_separation = 10
+    ts.branch_vertical_margin = 3
+    ts.margin_left = 20
+    ts.margin_right = 5
+    ts.margin_top = 5
+    ts.margin_bottom = 5
     # ts.optimal_scale_level = 'full' # "mid" | "full"
-    ts.scale = 1
+    if tree.get_farthest_leaf()[1] > 25000:
+        ts.scale = None
+    else:
+        ts.scale = 1
 
     if out_file:
         if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):

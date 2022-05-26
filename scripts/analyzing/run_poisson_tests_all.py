@@ -14,6 +14,7 @@ MODULE_STR = 'module load ete;'
 DRIVER_FILE = '../data/resources/2020-02-02_IntOGen-Drivers-20200213/Compendium_Cancer_Genes.tsv'
 DATA_DIRS = ['CRC08', 'CRC09', 'H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
     'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
+DATA_FILTERS = ['all', '33nanFilter', '50nanFilter', '99nanFilter']
 
 SLURM = True
 
@@ -85,7 +86,7 @@ def run_poissonTree_single(vcf_file, tree, args):
         subset = '_'.join(file_ids[1:-1])
         filters = file_ids[-1]
 
-    if dataset not in args.dataset:
+    if dataset not in args.dataset or filters not in args.filters:
         return
 
     out_base = f'{dataset}_{subset}_{filters}_{tree}'
@@ -230,7 +231,7 @@ def parse_args():
         help='Poisson Dispersion exe.')
     parser.add_argument('-dr', '--drivers', type=str, default=DRIVER_FILE,
         help=f'Path to IntOGen driver file. Default = {DRIVER_FILE}.')
-    parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=400,
+    parser.add_argument('-plt_w', '--plotting_wmax', type=int, default=500,
         help='W_max value used for coloring braches in Phylogentic tree. ' \
             'Default = 400.')
     parser.add_argument('-t', '--tests', default=['poissonTree'],
@@ -238,6 +239,9 @@ def parse_args():
     parser.add_argument('-da', '--dataset', type=str, nargs='+',
         choices=DATA_DIRS, default=DATA_DIRS,
         help='Datasets to process. Default = all.')
+    parser.add_argument('-fl', '--filters', type=str, nargs='+',
+        choices=DATA_FILTERS, default=DATA_FILTERS ,
+        help=f'Datafilters to process. Default = {DATA_FILTERS}.')
     parser.add_argument('-me', '--method', nargs='+', type=str,
         choices=['cellphy', 'scite'], default=['cellphy'],
         help=f'Tree inference method. Default = cellphy.')

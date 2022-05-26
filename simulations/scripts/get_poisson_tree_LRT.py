@@ -465,7 +465,8 @@ def add_br_weights(tree, FP, FN, MS, w_max):
         p_ADO = np.zeros(n, dtype=float)
         for i, br in enumerate(S):
             try:
-                p_ADO[i] = np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN)
+                p_ADO[i] = max(np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN),
+                    LAMBDA_MIN)
             except FloatingPointError:
                 p_ADO[i] = LAMBDA_MIN
 
@@ -855,7 +856,6 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
             sys.path.append(plotting_file)
             from plot_phylogeny import show_tree_full
 
-            print(LR, p_val)
             add_opt_muts(tree, Y, opt_vals)
             if driver_file:
                 annotate_drivers(dataset, tree, drivers, annot)
@@ -934,6 +934,8 @@ def annotate_drivers(dataset, tree, drivers, annot):
                 if driver['CANCER_TYPE'] == cancer or cancer == None:
                     c_type = True
                     driver_str = '  * ' + driver_str
+                    if cancer == None:
+                        driver_str += f' (cancer types: {driver["CANCER_TYPE"]})'
                     driver_str += f' ({driver["ROLE"]})'
                 else:
                     c_type = False

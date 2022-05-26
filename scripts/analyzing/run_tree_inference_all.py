@@ -12,8 +12,8 @@ import tarfile
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
 
 DATA_DIRS = {
-    'CRC08': ['all', 'cancer', 'normal'],
-    'CRC09': ['all'],
+    'CRC08': ['all', 'cancer', 'normal', 'TC', 'TD', 'TP'],
+    'CRC09': ['all', 'cancer', 'TI', 'TM'],
     'H65': ['all'],
     'Li55': ['all', 'cancer', 'normal'],
     'Lo-P1': ['all'],
