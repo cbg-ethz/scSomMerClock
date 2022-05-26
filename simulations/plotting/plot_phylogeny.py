@@ -93,23 +93,18 @@ def show_tree(tree, out_file='', out_type='pdf'):
 def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
             leaf_labels=False, expand_root=True):
     sup_vals = np.unique([i.support for i in tree.iter_descendants()])
-    sup_vals = np.ones(1)
-    # max_dist_node, _ = tree.get_farthest_leaf()
-    # node_dists = [i.dist for i in max_dist_node.get_ancestors()] \
-    #     + [max_dist_node.dist]
-    # max_dist = np.sum(np.clip(node_dists, None, 50))
-    # max_dist_node
+    # sup_vals = np.ones(1)
 
     mut_cutoff = max(50,
         np.percentile([i.dist for i in tree.iter_descendants()], 90))
-    cmap = LinearSegmentedColormap.from_list(
-            'blRd', [(0, 0, 0), (1, 0, 0)], N=256)
+
     try:
+        cmap = LinearSegmentedColormap.from_list(
+            'blRd', [(0, 0, 0), (1, 0, 0)], N=256)
         dist_fracs = [i.dist_fraction for i in tree.iter_descendants()]
-        # cmap =cm.get_cmap('inferno') # RdYlBu_r
         norm = Normalize(vmin=np.nanmin(dist_fracs), vmax=np.nanmax(dist_fracs))
     except AttributeError:
-        pass
+        cmap =cm.get_cmap('inferno') # RdYlBu_r
 
     lw = 2
     fsize = 5
@@ -145,37 +140,38 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
             mut = TextFace(f'{node.mut_no_true:.0f} true', fsize=fsize - 1)
             node.add_face(mut, column=0, position="branch-top")
 
-        if hasattr(node, 'dist_fraction'):
-            color_hex = rgb2hex(cmap(norm(node.dist_fraction)))
-            style["vt_line_color"] = color_hex
-            style["hz_line_color"] = color_hex
-        elif hasattr(node, 'weights_norm_z'):
-            if np.abs(node.weights_norm_z[w_idx]) == 1:
-                color_hex = '#000000'
-            else:
-                color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
-            style["vt_line_color"] = color_hex
-            style["hz_line_color"] = color_hex
+        if False:
+            if hasattr(node, 'dist_fraction'):
+                color_hex = rgb2hex(cmap(norm(node.dist_fraction)))
+                style["vt_line_color"] = color_hex
+                style["hz_line_color"] = color_hex
+            elif hasattr(node, 'weights_norm_z'):
+                if np.abs(node.weights_norm_z[w_idx]) == 1:
+                    color_hex = '#000000'
+                else:
+                    color_hex = rgb2hex(cmap(node.weights_norm_z[w_idx]))
+                style["vt_line_color"] = color_hex
+                style["hz_line_color"] = color_hex
 
         # Add support
-        if sup_vals.size > 2 and not node.is_leaf():
-            c1 = CircleFace(4, 'black', )
-            c1.margin_top = -3
-            c1.margin_right = -5
+        if sup_vals.size > 2 and not node.is_leaf() and node.support > 50:
+            c1 = CircleFace(8, 'black', )
+            c1.margin_top = -4
+            c1.margin_right = 0
             c1.margin_left = 0
             c1.margin_bottom = 0
             node.add_face(c1, column=0, position='branch-right')
 
-            c2 = CircleFace(3.5, 'white')
-            c2.margin_top = -7.5
-            c2.margin_right = -5
-            c2.margin_left = 0.5
+            c2 = CircleFace(7, 'white')
+            c2.margin_top = -15
+            c2.margin_right = 1
+            c2.margin_left = 1
             c1.margin_bottom = 0
             node.add_face(c2, column=0, position='branch-right')
 
-            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
+            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize)
             supp.margin_left = 1
-            supp.margin_top = -5.5
+            supp.margin_top = -9
             supp.tight_text = True
             node.add_face(supp, column=0, position="branch-right")
 
@@ -187,6 +183,11 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
         if node.is_leaf():
             leaf = CircleFace(3, 'black') # RectFace(3, 3, 'black', 'black')
             node.add_face(leaf, column=0, position="branch-right")
+
+            # name = TextFace(f'{node.missing:.2f}', fsize=fsize)
+            # name.margin_left = 2
+            # name.hz_align = 1
+            # node.add_face(name, column=1, position="branch-right")
             if leaf_labels:
                 name = TextFace(node.name, fsize=fsize)
                 name.margin_left = 2

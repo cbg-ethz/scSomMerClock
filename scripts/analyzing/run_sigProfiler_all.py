@@ -8,6 +8,7 @@ import subprocess
 
 DATASETS = ['CRC08', 'CRC09', 'H65', 'Li55', 'Lo-P1', 'Lo-P2', 'Lo-P3', 'Ni8', 'S21_P1',
     'S21_P2', 'W32', 'W55', 'Wu61', 'Wu63', 'X25']
+DATA_FILTERS = ['all', '33nanFilter', '50nanFilter', '99nanFilter']
 
 MODULE_STR = 'module load bcftools; '
 SLURM = False
@@ -49,6 +50,10 @@ def run_sigProfiler(args):
             dataset = '_'.join(file_name_raw.split('_')[:2])
 
         if dataset not in args.dataset:
+            continue
+
+        filters = file_name_raw.split('_')[-1]
+        if filters not in args.filters:
             continue
 
         out_dir = os.path.join(args.out_dir, file_name_raw + '.mutSigs')
@@ -131,7 +136,10 @@ def parse_args():
         help='Signature Profiler exe.')
     parser.add_argument('-da', '--dataset', type=str, nargs='+',
         choices=DATASETS, default=DATASETS,
-        help='Datasets to process. Default = all.')
+        help=f'Datasets to process. Default = {DATASETS}.')
+    parser.add_argument('-fl', '--filters', type=str, nargs='+',
+        choices=DATA_FILTERS, default=DATA_FILTERS,
+        help=f'Datafilters to process. Default = {DATA_FILTERS}.')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',

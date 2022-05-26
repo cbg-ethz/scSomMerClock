@@ -137,7 +137,7 @@ def merge_datasets(args):
     out_file = os.path.join(args.out_dir, 'Summary_williams.tsv')
 
     cmd = f'{args.exe_merge} {" ".join(in_files)} {out_file}'
-    run_bash(cmd, args.local)
+    run_bash(cmd, True)
 
 
 def parse_args():
@@ -147,9 +147,8 @@ def parse_args():
         help='Input dir to files with pattern: <DATASET>.mutect2filtered.PASS.vcf')
     parser.add_argument('-o', '--out_dir', type=str,
         default='poisson_tests_all', help='Output file.')
-    parser.add_argument('-m', '--mode', type=str,
-        choices=['run', 'merge'], default='run',
-        help='Which task to do: run|merge')
+    parser.add_argument('--merge', action='store_true',
+        help='Merge individual clock test to final table.')
     parser.add_argument('-evaf', '--exe_VAF', type=str,
         default='simulations/scripts/VCF_to_VAF.py',
         help='VCF to VAF converter exe.')
@@ -173,7 +172,9 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
 
-    if args.mode == 'run':
+    if args.merge:
+        merge_datasets(args)
+    else:
         for in_file in sorted(os.listdir(args.input)):
             if not in_file.endswith('.mutect2filtered.PASS.vcf'):
                 continue
@@ -182,8 +183,6 @@ if __name__ == '__main__':
             VAF_files = convert_vcf(os.path.join(args.input, in_file), args)
             for VAF_file in VAF_files:
                 run_williams(VAF_file, args)
-    else:
-        merge_datasets(args)
 
 
 

@@ -24,11 +24,11 @@ DATA_DIRS = {
     'S21_P2': ['all'],
     'W32': ['all', 'aneuploid', 'haploid', 'normal'],
     'W55': ['all', 'cancer', 'normal'],
-    'Wu61': ['all', 'cancer_C', 'cancer_CA', 'normal', 'polyps'],
+    'Wu61': ['all', 'cancer_C', 'cancer_CA', 'polyps'],
     'Wu63': ['all', 'cancer', 'normal', 'polyps'],
     'X25': ['all', 'cancer']
 }
-WGS = ['Lo-P1', 'Lo-P2', 'Lo-P3', 'S21_P1', 'S21_P2'] # 'CRC08', 'CRC09'
+WGS = ['S21_P1', 'S21_P2'] # 'CRC08', 'CRC09', 'Lo-P1', 'Lo-P2', 'Lo-P3'
 DATA_FILTERS = ['all', '33nanFilter', '50nanFilter']
 
 WT_col_script = '/home/uvi/be/nbo/MolClockAnalysis/scripts/analyzing/add_wt_to_vcf.py'
@@ -88,7 +88,7 @@ def run_inference(args):
             if not os.path.exists(vcf_dir):
                 os.makedirs(vcf_dir)
 
-            if data_set in WGS:
+            if data_set.startswith('S21_'):
                 data_filters = DATA_FILTERS + ['99nanFilter']
             else:
                 data_filters = DATA_FILTERS
@@ -227,7 +227,7 @@ def compress_files(args):
                 continue
 
             vcf_dir = os.path.join(args.out_dir, data_set, sub_dir)
-            if data_set in WGS:
+            if data_set.startswith('S21_'):
                 data_filters = DATA_FILTERS + ['99nanFilter']
             else:
                 data_filters = DATA_FILTERS
@@ -287,7 +287,7 @@ def check_errors(args):
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
             vcf_dir = os.path.join(args.input, data_set, sub_dir)
-            if data_set in WGS:
+            if .startswith('S21_'):
                 data_filters = DATA_FILTERS + ['99nanFilter']
             else:
                 data_filters = DATA_FILTERS

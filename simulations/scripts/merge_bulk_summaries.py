@@ -76,15 +76,18 @@ def merge_bulk_summaries(in_files, out_file):
         area_true = (df['area_pVal'] < 0.05).sum()
         cellcoal_log = os.sep.join(
             in_file.split(os.path.sep)[:-2] + ['cellcoal.out'])
-        with open(cellcoal_log, 'r') as f:
-            for line in f:
-                if line.startswith('Data set'):
-                    run_no = int(line.strip().split(' ')[2]) - 1
-                elif line.startswith('  node '):
-                    cells_raw = line.strip().split('(')[-1].rstrip(')').strip()
-                    cell_no = len(cells_raw.split(' '))
-                    df.loc[run_no, 'aff. cells'] = cell_no
-        df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
+        if os.path.exists(cellcoal_log):
+            with open(cellcoal_log, 'r') as f:
+                for line in f:
+                    if line.startswith('Data set'):
+                        run_no = int(line.strip().split(' ')[2]) - 1
+                    elif line.startswith('  node '):
+                        cells_raw = line.strip().split('(')[-1].rstrip(')').strip()
+                        cell_no = len(cells_raw.split(' '))
+                        df.loc[run_no, 'aff. cells'] = cell_no
+            df.loc[-1, 'aff. cells'] = df['aff. cells'].mean()
+        else:
+            df.loc[-1, 'aff. cells'] = -1
 
     df.loc[-1, 'R^2_pVal'] = f'{r2_true}/{(df["R^2_pVal"].notna()).sum()}'
     df.loc[-1, 'area_pVal'] = f'{area_true}/{(df["area_pVal"].notna()).sum()}'
