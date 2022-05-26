@@ -11,6 +11,7 @@ p <- add_argument(p, '--depth', default = NULL, help = 'Seq. depth (float)')
 p <- add_argument(p, '--cellularity', default = 1,
     help = 'Sample cellularity (float)')
 p <- add_argument(p, '--ploidy', default = 2, help = 'Sample ploidy (float)')
+p <- add_argument(p, '--K', default = 2, help = 'Cluster K (float)')
 p <- add_argument(p, '--maxIter', default = 500, help = 'Mobster maxIter (float)')
 p <- add_argument(p, '--bootstrap', flag = TRUE, help = 'Run bootstrapping')
 p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
@@ -55,11 +56,23 @@ if (argv$plot) {
 # Run mobster test
 library(mobster)
 
-fit = mobster_fit(
-    data,
-    maxIter = argv$maxIter,
-    K = 1:2,
-)
+get.mobster.fit <- function(data, maxIter, maxK) {
+    tryCatch(
+        expr = {
+            return(
+                mobster_fit(
+                    data, maxIter = maxIter, K = 1:maxK,
+                )
+            )
+        },
+        error = function(e) {
+            return( 'MOBSTER: error in fitting' )
+        }
+    )
+}
+
+fit <- get.mobster.fit(data, argv$maxIter, argv$K)
+
 if (argv$bootstrap) {
     bootstrap_results = mobster_bootstrap(
       fit$best,
