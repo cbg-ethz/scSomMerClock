@@ -125,7 +125,7 @@ def run_williams(VAF_file, args):
         fmax = 0.25
     print(f'Neutralitytest fmax: {fmax:.4f}')
 
-    cmd = f'{args.exe_will} {VAF_file} {out_file} --fmax {fmax} --plot'
+    cmd = f'{args.exe_will} {VAF_file} {out_file} --fmax {fmax} -K 3 --plot'
     run_bash(cmd, args.local)
 
 
