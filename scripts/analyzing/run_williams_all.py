@@ -193,7 +193,7 @@ def merge_datasets(args):
         i += 1
 
     out_file = os.path.join(args.out_dir, 'Summary_williams.tsv')
-    df.to_csv(out_file, sep='\t', index=False)
+    df.sort_values('dataset').to_csv(out_file, sep='\t', index=False)
 
 
 
