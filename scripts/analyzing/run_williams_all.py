@@ -130,14 +130,71 @@ def run_williams(VAF_file, args):
 
 
 def merge_datasets(args):
-    in_files = []
-    for file in os.listdir(args.input):
-        if file.endswith('.mobster'):
-            in_files.append(os.path.join(args.input, file))
-    out_file = os.path.join(args.out_dir, 'Summary_williams.tsv')
+    cols = ['dataset', 'R^2_pVal', 'area_pVal', 's_Bayes', 'clones_Bayes']
+    df = pd.DataFrame([], columns=cols)
 
-    cmd = f'{args.exe_merge} {" ".join(in_files)} {out_file}'
-    run_bash(cmd, True)
+    i = 0
+    for file in os.listdir(args.input):
+        if not file.endswith('.mobster'):
+            continue
+
+        df.loc[i, 'dataset'] = os.path.basename(file).split('.')[0]
+
+        with open(in_file, 'r') as f:
+            log_lines = f.read().strip().split('\n')[1:]
+
+            for j, line_raw in enumerate(log_lines):
+                line = line_raw.strip()
+                if line.startswith('mu'):
+                    header = re.split('\s+', line)
+                    if len(header) == 2: # only mu & exponent: no clone
+                        df.loc[i, 's_Bayes'] = 0
+                        df.loc[i, 'clones_Bayes'] = 0
+                    elif 's' in header:
+                        s_idx = header.index('s') + 1
+                        s1 = float(re.split('\s+', log_lines[j + 1])[s_idx])
+                        if log_lines[j + 2].strip().startswith('2'):
+                            freq_idx = header.index('subclonefrequency') + 1
+                            freq1 = float(
+                                re.split('\s+', log_lines[j + 1])[freq_idx])
+                            freq2 = float(
+                                re.split('\s+', log_lines[j + 2])[freq_idx])
+                            s2 = float(re.split('\s+', log_lines[j + 2])[s_idx])
+                            df.loc[i, 's_Bayes'] = (s1 * freq1 + s2 * freq2) \
+                                / (freq1 + freq2)
+                            df.loc[i, 'clones_Bayes'] = 2
+                        else:
+                            df.loc[i, 's_Bayes'] = s1
+                            df.loc[i, 'clones_Bayes'] = 1
+
+                elif line.startswith('s'):
+                    if line.endswith('subclone'):
+                        freq1 = float(re.split('\s+', log_lines[j - 2])[5])
+                        freq2 = float(re.split('\s+', log_lines[j - 1])[5])
+                        s1 = float(re.split('\s+', log_lines[j + 1])[1])
+                        s2 = float(re.split('\s+', log_lines[j + 2])[1])
+                        # weighted mean
+                        df.loc[i, 's_Bayes'] = (s1 * freq1 + s2 * freq2) \
+                            / (freq1 + freq2)
+                        df.loc[i, 'clones_Bayes'] = 2
+                    else:
+                        df.loc[i, 's_Bayes'] = float(
+                            log_lines[j + 1].strip().split(' ')[1])
+                        df.loc[i, 'clones_Bayes'] = 1
+                # Best statistic, accrording to Williams et al. 2018, p. 11
+                elif line == 'Area:':
+                    df.loc[i, 'area_pVal'] = float(
+                        log_lines[j + 1].strip().split(' ')[-1])
+                elif line == 'R^2:':
+                    df.loc[i, 'R^2_pVal'] = float(
+                        log_lines[j + 1].strip().split(' ')[-1])
+                    # Last relevant line
+                    break
+        i += 1
+
+    out_file = os.path.join(args.out_dir, 'Summary_williams.tsv')
+    df.to_csv(out_file, sep='\t', index=False)
+
 
 
 def parse_args():
