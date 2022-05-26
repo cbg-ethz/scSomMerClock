@@ -140,7 +140,7 @@ def merge_datasets(args):
 
         df.loc[i, 'dataset'] = os.path.basename(in_file).split('.')[0]
 
-        with open(in_file, 'r') as f:
+        with open(os.path.join(args.input, in_file), 'r') as f:
             log_lines = f.read().strip().split('\n')[1:]
 
             for j, line_raw in enumerate(log_lines):
