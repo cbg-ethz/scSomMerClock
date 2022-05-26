@@ -134,11 +134,11 @@ def merge_datasets(args):
     df = pd.DataFrame([], columns=cols)
 
     i = 0
-    for file in os.listdir(args.input):
-        if not file.endswith('.mobster'):
+    for in_file in os.listdir(args.input):
+        if not in_file.endswith('.mobster'):
             continue
 
-        df.loc[i, 'dataset'] = os.path.basename(file).split('.')[0]
+        df.loc[i, 'dataset'] = os.path.basename(in_file).split('.')[0]
 
         with open(in_file, 'r') as f:
             log_lines = f.read().strip().split('\n')[1:]
