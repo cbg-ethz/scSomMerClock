@@ -346,6 +346,8 @@ def get_gt_tree(tree_file, call_data, w_max, FN_fix=None, FP_fix=None):
     # Make sure that at FN + MS is max. 0.8
     MS = min(muts_red.isna().mean().mean(), 1 - FN - 0.2)
     MS_i = np.clip(muts_red.isna().mean(), LAMBDA_MIN, 1 - FN - 0.2)
+    for leaf in tree.get_leaves():
+        leaf.missing = MS_i.loc[leaf.name]
 
     M = map_mutations_gt(tree, muts_red, FP, FN)
     add_br_weights(tree, FP, FN, MS_i, w_max)
@@ -450,26 +452,30 @@ def add_br_weights(tree, FP, FN, MS, w_max):
         cells = [leaf_map[i] for i in node.name.split('+')]
         S[i, cells] = True
 
-    l_TN = np.log(1 - FP)
     weights = np.zeros((n, 2), dtype=float)
     # # -- Assume average missing value for all cells --
-    if isinstance(MS, float):
-        l_DO = np.log(FN + MS)
+    if isinstance(MS, (float, int)):
+        l_TN = np.log((1 - MS) * (1 - FP) + MS)
+        l_DO = np.log((1 - MS) * FN + MS)
         t = S.sum(axis=1)
         p_ADO = np.exp(t * l_DO + (m - t) * l_TN)
     # -- Taking different missing value per cell into account --
     elif isinstance(MS, pd.Series):
-        l_DO_all = np.log(FN + MS)
+        # True Negative or Missing
+        l_TN = np.log((1 - MS) * (1 - FP) + MS)[leaf_names].values
+        # False Negative or Missing
+        l_DO_all = np.log((1 - MS) * FN + MS)
         l_DO = l_DO_all[leaf_names].values
 
         p_ADO = np.zeros(n, dtype=float)
         for i, br in enumerate(S):
             try:
-                p_ADO[i] = max(np.exp(l_DO[br].sum() + (m - br.sum()) * l_TN),
+                p_ADO[i] = max(np.exp(l_DO[br].sum() + l_TN[~br].sum()),
                     LAMBDA_MIN)
             except FloatingPointError:
                 p_ADO[i] = LAMBDA_MIN
 
+    # p_ADO = np.clip(p_ADO, None, 0.5)
     p_noADO = 1 - p_ADO
 
     # weight 0: inverse variance
@@ -492,6 +498,7 @@ def add_br_weights(tree, FP, FN, MS, w_max):
         node.weights = weights[i]
         node.weights_norm = weights_norm[i]
         node.weights_norm_z = weights_norm_z[i]
+
     root = tree.get_tree_root().children[0]
     root.weights = np.full(weights.shape[1], -1)
     root.weights_norm = np.full(weights.shape[1], -1)
@@ -849,6 +856,7 @@ def run_poisson_tree_test_biological(vcf_file, tree_file, out_file, w_maxs=[1000
         model_str += f'\t{LR:0>5.3f}\t{dof}\t{p_val}\tH{hyp}'
 
         if plot_only:
+            print(f'P-value: {p_val: .6f}')
             this_file_raw = os.path.abspath(__file__).split(os.path.sep)
             plotting_file = os.path.sep.join(this_file_raw[:-2] + ['plotting'])
 

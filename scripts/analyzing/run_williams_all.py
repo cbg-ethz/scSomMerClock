@@ -36,7 +36,6 @@ DEPTH = {
 }
 
 CELLULARITY = {
-    'CRC08_ND_WGS': {'CRC08_ND_WGS': 0.1},
     'CRC08_NP_WGS': {'CRC08_NP_WGS': 0.99},
     'CRC08_TD_WGS': {'CRC08_TD_WGS': 0.99},
     'CRC09_TI_WGS_MG': {'CRC09_TI_WGS_MG': 0.92},
@@ -212,9 +211,6 @@ def parse_args():
     parser.add_argument('-ewill', '--exe_will', type=str,
         default='simulations/scripts/run_williams2016.R',
         help='Williams 2016 R script exe.')
-    parser.add_argument('-emerge', '--exe_merge', type=str,
-        default='simulations/scripts/merge_bulk_summaries.py',
-        help='Merging script to combine all out files.')
     parser.add_argument('-l', '--local', action='store_false',
         help='Run locally instead of HPC.')
     parser.add_argument('-r', '--replace', action='store_true',

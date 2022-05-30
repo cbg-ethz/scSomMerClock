@@ -12,8 +12,8 @@ import tarfile
 # MONICA_DIR = '/mnt/lustre/scratch/home/uvi/be/mva/singlecell/Projects/mol_clock/vcfs2022'
 
 DATA_DIRS = {
-    'CRC08': ['all', 'cancer', 'normal', 'TC', 'TD', 'TP'],
-    'CRC09': ['all', 'cancer', 'TI', 'TM'],
+    'CRC08': ['all', 'normal', 'TC', 'TD', 'TP'],
+    'CRC09': ['all', 'TI', 'TM'],
     'H65': ['all'],
     'Li55': ['all', 'cancer', 'normal'],
     'Lo-P1': ['all'],
@@ -287,7 +287,7 @@ def check_errors(args):
             if sub_dir == 'all' and len(sub_dirs) > 1:
                 continue
             vcf_dir = os.path.join(args.input, data_set, sub_dir)
-            if .startswith('S21_'):
+            if data_set.startswith('S21_'):
                 data_filters = DATA_FILTERS + ['99nanFilter']
             else:
                 data_filters = DATA_FILTERS

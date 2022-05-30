@@ -45,10 +45,11 @@ def generate_pval_plot_clock(args):
                     wMax = args.wMax
                 else:
                     if ADO == 0 and len(cols) < 6:
-                        wMax = args.wMax[0]
-                    if wMax not in args.wMax:
-                        continue
-                    wMax = [wMax]
+                        wMax = args.wMax
+                    else:
+                        if wMax not in args.wMax:
+                            continue
+                        wMax = [wMax]
                 method = col.split('.')[-1]
 
                 if method not in COLORS:
@@ -122,8 +123,8 @@ def generate_pval_plot_clock(args):
     plot_fig(fig, args.output)
 
 
-def plot_pVal_dist(df, wMax, axes, col_no):
-    for i, wMax in enumerate(wMax):
+def plot_pVal_dist(df, wMaxs, axes, col_no):
+    for i, wMax in enumerate(wMaxs):
         ax = axes[i]
         data = df[df['wMax'] == wMax]
         if wMax == -1:
@@ -167,7 +168,7 @@ def plot_pVal_dist(df, wMax, axes, col_no):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         # Not last row
-        if i < wMax.size - 1:
+        if i < wMaxs.size - 1 and wMax != -1:
             ax.set_xticklabels([])
             ax.set_xlabel(None)
 
@@ -179,7 +180,8 @@ def plot_pVal_dist(df, wMax, axes, col_no):
             ax.set_yticklabels([])
 
         # Middle col
-        if col_no[0] == np.floor(col_no[1] / 2) and i == wMax.size - 1:
+        if col_no[0] == np.floor(col_no[1] / 2) \
+                and (i == wMaxs.size - 1 or wMax == -1):
             ax.set_xlabel('P-value')
         else:
             ax.set_xlabel('')
@@ -205,9 +207,9 @@ def plot_lambda_dist(df, wMax, axes, col_no):
         ax = axes[i]
         data = df[df['wMax'] == j]
 
-        dp = sns.histplot(data, x='Lambda', hue='method', stat='density', bins=bins,
-            common_norm=False, common_bins=False, legend=False,
-            hue_order=HUE_ORDER, palette=colors, ax=ax,
+        dp = sns.histplot(data, x='Lambda', hue='method', stat='density',
+            bins=bins, common_norm=False, common_bins=False, legend=False,
+            hue_order=HUE_ORDER, palette=COLORS, ax=ax,
         )
         ax.plot(x, y, ls='--', color='black', label=f'Chi2({dof}) pdf')
 
@@ -256,7 +258,7 @@ def parse_args():
         help='wMax values to plot. Default = all.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.2, 0.4],
-        help='ADO values to plot. Default = all.')
+        help='ADO values to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
         default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],

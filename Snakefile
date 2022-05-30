@@ -3,17 +3,15 @@
 import os
 
 
-BASE_DIR = workflow.basedir
-DATA_DIR = config['specific']['data_path']
+workdir: config['specific']['data_path']
 RES_PATH = config['static']['resources_path']
-SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts', 'processing')
-MODELS = ['clock', 'noClock']
-workdir: DATA_DIR
+SCRIPT_DIR = os.path.join(workflow.basedir, 'scripts', 'processing')
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
+
 
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
 
 cell_map = {}
 with open(config['specific']['cellnames'], 'r') as f:
@@ -55,7 +53,7 @@ ss_samples.sort()
 
 rule all:
     input:
-        os.path.join('Calls', 'all.vcf.gz')
+        os.path.join('Calls', 'all_filtered.vcf')
             
 
 rule adapter_cutting:
@@ -89,12 +87,11 @@ rule alignment1:
         mem_mb = lambda wildcards, attempt: attempt * 16384,
     threads: 8
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pair_end = ' ' if config['specific'].get('pair_end', True) else '-se',
         WGA_lib = config['specific']['WGA_library']
     shell:
-        '{params.base_dir}/scripts/02.1_bwa.sh -s {wildcards.sample} '
+        '{SCRIPT_DIR}/02.1_bwa.sh -s {wildcards.sample} '
         '-r {params.ref_genome} -l {params.WGA_lib} {params.pair_end}'
 
 
@@ -107,10 +104,8 @@ rule alignment2:
         'picard/2.18.14',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384,
-    params:
-        base_dir = BASE_DIR,
     shell:
-        '{params.base_dir}/scripts/02.2_bwa.sh -s {wildcards.sample}'
+        '{SCRIPT_DIR}/02.2_bwa.sh -s {wildcards.sample}'
 
 
 def get_dedup_samples(wildcards):
@@ -127,10 +122,8 @@ rule remove_duplicates:
         'picard/2.18.14',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768,
-    params:
-        base_dir = BASE_DIR,
     shell:
-        '{params.base_dir}/scripts/03_md_merge_rename.sh {input} '
+        '{SCRIPT_DIR}/03_md_merge_rename.sh {input} '
         '-s {wildcards.cell}'
 
 
@@ -173,14 +166,13 @@ rule indel_realignment1:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     threads: 4
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = '' if not config['static'].get('indel_db2', False) else
             '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
-        '{params.base_dir}/scripts/05.1_indel_realign.sh {input} '
+        '{SCRIPT_DIR}/05.1_indel_realign.sh {input} '
         '-c {params.pref}{wildcards.chr} -o {output} '
         '-r {params.ref_genome} -i1 {params.indels1} {params.indels2}'
 
@@ -199,14 +191,13 @@ rule indel_realignment2:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
         indels2 = '' if not config['static'].get('indel_db2', False) else
             '-i2 {}'.format(os.path.join(RES_PATH, config['static']['indel_db2']))
     shell:
-        '{params.base_dir}/scripts/05.2_indel_realign.sh {input.bams} '
+        '{SCRIPT_DIR}/05.2_indel_realign.sh {input.bams} '
         ' -c {params.pref}{wildcards.chr} -r {params.ref_genome} '
         '-t {input.target} -ma {input.maps} -i1 {params.indels1} '
         '{params.indels2}'
@@ -233,12 +224,11 @@ rule base_recal1:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         indels1 = os.path.join(RES_PATH, config['static']['indel_db1']),
     shell:
-        '{params.base_dir}/scripts/04.1_base_recal.sh -i {input} -o {output} '
+        '{SCRIPT_DIR}/04.1_base_recal.sh -i {input} -o {output} '
         '-r {params.ref_genome} -d {params.dbsnp} -id {params.indels1}'
 
 
@@ -253,10 +243,9 @@ rule base_recal2:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
     shell:
-        '{params.base_dir}/scripts/04.2_base_recal.sh -i {input.bam} '
+        '{SCRIPT_DIR}/04.2_base_recal.sh -i {input.bam} '
         '-t {input.table} -o {output} -r {params.ref_genome}'
 
 
@@ -293,14 +282,13 @@ rule SCcaller1:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         bulk = config['specific'].get('bulk_normal', ''),
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         dbsnp = os.path.join(RES_PATH, config['static']['dbsnp']),
         min_depth = config['filters'].get('depth', 10),
         sccaller = config['SCcaller']['exe']
     shell:
-        '{params.base_dir}/scripts/06.1_sccallerlab.sh -s {wildcards.cell} '
+        '{SCRIPT_DIR}/06.1_sccallerlab.sh -s {wildcards.cell} '
         '-c {wildcards.chr} -b {params.bulk} -r {params.ref_genome} '
         '-d {params.dbsnp} -e {params.sccaller} -md {params.min_depth}'
 
@@ -313,10 +301,8 @@ rule SCcaller2:
         os.path.join('Calls', '{cell}.sccaller.vcf.gz')
     envmodules:
         'bcftools',
-    params:
-        base_dir = BASE_DIR,
     shell:
-        '{params.base_dir}/scripts/06.2_sccallerlab.sh {input} -o {output[0]}'
+        '{SCRIPT_DIR}/06.2_sccallerlab.sh {input} -o {output[0]}'
 
 
 rule SCcaller3:
@@ -326,10 +312,8 @@ rule SCcaller3:
         os.path.join('Calls', 'all.sccaller.vcf.gz')
     envmodules:
         'bcftools',
-    params:
-        base_dir = BASE_DIR,
     shell:
-        '{params.base_dir}/scripts/06.3_sccallerlab.sh {input} -o {output[0]}'
+        '{SCRIPT_DIR}/06.3_sccallerlab.sh {input} -o {output[0]}'
 
 
 rule monovar0:
@@ -358,12 +342,11 @@ rule monovar1:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         pref = 'chr' if config['static']['WGA_ref'].startswith('hg19') else '',
         monovar = config['monovar']['exe'],
     shell:
-        '{params.base_dir}/scripts/07.1_monovar.sh -c {wildcards.chr} '
+        '{SCRIPT_DIR}/07.1_monovar.sh -c {wildcards.chr} '
         '-r {params.ref_genome} -p {params.pref} -e {params.monovar}'
 
 
@@ -376,10 +359,9 @@ rule monovar2:
     envmodules:
         'bcftools',
     params:
-        base_dir = BASE_DIR,
         min_depth = config['filters'].get('depth', 10),
     shell:
-        '{params.base_dir}/scripts/07.2_monovar.sh {input} -o {output}'
+        '{SCRIPT_DIR}/07.2_monovar.sh {input} -o {output}'
         '-md {params.min_depth}'
 
 
@@ -397,14 +379,13 @@ rule mutect1:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
     params:
-        base_dir = BASE_DIR,
         ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         germ_res = os.path.join(RES_PATH, config['static']['germline']),
         pon = os.path.join(RES_PATH, config['specific']['PON']),
         normal = f'-n {config["specific"]["bulk_normal"]}'
             if config['specific'].get('bulk_normal', False) else ''
     shell:
-        '{params.base_dir}/scripts/08.1_mutect.sh {input} -c {wildcards.chr} '
+        '{SCRIPT_DIR}/08.1_mutect.sh {input} -c {wildcards.chr} '
         '-r {params.ref_genome} -g {params.germ_res} -p {params.pon} '
         '{params.normal}'
 
@@ -418,10 +399,8 @@ rule mutect2:
         'bcftools',
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 32768
-    params:
-        base_dir = BASE_DIR,
     shell:
-        '{params.base_dir}/scripts/08.2_mutect.sh {input} -o {output}'
+        '{SCRIPT_DIR}/08.2_mutect.sh {input} -o {output}'
 
 
 if config.get('mutect', {}).get('filter', '') == 'simple':
@@ -436,10 +415,9 @@ if config.get('mutect', {}).get('filter', '') == 'simple':
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
-            base_dir = BASE_DIR,
             ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         shell:
-            '{params.base_dir}/scripts/08.4_mutect_simple.sh -i {input} '
+            '{SCRIPT_DIR}/08.4_mutect_simple.sh -i {input} '
             '-r {params.ref_genome} -o {output}'
 
 else:
@@ -461,10 +439,9 @@ else:
         resources:
             mem_mb = lambda wildcards, attempt: attempt * 16384
         params:
-            base_dir = BASE_DIR,
             gnomAD = os.path.join(RES_PATH, config['static']['gnomAD']),
         shell:
-            '{params.base_dir}/scripts/08.3_mutect.sh {input.tumor} '
+            '{SCRIPT_DIR}/08.3_mutect.sh {input.tumor} '
             '-n {input.normal} -gAD {params.gnomAD}'
 
 
@@ -480,10 +457,9 @@ else:
             'gatk/4.1.1.0',
         threads: 2
         params:
-            base_dir = BASE_DIR,
             ref_genome = os.path.join(RES_PATH, config['static']['WGA_ref']),
         shell:
-            '{params.base_dir}/scripts/08.4_mutect.sh {input.cont_tables} '
+            '{SCRIPT_DIR}/08.4_mutect.sh {input.cont_tables} '
             '-i {input.vcf} -rom {input.rom} -r {params.ref_genome} -o {output}'
 
 
@@ -507,14 +483,13 @@ rule merge_calls:
     envmodules:
         'bcftools',
     params:
-        base_dir = BASE_DIR,
         out_dir = 'Calls',
     shell:
-        '{params.base_dir}/scripts/09_merge_vcfs.sh {input} -o {params.out_dir}'
+        '{SCRIPT_DIR}/09_merge_vcfs.sh {input} -o {params.out_dir}'
 
 
 # ------------------------------------------------------------------------------
-# -------------------------------- CALLING QC ----------------------------------
+# ----------------------------- FINAL FILTERING --------------------------------
 # ------------------------------------------------------------------------------
 
 
@@ -531,7 +506,6 @@ rule filter_calls_chr:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 8192
     params:
-        base_dir = BASE_DIR,
         bulk_tumor = bulk_samples['tumor'],
         filter_DP = config.get('filters', {}).get('depth', 10),
         filter_QUAL = config.get('filters', {}).get('QUAL', 20),

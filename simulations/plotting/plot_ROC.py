@@ -157,6 +157,7 @@ def plot_curve(df_in, axes,ADO_vals, row, row_title='', curve='ROC'):
                     fpr = vals.FP / (vals.FP + vals.TN) #
                     precision = vals.TP / (vals.TP + vals.FP)
 
+                    if wMax == 1000: print(method, wMax, ADO_val, fpr)
                     w_max.append(wMax)
                     prec.append(precision)
                     rec.append(recall)

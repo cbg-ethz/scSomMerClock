@@ -250,12 +250,13 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
     else:
         ts.scale = 1
 
+
     if out_file:
         if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
             out_file += f'.{out_type}'
 
         try:
-            tree.render(out_file, tree_style=ts, w=2400,  dpi=300)
+            tree.render(out_file, tree_style=ts, w=3400,  dpi=300)
             print(f'Tree written to: {out_file}')
         except:
             tree.render(out_file, dpi=300, h=h, units='mm')

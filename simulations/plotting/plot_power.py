@@ -137,8 +137,8 @@ def parse_args():
     parser.add_argument('input', type=str, help='Input directory.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-w', '--wMax', type=float, default=400,
-        help='wMax value to plot. Default = 400.')
+    parser.add_argument('-w', '--wMax', type=float, default=500,
+        help='wMax value to plot. Default = 500.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
         default=[0, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-amp', '--amplifier', nargs='+', default=[0, 2, 5, 10],
