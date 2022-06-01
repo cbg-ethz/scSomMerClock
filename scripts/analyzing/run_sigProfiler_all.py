@@ -33,8 +33,8 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
 
     if not bsub:
         print(str(stdout), str(stderr))
-        return str(stdout), str(stderr)
     print()
+    return str(stdout), str(stderr)
 
 
 def run_sigProfiler(args):
