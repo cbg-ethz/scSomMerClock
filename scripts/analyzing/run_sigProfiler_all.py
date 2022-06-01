@@ -84,13 +84,15 @@ def run_sigProfiler(args):
 
         vcf_file_uncomp = os.path.join(out_dir, file_name_raw + '.vcf')
         cell_names_raw, _ = run_bash(f'bcftools query -l {in_file}', False)
-        import pdb; pdb.set_trace()
+        cell_names = cell_names_raw[2:-3].split('\\n')
+        try:
+            cell_namescell_names.remove('healthycell')
+        except ValueError:
+            pass
 
-        if file_name.endswith('.vcf'):
-            shutil.copy(in_file, vcf_file_uncomp)
-        else:
-            # Unzip vcf file
-            uncomp_cmd = f'bcftools view {in_file} -O v -o {vcf_file_uncomp}'
+        for cell_name in cell_names:
+            uncomp_cmd = f'bcftools view -s {cell_name} {in_file} -O v ' \
+                f'-o {file_name_raw}.{cell_name}.vcf'
             run_bash(uncomp_cmd, False)
 
         out_dir_temp = os.path.join(args.out_dir, file_name_raw + '.temp')
