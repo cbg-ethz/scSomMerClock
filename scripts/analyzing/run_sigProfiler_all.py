@@ -83,7 +83,7 @@ def run_sigProfiler(args):
             os.mkdir(out_dir)
 
         vcf_file_uncomp = os.path.join(out_dir, file_name_raw + '.vcf')
-        cell_names_raw, _ = run_bash(f'bcftools query -l {vcf_file_uncomp}', True)
+        cell_names_raw, _ = run_bash(f'bcftools query -l {vcf_file_uncomp}', False)
         import pdb; pdb.set_trace()
 
         if file_name.endswith('.vcf'):
