@@ -92,7 +92,7 @@ def run_sigProfiler(args):
 
         for cell_name in cell_names:
             uncomp_cmd = f'bcftools view -s {cell_name} {in_file} -O v ' \
-                f'-o {file_name_raw}.{cell_name}.vcf'
+                f'-o {out_dir}/{file_name_raw}.{cell_name}.vcf'
             run_bash(uncomp_cmd, False)
 
         out_dir_temp = os.path.join(args.out_dir, file_name_raw + '.temp')
