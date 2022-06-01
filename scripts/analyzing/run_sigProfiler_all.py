@@ -33,6 +33,7 @@ def run_bash(cmd_raw, bsub=True, module_str=MODULE_STR):
 
     if not bsub:
         print(str(stdout), str(stderr))
+        return str(stdout), str(stderr)
     print()
 
 
@@ -82,6 +83,8 @@ def run_sigProfiler(args):
             os.mkdir(out_dir)
 
         vcf_file_uncomp = os.path.join(out_dir, file_name_raw + '.vcf')
+        stdout, _ = run_bash(f'bcftools query -l {vcf_file_umcomp}', True)
+
         if file_name.endswith('.vcf'):
             shutil.copy(in_file, vcf_file_uncomp)
         else:

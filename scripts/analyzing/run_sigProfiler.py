@@ -18,6 +18,7 @@ def main(args):
             exome=args.exome,
             cpu=args.cpu,
         )
+
     except KeyError:
         out_file = os.path.join(args.out_dir, 'SBS96', 'Suggested_Solution',
             'COSMIC_SBS96_Decomposed_Solution',
