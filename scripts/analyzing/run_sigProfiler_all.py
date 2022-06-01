@@ -83,7 +83,7 @@ def run_sigProfiler(args):
             os.mkdir(out_dir)
 
         vcf_file_uncomp = os.path.join(out_dir, file_name_raw + '.vcf')
-        stdout, _ = run_bash(f'bcftools query -l {vcf_file_umcomp}', True)
+        stdout, _ = run_bash(f'bcftools query -l {vcf_file_uncomp}', True)
 
         if file_name.endswith('.vcf'):
             shutil.copy(in_file, vcf_file_uncomp)
