@@ -86,7 +86,7 @@ def run_sigProfiler(args):
         cell_names_raw, _ = run_bash(f'bcftools query -l {in_file}', False)
         cell_names = cell_names_raw[2:-3].split('\\n')
         try:
-            cell_namescell_names.remove('healthycell')
+            cell_names.remove('healthycell')
         except ValueError:
             pass
 
