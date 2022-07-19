@@ -199,7 +199,7 @@ rule run_scite:
     output:
         os.path.join(base_dir, 'scite_dir', 'scite_tree.{run}_ml0.newick')
     resources:
-        mem_mb = 6144,
+        mem_mb = 4096,
         runtime = lambda wildcards, attempt: attempt * 1080,
     params:
         steps = config['tree']['scite'].get('steps', 1E6),
