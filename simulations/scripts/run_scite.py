@@ -12,14 +12,9 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
         ad=0.2, include='', exclude='', verbose=False):
     if not os.path.exists(exe):
         raise RuntimeError(
-            'SCITE not compiled: run "g++ *.cpp -o SCITE -std=c++11" inside '
-            '{}'.format(os.path.dirname(exe))
+            'SCITE not compiled: run "g++ *.cpp -o SCITE -std=c++11" inside ' \
+            f'{os.path.dirname(exe)}'
         )
-
-    try:
-        run_no = '.' + re.search('\d\d\d\d', os.path.basename(vcf_file)).group()
-    except AttributeError:
-        run_no = ''
 
     try:
         os.mkdir(out_dir)
@@ -33,19 +28,24 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
         data_list.append([int(i) for i in cell_data])
     data = np.array(data_list).T
 
-    data_file = os.path.join(out_dir, '{}SCITE{}.csv'.format(prefix, run_no))
+    if not prefix:
+        try:
+            run_no = re.search('\d{4}', os.path.basename(vcf_file)).group()
+        except AttributeError:
+            run_no = ''
+        out_prefix = f'scite_tree.{run_no}'
+    else:
+        out_prefix = prefix
+
+    data_file = os.path.join(out_dir, f'{out_prefix}.csv')
     np.savetxt(data_file, data.astype(int), delimiter=' ', newline='\n', fmt='%d')
     no_muts, no_cells = data.shape
 
-    mut_file = os.path.join(out_dir, '{}muts.txt'.format(prefix))
+    mut_file = os.path.join(out_dir, f'{prefix}muts.txt')
     if not os.path.exists(mut_file):
         with open(mut_file, 'w') as f_mut:
-            f_mut.write('\n'.join(['m{}'.format(i) for i in range(no_muts)]))
+            f_mut.write('\n'.join([f'm{i}' for i in range(no_muts)]))
 
-    if not prefix:
-        out_prefix = 'scite_tree{}'.format(run_no)
-    else:
-        out_prefix = prefix
     out_files = os.path.join(out_dir, out_prefix)
 
     cmmd = ' '.join(
@@ -56,8 +56,8 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
     )
 
     if verbose:
-        print('output directory:\n{}'.format(out_dir))
-        print('\nShell command:\n{}\n'.format(cmmd))
+        print(f'output directory:\n{out_dir}')
+        print(f'\nShell command:\n{cmmd}\n')
 
     SCITE = subprocess.Popen(
         cmmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -69,9 +69,9 @@ def run_scite_subprocess(vcf_file, exe, steps, out_dir, prefix='', fd=0.001,
     if stderr:
         for i in stdout.split('\\n'):
             print(i)
-        raise RuntimeError('SCITE Error: {}'.format(stderr))
+        raise RuntimeError(f'SCITE Error: {stderr}')
 
-    with open('{}.log'.format(out_files), 'w') as f:
+    with open(f'{out_files}.log', 'w') as f:
         f.write(stdout)
 
 
@@ -100,13 +100,14 @@ def parse_args():
 
 if __name__ == '__main__':
     if 'snakemake' in globals():
-        out_dir = os.path.sep.join(
-            snakemake.input[0].split(os.path.sep)[:-2] + ['scite_dir'])
+        out_dir, prefix_raw = os.path.split(snakemake.output[0])
+        prefix = prefix_raw.replace('_ml0.newick', '')
         run_scite_subprocess(
             vcf_file=snakemake.input[0],
             exe=snakemake.params.exe,
             steps=snakemake.params.steps,
             out_dir=out_dir,
+            prefix=prefix
         )
     else:
         args = parse_args()

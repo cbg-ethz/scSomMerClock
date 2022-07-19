@@ -136,7 +136,7 @@ rule run_mobster:
     params:
         depth = CELL_NO * config['cellcoal']['NGS']['seq_cov'],
     shell:
-        '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth}'
+        '{SCRIPT_DIR}/run_williams2016.R {input} {output} --depth {params.depth} --plot'
 
 
 rule merge_mobster:
@@ -292,7 +292,7 @@ rule run_cellphy:
         os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.ss{sample}.{rep}.raxml.bestTree')
     resources:
-        mem_mb = 2048,
+        mem_mb = 1024,
         runtime = lambda wildcards, attempt: attempt * 480,
     threads: 1 if config['tree']['cellphy'].get('command', 'SEARCH') == 'FAST' \
         else 4

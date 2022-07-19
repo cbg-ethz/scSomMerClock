@@ -21,15 +21,15 @@ def plot_legends(args):
 
 
 def plot_test_legend(args):
-    fig, ax = plt.subplots(figsize=(5, 2))
+    fig, ax = plt.subplots(figsize=(5, 3))
     ax.grid(False)
     ax.axis('off')
 
     handles = []
     labels = []
     tests_all = {
-        'single-cell': ['cellcoal', 'cellphy', 'scite'],
         'general': ['PAUP*', 'poissonDisp'],
+        'single-cell': ['cellcoal', 'cellphy', 'scite'],
         'bulk': ['neutrality']
     }
     for test_type, tests in tests_all.items():
@@ -42,7 +42,13 @@ def plot_test_legend(args):
             labels.append(METHODS[test])
             handles.append(
                 mpatches.Patch(color=COLORS[test], label=METHODS[test]))
-    ax.legend(handles, labels, ncol=3, frameon=True, title=r'$\bf{Tests}$')
+    ax.legend(handles, labels, ncol=1, frameon=True,
+        title=r'$\bf{Tests}$' + '\n' + r'$\bf{Subsample\ size}$' + '\n' + r'$\bf{w_{max}}$')
+
+    labels.append('')
+    handles.append(mpatches.Patch(color='white'))
+    labels.append(r'$w_{max}$')
+    handles.append(mpatches.Patch(color='white'))
 
     fig.tight_layout()
     if args.output:
@@ -53,7 +59,7 @@ def plot_test_legend(args):
 
 
 def plot_wMax_legend(args):
-    fig, ax = plt.subplots(figsize=(5, 1))
+    fig, ax = plt.subplots(figsize=(5, 3))
 
     wMax_vals = [1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     cmap =cm.get_cmap('viridis_r')
@@ -91,7 +97,7 @@ def plot_wMax_legend(args):
 
 
 def plot_power_legend(args):
-    fig, ax = plt.subplots(figsize=(5, 2))
+    fig, ax = plt.subplots(figsize=(5, 3))
     ax.grid(False)
     ax.axis('off')
 

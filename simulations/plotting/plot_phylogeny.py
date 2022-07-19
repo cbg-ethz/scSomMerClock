@@ -10,93 +10,14 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize, rgb2hex
 import numpy as np
 
 
-def show_tree(tree, out_file='', out_type='pdf'):
-    sup_vals = np.unique([i.support for i in tree.iter_descendants()])
-
-    br_length_all = [i.dist for i in tree.iter_descendants()]
-    br_length_cutoff = max(50, np.percentile(br_length_all, 90))
-
-    lw = 1
-    fsize = 4
-    for i, node in enumerate(tree.iter_descendants()):
-        style = NodeStyle()
-
-        if node.dist > br_length_cutoff:
-            style['hz_line_type'] = 1
-            br_length = TextFace(f'{node.dist:.2f}', fsize=fsize)
-            br_length.margin_right = 5
-            br_length.vt_align = 1
-            node.add_face(br_length, column=0, position="branch-top")
-
-        # Add support
-        if sup_vals.size > 1 and not node.is_leaf():
-            c1 = CircleFace(4, 'black', )
-            c1.margin_top = -3
-            c1.margin_right = -2
-            c1.margin_left = 0
-            c1.margin_bottom = 0
-            node.add_face(c1, column=0, position='branch-right')
-
-            c2 = CircleFace(3.5, 'white')
-            c2.margin_top = -7.5
-            c2.margin_right = -2
-            c2.margin_left = 0.5
-            c1.margin_bottom = 0
-            node.add_face(c2, column=0, position='branch-right')
-
-            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
-            supp.margin_left = 1
-            supp.margin_top = -5.5
-            supp.tight_text = True
-            node.add_face(supp, column=0, position="branch-right")
-
-        style["size"] = 0 # set internal node size to 0
-        style['vt_line_width'] = lw
-        style['hz_line_width'] = lw
-        node.img_style = style
-
-        if node.is_leaf():
-            name = TextFace(node.name, fsize=fsize)
-            name.margin_left = 2
-            name.hz_align = 1
-            node.add_face(name, column=0, position="branch-right")
-
-    root = tree.get_tree_root()
-    style = NodeStyle()
-    style["size"] = 0 # set internal node size to 0
-    root.img_style = style
-
-    ts = TreeStyle()
-    ts.mode = 'r'
-    ts.allow_face_overlap = True
-    ts.show_leaf_name = False
-    ts.show_branch_support = False
-    ts.show_branch_length = False
-    ts.branch_vertical_margin = 2
-    ts.min_leaf_separation = 2
-    ts.margin_left = 10
-    ts.margin_right = 10
-    ts.margin_top = 10
-    ts.margin_bottom = 10
-    # ts.scale = 1
-
-    if out_file:
-        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-            out_file += f'.{out_type}'
-
-        tree.render(out_file, tree_style=ts, dpi=300, w=1600, units='px')
-        print(f'Tree written to: {out_file}')
-    else:
-        tree.show(tree_style=ts)
-
-
 def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
             leaf_labels=False, expand_root=True):
+
     sup_vals = np.unique([i.support for i in tree.iter_descendants()])
     # sup_vals = np.ones(1)
 
-    mut_cutoff = max(50,
-        np.percentile([i.dist for i in tree.iter_descendants()], 90))
+    mut_cutoff = np.inf #max(50,
+        #np.percentile([i.dist for i in tree.iter_descendants()], 90))
 
     try:
         cmap = LinearSegmentedColormap.from_list(
@@ -181,7 +102,15 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
         node.img_style = style
 
         if node.is_leaf():
-            leaf = CircleFace(3, 'black') # RectFace(3, 3, 'black', 'black')
+            if re.match('CRC0907-C\d+', node.name) \
+                    or re.match('TPLgr\d+', node.name):
+                leaf = RectFace(6, 6, 'black', 'black')
+            elif re.match('TDT[NS]+\d+', node.name):
+                # leaf = RectFace(3, 3, 'black', 'red')
+                leaf = ImgFace('/home/hw/Desktop/molClock_project/MolClockAnalysis/simulations/plotting/triangle.png',
+                    width=8, height=8)
+            else:
+                leaf = CircleFace(3, 'black') # RectFace(3, 3, 'black', 'black')
             node.add_face(leaf, column=0, position="branch-right")
 
             # name = TextFace(f'{node.missing:.2f}', fsize=fsize)
@@ -194,6 +123,7 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
                 name.hz_align = 1
                 node.add_face(name, column=0, position="branch-right")
 
+
         if br_labels and hasattr(node, 'weights_norm'):
             weight = round(node.weights_norm[w_idx], 1)
             if weight >= 0:
@@ -205,9 +135,9 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
                 if i == 0:
                     space_face = RectFace(0, 0, 'red', 'red')
                     rel_driver_no = len([i for i in node.drivers if i[1]])
-                    space_face.margin_top = 20 * rel_driver_no
+                    # space_face.margin_top = 20 * rel_driver_no
                     space_face.opacity = 1
-                    node.add_face(space_face, column=0, position="float")
+                    node.add_face(space_face, column=0, position="branch-right")
                 if driver[2] < 0:
                     continue
 
@@ -259,7 +189,7 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
             tree.render(out_file, tree_style=ts, w=3400,  dpi=300)
             print(f'Tree written to: {out_file}')
         except:
-            tree.render(out_file, dpi=300, h=h, units='mm')
+            tree.render(out_file, dpi=300, h=2000, units='mm')
             print(f'Simple Tree written to: {out_file}')
     else:
         tree.show(tree_style=ts)
@@ -311,6 +241,86 @@ def read_tree(tree_file, samples=[]):
     outg_node.delete()
 
     return tree
+
+
+def show_tree(tree, out_file='', out_type='pdf'):
+    sup_vals = np.unique([i.support for i in tree.iter_descendants()])
+
+    br_length_all = [i.dist for i in tree.iter_descendants()]
+    br_length_cutoff = max(50, np.percentile(br_length_all, 90))
+
+    lw = 1
+    fsize = 4
+    for i, node in enumerate(tree.iter_descendants()):
+        style = NodeStyle()
+
+        if node.dist > br_length_cutoff:
+            style['hz_line_type'] = 1
+            br_length = TextFace(f'{node.dist:.2f}', fsize=fsize)
+            br_length.margin_right = 5
+            br_length.vt_align = 1
+            node.add_face(br_length, column=0, position="branch-top")
+
+        # Add support
+        if sup_vals.size > 1 and not node.is_leaf():
+            c1 = CircleFace(4, 'black', )
+            c1.margin_top = -3
+            c1.margin_right = -2
+            c1.margin_left = 0
+            c1.margin_bottom = 0
+            node.add_face(c1, column=0, position='branch-right')
+
+            c2 = CircleFace(3.5, 'white')
+            c2.margin_top = -7.5
+            c2.margin_right = -2
+            c2.margin_left = 0.5
+            c1.margin_bottom = 0
+            node.add_face(c2, column=0, position='branch-right')
+
+            supp = TextFace(f'{node.support: >3.0f}', fsize=fsize-2)
+            supp.margin_left = 1
+            supp.margin_top = -5.5
+            supp.tight_text = True
+            node.add_face(supp, column=0, position="branch-right")
+
+        style["size"] = 0 # set internal node size to 0
+        style['vt_line_width'] = lw
+        style['hz_line_width'] = lw
+        node.img_style = style
+
+        if node.is_leaf():
+            name = TextFace(node.name, fsize=fsize)
+            name.margin_left = 2
+            name.hz_align = 1
+            node.add_face(name, column=0, position="branch-right")
+
+    root = tree.get_tree_root()
+    style = NodeStyle()
+    style["size"] = 0 # set internal node size to 0
+    root.img_style = style
+
+    ts = TreeStyle()
+    ts.mode = 'r'
+    ts.allow_face_overlap = True
+    ts.show_leaf_name = False
+    ts.show_branch_support = False
+    ts.show_branch_length = False
+    ts.branch_vertical_margin = 2
+    ts.min_leaf_separation = 2
+    ts.margin_left = 10
+    ts.margin_right = 10
+    ts.margin_top = 10
+    ts.margin_bottom = 10
+    # ts.scale = 1
+
+    if out_file:
+        if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            out_file += f'.{out_type}'
+
+        tree.render(out_file, tree_style=ts, dpi=300, w=1600, units='px')
+        print(f'Tree written to: {out_file}')
+    else:
+        tree.show(tree_style=ts)
 
 
 def plot_tree(tree_file, out_file):

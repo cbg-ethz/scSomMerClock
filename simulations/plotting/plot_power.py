@@ -35,9 +35,14 @@ def generate_power_plot(args):
         df_new.drop([-1], inplace=True)
 
         if ampl > 1:
-            df_new = df_new[
-                (df_new['aff. cells'] >= args.total_cells * args.clone_size[0]) \
-                & (df_new['aff. cells'] <= args.total_cells * args.clone_size[1])]
+            if '_ss_' in res_file:
+                min_frac = args.clone_size[0]
+                max_frac = args.clone_size[1]
+            else:
+                min_frac = 0.2
+                max_frac = 0.7
+            df_new = df_new[(df_new['aff. cells'] >= args.total_cells * min_frac) \
+                & (df_new['aff. cells'] <= args.total_cells * max_frac)]
 
         if '_ss_' in res_file:
             for ss_size, ss_df in df_new.groupby('subsample_size'):
@@ -60,8 +65,7 @@ def generate_power_plot(args):
                     df.loc[df.shape[0]] = [ADO, ampl, ss_size, tree, power]
         else:
             power = (df_new['area_pVal'].astype(float) < 0.05).mean()
-            for ADO_val in args.ADO:
-                df.loc[df.shape[0]] = [ADO_val, ampl, args.total_cells,
+            df.loc[df.shape[0]] = [ADO, ampl, args.total_cells,
                     'neutrality', power]
 
     row_no = 1

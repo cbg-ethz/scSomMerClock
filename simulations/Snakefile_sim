@@ -217,7 +217,7 @@ rule run_cellphy:
         os.path.join(base_dir, 'cellphy_dir',
             'cellphy_tree.{run}.raxml.bestTree')
     resources:
-        mem_mb = 2048,
+        mem_mb = 1024,
         runtime =  lambda wildcards, attempt: attempt * 60,
     threads: 1 if config['tree']['cellphy'].get('command', 'FAST') == 'FAST' \
         else 4

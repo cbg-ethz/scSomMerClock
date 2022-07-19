@@ -32,12 +32,12 @@ sns.set_context('paper',
 
 METHODS = {
     'PAUP*': 'PAUP* (True)',
-    'poissonDisp': 'Poisson Dispersion',
-    'cellcoal': 'Poisson Tree (True)',
-    'cellphy': 'Poisson Tree (CellPhy)',
-    'scite': 'Poisson Tree (Scite)',
+    'poissonDisp': 'Poisson dispersion',
+    'cellcoal': 'Poisson tree (True)',
+    'cellphy': 'Poisson tree (CellPhy)',
+    'scite': 'Poisson tree (Scite)',
     'mobster': 'mobster',
-    'neutrality': 'neutralitytest'
+    'neutrality': r'1/$f$ test'
 }
 
 COLORS = {
@@ -81,7 +81,7 @@ MARGINS = {
     'right': 0.9,
     'top': 0.8,
     'bottom': 0.3,
-    'wspace': 0.5,
+    'wspace': 0.25,
     'hspace': 0.75,
 }
 
@@ -90,7 +90,7 @@ bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
 def get_subplots(row_no, col_no):
     fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no * 2, row_no * 2))
+        figsize=(col_no * 1.5, row_no * 2))
     axes = np.reshape(axes, (row_no, col_no))
     return fig, axes
 

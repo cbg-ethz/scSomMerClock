@@ -73,7 +73,7 @@ get.mobster.fit <- function(data, maxIter, maxK) {
 
 fit <- get.mobster.fit(data, argv$maxIter, argv$K)
 
-if (fit) {
+if (!is.logical(fit)) {
     if (argv$bootstrap) {
         bootstrap_results = mobster_bootstrap(
           fit$best,
@@ -120,7 +120,7 @@ if (!argv$stdout) {
 }
 
 cat('MOBSTER Population Genetics statistics:\n')
-if (fit) {
+if (!is.logical(fit)) {
     print(fit$best)
     print(mobster.evo(fit))
     if (argv$bootstrap) {

@@ -152,6 +152,8 @@ def plot_curve(df_in, axes,ADO_vals, row, row_title='', curve='ROC'):
                         vals.FP = 0
                     if not 'TN' in vals:
                         vals.TN = 0
+                    if not 'FN' in vals:
+                        vals.FN = 0
 
                     recall = vals.TP / (vals.TP + vals.FN) # Recall/Sensitivity/TPR
                     fpr = vals.FP / (vals.FP + vals.TN) #
@@ -257,7 +259,7 @@ def parse_args():
         help='Simulated ADO value to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         default=['cellcoal', 'cellphy'],
-        help='Method to plot. Default = all.')
+        help='Method to plot. Default = [cellphy, cellcoal].')
     args = parser.parse_args()
     return args
 

@@ -917,6 +917,7 @@ def annotate_drivers(dataset, tree, drivers, annot):
     cancer = CANCER_TYPE[dataset]
 
     print(f'{dataset}: {cancer}')
+    drivers_map = {}
 
     for node in tree.iter_descendants():
         for i, (chr, pos) in enumerate(node.muts_br[0]):
@@ -932,11 +933,11 @@ def annotate_drivers(dataset, tree, drivers, annot):
                 continue
 
             # Skip drivers mapped to more than 1 branch
-            if not node.muts_br[2][i] and node.muts_br[2][i] < 0.33:
-                continue
+            # if not node.muts_br[2][i] and node.muts_br[2][i] < 0.33:
+            #     continue
 
             driver_str = f'{SNV["Variant_Classification"]: <17} in '\
-                f'driver gene {gene: <15}'
+                f'driver gene {gene: <15} ({chr}:{pos})'
 
             if isinstance(driver, pd.Series):
                 if driver['CANCER_TYPE'] == cancer or cancer == None:
@@ -968,6 +969,17 @@ def annotate_drivers(dataset, tree, drivers, annot):
             print(driver_str)
 
             node.drivers.append((gene, c_type, node.muts_br[1][i]))
+            if c_type:
+                try:
+                    drivers_map[gene].append(node)
+                except KeyError:
+                    drivers_map[gene] = [node]
+
+    # If driver mapped to multiple branches: keep only closest to root
+    for dr_gene, driver_nodes in drivers_map.items():
+        nodes_sorted = sorted([(i.name.count('+'), i) for i in driver_nodes])
+        for rem_node in nodes_sorted[:-1]:
+            rem_node[1].drivers = [i for i in rem_node[1].drivers if i[0] != dr_gene]
 
 
 def parse_args():
