@@ -1,8 +1,17 @@
-# MolClockAnalysis
-ScDNAseq data processing pipeline for molecular clock analysis
+# Single-Cell SOMatic MolEculaR Clock testing
 
+This repository contains the software for:
+- the processing of real scDNA-seq data
+- the analysis of real scDNA-seq data
+- the simulation of scDNA-seq (via coalscent)
+- the analysis and plotting of simulated scDNA-seq data
 
 ## Requirements
+
+### general
+- snakemake >5.4.5
+
+### processing
 - cutadapt >1.18
 - gatk >4.0
 - gcc >6.4
@@ -13,35 +22,27 @@ ScDNAseq data processing pipeline for molecular clock analysis
 - python 2.7
 - pysam
 - samtools
-- snakemake >5.4.5
 
+### simulations, analysis & plotting
 
-## Folder Structure
-Data directory:
-```bash
-<DATA_DIR>
- \_ <CELLNAMES>.txt
- \_ 
- \_ ...
-```
-Resources directory:
-```bash
-<RESOURCES_DIR>
- \_ <REF>.fa
- \_ <REF>.dict
- \_ <DBSNP>.vcf
- \_ <DBSNP>.vcf.idx
- \_ <INDEL1>.vcf
- \_ <INDEL1>.vcf.idx
- \_ <INDEL2>.vcf
- \_ <INDEL2>.vcf.idx
- \_ <EXON_TARGET>.bed
- \_ ...
-```
+- python3.X:
+    - ete3
+    - matplotlib
+    - numpy
+    - pandas
+    - scipy
+    - seaborn
+- R:
+    - argparser
+    - ggplot2
+    - mobster
+    - neutralitytestr
+- cellcoal
+- PAUP*
+- CellPhy
+- infSCITE/SCITE
 
-> **Note**: To create .idx files, use: ``gatk IndexFeatureFile -F <FILE>.vcf``
-
-## How to run
+## How to run scDNA-seq processing
 Load snakemake (e.g. via module or conda):
 ```bash
 module load snakemake
@@ -50,26 +51,19 @@ module load snakemake
 
 Run on a hpc cluster from the base directory:
 ```bash
-bash ./wrapper.sh -c configs/<DATASET> --profile hpc/<slurm|lsf>
+snakemake -j 1 -s Snakefile --configfile config/data/<DATASET>.yaml
 ```
 
 
-
-## How to run
+## How to run simulations
 Enter the following to the command line:
 ```bash
-snakemake -j 1 -s Snakefile_sim --configfile config.simulations_clock.yaml --restart-times=0
+snakemake -j 1 -s Snakefile_sim --configfile config/simulations/<SIM_SETUP>.yaml
 ```
 
-To run on CESGA hpc cluster
+To run on a hpc cluster with either slurm or lsf:
 ```bash
-module load snakemake
-snakemake -j 198 -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-envmodules -k --profile ../hpc/slurm --scheduler greedy &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &
+snakemake -j 200 -s Snakefile_sim --configfile configs/simulations/<SIM_SETUP>.yaml --use-conda -k --profile ../hpc/<lsf|slurm> &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &
 ```
 
-
-To run on ETHZ hpc cluster, you need a conda environment with snakemake installed. If it is called snakemake, run:
-```bash
-conda activate snakemake
-snakemake -s Snakefile_sim --configfile configs/config.simulations_clock_scWGA_NGS.yaml --use-conda -k --profile ../hpc/lsf &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &
-```
+> **Note**: replace ``--use-conda`` with ``--use-envmodules`` if working with module
