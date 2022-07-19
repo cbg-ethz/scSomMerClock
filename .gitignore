@@ -130,12 +130,11 @@ dmypy.json
 
 # log file directory
 logs/*
-simulations/results_*
-simulations/res_*
-simulations/configs
+results_*
+res_*
 *.snakemake
-simulations/debugging
-simulations/results
-poisson_tests_all
 *.png
 *.pdf
+configs
+results
+plots

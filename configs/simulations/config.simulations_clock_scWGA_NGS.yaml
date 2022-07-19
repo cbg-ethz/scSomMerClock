@@ -11,12 +11,12 @@ cellcoal:
     pop_size: 10000
     no_muts: 1000
     germline_rate: 0.0005
-    branch_rate_var: 1
+    branch_rate_var:   # empty for clock, e.g. 1 for non-clock
     outgroup_branch_length: 1
     binary_alphabet: False
   scWGA:
     errors: True
-    ADO_rate: 0.2
+    ADO_rate: [0.2, 0.01]
     doublet_rate: [0.02, 0.01]
     ampl_error: [0.01, 1e-8, 0]
   NGS:
@@ -25,18 +25,22 @@ cellcoal:
     seq_overdis: 5
     seq_error: 0.01
   output:
-    tree: False
+    tree: True
     full_GT: False
     true_haplotypes: False
 
-monovar:
+sc_from_bulk:
   run: False
-  exe: ../../MonoVar_NB/src/monovar.py
+  subsampling: [10, 20]
+  no_rep: 2
+  errors: False
+  NGS:
+    seq_cov: 20
+    seq_overdis: 0
 
 SNP_filter:
   depth: 5
-  quality: 0
-  singletons: True
+  quality: 1
 
 tree:
   cellcoal:
@@ -46,27 +50,18 @@ tree:
     exe: ../../infSCITE/infSCITE
     steps: 200000
   cellphy:
-    run: False
+    run: True
     exe: ../../cellphy/cellphy.sh
-    command: SEARCH
+    command: FAST
 
-mrbayes:
-  run: False
-  exe: ../../MrBayes/src/mb
-  use_tree: True
-  ngen: [250000]
-  ss: True
+poisson:
+  dispersion: True
+  tree: True
+  w_max: [1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+
 
 paup:
   run: True
-  learn_tree: False
   exe: ../../paup4a168_ubuntu64 
 
-sieve:
-  run: False
-  sciphi_exe: ../../SCIPhI/build/sciphi
-  beast_bin: ../../beast/bin
-  xml: templates/sieve_template.xml
-  steps: 100000
-
-scheduler: slurm
+scheduler:
