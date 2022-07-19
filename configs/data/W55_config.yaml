@@ -32,7 +32,5 @@ monovar:
 
 filters:
   depth: 10
-  QUAL: 20
+  qual: 20
 
-paup:
-  exe: ../paup4a168_ubuntu64

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-from scripts.utils import get_out_dir
+from scripts.simulations.utils import get_out_dir
 
-SCRIPT_DIR = 'scripts'
+SCRIPT_DIR = os.path.join('scripts', 'simulations')
 
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 TREES = [i for i,j in config['tree'].items() if j['run']]

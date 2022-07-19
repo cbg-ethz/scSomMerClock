@@ -34,17 +34,4 @@ mutect:
 
 filters:
   depth: 10
-  geno_qual: 20
-
-paup:
-  exe: ../paup4a168_ubuntu64
-
-sieve:
-  cells: Wu61_filtered.txt
-  target_only: False
-  sciphi:
-    run: False
-    exe: /home/uvi/be/nbo/SCIPhI/build/sciphi0.1.7
-  dataFilter:
-    run: True
-    exe: /home/uvi/be/nbo/DataFilter/build/bin/datafilter
+  qual: 20

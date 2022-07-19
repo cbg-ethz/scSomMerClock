@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-from scripts.utils import get_out_dir
+from scripts.simulations.utils import get_out_dir
 
-SCRIPT_DIR = 'scripts'
+SCRIPT_DIR = os.path.join('scripts', 'simulations')
 
 RUNS = [f'{i+1:04d}' for i in range(config['cellcoal']['no_rep'])]
 SUBSAMPLES = config['sc_from_bulk']['subsampling']
@@ -274,7 +274,7 @@ rule run_scite:
         os.path.join(base_dir, 'scite_dir',
             'scite_tree.{run}.ss{sample}.{rep}_ml0.newick')
     resources:
-        mem_mb = 6144,
+        mem_mb = 4096,
         runtime = lambda wildcards, attempt: attempt * 1080,
     params:
         steps = config['tree']['scite'].get('steps', 1E6),

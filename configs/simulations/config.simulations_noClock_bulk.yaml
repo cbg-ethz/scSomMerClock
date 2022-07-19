@@ -1,20 +1,18 @@
 static:
-  out_dir: 
+  out_dir: results/
 
 cellcoal:
-  exe: ../../cellcoal/bin/cellcoal-1.2.0
+  exe: ../cellcoal/bin/cellcoal-1.2.0
   parameter: templates/cellcoal_parameters.template
   no_rep: 5
   model:
     no_cells: 100
     no_sites: 10000
     pop_size: 10000
-    no_muts:
     germline_rate: 0.0005
     branch_rate_switch: 2
     mut_rate: 8.2e-7 # 1x: 1e-6; 1.5x: 9e-7; 2x: 8.2e-7; 5x: 5.3e-7; 10x: 3.4e-7; 20x: 1.9e-7, 30x: 1.4e-7; 40x: 1.0e-7
     outgroup_branch_length: 1
-    root_branch_length: 0.5
     binary_alphabet: False
   scWGA:
     errors: False
@@ -26,10 +24,6 @@ cellcoal:
     errors: True
     seq_overdis: 0
     seq_error: 0.01
-  output:
-    tree: True
-    full_GT: False
-    true_haplotypes: False
 
 sc_from_bulk:
   run: True
@@ -49,22 +43,20 @@ tree:
     run: True
   scite:
     run: False
-    exe: ../../infSCITE/infSCITE
+    exe: ../infSCITE/infSCITE
     steps: 10000
   cellphy:
     run: True
-    exe: ../../cellphy/cellphy.sh
+    exe: ../cellphy/cellphy.sh
     command: FAST
-
 
 poisson:
   dispersion: True
   tree: True
-  w_max: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+  w_max: [1, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 paup:
   run: False
-  learn_tree: False
-  exe: ../../paup4a168_ubuntu64
+  exe: ../paup4a168_ubuntu64
 
 scheduler:

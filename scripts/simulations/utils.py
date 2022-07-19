@@ -43,7 +43,7 @@ def get_out_dir(config, bulk=False):
         sim_NGS += '0-0'
 
     if not config.get('static', {}).get('out_dir', False):
-        out_dir = os.path.dirname(os.path.dirname(os.path.relpath(__file__)))
+        out_dir = os.getcwd()
     else:
         out_dir = config['static']['out_dir']
 
@@ -59,7 +59,6 @@ def get_out_dir(config, bulk=False):
         config.get('SNP_filter', {}).get('quality', 0))
     if config.get('SNP_filter', {}).get('singletons', False):
         filter_dir += '-noSingletons'
-
 
     return sim_dir, filter_dir
 

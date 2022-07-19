@@ -13,9 +13,9 @@ p <- add_argument(p, '--cellularity', default = 1,
 p <- add_argument(p, '--ploidy', default = 2, help = 'Sample ploidy (float)')
 p <- add_argument(p, '--K', default = 2, help = 'Cluster K (float)')
 p <- add_argument(p, '--maxIter', default = 500, help = 'Mobster maxIter (float)')
-p <- add_argument(p, '--bootstrap', flag = TRUE, help = 'Run bootstrapping')
-p <- add_argument(p, '--plot', flag = TRUE, help = 'Generate plots')
-p <- add_argument(p, '--stdout', flag = TRUE, help = 'Print summary to stdout')
+p <- add_argument(p, '--bootstrap', flag = FALSE, help = 'Run bootstrapping')
+p <- add_argument(p, '--plot', flag = FALSE, help = 'Generate plots')
+p <- add_argument(p, '--stdout', flag = FALSE, help = 'Print summary to stdout')
 
 argv <- parse_args(p)
 

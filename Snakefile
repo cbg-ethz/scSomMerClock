@@ -508,7 +508,7 @@ rule filter_calls_chr:
     params:
         bulk_tumor = bulk_samples['tumor'],
         filter_DP = config.get('filters', {}).get('depth', 10),
-        filter_QUAL = config.get('filters', {}).get('QUAL', 20),
+        filter_QUAL = config.get('filters', {}).get('qual', 20),
         pref = '-p chr' if config['static']['WGA_ref'].startswith('hg19') else '',
     shell:
         '{SCRIPT_DIR}/10_summarize_vcf.py'

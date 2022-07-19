@@ -10,7 +10,7 @@ import pandas as pd
 
 from utils import change_newick_tree_root
 
-from Bio import Phylo
+from ete3 import Tree
 
 EPSILON = 1E-12
 
@@ -85,11 +85,6 @@ def get_mut_matrix(vcf_file, exclude_pat, include_pat):
     return muts[include]
 
 
-def write_tree(tree, out_file='example.newick'):
-    tree.ladderize(reverse=False)
-    Phylo.write(tree, out_file, 'newick')
-
-
 def get_tree_dict(tree_file, muts, paup_exe):
     if 'cellphy_dir' in tree_file:
         _, tree_str = change_newick_tree_root(tree_file, paup_exe, root=True)
@@ -102,18 +97,23 @@ def get_tree_dict(tree_file, muts, paup_exe):
             sample_names=samples)
 
     # With BioPython package
-    tree = Phylo.read(StringIO(tree_str), 'newick')
+    try:
+        tree = Tree(tree_str, format=2)
+    except NewickError:
+        tree = Tree(tree_str, format=1)
 
     # Add number of mutations to terminal nodes
-    for leaf_node in tree.get_terminals():
+    for leaf_node in tree.get_leaves():
         leaf_muts = muts[leaf_node.name]
         others_muts = muts.drop(leaf_node.name, axis=1).sum(axis=1)
         no_muts = ((leaf_muts == 1) & (others_muts == 0)).sum()
         leaf_node.branch_length = no_muts
         
     # Add number of mutations to internal nodes
-    for int_node in tree.get_nonterminals():
-        leaf_desc = [i.name for i in int_node.get_terminals()]
+    for int_node in tree.iter_descendants():
+        if int_node.is_leaf():
+            continue
+        leaf_desc = [i.name for i in int_node.get_leaves()]
         leaf_no = len(leaf_desc)
         
         int_muts = muts[leaf_desc].sum(axis=1)
