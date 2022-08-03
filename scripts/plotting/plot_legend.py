@@ -21,7 +21,7 @@ def plot_legends(args):
 
 
 def plot_test_legend(args):
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(9, 1))
     ax.grid(False)
     ax.axis('off')
 
@@ -33,8 +33,8 @@ def plot_test_legend(args):
         'bulk': ['neutrality']
     }
     for test_type, tests in tests_all.items():
-        labels.append(fr'$\bf{{{test_type}}}$')
-        handles.append(mpatches.Patch(color='white'))
+        # labels.append(fr'$\bf{{{test_type}}}$')
+        # handles.append(mpatches.Patch(color='white'))
 
         for test in tests:
             if test not in args.method:
@@ -42,13 +42,14 @@ def plot_test_legend(args):
             labels.append(METHODS[test])
             handles.append(
                 mpatches.Patch(color=COLORS[test], label=METHODS[test]))
-    ax.legend(handles, labels, ncol=1, frameon=True,
-        title=r'$\bf{Tests}$' + '\n' + r'$\bf{Subsample\ size}$' + '\n' + r'$\bf{w_{max}}$')
+    ax.legend(handles, labels, ncol=5, frameon=True,
+        # title=r'$\bf{Tests}$' + '\n' + r'$\bf{Subsample\ size}$' + '\n' + r'$\bf{w_{max}}$')
+        title=r'$\bf{Tests}$')
 
-    labels.append('')
-    handles.append(mpatches.Patch(color='white'))
-    labels.append(r'$w_{max}$')
-    handles.append(mpatches.Patch(color='white'))
+    # labels.append('')
+    # handles.append(mpatches.Patch(color='white'))
+    # labels.append(r'$w_{max}$')
+    # handles.append(mpatches.Patch(color='white'))
 
     fig.tight_layout()
     if args.output:

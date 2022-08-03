@@ -14,6 +14,8 @@ def generate_power_plot(args):
     df = pd.DataFrame(columns=cols)
 
     for res_file in sorted(os.listdir(args.input)):
+        if not os.path.isfile(os.path.join(args.input, res_file)):
+            continue
         if not res_file.startswith('res_clock') or not 'bulk' in res_file:
             continue
 
@@ -117,7 +119,7 @@ def plot_power(df, ax, n_total, col):
 
     # Middle col
     if col[0] == np.floor(col[1] / 2):
-        ax.set_xlabel('Amplifier')
+        ax.set_xlabel('Amplifier') # Evol rate changes
     else:
         ax.set_xlabel('')
 
@@ -141,12 +143,13 @@ def parse_args():
     parser.add_argument('input', type=str, help='Input directory.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-w', '--wMax', type=float, default=500,
-        help='wMax value to plot. Default = 500.')
+    parser.add_argument('-w', '--wMax', type=float, default=1000,
+        help='wMax value to plot. Default = 1000.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
+        default=[0, 0.2, 0.4, 0.6, 0.8],
+        help='ADO values to plot. Default = [0, 0.2, 0.4, 0.6, 0.8].')
     parser.add_argument('-amp', '--amplifier', nargs='+', default=[0, 2, 5, 10],
-        type=float, help='Amplifier value to plot. Default = [1, 2, 5, 10]')
+        type=float, help='Amplifier value to plot. Default = [0, 2, 5, 10]')
     parser.add_argument('-c', '--clone_size', default = [0.1, 0.9],
         type=float, help='Amplified clone size subsets. Default = [0.1, 0.9].')
     parser.add_argument('-ss', '--subsamples', nargs='+', type=int,

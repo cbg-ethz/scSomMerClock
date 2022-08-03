@@ -45,7 +45,7 @@ COLORS = {
     'poissonDisp': '#6ec15d',
     'cellcoal': '#e06c78',
     'cellphy': '#5874dc',
-    'scite': '#bb4430',
+    'scite': '#E8E570',
     'neutrality': '#FFE652',
     'mobster': '#2E851C', # mobster
     1: '#2E851C', # mobster

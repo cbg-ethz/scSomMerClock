@@ -11,6 +11,10 @@ from scipy.stats import chi2
 
 from defaults import *
 
+WMAX_all = [1000]
+ADO_all = [0, 0.2, 0.4, 0.6]
+METHODS_all = ['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*']
+
 
 def generate_pval_plot_clock(args):
     df = pd.DataFrame(columns=['ADO', 'wMax', 'method', 'P-value', 'Lambda'])
@@ -254,15 +258,13 @@ def parse_args():
         help='Output file.')
     parser.add_argument('-spd', '--skip_poisson', action='store_true',
         help='Skip Poisson distribution test.')
-    parser.add_argument('-w', '--wMax', nargs='+', type=float, default=[400],
-        help='wMax values to plot. Default = all.')
+    parser.add_argument('-w', '--wMax', nargs='+', type=float, default=WMAX_all,
+        help=f'wMax values to plot. Default = {WMAX_all}.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.2, 0.4],
-        help='ADO values to plot. Default = [0, 0.2, 0.4].')
+        default=ADO_all, help=f'ADO values to plot. Default = {ADO_all}.')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
-        default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],
-        help='Method to plot. Default = all.')
+        default=METHODS_all, help=f'Method to plot. Default = {METHODS_all}.')
     parser.add_argument('-s', '--statistic', action='store_true',
         help='Plot test statistic as separate figure.')
     args = parser.parse_args()
