@@ -169,7 +169,7 @@ def plot_pVal_dist(df, ampl_vals, axes, col):
             if ampl == 1:
                 ax2.set_ylabel(f'\nClock')
             else:
-                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+                ax2.set_ylabel(f'\nRate change:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 
@@ -215,7 +215,7 @@ def plot_lambda_dist(df, ampl_vals, axes, col):
             if ampl == 1:
                 ax2.set_ylabel(f'\nClock')
             else:
-                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+                ax2.set_ylabel(f'\nRate change:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 

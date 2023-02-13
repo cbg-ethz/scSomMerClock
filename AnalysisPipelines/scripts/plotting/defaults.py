@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-
+DEF_ADO = [0, 0.05, 0.1, 0.2, 0.4, 0.6]
 FONTSIZE = 16
 DPI = 300
 RUG_HEIGHT = 0.03
@@ -45,7 +45,7 @@ COLORS = {
     'poissonDisp': '#6ec15d',
     'cellcoal': '#e06c78',
     'cellphy': '#5874dc',
-    'scite': '#E8E570',
+    'scite': '#bb4430',
     'neutrality': '#FFE652',
     'mobster': '#2E851C', # mobster
     1: '#2E851C', # mobster
@@ -88,9 +88,9 @@ MARGINS = {
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=1)
 
 
-def get_subplots(row_no, col_no):
+def get_subplots(row_no, col_no, scale=1):
     fig, axes = plt.subplots(nrows=row_no, ncols=col_no,
-        figsize=(col_no * 1.5, row_no * 2))
+        figsize=(col_no * 1.5 * scale, row_no * 2 * scale))
     axes = np.reshape(axes, (row_no, col_no))
     return fig, axes
 

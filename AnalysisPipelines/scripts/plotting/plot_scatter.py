@@ -13,9 +13,9 @@ from defaults import *
 def generate_scatter_plot(args):
     df = pd.read_csv(args.input, sep='\t', na_values=['?', 'NaN'])
     df.dropna(axis=1, how='all', inplace=True)
-    df.drop(['FP', 'Signatures'], axis=1, inplace=True)
-    df.rename({'cells': '# cells', 'Poisson Tree Test': 'PTT [p-val]',
-        'Clock-like Signatures [%]': 'SBS 1 & SBS5 [%]'}, inplace=True,axis=1)
+    df.drop(['FP', 'Signatures', 'Clock-like Signatures [%]'], axis=1, inplace=True)
+    df.rename({'muts': 'N mut', 'cells': 'N cell',
+        'Poisson Tree Test': 'PT Test [p-val]'}, inplace=True,axis=1)
     df['subset'] = df['subset'].str.replace('Neurons', 'Normal') \
         .replace('all', 'Normal')
 
@@ -24,7 +24,7 @@ def generate_scatter_plot(args):
 
     row_no = parameters.size
     col_no = parameters.size
-    fig, axes = get_subplots(row_no, col_no)
+    fig, axes = get_subplots(row_no, col_no, 2)
 
     for i, par1 in enumerate(parameters):
 

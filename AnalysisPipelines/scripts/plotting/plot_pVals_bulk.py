@@ -13,6 +13,8 @@ def generate_pval_plot_bulk(args):
     df = pd.DataFrame(
         columns=['area_pVal', 's_Bayes', 'clones_Bayes', 'aff. cells', 'Amplifier'])
     for res_file in sorted(os.listdir(args.input)):
+        if not os.path.isfile(os.path.join(args.input, res_file)):
+            continue
         if not res_file.startswith('res_clock') or not 'bulk' in res_file \
                 or '_ss_' in res_file:
             continue
@@ -164,12 +166,12 @@ def plot_neutralitytest(df, axes, col):
             if ampl == 1:
                 ax2.set_ylabel(f'\nClock')
             else:
-                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+                ax2.set_ylabel(f'\nRate change:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 
 def plot_mobster_box(df):
-    fig, axes = get_subplots(1, 2)
+    fig, axes = get_subplots(1, 2, 2)
 
     y_labels = []
     for i in sorted(df['Amplifier'].unique()):
@@ -200,7 +202,7 @@ def plot_mobster_box(df):
     box_ax.set_ylim((-0.5, 3))
     box_ax.set_yticks([0, 1, 2])
     box_ax.set_ylabel('Fitness coefficient s')
-    box_ax.set_xlabel('Amplifier')
+    box_ax.set_xlabel('Rate change')
     box_ax.set_xticklabels(y_labels, rotation=90)
 
     bar_ax = axes[0, 0]
@@ -210,7 +212,7 @@ def plot_mobster_box(df):
     bar_ax.set_yticks([0, 25, 50, 75, 100])
     bar_ax.set_ylim((0, 100))
 
-    bar_ax.set_xlabel('Amplifier')
+    bar_ax.set_xlabel('Rate change')
     bar_ax.set_xticklabels(y_labels, rotation=90)
 
     bar_ax.get_legend().remove()
@@ -288,7 +290,7 @@ def plot_mobster(df, axes, col):
             if ampl == 1:
                 ax2.set_ylabel(f'\nClock')
             else:
-                ax2.set_ylabel(f'\nAmplifier:\n{ampl:.0f}x')
+                ax2.set_ylabel(f'\nRate change:\n{ampl:.0f}x')
             ax2.set_yticks([])
 
 

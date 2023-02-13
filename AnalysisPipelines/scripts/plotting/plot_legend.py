@@ -21,20 +21,19 @@ def plot_legends(args):
 
 
 def plot_test_legend(args):
-    fig, ax = plt.subplots(figsize=(9, 1))
+    fig, ax = plt.subplots(figsize=(5, 3))
     ax.grid(False)
     ax.axis('off')
 
     handles = []
     labels = []
     tests_all = {
-        'general': ['PAUP*', 'poissonDisp'],
-        'single-cell': ['cellcoal', 'cellphy', 'scite'],
+        'single-cell': ['cellcoal', 'cellphy', 'scite', 'PAUP*', 'poissonDisp'],
         'bulk': ['neutrality']
     }
     for test_type, tests in tests_all.items():
-        # labels.append(fr'$\bf{{{test_type}}}$')
-        # handles.append(mpatches.Patch(color='white'))
+        labels.append(fr'$\bf{{{test_type}}}$')
+        handles.append(mpatches.Patch(color='white'))
 
         for test in tests:
             if test not in args.method:
@@ -42,14 +41,12 @@ def plot_test_legend(args):
             labels.append(METHODS[test])
             handles.append(
                 mpatches.Patch(color=COLORS[test], label=METHODS[test]))
-    ax.legend(handles, labels, ncol=5, frameon=True,
-        # title=r'$\bf{Tests}$' + '\n' + r'$\bf{Subsample\ size}$' + '\n' + r'$\bf{w_{max}}$')
-        title=r'$\bf{Tests}$')
+    ax.legend(handles, labels, ncol=1, frameon=True, title=r'$\bf{Tests}$')
 
-    # labels.append('')
-    # handles.append(mpatches.Patch(color='white'))
-    # labels.append(r'$w_{max}$')
-    # handles.append(mpatches.Patch(color='white'))
+    labels.append('')
+    handles.append(mpatches.Patch(color='white'))
+    labels.append(r'$w_{max}$')
+    handles.append(mpatches.Patch(color='white'))
 
     fig.tight_layout()
     if args.output:
@@ -108,7 +105,7 @@ def plot_power_legend(args):
         labels.append(f'{ss} / {args.total_cells}')
         handles.append(Line2D(
             [0], [0], color='grey', markersize=0, lw=2, linestyle=LINE_STYLE[ss]))
-    ax.legend(handles, labels, ncol=1, frameon=True, title=r'$\bf{subsamples}$')
+    ax.legend(handles, labels, ncol=1, frameon=True, title=r'$\bf{Sample}$ $\bf{size}$')
 
     fig.tight_layout()
     if args.output:

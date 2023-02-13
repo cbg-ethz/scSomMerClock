@@ -11,10 +11,6 @@ from scipy.stats import chi2
 
 from defaults import *
 
-WMAX_all = [1000]
-ADO_all = [0, 0.2, 0.4, 0.6]
-METHODS_all = ['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*']
-
 
 def generate_pval_plot_clock(args):
     df = pd.DataFrame(columns=['ADO', 'wMax', 'method', 'P-value', 'Lambda'])
@@ -113,7 +109,7 @@ def generate_pval_plot_clock(args):
 
         if col_no > 1:
             if ADO_val > 0:
-                col_title = f'FN rate: {ADO_val / 2}'
+                col_title = f'FN rate: {(ADO_val / 2) * 100: >4.1f}%'
             else:
                 col_title = 'No Errors'
             add_col_header(axes[0, i], col_title)
@@ -258,13 +254,15 @@ def parse_args():
         help='Output file.')
     parser.add_argument('-spd', '--skip_poisson', action='store_true',
         help='Skip Poisson distribution test.')
-    parser.add_argument('-w', '--wMax', nargs='+', type=float, default=WMAX_all,
-        help=f'wMax values to plot. Default = {WMAX_all}.')
+    parser.add_argument('-w', '--wMax', nargs='+', type=float, default=[1000],
+        help='wMax values to plot. Default = 1000.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=ADO_all, help=f'ADO values to plot. Default = {ADO_all}.')
+        default=[0, 0.05, 0.1, 0.2, 0.4, 0.6],
+        help='ADO values to plot. Default = [0, 0.05, 0.1, 0.2, 0.4, 0.6].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         choices=['cellcoal', 'cellphy', 'scite', 'poissonDisp', 'PAUP*'],
-        default=METHODS_all, help=f'Method to plot. Default = {METHODS_all}.')
+        default=['cellcoal', 'cellphy', 'poissonDisp', 'PAUP*'],
+        help='Method to plot. Default = all.')
     parser.add_argument('-s', '--statistic', action='store_true',
         help='Plot test statistic as separate figure.')
     args = parser.parse_args()

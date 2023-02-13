@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+
+import os
+
+
+BASE_DIR = workflow.basedir
+DATA_DIR = config['specific']['data_path']
+RES_PATH = config['static']['resources_path']
+SCRIPT_DIR = os.path.join(BASE_DIR, 'scripts', 'sieve')
+OUT_DIR = 'Sieve'
+
+if config['specific'].get('out_path', ''):
+    workdir: config['specific']['out_path']
+else:
+    workdir: DATA_DIR
+
+if not os.path.exists(OUT_DIR):
+    os.mkdir(OUT_DIR)
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+CHROM = [i for i in range(1, 23, 1)] + ['X', 'Y']
+
+
+with open(config['sieve']['cells'], 'r') as f_in:
+    x = f_in.read().strip().split('\n')
+ss_samples_ethan = [i.split('\t')[0].strip() for i in x]
+
+
+if config['sieve'].get('paths', ''):
+    with open(config['sieve']['paths'], 'r') as f:
+        paths_raw = f.read().strip().split('\n')
+    paths = {i.split('\t')[0].strip(): i.split('\t')[-1].strip() \
+        for i in paths_raw[1:]}
+
+
+dataFilters = {}
+dataFilter_cfg = config['sieve'].get('dataFilter', {}).get('exe', '')
+if isinstance(dataFilter_cfg, list):
+    for filter_exe in dataFilter_cfg:
+        name = os.path.basename(filter_exe).split('_')[-1]
+        dataFilters[name] = filter_exe
+elif isinstance(dataFilter_cfg, str):
+    if dataFilter_cfg:
+        pos_name = os.path.basename(dataFilter_cfg).split('_')[-1]
+        if len(pos_name) < len(os.path.basename(dataFilter_cfg)):
+            dataFilters[pos_name] = dataFilter_cfg
+        else:
+            dataFilters['master'] = dataFilter_cfg
+
+
+
+final_files = []
+if config['sieve'].get('sciphi', {}).get('run', False):
+    final_files.append(os.path.join(OUT_DIR, 'SciPhi_merged.tsv'))
+if config['sieve'].get('dataFilter', {}).get('run', False):
+    final_files.append(os.path.join(OUT_DIR, '{dataFilter}',
+        'dataFilter_merged.tsv'))
+print(final_files)
+
+
+rule all:
+    input:
+        expand(os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv'), dataFilter=dataFilters.keys())
+
+
+if 'CRC08' in DATA_DIR or 'CRC09' in DATA_DIR:
+    rule generate_bamfiles:
+        input:
+            lambda wildcards: paths[wildcards.cell]
+        output:
+            os.path.join('Processing', '{cell}.recal.{chr}.bam')
+        resources:
+            runtime = 120,
+        envmodules:
+            'samtools'
+        shell:
+            'samtools view {input} {wildcards.chr} -b > '
+            'Processing/{wildcards.cell}.recal.{wildcards.chr}.bam; '
+            'samtools index Processing/{wildcards.cell}.recal.{wildcards.chr}.bam;'
+
+
+rule generate_bampath:
+    input:
+        expand(os.path.join('Processing', '{cell}.recal.{{chr}}.bam'),
+            cell=ss_samples_ethan)
+    output:
+        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
+    run:
+        with open(output[0], 'w') as f:
+            for bam_file in input:
+                f.write(f'{bam_file}\n')
+
+
+rule generate_mpileup:
+    input:
+        os.path.join(OUT_DIR, '{chr}.bamspath.txt')
+    output:
+        os.path.join(OUT_DIR, 'ss.{chr}.mpileup')
+    envmodules:
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
+        runtime = 240,
+    params:
+        ref = os.path.join(RES_PATH, config['static']['WGA_ref']),
+        regions = '' if not config['sieve'].get('target_only', False) else
+            '-l {}/{}'.format(config['static']['resources_path'],
+                config['specific']['WES_target']),
+    shell:
+        'mkdir -p SciPhi && '
+        'samtools mpileup --region {wildcards.chr} --no-BAQ --min-BQ 13 '
+        '--max-depth 10000 --fasta-ref {params.ref} --min-MQ 40 {params.regions} '
+        '--bam-list {input} > {output}'
+
+
+rule run_sciphi:
+    input:
+        pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
+    output:
+        os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
+            'readCounts.tsv')
+    envmodules:
+        'cesga/2018',
+        'gcccore/6.4.0',
+        'boost/1.73.0-python-3.7.7',
+        'seqan/2.4.0',
+        'dlib/19.16',
+        'zlib/1.2.11',
+        'samtools',
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384,
+        runtime = 240,
+    params:
+        sciphi = config['sieve'].get('sciphi', {}).get('exe', ''),
+        names = config['sieve']['cells'],
+    shell:
+        '{params.sciphi} --slt on --af on --lz 1 --in {params.names} '
+        ' -o {OUT_DIR}/sciphi.{wildcards.chr} {input.pileup}'
+
+
+rule concatenate_sciphi:
+    input:
+        expand(os.path.join(OUT_DIR, 'sciphi.{chr}', 'best_index',
+            'readCounts.tsv'), chr=CHROM)
+    output:
+        os.path.join(OUT_DIR, 'SciPhi_merged.tsv')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 2048
+    script:
+        f'{SCRIPT_DIR}/merge_sciphi.py'
+
+
+rule run_dataFilter:
+    input:
+        pileup = os.path.join(OUT_DIR, 'ss.{chr}.mpileup'),
+    output:
+        counts = os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter.{chr}.tsv')
+    threads: 1
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 8192,
+        runtime = 600,
+    params:
+        exe = lambda wildcards: dataFilters[wildcards.dataFilter],
+        cells = config['sieve']['cells'],
+    shell:
+        '{params.exe} --in {input.pileup} --cellNames {params.cells} '
+        '-o {output.counts} -t {threads}'
+
+
+rule concatenate_dataFilter:
+    input:
+        expand(os.path.join(OUT_DIR, '{{dataFilter}}', 'dataFilter.{chr}.tsv'),
+            chr=CHROM)
+    output:
+        os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 4096
+    params:
+        full_run = False
+    script:
+        f'{SCRIPT_DIR}/merge_sciphi.py'
+
+
+rule filter_dataFilter:
+    input:
+        SNPs = os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged.tsv'),
+        cells = config['sieve']['cells'],
+        CNVs = config['sieve']['CNV']
+    output:
+        os.path.join(OUT_DIR, '{dataFilter}', 'dataFilter_merged_filtered.tsv')
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 4096
+    script:
+        f'{SCRIPT_DIR}/filter_CNV_sides.py'

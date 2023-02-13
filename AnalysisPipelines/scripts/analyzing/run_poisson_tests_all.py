@@ -224,10 +224,10 @@ def parse_args():
         default=['poissonTree', 'phylogeny', 'mutMapping'],
         help='Which task to do. Default = run.')
     parser.add_argument('-et', '--exe_tree', type=str,
-        default='simulations/scripts/get_poisson_tree_LRT.py',
+        default='scripts/simulations/get_poisson_tree_LRT.py',
         help='Poisson Tree exe.')
     parser.add_argument('-ed', '--exe_disp', type=str,
-        default='simulations/scripts/get_poisson_LRT.py',
+        default='scripts/simulations/get_poisson_LRT.py',
         help='Poisson Dispersion exe.')
     parser.add_argument('-dr', '--drivers', type=str, default=DRIVER_FILE,
         help=f'Path to IntOGen driver file. Default = {DRIVER_FILE}.')

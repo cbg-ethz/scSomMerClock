@@ -78,7 +78,7 @@ def generate_pval_plot_ss(args):
         if ampl == 1:
             row_title = 'Clock'
         else:
-            row_title = f'Amplifier:\n{ampl:.0f}x'
+            row_title = f'Rate change:\n{ampl:.0f}x'
 
         df_plot = df[(df['amplifier'] == ampl)]
         plot_pVal_dist(df_plot, subsamples, axes[i], (i, row_no), row_title)

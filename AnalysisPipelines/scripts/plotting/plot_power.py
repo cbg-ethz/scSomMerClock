@@ -32,8 +32,11 @@ def generate_power_plot(args):
 
         print(f'Including summary file: {res_file}')
 
-        df_new = pd.read_csv(
-            os.path.join(args.input, res_file), sep='\t', index_col='run')
+        try:
+            df_new = pd.read_csv(
+                os.path.join(args.input, res_file), sep='\t', index_col='run')
+        except:
+            import pdb; pdb.set_trace()
         df_new.drop([-1], inplace=True)
 
         if ampl > 1:
@@ -119,7 +122,7 @@ def plot_power(df, ax, n_total, col):
 
     # Middle col
     if col[0] == np.floor(col[1] / 2):
-        ax.set_xlabel('Amplifier') # Evol rate changes
+        ax.set_xlabel('Rate change')
     else:
         ax.set_xlabel('')
 
@@ -128,28 +131,19 @@ def plot_power(df, ax, n_total, col):
         for i in df['amplifier'].unique()], rotation=90)
 
 
-    # handles = []
-    # labels = []
-    # for i in [1, 0]:
-    #     handles.append(plt.Rectangle((0, 0), 1, 1, color=COLORS[i]))
-    #     labels.append(i + 1)
-    # axes[0].legend(handles, labels, title='Inf. clones', facecolor='white',
-    #     framealpha=1, loc='upper left', labelspacing=0)
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         'Generate p-value plots for CellCoal simulations with branch multiplier')
     parser.add_argument('input', type=str, help='Input directory.')
     parser.add_argument('-o', '--output', type=str, default='',
         help='Output file.')
-    parser.add_argument('-w', '--wMax', type=float, default=1000,
-        help='wMax value to plot. Default = 1000.')
+    parser.add_argument('-w', '--wMax', type=float, default=500,
+        help='wMax value to plot. Default = 500.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.2, 0.4, 0.6, 0.8],
-        help='ADO values to plot. Default = [0, 0.2, 0.4, 0.6, 0.8].')
+        default=DEF_ADO,
+        help=f'ADO values to plot. Default = {DEF_ADO}.')
     parser.add_argument('-amp', '--amplifier', nargs='+', default=[0, 2, 5, 10],
-        type=float, help='Amplifier value to plot. Default = [0, 2, 5, 10]')
+        type=float, help='Amplifier value to plot. Default = [1, 2, 5, 10]')
     parser.add_argument('-c', '--clone_size', default = [0.1, 0.9],
         type=float, help='Amplified clone size subsets. Default = [0.1, 0.9].')
     parser.add_argument('-ss', '--subsamples', nargs='+', type=int,

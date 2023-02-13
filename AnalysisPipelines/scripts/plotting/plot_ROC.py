@@ -254,9 +254,9 @@ def parse_args():
         type=float, help='Amplified clone size subsets. Default = [10, 90].')
     parser.add_argument('-amp', '--amplifier', default=5, type=float,
         help='Amplifier value to plot. Default = 5.')
-    parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.2, 0.4],
+    parser.add_argument('-do', '--ADO', nargs='+', default=[0, 0.05, 0.1, 0.2, 0.4],
         type=float,
-        help='Simulated ADO value to plot. Default = [0, 0.2, 0.4].')
+        help='Simulated ADO value to plot. Default = [0, 0.05, 0.1, 0.2, 0.4].')
     parser.add_argument('-m', '--method', nargs='+', type=str,
         default=['cellcoal', 'cellphy'],
         help='Method to plot. Default = [cellphy, cellcoal].')

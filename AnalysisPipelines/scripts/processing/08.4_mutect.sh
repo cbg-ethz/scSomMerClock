@@ -23,8 +23,6 @@ done
 
 set -Eeuxo pipefail
 
-cores=$(nproc)
-
 stats=`for chromosome in {1..22}; do
     printf -- "--stats Calls/${chromosome}.mutect.vcf.stats "; done`
 

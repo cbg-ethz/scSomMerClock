@@ -257,7 +257,7 @@ def generate_pval_plot_noClock(args):
         if ampl_val == 1:
             row_title = 'Clock'
         else:
-            row_title = f'Amplifier:\n{ampl_val:.0f}x'
+            row_title = f'Rate change:\n{ampl_val:.0f}x'
         add_row_header(axes[i, -1], row_title)
 
     if col_no > 1:
@@ -332,7 +332,7 @@ def parse_args():
     parser.add_argument('-w', '--wMax', type=float, default=400,
         help='wMax value to plot. Default = 400.')
     parser.add_argument('-a', '--ADO', nargs='+', type=float,
-        default=[0, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
+        default=[0, 0.05, 0.1, 0.2, 0.4], help='ADO values to plot. Default = [0, 0.2, 0.4].')
     parser.add_argument('-amp', '--amplifier', nargs='+', default=[2, 5, 10],
         type=float, help='Amplifier value to plot. Default = [2, 5, 10]')
     parser.add_argument('-c', '--clone_size', default = [0.1, 0.9],

@@ -107,8 +107,9 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
                 leaf = RectFace(6, 6, 'black', 'black')
             elif re.match('TDT[NS]+\d+', node.name):
                 # leaf = RectFace(3, 3, 'black', 'red')
-                leaf = ImgFace('/home/hw/Desktop/molClock_project/MolClockAnalysis/simulations/plotting/triangle.png',
-                    width=8, height=8)
+                ta_pic = os.path.join(
+                    os.path.dirname(os.path.realpath(__file__)), 'triangle.png')
+                leaf = ImgFace(ta_pic, width=8, height=8)
             else:
                 leaf = CircleFace(3, 'black') # RectFace(3, 3, 'black', 'black')
             node.add_face(leaf, column=0, position="branch-right")
@@ -154,6 +155,7 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
                 node.add_face(driver_face, column=0, position="float")
         node.plotted = True
 
+
     root = tree.get_tree_root()
     if not expand_root:
         root.children[0].dist = 0
@@ -180,13 +182,12 @@ def show_tree_full(tree, out_file='', w_idx=0, out_type='pdf', br_labels=False,
     else:
         ts.scale = 1
 
-
     if out_file:
         if not out_file.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
             out_file += f'.{out_type}'
 
         try:
-            tree.render(out_file, tree_style=ts, w=3400,  dpi=300)
+            tree.render(out_file, tree_style=ts, w=3400, dpi=300)
             print(f'Tree written to: {out_file}')
         except:
             tree.render(out_file, dpi=300, h=2000, units='mm')
