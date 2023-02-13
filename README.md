@@ -1,7 +1,12 @@
 # Single-Cell SOMatic MolEculaR Clock testing
 
-This repository contains scripts for running
-- the **Poisson Tree (PT) Test**
+This repo contains a **Poisson Tree (PT) Test** for the existence of a somatic clock in single-cell phylogenies.
+In short, it tests if different cell lineages evolve at a similar rate, accumulating mutations according to a molecular clock.
+As input the test requires a mutation matrix, a phylogeny of contemporaneously sampled cells, and error rates.
+
+
+This repo contains scripts for running
+- the **PT Test**
 - and, in a subfolder (AnalysisPipelines), scripts for
   - the processing of real scDNA-seq data
   - the analysis of real scDNA-seq data
@@ -39,7 +44,7 @@ The **PT test** requires two input files:
 - `-o <str>`, Output file. Default = <VCF_FILE>.poissonTree_LRT.tsv.
 - `-excl <str>`, Regex pattern for samples/cells to exclude. Default = none.
 - `-incl <str>`, Regex pattern for samples/cells to include. If set, only these samples/cells are included. Default = all cells.
-- `-w <list of int>`, Maximum weight values. Defaut = 100, 200, ..., 1000'.
+- `-w <list of int>`, Maximum weight values. Default = 100, 200, ..., 1000'.
 - `-FN <float>`, Estimated FN rate (for CellPhy and infSCITE: inferred from .log/stdout file).
 - `-FP <float>`, Estimated FP rate (for CellPhy and infSCITE: inferred from .log/stdout file).
 
